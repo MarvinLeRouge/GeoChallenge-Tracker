@@ -11,6 +11,13 @@ services:
     container_name: geo-backend
     ports:
       - "8000:8000"
+    environment:
+      - MONGODB_USER
+      - MONGODB_PASSWORD
+      - MONGODB_URI_TPL
+      - MONGODB_DB
+    volumes:
+      - ./backend:/app
 
   frontend:
     build:
@@ -21,4 +28,6 @@ services:
       - "5173:80"
     depends_on:
       - backend
+    volumes:
+      - ./frontend:/app
 
