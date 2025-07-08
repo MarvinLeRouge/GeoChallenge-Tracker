@@ -2,3 +2,6 @@ fastapi
 uvicorn
 pymongo
 requests
+pytest
+dotenv
+rich
