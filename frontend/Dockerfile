@@ -1,15 +1,9 @@
 # ---------------------------
-# 🌐 Dockerfile - Frontend (Vue.js avec Vite)
+# 🌐 frontend/Dockerfile - Étape Nginx de test (servir public/index.html)
 # ---------------------------
-    FROM node:20-alpine as build
-
-    WORKDIR /app
-    COPY frontend/package*.json ./
-    RUN npm install
-    COPY frontend/ .
-    RUN npm run build
-    
-    # Etape de production
     FROM nginx:alpine
-    COPY --from=build /app/dist /usr/share/nginx/html
-    COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+
+    WORKDIR /usr/share/nginx/html
+    COPY public/ ./
+    COPY nginx.conf /etc/nginx/conf.d/default.conf
+    
