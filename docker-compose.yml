@@ -16,6 +16,8 @@ services:
       - MONGODB_DB
     volumes:
       - ./backend:/app
+      - ./backend/uploads:/app/uploads         # pour fichiers utilisateur
+      - ./backend/data/samples:/app/data/samples  # pour tests de dev
 
   frontend:
     build:

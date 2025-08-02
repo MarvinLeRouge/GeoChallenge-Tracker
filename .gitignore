@@ -62,11 +62,11 @@ pip-wheel-metadata/
 documents/
 
 # Fichiers data
-/data/*
-/data/**/*
-!/data/**/
-!/data/**/.gitkeep
-!/data/seeding/*
+/backend/data/*
+/backend/data/**/*
+!/backend/data/**/
+!/backend/data/**/.gitkeep
+!/backend/data/seeds/*
 
 # Fichiers de tests dev
 /test-scripts/
