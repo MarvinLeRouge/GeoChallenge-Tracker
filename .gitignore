@@ -57,3 +57,16 @@ pip-wheel-metadata/
 *.tmp
 *.orig
 *.~*
+
+# Documents de travail
+documents/
+
+# Fichiers data
+/data/*
+/data/**/*
+!/data/**/
+!/data/**/.gitkeep
+!/data/seeding/*
+
+# Fichiers de tests dev
+/test-scripts/

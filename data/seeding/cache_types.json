@@ -1,0 +1,12 @@
+[{'id': 2, 'txt': 'traditional', 'label': 'Traditional'},
+{'id': 3, 'txt': 'multi', 'label': 'Multi-cache'},
+{'id': 8, 'txt': 'mystery', 'label': 'Mystery'},
+{'id': 137, 'txt': 'earth', 'label': 'EarthCache'},
+{'id': 5, 'txt': 'letterbox', 'label': 'Letterbox'},
+{'id': 11, 'txt': 'webcam', 'label': 'Webcam'},
+{'id': 1858, 'txt': 'wig', 'label': 'Wherigo'},
+{'id': 4, 'txt': 'virtual', 'label': 'Virtual'},
+{'id': 6, 'txt': 'event-regular', 'label': 'Regular'},
+{'id': 13, 'txt': 'event-cito', 'label': 'CITO'},
+{'id': 453, 'txt': 'event-mega', 'label': 'Mega'},
+{'id': 7005, 'txt': 'event-giga', 'label': 'Giga'}]
