@@ -1,5 +1,0 @@
-[{'id': 2, 'txt': 'micro', 'label': 'Micro'},
-{'id': 8, 'txt': 'small', 'label': 'Small'},
-{'id': 3, 'txt': 'regular', 'label': 'Regular'},
-{'id': 4, 'txt': 'large', 'label': 'Large'},
-{'id': 6, 'txt': 'other', 'label': 'Other'}]
