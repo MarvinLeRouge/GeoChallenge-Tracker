@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+import datetime as dt
 from app.core.bson_utils import *
 
 class ProgressPoint(BaseModel):
@@ -18,7 +18,7 @@ class ProgressBase(BaseModel):
     time_series: Optional[List[ProgressPoint]] = []
 
     # Estimation (facultative)
-    estimated_completion_date: Optional[datetime] = None
+    estimated_completion_date: Optional[dt.datetime] = None
 
     # Indice de pertinence de la projection (pas encore implémenté)
     prediction_score: Optional[float] = None
@@ -29,13 +29,13 @@ class ProgressCreate(ProgressBase):
 class ProgressUpdate(BaseModel):
     current_value: Optional[int]
     time_series: Optional[List[ProgressPoint]]
-    estimated_completion_date: Optional[datetime]
+    estimated_completion_date: Optional[dt.datetime]
     prediction_score: Optional[float]
 
 class Progress(ProgressBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    updated_at: Optional[dt.datetime] = None
 
     class Config:
         arbitrary_types_allowed = True

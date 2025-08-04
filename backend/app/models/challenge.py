@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from datetime import datetime
+import datetime as dt
 from app.core.bson_utils import *
 
 class ChallengeBase(BaseModel):
@@ -24,8 +24,8 @@ class ChallengeUpdate(BaseModel):
 
 class Challenge(ChallengeBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    updated_at: Optional[dt.datetime] = None
 
     class Config:
         arbitrary_types_allowed = True

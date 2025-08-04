@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime, date
+import datetime as dt, date
 from app.core.bson_utils import *
 
 class FoundCacheBase(BaseModel):
@@ -17,8 +17,8 @@ class FoundCacheUpdate(BaseModel):
 
 class FoundCache(FoundCacheBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    updated_at: Optional[dt.datetime] = None
 
     class Config:
         arbitrary_types_allowed = True
