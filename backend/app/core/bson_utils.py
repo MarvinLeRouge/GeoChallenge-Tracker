@@ -1,21 +1,26 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, Field, EmailStr, GetCoreSchemaHandler
+from pydantic_core import core_schema
+from typing import Optional, List, Any
 from bson import ObjectId
 
 class PyObjectId(ObjectId):
-    @classmethod
-    def __get_validators__(cls):
-        yield cls.validate
-    
-    @classmethod
-    def validate(cls, v):
-        if not ObjectId.is_valid(v):
-            raise ValueError("Invalid ObjectId")
-        return ObjectId(v)
+    """Custom class for using MongoDB ObjectIds with Pydantic V2."""
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+        return core_schema.json_or_python_schema(
+            python_schema=core_schema.with_info_plain_validator_function(cls.validate),
+            json_schema=core_schema.with_info_plain_validator_function(cls.validate),
+            serialization=core_schema.plain_serializer_function_ser_schema(str),
+        )
+
+    @classmethod
+    def validate(cls, v: Any) -> ObjectId:
+        if isinstance(v, ObjectId):
+            return v
+        if isinstance(v, str) and ObjectId.is_valid(v):
+            return ObjectId(v)
+        raise TypeError(f"Invalid ObjectId: {v}")
 
 # Base générique à hériter pour tous les modèles liés à MongoDB
 class MongoBaseModel(BaseModel):

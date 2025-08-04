@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
-from datetime import datetime
+import datetime as dt
 from app.core.bson_utils import *
 
 class Preferences(BaseModel):
@@ -14,6 +14,9 @@ class UserBase(BaseModel):
     is_active: bool = True
     is_verified: bool = False
     preferences: Optional[Preferences] = Preferences()
+    model_config = {
+        "populate_by_name": True
+    }
 
 class UserCreate(UserBase):
     password: str  # plain password received from client
@@ -25,8 +28,8 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: Optional[datetime] = None
+    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    updated_at: Optional[dt.datetime] = None
     challenges: Optional[List[PyObjectId]] = []
 
     class Config:
