@@ -1,0 +1,72 @@
+# Global
+.env
+.env.*
+*.env
+*.log
+__pycache__/
+*.py[cod]
+*.sqlite3
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+*.egg
+*.pyo
+*.pyd
+*.pytest_cache/
+.mypy_cache/
+.cache/
+.venv/
+venv/
+pip-wheel-metadata/
+
+# FastAPI / Backend
+/backend/__pycache__/
+/backend/.pytest_cache/
+/backend/.mypy_cache/
+/backend/.env
+/backend/.venv/
+/backend/instance/
+/backend/uploads/
+/backend/tests/__pycache__/
+
+# Vue.js / Frontend
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env
+/frontend/.env.*
+/frontend/.output/
+/frontend/.vitepress/cache/
+/frontend/.turbo/
+
+# Docker
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+**/Dockerfile.local
+**/docker-volume-data/
+**/.docker/
+
+# VSCode / IDEs
+.vscode/
+.idea/
+*.swp
+
+# Optional - OS
+*.bak
+*.tmp
+*.orig
+*.~*
+
+# Documents de travail
+documents/
+
+# Fichiers data
+/backend/data/*
+/backend/data/**/*
+!/backend/data/**/
+!/backend/data/**/.gitkeep
+!/backend/data/seeds/*
+
+# Fichiers de tests dev
+/test-scripts/

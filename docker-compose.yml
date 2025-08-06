@@ -1,0 +1,33 @@
+# ---------------------------
+# 🧱 docker-compose.yml (racine)
+# ---------------------------
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: geo-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_USER
+      - MONGODB_PASSWORD
+      - MONGODB_URI_TPL
+      - MONGODB_DB
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads         # pour fichiers utilisateur
+      - ./backend/data/samples:/app/data/samples  # pour tests de dev
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: geo-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+
