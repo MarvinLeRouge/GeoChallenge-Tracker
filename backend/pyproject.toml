@@ -1,0 +1,7 @@
+[project]
+name = "geochallenge-backend"
+version = "0.1.0"
+
+[build-system]
+requires = ["uv"]
+build-backend = "uv.build"

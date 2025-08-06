@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pymongo
+requests
+pytest
+dotenv
+rich
+pytest
+python-dotenv
