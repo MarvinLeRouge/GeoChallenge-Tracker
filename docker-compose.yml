@@ -9,15 +9,20 @@ services:
     container_name: geo-backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - MONGODB_USER
-      - MONGODB_PASSWORD
-      - MONGODB_URI_TPL
-      - MONGODB_DB
+      - MONGODB_USER=${MONGODB_USER}
+      - MONGODB_PASSWORD=${MONGODB_PASSWORD}
+      - MONGODB_URI_TPL=${MONGODB_URI_TPL}
+      - MONGODB_DB=${MONGODB_DB}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - ./backend:/app
+      - ./backend/generate_secret.py:/app/generate_secret.py
       - ./backend/uploads:/app/uploads         # pour fichiers utilisateur
       - ./backend/data/samples:/app/data/samples  # pour tests de dev
+      - ./.env:/app/.env
 
   frontend:
     build:
@@ -26,6 +31,10 @@ services:
     container_name: geo-frontend
     ports:
       - "5173:80"
+    env_file:
+      - .env
+    environment:
+      - VITE_API_URL=${VITE_API_URL}
     depends_on:
       - backend
     volumes:
