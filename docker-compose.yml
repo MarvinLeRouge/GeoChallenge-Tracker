@@ -19,8 +19,10 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     volumes:
       - ./backend:/app
+      - ./backend/generate_secret.py:/app/generate_secret.py
       - ./backend/uploads:/app/uploads         # pour fichiers utilisateur
       - ./backend/data/samples:/app/data/samples  # pour tests de dev
+      - ./.env:/app/.env
 
   frontend:
     build:
