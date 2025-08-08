@@ -1,13 +1,16 @@
-# backend/app/db/seed.py
+# backend/app/api/db/seed.py
+
 import os, json, sys
+import datetime as dt
 from pymongo.errors import ConnectionFailure
 from rich import print
+from bson import ObjectId
+from dotenv import load_dotenv
+from app.core.utils import *
+import app.core.security as security
 from app.models.user import User
 from app.db.mongodb import client as mg_client, db as mg_db, get_collection
-from bson import ObjectId
-import datetime as dt
-import app.core.security as security
-from dotenv import load_dotenv
+
 load_dotenv()
 SEEDS_FOLDER = "../../data/seeds"
 
@@ -61,7 +64,7 @@ def seed_admin_user(force: bool = False):
             "language": "fr",
             "dark_mode": True
         },
-        "created_at": dt.datetime.now(dt.timezone.utc),
+        "created_at": now(),
         "updated_at": None
     }
 
@@ -70,7 +73,7 @@ def seed_admin_user(force: bool = False):
 
 
 if __name__ == "__main__":
-    val = dt.datetime.now(dt.timezone.utc)
+    val = now()
     force = "--force" in sys.argv
     test_connection()
     seed_collection(f"{SEEDS_FOLDER}/cache_types.json", "cache_types", force=force)
