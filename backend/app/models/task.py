@@ -1,6 +1,9 @@
+# backend/app/api/models/task.py
+
 from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 import datetime as dt
+from app.core.utils import *
 from app.core.bson_utils import *
 
 class TaskBase(BaseModel):
@@ -41,7 +44,7 @@ class TaskUpdate(BaseModel):
 
 class Task(TaskBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
 
     class Config:

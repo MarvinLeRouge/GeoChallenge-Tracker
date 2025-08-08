@@ -1,7 +1,7 @@
-# backend/app/db/mongodb.py
+# backend/app/api/db/mongodb.py
 
 from pymongo import MongoClient
-from backend.app.core.settings import settings
+from app.core.settings import settings
 
 client = MongoClient(settings.mongodb_uri)
 db = client[settings.mongodb_db]
