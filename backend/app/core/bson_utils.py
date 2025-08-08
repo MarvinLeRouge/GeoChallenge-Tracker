@@ -1,3 +1,5 @@
+# backend/app/api/core/bson_utils.py
+
 from pydantic import BaseModel, Field, EmailStr, GetCoreSchemaHandler
 from pydantic_core import core_schema
 from typing import Optional, List, Any
@@ -15,7 +17,7 @@ class PyObjectId(ObjectId):
         )
 
     @classmethod
-    def validate(cls, v: Any) -> ObjectId:
+    def validate(cls, v: Any, info: core_schema.ValidationInfo) -> ObjectId:
         if isinstance(v, ObjectId):
             return v
         if isinstance(v, str) and ObjectId.is_valid(v):

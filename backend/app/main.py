@@ -1,7 +1,10 @@
+# backend/app/main.py
+
 from fastapi import FastAPI
-from app.api.routes.base import router as base_router
+from app.api.routes import routers
 
 app = FastAPI(title="GeoChallenge API")
 
 # Inclusion des routes
-app.include_router(base_router)
+for r in routers:
+    app.include_router(r)
