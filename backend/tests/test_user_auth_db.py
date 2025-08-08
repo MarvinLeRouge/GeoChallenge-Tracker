@@ -1,16 +1,15 @@
 import pytest
 from app.core.security import verify_password
 from app.db.mongodb import get_collection
-import os
-from dotenv import load_dotenv
-load_dotenv()
+from app.core.settings import settings
 
 
-TEST_USERNAME = os.getenv("ADMIN_USERNAME")
-TEST_PASSWORD = os.getenv("ADMIN_PASSWORD")
+TEST_USERNAME = settings.admin_username
+TEST_PASSWORD = settings.admin_password
 
 def test_verify_user():
     users_collection = get_collection("users")
+    print(users_collection)
     user = users_collection.find_one({"username": TEST_USERNAME})
     
     assert user is not None, "L'utilisateur n'existe pas dans la base."
