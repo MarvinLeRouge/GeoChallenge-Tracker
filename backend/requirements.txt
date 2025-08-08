@@ -7,3 +7,12 @@ dotenv
 rich
 pytest
 python-dotenv
+pydantic
+pydantic[email]
+pydantic-settings
+passlib
+python-jose
+httpx
+passlib[bcrypt]
+aiosmtplib
+email-validator
