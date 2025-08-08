@@ -1,3 +1,5 @@
+# backend/app/api/core/settings.py
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -16,6 +18,21 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expiration_minutes: int = 60 * 24  # 1 day
 
+    # === ADMIN ===
+    admin_username: str
+    admin_email: str
+    admin_password: str
+
+    # === MAIL ===
+    mail_from: str
+    smtp_host: str
+    smtp_port: int
+    smtp_username: str
+    smtp_password: str
+
+    # === TEST ===
+    test: str
+    
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
@@ -26,3 +43,15 @@ class Settings(BaseSettings):
 
 # Instance globale
 settings = Settings()
+
+print("--- Settings loaded ---")
+print(f"MONGODB_USER: {settings.mongodb_user}")
+print(f"MONGODB_PASSWORD: {settings.mongodb_password}")
+print(f"MONGODB_URI_TPL: {settings.mongodb_uri_tpl}")
+print(f"MONGODB_DB: {settings.mongodb_db}")
+print(f"JWT_SECRET_KEY: {settings.jwt_secret_key}")
+print(f"ADMIN_USERNAME: {settings.admin_username}")
+print(f"ADMIN_EMAIL: {settings.admin_email}")
+print(f"ADMIN_PASSWORD: {settings.admin_password}")
+print(f"TEST: {settings.test}")
+print("------------------------")
