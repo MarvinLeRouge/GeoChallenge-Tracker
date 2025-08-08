@@ -1,6 +1,9 @@
+# backend/app/api/models/user.py
+
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 import datetime as dt
+from app.core.utils import *
 from app.core.bson_utils import *
 
 class Preferences(BaseModel):
@@ -28,11 +31,50 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
     challenges: Optional[List[PyObjectId]] = []
+    verification_code: Optional[str] = None
+    verification_expires_at: Optional[dt.datetime] = None
 
     class Config:
         arbitrary_types_allowed = True
         json_encoders = {PyObjectId: str}
 
+
+class UserInRegister(BaseModel):
+    username: str = Field(min_length=3, max_length=30)
+    email: EmailStr
+    password: str = Field(min_length=8)
+
+class UserInLogin(BaseModel):
+    identifier: str  # Peut être un email OU un username
+    password: str
+
+class UserOut(BaseModel):
+    id: str = Field(alias="_id")
+    email: EmailStr
+    username: str
+    role: Optional[str] = "user"
+
+    model_config = {
+        "populate_by_name": True,  # pour autoriser _id → id
+        "json_encoders": {
+            ObjectId: str
+        }
+    }
+
+class TokenPair(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+    
+class ResendVerificationRequest(BaseModel):
+    identifier: str  # email ou username
