@@ -13,11 +13,11 @@ class CacheBase(BaseModel):
     size: PyObjectId        # e.g., "small", "regular", ...
     difficulty: float
     terrain: float
-    placed_date: datetime
+    placed_date: dt.datetime
     latitude: float
     longitude: float
     elevation: Optional[int] = None
-    county_id: Optional[PyObjectId] = None
+    state_id: Optional[PyObjectId] = None
     location_more: Optional[dict] = None
     attributes: Optional[List[PyObjectId]] = []
 
@@ -26,8 +26,7 @@ class CacheCreate(CacheBase):
 
 class CacheUpdate(BaseModel):
     elevation: Optional[int]
-    country_id: Optional[PyObjectId]
-    county_id: Optional[PyObjectId]
+    state_id: Optional[PyObjectId]
     location_more: Optional[dict]
 
 class Cache(CacheBase):
