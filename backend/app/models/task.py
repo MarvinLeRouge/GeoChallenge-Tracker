@@ -13,7 +13,7 @@ class TaskBase(BaseModel):
     challenge_id: PyObjectId               # 🔗 lien obligatoire vers challenge
 
     # Type de filtre principal (ex: "attribute", "type", "country", etc.)
-    filter_type: Literal["type", "attribute", "country", "county", "year", "month", "size", "other"]
+    filter_type: Literal["type", "attribute", "country", "state", "year", "month", "size", "other"]
 
     # Critères de filtrage (objectIds, années, etc.)
     criteria: List[str] | List[int] | List[PyObjectId]
