@@ -5,7 +5,6 @@ requests
 pytest
 dotenv
 rich
-pytest
 python-dotenv
 pydantic
 pydantic[email]
@@ -16,3 +15,7 @@ httpx
 passlib[bcrypt]
 aiosmtplib
 email-validator
+lxml
+python-multipart
+selectolax
+
