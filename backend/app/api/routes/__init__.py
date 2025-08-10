@@ -2,5 +2,6 @@
  
 from .base import router as base_router
 from .auth import router as auth_router
+from .caches import router as caches_router
 
-routers = [base_router, auth_router]
+routers = [base_router, auth_router, caches_router]
