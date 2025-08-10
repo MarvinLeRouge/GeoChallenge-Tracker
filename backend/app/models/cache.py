@@ -6,11 +6,17 @@ import datetime as dt
 from app.core.utils import *
 from app.core.bson_utils import *
 
+class CacheAttributeRef(BaseModel):
+    attribute_id: PyObjectId   # référence à attributes._id
+    included: bool             # True si inc="1", False si inc="0"
+
 class CacheBase(BaseModel):
     GC: str
     title: str
+    description_html: Optional[str] = None
+    owner: Optional[str] = None
     cache_type: PyObjectId  # e.g., "traditional", "mystery", ...
-    size: PyObjectId        # e.g., "small", "regular", ...
+    cache_size: PyObjectId        # e.g., "small", "regular", ...
     difficulty: float
     terrain: float
     placed_date: dt.datetime
@@ -19,7 +25,8 @@ class CacheBase(BaseModel):
     elevation: Optional[int] = None
     state_id: Optional[PyObjectId] = None
     location_more: Optional[dict] = None
-    attributes: Optional[List[PyObjectId]] = []
+    attributes: Optional[List[CacheAttributeRef]] = []
+    favorites: Optional[int] = None
 
 class CacheCreate(CacheBase):
     pass  # tous les champs sont requis ou ont des valeurs par défaut
