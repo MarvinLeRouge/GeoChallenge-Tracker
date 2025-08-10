@@ -2,14 +2,14 @@
 
 from pydantic import BaseModel, Field
 from typing import Optional
-import datetime as dt, date
+import datetime as dt
 from app.core.utils import *
 from app.core.bson_utils import *
 
 class FoundCacheBase(BaseModel):
     user_id: PyObjectId         # référence à users._id
     cache_id: PyObjectId        # référence à caches._id
-    found_date: date            # date de log (format YYYY-MM-DD)
+    found_date: dt.datetime     # date de log (format YYYY-MM-DD)
     notes: Optional[str] = None
 
 class FoundCacheCreate(FoundCacheBase):
