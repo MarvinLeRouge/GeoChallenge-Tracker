@@ -7,8 +7,8 @@ from app.core.utils import *
 from app.core.bson_utils import *
 
 class CacheAttributeRef(BaseModel):
-    attribute_id: PyObjectId   # référence à attributes._id
-    included: bool             # True si inc="1", False si inc="0"
+    attribute_doc_id: PyObjectId   # référence à cache_attributes.id
+    is_positive: bool          # L'attribut est-il positif ou négatif
 
 class CacheBase(BaseModel):
     GC: str

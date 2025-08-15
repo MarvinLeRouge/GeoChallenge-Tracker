@@ -9,6 +9,7 @@ from app.core.bson_utils import *
 class CacheTypeBase(BaseModel):
     name: str                  # ex: "Traditional", "Mystery", etc.
     code: Optional[str] = None # abréviation, ex: "TR", "MY", "EV"
+    aliases: Optional[list[str]] = []
 
 class CacheTypeCreate(CacheTypeBase):
     pass
@@ -16,6 +17,7 @@ class CacheTypeCreate(CacheTypeBase):
 class CacheTypeUpdate(BaseModel):
     name: Optional[str]
     code: Optional[str]
+    aliases: Optional[list[str]]
 
 class CacheType(CacheTypeBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")

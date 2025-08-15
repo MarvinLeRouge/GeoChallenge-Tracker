@@ -9,6 +9,7 @@ from app.core.bson_utils import *
 class CacheSizeBase(BaseModel):
     name: str                    # ex: "Small", "Micro", "Regular"
     code: Optional[str] = None   # code interne ou abbr (ex: "S", "M")
+    order: Optional[int] = None   # ordonnancement des cache sizes
 
 class CacheSizeCreate(CacheSizeBase):
     pass
@@ -16,6 +17,7 @@ class CacheSizeCreate(CacheSizeBase):
 class CacheSizeUpdate(BaseModel):
     name: Optional[str]
     code: Optional[str]
+    order: Optional[int]
 
 class CacheSize(CacheSizeBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
