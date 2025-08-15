@@ -9,10 +9,10 @@ python-dotenv
 pydantic
 pydantic[email]
 pydantic-settings
-passlib
+passlib==1.7.4
+bcrypt==4.0.1
 python-jose
 httpx
-passlib[bcrypt]
 aiosmtplib
 email-validator
 lxml
