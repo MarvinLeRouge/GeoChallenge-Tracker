@@ -1,5 +1,5 @@
-[{"id": 2, "txt": "micro", "label": "Micro"},
-{"id": 8, "txt": "small", "label": "Small"},
-{"id": 3, "txt": "regular", "label": "Regular"},
-{"id": 4, "txt": "large", "label": "Large"},
-{"id": 6, "txt": "other", "label": "Other"}]
+[{"id": 2, "code": "M", "name": "Micro", "order": 0},
+{"id": 8, "code": "S", "name": "Small", "order": 1},
+{"id": 3, "code": "R", "name": "Regular", "order": 2},
+{"id": 4, "code": "L", "name": "Large", "order": 3},
+{"id": 6, "code": "O", "name": "Other", "order": 4}]
