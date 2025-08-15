@@ -6,22 +6,23 @@ import datetime as dt
 from app.core.utils import *
 from app.core.bson_utils import *
 
-class AttributeBase(BaseModel):
-    name: str                        # libellé principal ("Dogs allowed")
+class CacheAttributeBase(BaseModel):
+    cache_attribute_id: int             # identifiant global, ex. 14
+    txt: str                            # identifiant txt (ex. : dogs_allowed)
+    name: str                           # libellé principal ("Dogs allowed")
     name_reverse: Optional[str] = None  # libellé inverse ("No dogs allowed")
-    attr_id: int                     # identifiant global, ex. 14
-    is_reverse: bool = False         # forme inversée ?
+    aliases: Optional[list[str]] = []
 
-class AttributeCreate(AttributeBase):
+class CacheAttributeCreate(CacheAttributeBase):
     pass
 
-class AttributeUpdate(BaseModel):
+class CacheAttributeUpdate(BaseModel):
+    cache_attribute_id: Optional[int]
     name: Optional[str]
     name_reverse: Optional[str]
-    attr_id: Optional[int]
-    is_reverse: Optional[bool]
+    aliases: Optional[list[str]]
 
-class Attribute(AttributeBase):
+class CacheAttribute(CacheAttributeBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
