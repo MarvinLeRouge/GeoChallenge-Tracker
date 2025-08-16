@@ -153,4 +153,4 @@ def ensure_indexes() -> None:
 
 
 if __name__ == "__main__":
-    seed_indexes()
+    ensure_indexes()
