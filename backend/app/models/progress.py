@@ -1,45 +1,56 @@
 # backend/app/api/models/progress.py
 
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from __future__ import annotations
+from typing import Optional, List, Dict, Any, Literal
 import datetime as dt
+from pydantic import BaseModel, Field, ConfigDict
 from app.core.utils import *
 from app.core.bson_utils import *
+from app.models._shared import ProgressSnapshot  # shared snapshot structure
 
-class ProgressPoint(BaseModel):
-    date: datetime
-    value: int   # nombre de caches validées à ce moment
+"""
+Progress data model - clarification
 
-class ProgressBase(BaseModel):
-    user_id: PyObjectId
+- A series is built by multiple documents over time.
+- One Progress document represents one instant t for a given `user_challenge_id`.
+  It freezes all intersections at that time:
+    * the global state of the user challenge (`aggregate`),
+    * the state of each task in that challenge (`tasks[]`).
+- To draw time-series charts, query all Progress docs for a `user_challenge_id`,
+  sort by `checked_at`, and read `aggregate` or each `tasks[i].progress`.
+"""
+
+class TaskProgressItem(BaseModel):
+    """Snapshot for a single task at this instant t."""
     task_id: PyObjectId
+    status: Literal["todo", "in_progress", "done"] = "todo"
+    progress: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
+    metrics: Dict[str, Any] = Field(default_factory=dict)   # e.g. {"current_count": 17}
+    constraints: Optional[Dict[str, Any]] = None            # optional copy, for audit/explanations
 
-    current_value: int = 0
-    goal: int                # cible à atteindre
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={PyObjectId: str},
+    )
 
-    # Série temporelle d’historique de progression
-    time_series: Optional[List[ProgressPoint]] = []
 
-    # Estimation (facultative)
-    estimated_completion_date: Optional[dt.datetime] = None
+class Progress(MongoBaseModel):
+    """Full, immutable snapshot for a user_challenge at time t."""
+    user_challenge_id: PyObjectId
 
-    # Indice de pertinence de la projection (pas encore implémenté)
-    prediction_score: Optional[float] = None
+    # Time axis for charts & projections
+    checked_at: dt.datetime = Field(default_factory=lambda: now())
 
-class ProgressCreate(ProgressBase):
-    pass
+    # Aggregate state for the whole challenge
+    aggregate: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
 
-class ProgressUpdate(BaseModel):
-    current_value: Optional[int]
-    time_series: Optional[List[ProgressPoint]]
-    estimated_completion_date: Optional[dt.datetime]
-    prediction_score: Optional[float]
+    # Per-task snapshots at this instant (one item per task belonging to the user_challenge)
+    tasks: List[TaskProgressItem] = Field(default_factory=list)
 
-class Progress(ProgressBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    # Optional annotations
+    message: Optional[str] = None
+    engine_version: Optional[str] = None
+
+    # For auditing (append-only — no updated_at)
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
