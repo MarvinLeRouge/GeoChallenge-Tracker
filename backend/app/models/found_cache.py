@@ -1,15 +1,16 @@
 # backend/app/api/models/found_cache.py
 
-from pydantic import BaseModel, Field
+from __future__ import annotations
 from typing import Optional
 import datetime as dt
+from pydantic import BaseModel, Field
 from app.core.utils import *
 from app.core.bson_utils import *
 
 class FoundCacheBase(BaseModel):
     user_id: PyObjectId         # référence à users._id
     cache_id: PyObjectId        # référence à caches._id
-    found_date: dt.datetime     # date de log (format YYYY-MM-DD)
+    found_date: dt.date         # date de log (jour précis)
     notes: Optional[str] = None
 
 class FoundCacheCreate(FoundCacheBase):
@@ -18,11 +19,6 @@ class FoundCacheCreate(FoundCacheBase):
 class FoundCacheUpdate(BaseModel):
     notes: Optional[str] = None
 
-class FoundCache(FoundCacheBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+class FoundCache(MongoBaseModel, FoundCacheBase):
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
