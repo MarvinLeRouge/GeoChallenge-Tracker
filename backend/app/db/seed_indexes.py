@@ -22,7 +22,7 @@ def _unique_if_present(field: str) -> IndexModel:
                       partialFilterExpression={field: {"$type": "string"}})
 
 
-def seed_indexes() -> None:
+def ensure_indexes() -> None:
     # ---------- users ----------
     users = get_collection("users")
     users.create_indexes([
