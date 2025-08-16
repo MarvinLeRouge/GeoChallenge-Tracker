@@ -1,8 +1,9 @@
 # backend/app/api/models/user.py
 
-from pydantic import BaseModel, Field, EmailStr
+from __future__ import annotations
 from typing import Optional, List
 import datetime as dt
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from app.core.utils import *
 from app.core.bson_utils import *
 
@@ -16,31 +17,26 @@ class UserBase(BaseModel):
     role: str = "user"
     is_active: bool = True
     is_verified: bool = False
-    preferences: Optional[Preferences] = Preferences()
-    model_config = {
-        "populate_by_name": True
-    }
+    preferences: Optional[Preferences] = Field(default_factory=Preferences)
 
 class UserCreate(UserBase):
     password: str  # plain password received from client
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr]
-    password: Optional[str]
-    preferences: Optional[Preferences]
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    preferences: Optional[Preferences] = None
 
-class User(UserBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
-    challenges: Optional[List[PyObjectId]] = []
+class User(MongoBaseModel, UserBase):
+    # Document persisted in MongoDB
+    challenges: List[PyObjectId] = Field(default_factory=list)
     verification_code: Optional[str] = None
     verification_expires_at: Optional[dt.datetime] = None
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
+    created_at: dt.datetime = Field(default_factory=lambda: now())
+    updated_at: Optional[dt.datetime] = None
 
+# Input/Output DTOs
 
 class UserInRegister(BaseModel):
     username: str = Field(min_length=3, max_length=30)
@@ -48,21 +44,20 @@ class UserInRegister(BaseModel):
     password: str = Field(min_length=8)
 
 class UserInLogin(BaseModel):
-    identifier: str  # Peut être un email OU un username
+    identifier: str  # email ou username
     password: str
 
 class UserOut(BaseModel):
-    id: str = Field(alias="_id")
+    id: PyObjectId = Field(alias="_id")
     email: EmailStr
     username: str
     role: Optional[str] = "user"
 
-    model_config = {
-        "populate_by_name": True,  # pour autoriser _id → id
-        "json_encoders": {
-            ObjectId: str
-        }
-    }
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={PyObjectId: str},
+    )
 
 class TokenPair(BaseModel):
     access_token: str
@@ -75,6 +70,6 @@ class TokenResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
-    
+
 class ResendVerificationRequest(BaseModel):
     identifier: str  # email ou username

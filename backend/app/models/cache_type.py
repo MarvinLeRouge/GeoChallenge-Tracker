@@ -1,29 +1,25 @@
 # backend/app/api/models/cache_type.py
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, List
 import datetime as dt
+from pydantic import BaseModel, Field
 from app.core.utils import *
 from app.core.bson_utils import *
 
 class CacheTypeBase(BaseModel):
-    name: str                  # ex: "Traditional", "Mystery", etc.
-    code: Optional[str] = None # abréviation, ex: "TR", "MY", "EV"
-    aliases: Optional[list[str]] = []
+    name: str                     # ex: "Traditional", "Mystery", etc.
+    code: Optional[str] = None    # abréviation, ex: "TR", "MY", "EV"
+    aliases: List[str] = Field(default_factory=list)
 
 class CacheTypeCreate(CacheTypeBase):
     pass
 
 class CacheTypeUpdate(BaseModel):
-    name: Optional[str]
-    code: Optional[str]
-    aliases: Optional[list[str]]
+    name: Optional[str] = None
+    code: Optional[str] = None
+    aliases: Optional[List[str]] = None
 
-class CacheType(CacheTypeBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+class CacheType(MongoBaseModel, CacheTypeBase):
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
