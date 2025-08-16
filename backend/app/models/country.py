@@ -21,7 +21,3 @@ class Country(CountryBase):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
