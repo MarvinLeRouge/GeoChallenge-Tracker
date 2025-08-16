@@ -1,30 +1,49 @@
 # backend/app/api/models/target.py
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, List, Dict, Any
 import datetime as dt
+from pydantic import BaseModel, Field, ConfigDict
 from app.core.utils import *
 from app.core.bson_utils import *
 
-class TargetBase(BaseModel):
-    user_id: PyObjectId
-    task_id: PyObjectId
+# A Target is a recommended cache for a given UserChallenge.
+# It may satisfy multiple tasks simultaneously from that same UserChallenge.
+
+class TargetCreate(BaseModel):
+    user_challenge_id: PyObjectId
     cache_id: PyObjectId
+    primary_task_id: PyObjectId
+    # Include primary_task_id here as well so $all queries work uniformly.
+    satisfies_task_ids: List[PyObjectId] = Field(default_factory=list)
+    score: Optional[float] = None
+    diagnostics: Optional[Dict[str, Any]] = None
 
-    score: Optional[float] = None  # 0.0 à 1.0, futur usage
-    created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
-
-class TargetCreate(TargetBase):
-    pass
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={PyObjectId: str},
+    )
 
 class TargetUpdate(BaseModel):
-    score: Optional[float]
-    updated_at: Optional[dt.datetime]
+    satisfies_task_ids: Optional[List[PyObjectId]] = None
+    score: Optional[float] = None
+    diagnostics: Optional[Dict[str, Any]] = None
+    updated_at: Optional[dt.datetime] = None
 
-class Target(TargetBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={PyObjectId: str},
+    )
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
+class Target(MongoBaseModel):
+    user_challenge_id: PyObjectId
+    cache_id: PyObjectId
+    primary_task_id: PyObjectId
+    satisfies_task_ids: List[PyObjectId] = Field(default_factory=list)
+    score: Optional[float] = None
+    diagnostics: Optional[Dict[str, Any]] = None
+
+    created_at: dt.datetime = Field(default_factory=lambda: now())
+    updated_at: Optional[dt.datetime] = None
