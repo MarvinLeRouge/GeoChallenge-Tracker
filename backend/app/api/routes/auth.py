@@ -1,6 +1,7 @@
 # backend/app/api/routes/auth.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from pymongo.collection import Collection
 from bson import ObjectId
 from jose import jwt, JWTError
@@ -174,3 +175,28 @@ async def resend_verification(data: ResendVerificationRequest):
     )
 
     return {"message": "Verification email resent"}
+
+
+@router.post("/token", response_model=TokenPair)
+def issue_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    users_collection = get_collection("users")
+    # On accepte username OU email dans le champ "username" du formulaire
+    user = users_collection.find_one({
+        "$or": [
+            {"email": form_data.username},
+            {"username": form_data.username}
+        ]
+    })
+    if user is None or not verify_password(form_data.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    if not user.get("is_verified", False):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
+
+    token_data = {"sub": str(user["_id"])}
+    access_token = create_access_token(data=token_data)
+    refresh_token = create_refresh_token(data=token_data)
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,   # Swagger ne l’utilisera pas, mais c’est OK
+        "token_type": "bearer"
+    }

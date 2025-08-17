@@ -36,6 +36,7 @@ class CacheBase(BaseModel):
 
     # Dates & stats
     placed_at: Optional[dt.datetime] = None
+    owner: Optional[str] = None
     favorites: Optional[int] = None
     status: Optional[Literal["active", "disabled", "archived"]] = None
 
