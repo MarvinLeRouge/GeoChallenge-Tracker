@@ -1,156 +1,189 @@
-# backend/app/db/seed_indexes.py
-
+# app/db/seed_indexes.py
 """
-Create MongoDB indexes for GeoChallenge Tracker using get_collection().
+Idempotent index seeding for GeoChallenge Tracker.
 
-- Primary keys: Mongo provides `_id` automatically.
-- Foreign keys: not enforced by Mongo; we add indexes on reference fields for fast lookups.
-- Unique constraints: via unique indexes (with partial filters when fields are optional).
-- Search/optimization indexes: for frequent queries (targets, progress, caches, etc.).
+- Uses get_collection() (no direct client here).
+- Matching by KEYS: if an index with same keys exists, keep it when options match.
+- If options differ (unique / partialFilterExpression / collation), drop & recreate.
+- Text indexes: Mongo allows ONE per collection; we compare weights (fields) and replace if needed.
+- Users: case-insensitive unique indexes (collation strength=2) on username & email.
 """
 
 from __future__ import annotations
 
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 from pymongo import ASCENDING, DESCENDING, TEXT
 from pymongo.operations import IndexModel
+from pymongo.collation import Collation
 from app.db.mongodb import get_collection
 
+KeySpec = List[Tuple[str, int]]
 
-def _unique_if_present(field: str) -> IndexModel:
-    """Unique index on a field only when it exists and is not null (strings)."""
-    return IndexModel([(field, ASCENDING)], unique=True,
-                      partialFilterExpression={field: {"$type": "string"}})
+# Case-insensitive (accent-sensitive) collation for users
+COLLATION_CI = Collation(locale="en", strength=2)
+
+
+def _normalize_key_from_mongo(key_doc: Dict[str, Any]) -> KeySpec:
+    # Mongo returns an OrderedDict-like mapping; convert to list of (field, direction)
+    return [(k, int(v)) for k, v in key_doc.items()]
+
+
+def _find_existing_by_keys(coll, keys: KeySpec) -> Optional[Dict[str, Any]]:
+    for ix in coll.list_indexes():
+        if 'key' in ix and _normalize_key_from_mongo(ix['key']) == keys:
+            return ix
+    return None
+
+
+def _collation_to_dict(c: Optional[Collation]) -> Optional[Dict[str, Any]]:
+    if c is None:
+        return None
+    # Collation has properties; we compare a subset that matters
+    return {
+        'locale': c.document.get('locale'),
+        'strength': c.document.get('strength'),
+        'caseLevel': c.document.get('caseLevel'),
+        'caseFirst': c.document.get('caseFirst'),
+        'numericOrdering': c.document.get('numericOrdering'),
+        'alternate': c.document.get('alternate'),
+        'maxVariable': c.document.get('maxVariable'),
+        'backwards': c.document.get('backwards'),
+    }
+
+
+def _same_options(existing: Dict[str, Any], *, unique: Optional[bool], partial: Optional[Dict[str, Any]], collation: Optional[Collation]) -> bool:
+    ex_unique = bool(existing.get('unique', False))
+    if bool(unique) != ex_unique:
+        return False
+    ex_partial = existing.get('partialFilterExpression')
+    if (partial or None) != (ex_partial or None):
+        return False
+    ex_collation = existing.get('collation')
+    # ex_collation is a dict when present
+    return ( _collation_to_dict(collation) or None ) == ( ex_collation or None )
+
+
+def ensure_index(coll_name: str, keys: KeySpec, *, name: Optional[str] = None,
+                 unique: Optional[bool] = None,
+                 partial: Optional[Dict[str, Any]] = None,
+                 collation: Optional[Collation] = None) -> None:
+    coll = get_collection(coll_name)
+    existing = _find_existing_by_keys(coll, keys)
+    if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
+        return
+    if existing:
+        coll.drop_index(existing['name'])
+    opts: Dict[str, Any] = {}
+    if name:
+        opts['name'] = name
+    if unique is not None:
+        opts['unique'] = unique
+    if partial:
+        opts['partialFilterExpression'] = partial
+    if collation is not None:
+        opts['collation'] = collation
+    coll.create_indexes([IndexModel(keys, **opts)])
+
+
+def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: Optional[str] = None) -> None:
+    """Ensure a single text index over the given fields (weights = 1 each)."""
+    coll = get_collection(coll_name)
+    wanted = {f: 1 for f in fields}
+    existing = None
+    for ix in coll.list_indexes():
+        if 'weights' in ix:  # text index
+            existing = ix
+            break
+    if existing:
+        # Compare weights (ignore stray '_id' entry if present)
+        ex_weights = {k: v for k, v in existing.get('weights', {}).items() if k != '_id'}
+        if ex_weights == wanted:
+            return  # already desired
+        coll.drop_index(existing['name'])
+    keys = [(f, TEXT) for f in fields]
+    coll.create_indexes([IndexModel(keys, name=name)])
 
 
 def ensure_indexes() -> None:
-    # ---------- users ----------
-    users = get_collection("users")
-    users.create_indexes([
-        IndexModel([("username", ASCENDING)], unique=True, name="uniq_username"),
-        IndexModel([("email", ASCENDING)], unique=True, name="uniq_email"),
-        IndexModel([("is_active", ASCENDING)], name="by_active"),
-        IndexModel([("is_verified", ASCENDING)], name="by_verified"),
-    ])
+    # ---------- users (CI uniques via collation) ----------
+    ensure_index('users', [('username', ASCENDING)], name='uniq_username_ci', unique=True, collation=COLLATION_CI)
+    ensure_index('users', [('email', ASCENDING)], name='uniq_email_ci', unique=True, collation=COLLATION_CI)
+    # Non-unique helpers
+    ensure_index('users', [('is_active', ASCENDING)])
+    ensure_index('users', [('is_verified', ASCENDING)])
 
     # ---------- countries ----------
-    countries = get_collection("countries")
-    countries.create_indexes([
-        IndexModel([("name", ASCENDING)], unique=True, name="uniq_country_name"),
-        _unique_if_present("code"),  # ISO code may be optional
-    ])
+    ensure_index('countries', [('name', ASCENDING)], name='uniq_country_name', unique=True)
+    ensure_index('countries', [('code', ASCENDING)], unique=True, partial={'code': {'$type': 'string'}})
 
     # ---------- states ----------
-    states = get_collection("states")
-    states.create_indexes([
-        IndexModel([("country_id", ASCENDING)], name="by_country"),
-        IndexModel([("country_id", ASCENDING), ("name", ASCENDING)], unique=True, name="uniq_state_name_per_country"),
-        IndexModel([("country_id", ASCENDING), ("code", ASCENDING)], unique=True,
-                   partialFilterExpression={"code": {"$type": "string"}},
-                   name="uniq_state_code_per_country_if_present"),
-    ])
+    ensure_index('states', [('country_id', ASCENDING)])
+    ensure_index('states', [('country_id', ASCENDING), ('name', ASCENDING)], name='uniq_state_name_per_country', unique=True)
+    ensure_index('states', [('country_id', ASCENDING), ('code', ASCENDING)],
+                 name='uniq_state_code_per_country_if_present', unique=True,
+                 partial={'code': {'$type': 'string'}})
 
     # ---------- cache_attributes ----------
-    cache_attributes = get_collection("cache_attributes")
-    cache_attributes.create_indexes([
-        IndexModel([("cache_attribute_id", ASCENDING)], unique=True, name="uniq_cache_attribute_id"),
-        IndexModel([("txt", ASCENDING)], unique=True, name="uniq_cache_attribute_txt",
-           partialFilterExpression={"txt": {"$type": "string"}}),
-        IndexModel([("name", ASCENDING)], name="by_name"),
-    ])
+    ensure_index('cache_attributes', [('cache_attribute_id', ASCENDING)], name='uniq_cache_attribute_id', unique=True)
+    ensure_index('cache_attributes', [('txt', ASCENDING)], name='uniq_cache_attribute_txt', unique=True,
+                 partial={'txt': {'$type': 'string'}})
+    ensure_index('cache_attributes', [('name', ASCENDING)])
 
     # ---------- cache_sizes ----------
-    cache_sizes = get_collection("cache_sizes")
-    cache_sizes.create_indexes([
-        IndexModel([("name", ASCENDING)], unique=True, name="uniq_cache_size_name"),
-        IndexModel([("code", ASCENDING)], unique=True,
-                   partialFilterExpression={"code": {"$type": "string"}},
-                   name="uniq_cache_size_code_if_present"),
-    ])
+    ensure_index('cache_sizes', [('name', ASCENDING)], name='uniq_cache_size_name', unique=True)
+    ensure_index('cache_sizes', [('code', ASCENDING)], name='uniq_cache_size_code_if_present', unique=True,
+                 partial={'code': {'$type': 'string'}})
 
     # ---------- cache_types ----------
-    cache_types = get_collection("cache_types")
-    cache_types.create_indexes([
-        IndexModel([("name", ASCENDING)], unique=True, name="uniq_cache_type_name"),
-        IndexModel([("code", ASCENDING)], unique=True,
-                   partialFilterExpression={"code": {"$type": "string"}},
-                   name="uniq_cache_type_code_if_present"),
-    ])
+    ensure_index('cache_types', [('name', ASCENDING)], name='uniq_cache_type_name', unique=True)
+    ensure_index('cache_types', [('code', ASCENDING)], name='uniq_cache_type_code_if_present', unique=True,
+                 partial={'code': {'$type': 'string'}})
 
     # ---------- caches ----------
-    caches = get_collection("caches")
-    caches.create_indexes([
-        IndexModel([("GC", ASCENDING)], unique=True, name="uniq_gc_code"),
-        # Foreign key lookups
-        IndexModel([("type_id", ASCENDING)], name="by_type"),
-        IndexModel([("size_id", ASCENDING)], name="by_size"),
-        IndexModel([("country_id", ASCENDING)], name="by_country"),
-        IndexModel([("state_id", ASCENDING)], name="by_state"),
-        IndexModel([("country_id", ASCENDING), ("state_id", ASCENDING)], name="by_country_state"),
-        # Range queries / sorts
-        IndexModel([("difficulty", ASCENDING)], name="by_difficulty"),
-        IndexModel([("terrain", ASCENDING)], name="by_terrain"),
-        IndexModel([("placed_at", DESCENDING)], name="by_placed_at_desc"),
-        # Text search
-        IndexModel([("title", TEXT), ("description_html", TEXT)], name="text_title_desc"),
-    ])
+    ensure_index('caches', [('GC', ASCENDING)], name='uniq_gc_code', unique=True)
+    ensure_index('caches', [('type_id', ASCENDING)])
+    ensure_index('caches', [('size_id', ASCENDING)])
+    ensure_index('caches', [('country_id', ASCENDING)])
+    ensure_index('caches', [('state_id', ASCENDING)])
+    ensure_index('caches', [('country_id', ASCENDING), ('state_id', ASCENDING)])
+    ensure_index('caches', [('difficulty', ASCENDING)])
+    ensure_index('caches', [('terrain', ASCENDING)])
+    ensure_index('caches', [('placed_at', DESCENDING)])
+    ensure_text_index('caches', ['title', 'description_html'], name='text_title_desc')
 
     # ---------- found_caches ----------
-    found_caches = get_collection("found_caches")
-    found_caches.create_indexes([
-        IndexModel([("user_id", ASCENDING), ("cache_id", ASCENDING)],
-                   unique=True, name="uniq_user_cache_found"),
-        IndexModel([("user_id", ASCENDING), ("found_date", DESCENDING)], name="by_user_date_desc"),
-        IndexModel([("cache_id", ASCENDING)], name="by_cache"),
-    ])
+    ensure_index('found_caches', [('user_id', ASCENDING), ('cache_id', ASCENDING)], name='uniq_user_cache_found', unique=True)
+    ensure_index('found_caches', [('user_id', ASCENDING), ('found_date', DESCENDING)])
+    ensure_index('found_caches', [('cache_id', ASCENDING)])
 
     # ---------- challenges ----------
-    challenges = get_collection("challenges")
-    challenges.create_indexes([
-        IndexModel([("cache_id", ASCENDING)], unique=True, name="uniq_mother_cache"),
-        IndexModel([("name", TEXT), ("description", TEXT)], name="text_name_desc"),
-    ])
+    ensure_index('challenges', [('cache_id', ASCENDING)], name='uniq_mother_cache', unique=True)
+    ensure_text_index('challenges', ['name', 'description'], name='text_name_desc')
 
     # ---------- user_challenges ----------
-    user_challenges = get_collection("user_challenges")
-    user_challenges.create_indexes([
-        IndexModel([("user_id", ASCENDING), ("challenge_id", ASCENDING)],
-                   unique=True, name="uniq_user_challenge_pair"),
-        IndexModel([("user_id", ASCENDING)], name="by_user"),
-        IndexModel([("challenge_id", ASCENDING)], name="by_challenge"),
-        IndexModel([("status", ASCENDING)], name="by_status"),
-    ])
+    ensure_index('user_challenges', [('user_id', ASCENDING), ('challenge_id', ASCENDING)],
+                 name='uniq_user_challenge_pair', unique=True)
+    ensure_index('user_challenges', [('user_id', ASCENDING)])
+    ensure_index('user_challenges', [('challenge_id', ASCENDING)])
+    ensure_index('user_challenges', [('status', ASCENDING)])
 
     # ---------- user_challenge_tasks ----------
-    user_challenge_tasks = get_collection("user_challenge_tasks")
-    user_challenge_tasks.create_indexes([
-        IndexModel([("user_challenge_id", ASCENDING), ("order", ASCENDING)], name="by_challenge_order"),
-        IndexModel([("user_challenge_id", ASCENDING), ("status", ASCENDING)], name="by_challenge_status"),
-        IndexModel([("user_challenge_id", ASCENDING)], name="by_challenge"),
-        IndexModel([("last_evaluated_at", DESCENDING)], name="by_last_eval_desc"),
-    ])
+    ensure_index('user_challenge_tasks', [('user_challenge_id', ASCENDING), ('order', ASCENDING)])
+    ensure_index('user_challenge_tasks', [('user_challenge_id', ASCENDING), ('status', ASCENDING)])
+    ensure_index('user_challenge_tasks', [('user_challenge_id', ASCENDING)])
+    ensure_index('user_challenge_tasks', [('last_evaluated_at', DESCENDING)])
 
     # ---------- targets ----------
-    targets = get_collection("targets")
-    targets.create_indexes([
-        IndexModel([("user_challenge_id", ASCENDING), ("cache_id", ASCENDING)],
-                   unique=True, name="uniq_target_per_challenge_cache"),
-        IndexModel([("user_challenge_id", ASCENDING), ("satisfies_task_ids", ASCENDING)],
-                   name="by_challenge_tasks_multi"),  # multikey, supports $all
-        IndexModel([("user_challenge_id", ASCENDING), ("primary_task_id", ASCENDING)],
-                   name="by_challenge_primary_task"),
-        IndexModel([("cache_id", ASCENDING)], name="by_cache"),
-        IndexModel([("user_challenge_id", ASCENDING), ("score", DESCENDING)],
-                   name="by_challenge_score_desc"),
-    ])
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('cache_id', ASCENDING)],
+                 name='uniq_target_per_challenge_cache', unique=True)
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('satisfies_task_ids', ASCENDING)])
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('primary_task_id', ASCENDING)])
+    ensure_index('targets', [('cache_id', ASCENDING)])
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)])
 
     # ---------- progress ----------
-    progress = get_collection("progress")
-    progress.create_indexes([
-        IndexModel([("user_challenge_id", ASCENDING), ("checked_at", ASCENDING)],
-                   unique=True, name="uniq_progress_time_per_challenge"),
-    ])
-
-    print("Indexes created successfully.")
+    ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)],
+                 name='uniq_progress_time_per_challenge', unique=True)
 
 
 if __name__ == "__main__":
