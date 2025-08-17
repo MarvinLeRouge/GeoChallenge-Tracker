@@ -89,8 +89,8 @@ def _materialize_to_paths(payload: bytes, filename: Optional[str]) -> List[Path]
 
 # --------- Mapping helpers (IDEM) ---------
 
-def _normalize_name(name: str) -> str:
-    return name.strip().casefold()
+def _normalize_name(name: Optional[str]) -> str:
+    return (name or "").strip().casefold()
 
 def _get_all_countries_by_name() -> Dict[str, ObjectId]:
     """
@@ -119,8 +119,8 @@ def _get_all_types_by_name() -> Dict[str, ObjectId]:
     Retourne un index: nom_normalisé -> type _id
     """
     result: Dict[str, ObjectId] = {}
-    cursor = get_collection("cache_types").find({}, {"label": 1})
-    result = {_normalize_name(item["label"]):item["_id"] for item in cursor}
+    cursor = get_collection("cache_types").find({}, {"name": 1})
+    result = {_normalize_name(item["name"]):item["_id"] for item in cursor}
 
     return result
 
@@ -129,8 +129,8 @@ def _get_all_sizes_by_name() -> Dict[str, ObjectId]:
     Retourne un index: nom_normalisé -> size _id
     """
     result: Dict[str, ObjectId] = {}
-    cursor = get_collection("cache_sizes").find({}, {"label": 1})
-    result = {_normalize_name(item["label"]):item["_id"] for item in cursor}
+    cursor = get_collection("cache_sizes").find({}, {"name": 1})
+    result = {_normalize_name(item["name"]):item["_id"] for item in cursor}
 
     return result
 
@@ -138,7 +138,7 @@ def _get_all_attributes_by_id() -> Dict[int, ObjectId]:
     """
     Retourne un index: id -> attribute _id
     """
-    result = {item["id"]:item["_id"] for item in get_collection("cache_attributes").find({}, {"id": 1})}
+    result = {item["cache_attribute_id"]:item["_id"] for item in get_collection("cache_attributes").find({}, {"cache_attribute_id": 1})}
 
     return result
 
@@ -221,7 +221,8 @@ def get_size_by_name(cache_size_name: Optional[str], all_sizes_by_name: Optional
 
     return size_id
 
-def _map_type_size_attrs(cache_type_name: Optional[str], cache_size_name: Optional[str], cache_attributes: Optional[List] = [], all_types_by_name: Optional[Dict[str, ObjectId]] = None, all_sizes_by_name: Optional[Dict[str, ObjectId]] = None, all_attributes_by_id: Optional[Dict[int, ObjectId]] = None) -> tuple[Optional[ObjectId], Optional[ObjectId], list]:
+def _map_type_size_attrs(cache_type_name: Optional[str], cache_size_name: Optional[str], cache_attributes: Optional[List] = None, all_types_by_name: Optional[Dict[str, ObjectId]] = None, all_sizes_by_name: Optional[Dict[str, ObjectId]] = None, all_attributes_by_id: Optional[Dict[int, ObjectId]] = None) -> tuple[Optional[ObjectId], Optional[ObjectId], list]:
+    cache_attributes = cache_attributes or []
     if all_types_by_name is None:
         all_types_by_name = _get_all_types_by_name()
     if all_sizes_by_name is None:
@@ -239,7 +240,7 @@ def _map_type_size_attrs(cache_type_name: Optional[str], cache_size_name: Option
         if attribute_object_id is None:
             continue
         is_positive = cache_attribute.get("is_positive", True)
-        attr_refs.append({"attribute_id": attribute_object_id, "is_positive": bool(is_positive)})
+        attr_refs.append({"attribute_doc_id": attribute_object_id, "is_positive": bool(is_positive)})
 
     return type_id, size_id, attr_refs
 
@@ -289,70 +290,73 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
 
     # Récupérer les GC connus
     known_gcs = get_column("caches", "GC")
+    seen_gcs: set[str] = set()
 
     items = []
     for path in gpx_paths:
         parser = GPXCacheParser(gpx_file=path)
-        items = parser.parse()
+        items.extend(parser.parse())
 
-        all_caches_to_db = []
-        for item in items:
-            gc = item.get("GC")
-            if not gc:
-                continue
+    all_caches_to_db = []
+    for item in items:
+        gc = item.get("GC")
+        if not gc:
+            continue
 
-            if gc in known_gcs:
-                nb_existing_caches += 1
-                continue
+        if gc in known_gcs or gc in seen_gcs:
+            nb_existing_caches += 1
+            continue
 
-            _, state_id = _ensure_country_state(item.get("country"), item.get("state"), all_countries_by_name, all_states_by_countryid_and_name)
-            type_id, size_id, attr_refs = _map_type_size_attrs(
-                item.get("cache_type"),
-                item.get("cache_size"),
-                item.get("attributes"),
-                all_types_by_name,
-                all_sizes_by_name,
-                all_attributes_by_id
-            )
-            placed_dt = _parse_dt_iso8601(item.get("placed_date")) or None
-            item_to_db = {
-                "GC": gc,
-                "title": item.get("title"),
-                "description_html": item.get("description_html"),
-                "cache_type": type_id,
-                "size": size_id,
-                "difficulty": _as_float(item.get("difficulty")),
-                "terrain": _as_float(item.get("terrain")),
-                "placed_date": placed_dt,
-                "latitude": float(item.get("latitude")),
-                "longitude": float(item.get("longitude")),
-                "elevation": item.get("elevation"),
-                "state_id": state_id,
-                "location_more": None,
-                "attributes": attr_refs,
-                "owner": item.get("owner"),
-                "favorites": item.get("favorites"),
-                "created_at": now(),
-            }
-            all_caches_to_db.append(item_to_db)
+        country_id, state_id = _ensure_country_state(item.get("country"), item.get("state"), all_countries_by_name, all_states_by_countryid_and_name)
+        type_id, size_id, attr_refs = _map_type_size_attrs(
+            item.get("cache_type"),
+            item.get("cache_size"),
+            item.get("attributes"),
+            all_types_by_name,
+            all_sizes_by_name,
+            all_attributes_by_id
+        )
+        placed_dt = _parse_dt_iso8601(item.get("placed_date")) or None
+        item_to_db = {
+            "GC": gc,
+            "title": item.get("title"),
+            "description_html": item.get("description_html"),
+            "type_id": type_id,
+            "size_id": size_id,
+            "difficulty": _as_float(item.get("difficulty"), default=None),
+            "terrain": _as_float(item.get("terrain"), default=None),
+            "placed_at": placed_dt,
+            "lat": _as_float(item.get("latitude"), default=None),
+            "lon": _as_float(item.get("longitude"), default=None),
+            "elevation": item.get("elevation"),
+            "country_id": country_id,
+            "state_id": state_id,
+            "location_more": None,
+            "attributes": attr_refs,
+            "owner": item.get("owner"),
+            "favorites": int(item.get("favorites") or 0),
+            "created_at": now(),
+        }
+        all_caches_to_db.append(item_to_db)
+        seen_gcs.add(gc)
 
-        nb_items_to_db = len(all_caches_to_db)
-        INSERTS_CHUNK_SIZE = 100
-        nb_chunks = math.ceil(nb_items_to_db / INSERTS_CHUNK_SIZE)
-        items_to_db_chunks = [all_caches_to_db[i * INSERTS_CHUNK_SIZE:min(nb_items_to_db, (i+1) * INSERTS_CHUNK_SIZE)] for i in range(nb_chunks)]
-        for i, items_to_db_chunk in enumerate(items_to_db_chunks):
-            result_chunk = caches_collection.insert_many(items_to_db_chunk)
-            nb_inserted_caches+= len(result_chunk.inserted_ids)
+    nb_items_to_db = len(all_caches_to_db)
+    INSERTS_CHUNK_SIZE = 100
+    nb_chunks = math.ceil(nb_items_to_db / INSERTS_CHUNK_SIZE)
+    items_to_db_chunks = [all_caches_to_db[i * INSERTS_CHUNK_SIZE:min(nb_items_to_db, (i+1) * INSERTS_CHUNK_SIZE)] for i in range(nb_chunks)]
+    for i, items_to_db_chunk in enumerate(items_to_db_chunks):
+        result_chunk = caches_collection.insert_many(items_to_db_chunk)
+        nb_inserted_caches+= len(result_chunk.inserted_ids)
 
     if found:
-        founds_ops = []
+        found_ops = []
         found_caches_by_gc = {}
         for item in items:
             found_date = _parse_dt_iso8601(item.get("found_date"))
             if found_date:
                 found_cache_gc = item.get("GC")
                 found_cache = {
-                    "found_date": found_date,
+                    "found_date": found_date.date(),
                     "notes": item.get("notes")
                 }
                 found_caches_by_gc[found_cache_gc] = found_cache
@@ -368,7 +372,6 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
                 })
         found_caches_to_db = list(found_caches_by_gc.values())
         for item in found_caches_to_db:
-            print("item", item)
             q = {"user_id": item["user_id"], "cache_id": item["cache_id"]}
             update = {
                 "$setOnInsert": {
@@ -385,11 +388,15 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
                 else:
                     update["$set"]["notes"] = item["notes"]
 
-            founds_ops.append(UpdateOne(q, update, upsert=True))
+            found_ops.append(UpdateOne(q, update, upsert=True))
 
-        result_found = found_caches_collection.bulk_write(founds_ops, ordered=False)
-        nb_inserted_found_caches = result_found.upserted_count
-        nb_updated_found_caches = result_found.modified_count
+        if found_ops:
+            result_found = found_caches_collection.bulk_write(found_ops, ordered=False)
+            nb_inserted_found_caches = result_found.upserted_count
+            nb_updated_found_caches = result_found.modified_count
+        else:
+            nb_inserted_found_caches = 0
+            nb_updated_found_caches = 0
 
     nb_countries_after = get_collection("countries").count_documents({})
     nb_states_after = get_collection("states").count_documents({})
