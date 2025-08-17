@@ -1,4 +1,5 @@
 # backend/app/api/models/challenge.py
+
 from __future__ import annotations
 from typing import Optional
 import datetime as dt
