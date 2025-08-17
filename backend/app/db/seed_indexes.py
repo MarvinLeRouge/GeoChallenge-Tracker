@@ -11,21 +11,32 @@ Idempotent index seeding for GeoChallenge Tracker.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from pymongo import ASCENDING, DESCENDING, TEXT
 from pymongo.operations import IndexModel
 from pymongo.collation import Collation
 from app.db.mongodb import get_collection
 
-KeySpec = List[Tuple[str, int]]
+# Direction can be 1/-1 for asc/desc, or string for special types ('2dsphere', '2d', etc.)
+Direction = Union[int, str]
+KeySpec = List[Tuple[str, Direction]]
 
 # Case-insensitive (accent-sensitive) collation for users
 COLLATION_CI = Collation(locale="en", strength=2)
 
 
 def _normalize_key_from_mongo(key_doc: Dict[str, Any]) -> KeySpec:
-    # Mongo returns an OrderedDict-like mapping; convert to list of (field, direction)
-    return [(k, int(v)) for k, v in key_doc.items()]
+    """Mongo returns an OrderedDict-like mapping; convert to list of (field, direction).
+    Direction may be numeric (1/-1) or a string like '2dsphere'.
+    """
+    norm: KeySpec = []
+    for k, v in key_doc.items():
+        if isinstance(v, (int, float)):
+            norm.append((k, int(v)))
+        else:
+            # e.g. '2dsphere', 'text'
+            norm.append((k, str(v)))
+    return norm
 
 
 def _find_existing_by_keys(coll, keys: KeySpec) -> Optional[Dict[str, Any]]:
@@ -150,6 +161,7 @@ def ensure_indexes() -> None:
     ensure_index('caches', [('terrain', ASCENDING)])
     ensure_index('caches', [('placed_at', DESCENDING)])
     ensure_text_index('caches', ['title', 'description_html'], name='text_title_desc')
+    ensure_index('caches', [('loc', '2dsphere')], name='geo_loc_2dsphere')
 
     # ---------- found_caches ----------
     ensure_index('found_caches', [('user_id', ASCENDING), ('cache_id', ASCENDING)], name='uniq_user_cache_found', unique=True)

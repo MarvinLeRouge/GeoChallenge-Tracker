@@ -11,6 +11,7 @@ from fastapi import HTTPException
 from bson import ObjectId
 import uuid
 from pymongo import UpdateOne
+from pymongo.errors import BulkWriteError
 
 from app.core.utils import *
 from app.db.mongodb import get_collection, get_column
@@ -49,9 +50,10 @@ def _validate_gpx_minimal_path(path: Path) -> None:
         raise HTTPException(status_code=400, detail=f"{path.name} is not a <gpx> file")
 
 def _write_single_gpx(payload: bytes, filename: Optional[str]) -> Path:
-    ext = ".gpx" if not filename or not filename.lower().endswith(".gpx") else ""
-    safe_name = (filename or f"upload-{uuid.uuid4().hex}.gpx").replace(os.sep, "_")
-    out_path = _safe_join(UPLOADS_DIR, safe_name + ext)
+    base = (filename or f"upload-{uuid.uuid4().hex}").replace(os.sep, "_")
+    if not base.lower().endswith(".gpx"):
+        base += ".gpx"
+    out_path = _safe_join(UPLOADS_DIR, base)
     out_path.write_bytes(payload)
     _validate_gpx_minimal_path(out_path)
     return out_path
@@ -307,6 +309,10 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
             nb_existing_caches += 1
             continue
 
+        lat = _as_float(item.get("latitude"))
+        lon = _as_float(item.get("longitude"))
+        loc = {"type": "Point", "coordinates": [lon, lat]} if lat is not None and lon is not None else None
+
         country_id, state_id = _ensure_country_state(item.get("country"), item.get("state"), all_countries_by_name, all_states_by_countryid_and_name)
         type_id, size_id, attr_refs = _map_type_size_attrs(
             item.get("cache_type"),
@@ -326,8 +332,9 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
             "difficulty": _as_float(item.get("difficulty"), default=None),
             "terrain": _as_float(item.get("terrain"), default=None),
             "placed_at": placed_dt,
-            "lat": _as_float(item.get("latitude"), default=None),
-            "lon": _as_float(item.get("longitude"), default=None),
+            "lat": lat,
+            "lon": lon,
+            "loc": loc,
             "elevation": item.get("elevation"),
             "country_id": country_id,
             "state_id": state_id,
@@ -345,8 +352,14 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
     nb_chunks = math.ceil(nb_items_to_db / INSERTS_CHUNK_SIZE)
     items_to_db_chunks = [all_caches_to_db[i * INSERTS_CHUNK_SIZE:min(nb_items_to_db, (i+1) * INSERTS_CHUNK_SIZE)] for i in range(nb_chunks)]
     for i, items_to_db_chunk in enumerate(items_to_db_chunks):
-        result_chunk = caches_collection.insert_many(items_to_db_chunk)
-        nb_inserted_caches+= len(result_chunk.inserted_ids)
+        try:
+            result_chunk = caches_collection.insert_many(items_to_db_chunk)
+            nb_inserted_caches+= len(result_chunk.inserted_ids)
+        except BulkWriteError as bwe:
+            # Compter les duplicates comme existants et continuer
+            for err in bwe.details.get("writeErrors", []):
+                if err.get("code") == 11000:
+                    nb_existing_caches += 1
 
     if found:
         found_ops = []

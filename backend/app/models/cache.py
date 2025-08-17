@@ -1,15 +1,22 @@
-# backend/app/api/models/cache.py
+# backend/app/models/cache.py
 
 from __future__ import annotations
+
 from typing import Optional, List, Literal, Dict, Any
 import datetime as dt
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
+
 from app.core.utils import *
 from app.core.bson_utils import *
+
 
 class CacheAttributeRef(BaseModel):
     attribute_doc_id: PyObjectId   # référence à cache_attributes._id
     is_positive: bool              # attribut positif (True) ou négatif (False)
+
+    # Sous-modèle: ajouter model_config pour gérer PyObjectId partout (nested)
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
+
 
 class CacheBase(BaseModel):
     GC: str
@@ -26,6 +33,8 @@ class CacheBase(BaseModel):
     state_id: Optional[PyObjectId] = None     # ref -> State
     lat: Optional[float] = None
     lon: Optional[float] = None
+    # GeoJSON pour index 2dsphere (coordonnées [lon, lat])
+    loc: Optional[Dict[str, Any]] = None
     elevation: Optional[int] = None           # en mètres (optionnel)
     location_more: Optional[Dict[str, Any]] = None  # infos libres (ville, département...)
 
@@ -40,8 +49,10 @@ class CacheBase(BaseModel):
     favorites: Optional[int] = None
     status: Optional[Literal["active", "disabled", "archived"]] = None
 
+
 class CacheCreate(CacheBase):
     pass
+
 
 class CacheUpdate(BaseModel):
     # champs modifiables usuels (étends au besoin)
@@ -53,6 +64,9 @@ class CacheUpdate(BaseModel):
     location_more: Optional[Dict[str, Any]] = None
     attributes: Optional[List[CacheAttributeRef]] = None
     status: Optional[Literal["active", "disabled", "archived"]] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
+
 
 class Cache(MongoBaseModel, CacheBase):
     created_at: dt.datetime = Field(default_factory=lambda: now())
