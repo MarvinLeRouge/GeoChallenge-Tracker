@@ -4,11 +4,13 @@ import datetime as dt
 import pytest
 from fastapi.testclient import TestClient
 from bson import ObjectId
+from pathlib import Path
 
 from app.main import app
 from app.db.mongodb import get_collection
 from app.core.security import get_current_user
 
+GPX_FOLDER = Path(__file__).resolve().parents[1] / "data" / "samples" / "gpx"
 
 # ---------- Fixtures ----------
 
@@ -35,12 +37,13 @@ def client():
 
 @pytest.fixture
 def sample_gpx_path():
-    return "../data/samples/gpx/test-export.gpx"
+    return f"{GPX_FOLDER}/test-export.gpx"
+
 
 
 # ---------- Tests ----------
 
-def ___test_upload_gpx_without_found(client, sample_gpx_path):
+def test_upload_gpx_without_found(client, sample_gpx_path):
     before_caches = get_collection("caches").count_documents({})
     before_found = get_collection("found_caches").count_documents({})
 
@@ -55,7 +58,7 @@ def ___test_upload_gpx_without_found(client, sample_gpx_path):
 
     assert data["nb_gpx_files"] == 1
     assert data["nb_inserted_caches"] + data["nb_existing_caches"] == 295
-    assert data["nb_found_caches_added"] == 0
+    assert data["nb_inserted_found_caches"] == 0
 
     after_caches = get_collection("caches").count_documents({})
     after_found = get_collection("found_caches").count_documents({})
