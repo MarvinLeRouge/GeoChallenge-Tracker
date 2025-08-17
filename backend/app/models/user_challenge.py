@@ -1,6 +1,6 @@
 # backend/app/api/models/user_challenge.py
-from __future__ import annotations
 
+from __future__ import annotations
 import datetime as dt
 from typing import Optional, List, Any, Literal
 from pydantic import BaseModel, Field, ConfigDict
@@ -13,12 +13,6 @@ class UCLogic(BaseModel):
     and_: Optional[List[PyObjectId]] = Field(default=None, alias="and")
     or_: Optional[List[PyObjectId]] = Field(default=None, alias="or")
     not_: Optional[PyObjectId] = Field(default=None, alias="not")
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-        json_encoders={PyObjectId: str},
-    )
 
 class UserChallenge(MongoBaseModel):
     user_id: PyObjectId
