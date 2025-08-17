@@ -38,13 +38,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # Case-insensitive collation (case-insensitive, accent-sensitive)
 COLLATION_CI = Collation(locale="en", strength=2)
 
+def users_coll() -> Collection:
+    # dependency callable that returns the users collection
+    return get_collection("users")
+
 
 class MessageOut(BaseModel):
     message: str = Field(..., examples=["OK"])
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserInRegister, users: Collection = Depends(get_collection("users"))):
+def register(payload: UserInRegister, users: Collection = Depends(users_coll)):
     username = (payload.username or "").strip()
     email = (payload.email or "").strip()
 
@@ -91,7 +95,7 @@ def register(payload: UserInRegister, users: Collection = Depends(get_collection
 
 
 @router.post("/login", response_model=TokenPair)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), users: Collection = Depends(get_collection("users"))):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), users: Collection = Depends(users_coll)):
     ident = (form_data.username or "").strip()
     user = users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},
@@ -109,7 +113,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), users: Collection = 
 
 
 @router.post("/token", response_model=TokenResponse)
-def refresh_token(payload: RefreshTokenRequest, users: Collection = Depends(get_collection("users"))):
+def refresh_token(payload: RefreshTokenRequest, users: Collection = Depends(users_coll)):
     try:
         data = jwt.decode(payload.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         sub = data.get("sub")
@@ -136,7 +140,7 @@ def create_verification_code() -> str:
 
 
 @router.get("/verify-email", response_model=MessageOut)
-def verify_email(code: str, users: Collection = Depends(get_collection("users"))):
+def verify_email(code: str, users: Collection = Depends(users_coll)):
     now_ts = now()
     user = users.find_one(
         {"verification_code": code, "verification_expires_at": {"$gte": now_ts}},
@@ -153,12 +157,12 @@ def verify_email(code: str, users: Collection = Depends(get_collection("users"))
 
 
 @router.post("/verify-email", response_model=MessageOut)
-def verify_email_post(body: VerifyEmailBody, users: Collection = Depends(get_collection("users"))):
+def verify_email_post(body: VerifyEmailBody, users: Collection = Depends(users_coll)):
     return verify_email(code=body.code, users=users)
 
 
 @router.post("/resend-verification", response_model=MessageOut)
-def resend_verification(body: ResendVerificationRequest, users: Collection = Depends(get_collection("users"))):
+def resend_verification(body: ResendVerificationRequest, users: Collection = Depends(users_coll)):
     ident = (body.identifier or "").strip()
     user = users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},
