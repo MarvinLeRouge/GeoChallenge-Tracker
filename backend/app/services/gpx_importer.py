@@ -291,7 +291,7 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
             return default
 
     # Récupérer les GC connus
-    known_gcs = get_column("caches", "GC")
+    known_gcs = set(get_column("caches", "GC"))
     seen_gcs: set[str] = set()
 
     items = []
@@ -366,13 +366,13 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
         found_caches_by_gc = {}
         for item in items:
             found_date = _parse_dt_iso8601(item.get("found_date"))
-            if found_date:
-                found_cache_gc = item.get("GC")
-                found_cache = {
-                    "found_date": found_date.date(),
-                    "notes": item.get("notes")
+            if item.get("GC") and found_date:
+                # stocker un datetime "minuit" (naïf) pour être compatible PyMongo
+                found_dt = dt.datetime(found_date.year, found_date.month, found_date.day)
+                found_caches_by_gc[item["GC"]] = {
+                    "found_date": found_dt,            # <-- OK: type datetime
+                    "notes": item.get("notes"),
                 }
-                found_caches_by_gc[found_cache_gc] = found_cache
         if found_caches_by_gc:
             found_caches_in_db_ids = {item["GC"]: item["_id"] for item in caches_collection.find(
                 {"GC": {"$in": list(found_caches_by_gc.keys())}},
@@ -383,7 +383,29 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
                     "cache_id": db_cache_id,
                     "user_id": user["_id"],
                 })
-        found_caches_to_db = list(found_caches_by_gc.values())
+        # map GC -> cache _id en base
+        found_caches_in_db_ids = {
+            item["GC"]: item["_id"]
+            for item in caches_collection.find(
+                {"GC": {"$in": list(found_caches_by_gc.keys())}}, {"_id": 1, "GC": 1}
+            )
+        }
+
+        # ne garder que les items avec cache_id présent
+        found_caches_to_db = []
+        for gc, meta in found_caches_by_gc.items():
+            cache_id = found_caches_in_db_ids.get(gc)
+            if not cache_id:
+                continue
+            doc = {
+                "cache_id": cache_id,
+                "user_id": user["_id"],
+                "found_date": meta["found_date"],
+            }
+            if "notes" in meta:
+                doc["notes"] = meta["notes"]
+            found_caches_to_db.append(doc)
+
         for item in found_caches_to_db:
             q = {"user_id": item["user_id"], "cache_id": item["cache_id"]}
             update = {
