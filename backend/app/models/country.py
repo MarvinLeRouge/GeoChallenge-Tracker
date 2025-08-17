@@ -17,7 +17,6 @@ class CountryUpdate(BaseModel):
     name: Optional[str]
     code: Optional[str]
 
-class Country(CountryBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+class Country(MongoBaseModel, CountryBase):
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None

@@ -24,6 +24,5 @@ class CacheAttributeUpdate(BaseModel):
     aliases: Optional[List[str]] = None
 
 class CacheAttribute(MongoBaseModel, CacheAttributeBase):
-    # Document stocké en base (hérite de MongoBaseModel pour _id/encoders)
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
