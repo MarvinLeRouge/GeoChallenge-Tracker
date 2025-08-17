@@ -44,7 +44,7 @@ def test_login_invalid_password(test_user):
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid credentials"
 
-TEST_USER_ID = "689122a87dee39e7bd37945f"
+TEST_USER_ID = "689ee343223844287350eed9"
 
 def test_refresh_token_valid():
     refresh_token = create_refresh_token(
