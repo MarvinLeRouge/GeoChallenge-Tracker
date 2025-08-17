@@ -8,6 +8,7 @@ __pycache__/
 *.sqlite3
 .DS_Store
 Thumbs.db
+*.zip
 
 # Python
 *.egg-info/

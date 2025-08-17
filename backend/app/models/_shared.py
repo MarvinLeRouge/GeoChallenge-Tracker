@@ -1,7 +1,7 @@
-# backend/app/models/_sharted.PyObjectId
+# backend/app/models/_shared.py
  
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 import datetime as dt
 from app.core.bson_utils import *
 from app.core.utils import *
