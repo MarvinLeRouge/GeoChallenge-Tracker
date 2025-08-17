@@ -1,6 +1,6 @@
 # backend/app/api/models/user_challenge_task.py
-from __future__ import annotations
 
+from __future__ import annotations
 import datetime as dt
 from typing import Optional, List, Tuple
 from pydantic import BaseModel, Field, ConfigDict
