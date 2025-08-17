@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
@@ -95,13 +95,32 @@ def register(payload: UserInRegister, users: Collection = Depends(users_coll)):
 
 
 @router.post("/login", response_model=TokenPair)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), users: Collection = Depends(users_coll)):
-    ident = (form_data.username or "").strip()
+async def login(request: Request, users: Collection = Depends(users_coll)):
+    # Accepte form-data OAuth2 (Swagger) OU JSON {identifier|username|email, password}
+    ctype = request.headers.get("content-type", "")
+    ident = ""
+    password = ""
+
+    if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
+        form = await request.form()
+        ident = (form.get("username") or form.get("identifier") or "").strip()
+        password = form.get("password") or ""
+    else:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        ident = (body.get("identifier") or body.get("username") or body.get("email") or "").strip()
+        password = body.get("password") or ""
+
+    if not ident or not password:
+        raise HTTPException(status_code=422, detail="Missing credentials")
+
     user = users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},
         collation=COLLATION_CI,
     )
-    if user is None or not verify_password(form_data.password, user.get("password_hash", "")):
+    if user is None or not verify_password(password, user.get("password_hash", "")):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.get("is_verified", False):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
@@ -112,10 +131,10 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), users: Collection = 
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post("/refresh", response_model=TokenResponse)
 def refresh_token(payload: RefreshTokenRequest, users: Collection = Depends(users_coll)):
     try:
-        data = jwt.decode(payload.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        data = jwt.decode(payload.refresh_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         sub = data.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Invalid refresh token")

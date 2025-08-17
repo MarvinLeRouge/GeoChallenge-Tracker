@@ -14,8 +14,8 @@ from app.db.mongodb import get_collection
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/token",   # <- nouveau endpoint ci-dessous
-    scopes={}                 # ou tes scopes si tu en utilises
+    tokenUrl="/auth/login", 
+    scopes={}
 )
 
 # Hash password
@@ -55,8 +55,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
     )
 
     try:
-        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
-        print(payload)
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
