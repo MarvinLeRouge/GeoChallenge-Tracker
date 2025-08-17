@@ -13,7 +13,10 @@ from app.core.settings import settings
 from app.db.mongodb import get_collection
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="/auth/token",   # <- nouveau endpoint ci-dessous
+    scopes={}                 # ou tes scopes si tu en utilises
+)
 
 # Hash password
 def hash_password(password: str) -> str:
