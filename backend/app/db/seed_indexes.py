@@ -53,7 +53,8 @@ def ensure_indexes() -> None:
     cache_attributes = get_collection("cache_attributes")
     cache_attributes.create_indexes([
         IndexModel([("cache_attribute_id", ASCENDING)], unique=True, name="uniq_cache_attribute_id"),
-        IndexModel([("txt", ASCENDING)], unique=True, name="uniq_cache_attribute_txt"),
+        IndexModel([("txt", ASCENDING)], unique=True, name="uniq_cache_attribute_txt",
+           partialFilterExpression={"txt": {"$type": "string"}}),
         IndexModel([("name", ASCENDING)], name="by_name"),
     ])
 
