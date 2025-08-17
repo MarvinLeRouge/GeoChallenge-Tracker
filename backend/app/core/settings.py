@@ -45,13 +45,3 @@ class Settings(BaseSettings):
 settings = Settings()
 
 print("--- Settings loaded ---")
-print(f"MONGODB_USER: {settings.mongodb_user}")
-print(f"MONGODB_PASSWORD: {settings.mongodb_password}")
-print(f"MONGODB_URI_TPL: {settings.mongodb_uri_tpl}")
-print(f"MONGODB_DB: {settings.mongodb_db}")
-print(f"JWT_SECRET_KEY: {settings.jwt_secret_key}")
-print(f"ADMIN_USERNAME: {settings.admin_username}")
-print(f"ADMIN_EMAIL: {settings.admin_email}")
-print(f"ADMIN_PASSWORD: {settings.admin_password}")
-print(f"TEST: {settings.test}")
-print("------------------------")
