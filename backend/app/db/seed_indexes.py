@@ -192,6 +192,14 @@ def ensure_indexes() -> None:
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('primary_task_id', ASCENDING)])
     ensure_index('targets', [('cache_id', ASCENDING)])
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)])
+    # --- PATCH: Challenges MVP additions ---
+    # Caches: accelerate attribute-based filters (RuleAttributes)
+    ensure_index('caches', [('attributes.attribute_doc_id', ASCENDING), ('attributes.is_positive', ASCENDING)],
+                 name='ix_caches__attributes_attrdocid_ispos')
+    # UserChallenges: fast listing by user + status sorted by most recently updated
+    ensure_index('user_challenges', [('user_id', ASCENDING), ('status', ASCENDING), ('updated_at', DESCENDING)],
+                 name='ix_user_challenges__by_user_status_updated')
+
 
     # ---------- progress ----------
     ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)],
