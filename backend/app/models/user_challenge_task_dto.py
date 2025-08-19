@@ -15,10 +15,10 @@ class TaskIn(BaseModel):
     status: Optional[str] = Field(default=None, description="Optional manual status: 'todo' | 'in_progress' | 'done'")
 
 class TasksPutIn(BaseModel):
-    tasks: conlist(TaskIn, min_items=0, max_items=50)
+    tasks: conlist(TaskIn, min_length=0, max_length=50)
 
 class TasksValidateIn(BaseModel):
-    tasks: conlist(TaskIn, min_items=0, max_items=50)
+    tasks: conlist(TaskIn, min_length=0, max_length=50)
 
 class TaskOut(BaseModel):
     id: PyObjectId
