@@ -1,7 +1,5 @@
-
 from datetime import datetime
-from typing import Dict, Any
-
+from typing import Dict, Any, List
 import json
 import pytest
 from bson import ObjectId
@@ -85,8 +83,8 @@ def uc_ctx(admin_user_id):
     challenges = get_collection("challenges")
     ch_doc = {
         "_id": ObjectId(),
-        "name": "PyTest Dummy Challenge",
-        "description": "Challenge for testing UserChallengeTasks",
+        "name": "PyTest Challenge Suite",
+        "description": "Challenge for testing UserChallengeTasks suite",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
     }
@@ -147,20 +145,14 @@ def _sample_referentials():
         }
     }
 
-def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
-    refs = _sample_referentials()
-    rprint("\n[info] Available referentials:")
-    rprint(refs)
-
-    uc_id = uc_ctx["user_challenge_id"]
-
-    tasks_payload = [
+def _baseline_tasks(refs):
+    return [
         {
             "title": "Traditional with picnic",
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "type_in", "type_ids": refs["type_ids"]},
+                    { "kind": "type_in", "type_ids": [str(x) for x in refs["type_ids"]]},
                     { "kind": "attributes", "attributes": [ { "cache_attribute_id": refs["cache_attribute_id"], "is_positive": True } ] }
                 ]
             },
@@ -172,8 +164,8 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "size_in", "size_ids": refs["size_ids"] },
-                    { "kind": "country_is", "country_id": refs["country_id"]},
+                    { "kind": "size_in", "size_ids": [str(x) for x in refs["size_ids"]] },
+                    { "kind": "country_is", "country_id": str(refs["country_id"]) },
                     { "kind": "placed_before", "date": "2010-01-01" }
                 ]
             },
@@ -185,7 +177,7 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "state_in", "state_ids": refs["state_ids"]},
+                    { "kind": "state_in", "state_ids": [str(x) for x in refs["state_ids"]]},
                     { "kind": "difficulty_between", "min": 1.5, "max": 3.0 },
                     { "kind": "terrain_between", "min": 1.5, "max": 3.0 }
                 ]
@@ -194,6 +186,15 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
             "status": "done",
         },
     ]
+
+def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
+    refs = _sample_referentials()
+    rprint("\n[info] Available referentials:")
+    rprint(refs)
+
+    uc_id = uc_ctx["user_challenge_id"]
+
+    tasks_payload = _baseline_tasks(refs)
 
     rprint("\n[print] Human-readable conditions:")
     for i, t in enumerate(tasks_payload):
@@ -206,15 +207,157 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
     assert res_val["ok"] is True, "Validation failed when it should pass"
 
     res_put = put_tasks(admin_user_id, uc_id, tasks_payload)
-    rprint("\n[result] put_tasks -> stored items:")
+    rprint("\n[put_tasks] stored items:")
     rprint(res_put)
     assert len(res_put) == len(tasks_payload)
     assert [i["order"] for i in res_put] == list(range(len(tasks_payload)))
 
     res_list = list_tasks(admin_user_id, uc_id)
-    rprint("\n[result] list_tasks -> items:")
+    rprint("\n[list_tasks] items:")
     rprint(res_list)
     assert [i["order"] for i in res_list] == list(range(len(tasks_payload)))
 
     done = next((i for i in res_list if i["status"] == "done"), None)
     assert done is not None and done.get("progress", {}).get("percent") == 100, "Done task did not get 100% progress"
+
+def test_reorder_and_idempotence(admin_user_id, uc_ctx):
+    refs = _sample_referentials()
+    uc_id = uc_ctx["user_challenge_id"]
+
+    payload = _baseline_tasks(refs)
+    assert validate_only(admin_user_id, uc_id, payload)["ok"]
+    created = put_tasks(admin_user_id, uc_id, payload)
+    rprint("\n[reorder] after baseline put:", [i["id"] for i in created])
+
+    # Reverse order
+    reordered = list(reversed(created))
+    new_payload = []
+    for item in reordered:
+        new_payload.append({
+            "id": item["id"],
+            "title": item["title"],
+            "expression": item["expression"],
+            "constraints": item["constraints"],
+            "status": item["status"],
+        })
+    updated = put_tasks(admin_user_id, uc_id, new_payload)
+    rprint("[reorder] after reversing order:", [i["order"] for i in updated])
+    assert [i["order"] for i in updated] == [0,1,2]
+    assert updated[0]["id"] == created[-1]["id"]
+
+    again = put_tasks(admin_user_id, uc_id, new_payload)
+    rprint("[reorder] idempotent put:", [i["id"] for i in again])
+    assert [i["id"] for i in again] == [i["id"] for i in updated]
+
+def test_delete_implicit(admin_user_id, uc_ctx):
+    refs = _sample_referentials()
+    uc_id = uc_ctx["user_challenge_id"]
+
+    payload = _baseline_tasks(refs)
+    assert validate_only(admin_user_id, uc_id, payload)["ok"]
+    created = put_tasks(admin_user_id, uc_id, payload)
+    rprint("\n[delete] baseline titles:", [i["title"] for i in created])
+
+    # Remove the middle task
+    reduced_payload = [
+        {
+            "id": created[0]["id"],
+            "title": created[0]["title"],
+            "expression": created[0]["expression"],
+            "constraints": created[0]["constraints"],
+            "status": created[0]["status"],
+        },
+        {
+            "id": created[2]["id"],
+            "title": created[2]["title"],
+            "expression": created[2]["expression"],
+            "constraints": created[2]["constraints"],
+            "status": created[2]["status"],
+        },
+    ]
+    updated = put_tasks(admin_user_id, uc_id, reduced_payload)
+    rprint("[delete] after removal:", [i["title"] for i in updated])
+    assert len(updated) == 2
+    titles = [i["title"] for i in updated]
+    assert created[1]["title"] not in titles
+
+def test_invalid_referentials_validate_only(admin_user_id, uc_ctx):
+    uc_id = uc_ctx["user_challenge_id"]
+
+    payload = [
+        {
+            "title": "Bad type id",
+            "expression": {"kind":"type_in","type_ids":[str(ObjectId())]},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+        {
+            "title": "Bad attribute id",
+            "expression": {"kind":"attributes","attributes":[{"cache_attribute_id": 999999, "is_positive": True}]},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+    ]
+    res = validate_only(admin_user_id, uc_id, payload)
+    rprint("\n[invalid refs] validate_only:", res)
+    assert res["ok"] is False
+    assert any("type_in" in e.get("message","") or "cache_type" in e.get("message","") for e in res["errors"])
+    assert any("attributes" in e.get("message","") for e in res["errors"])
+
+def test_ast_grammar_error(admin_user_id, uc_ctx):
+    refs = _sample_referentials()
+    uc_id = uc_ctx["user_challenge_id"]
+
+    bad_payload = [
+        {
+            "title": "Missing size_ids field",
+            "expression": {"kind":"size_in","type_ids":[str(x) for x in refs["size_ids"]]},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+        {
+            "title": "Unknown kind",
+            "expression": {"kind":"gloubiboulga","foo": "bar"},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+        {
+            "title": "Malformed and (no nodes)",
+            "expression": {"kind":"and","nodes":[]},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+    ]
+    res = validate_only(admin_user_id, uc_id, bad_payload)
+    rprint("\n[grammar] validate_only:", res)
+    assert res["ok"] is False
+    # At least one error present
+    assert len([e for e in res["errors"] if e.get("code") != "ok"]) >= 1
+
+def test_or_and_not_acceptance(admin_user_id, uc_ctx):
+    refs = _sample_referentials()
+    uc_id = uc_ctx["user_challenge_id"]
+
+    payload = [
+        {
+            "title": "OR over types (traditional or traditional)",
+            "expression": {"kind":"or","nodes":[
+                {"kind":"type_in","type_ids":[str(x) for x in refs["type_ids"]]},
+                {"kind":"type_in","type_ids":[str(x) for x in refs["type_ids"]]},
+            ]},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+        {
+            "title": "NOT picnic",
+            "expression": {"kind":"not","node": {"kind":"attributes","attributes":[{"cache_attribute_id": refs["cache_attribute_id"], "is_positive": True}]}},
+            "constraints": {"min_count": 1},
+            "status": "todo",
+        },
+    ]
+    v = validate_only(admin_user_id, uc_id, payload)
+    rprint("\n[or/not] validate_only:", v)
+    assert v["ok"] is True
+    stored = put_tasks(admin_user_id, uc_id, payload)
+    rprint("[or/not] stored titles:", [i["title"] for i in stored])
+    assert len(stored) == 2
