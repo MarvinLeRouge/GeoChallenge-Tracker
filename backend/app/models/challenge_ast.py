@@ -18,6 +18,10 @@ class RuleTypeIn(ASTBase):
     kind: Literal["type_in"] = "type_in"
     type_ids: List[PyObjectId]
 
+class RuleSizeIn(ASTBase):
+    kind: Literal["size_in"] = "size_in"
+    size_ids: List[PyObjectId]
+
 class RulePlacedYear(ASTBase):
     kind: Literal["placed_year"] = "placed_year"
     year: int = Field(ge=1999, le=2100)
@@ -58,7 +62,7 @@ class RuleAttributes(ASTBase):
     attributes: List[AttributeSelector]
 
 TaskLeaf = Union[
-    RuleTypeIn, RulePlacedYear, RulePlacedBefore, RulePlacedAfter,
+    RuleTypeIn, RuleSizeIn, RulePlacedYear, RulePlacedBefore, RulePlacedAfter,
     RuleStateIn, RuleCountryIs, RuleDifficultyBetween, RuleTerrainBetween,
     RuleAttributes
 ]
