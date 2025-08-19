@@ -9,6 +9,10 @@ from pymongo import UpdateOne
 from app.db.mongodb import get_collection
 from app.models.challenge_ast import TaskExpression, TaskAnd, TaskOr, TaskNot, RuleAttributes
 
+from pydantic import TypeAdapter
+
+TASK_EXPRESSION_ADAPTER = TypeAdapter(TaskExpression)
+
 def _now() -> datetime:
     return datetime.utcnow()
 
@@ -49,6 +53,10 @@ def _validate_referentials_expression(expr: TaskExpression) -> List[str]:
             for oid in node.type_ids:
                 if not _exists_id("cache_types", oid):
                     errors.append(f"type_in: unknown cache_type id '{oid}'")
+        elif kind == "size_in":
+            for oid in node.size_ids:
+                if not _exists_id("cache_sizes", oid):
+                    errors.append(f"size_in: unknown cache_size id '{oid}'")
         elif kind == "state_in":
             for oid in node.state_ids:
                 if not _exists_id("states", oid):
@@ -63,10 +71,6 @@ def _validate_referentials_expression(expr: TaskExpression) -> List[str]:
         elif kind == "difficulty_between" or kind == "terrain_between":
             if node.min > node.max:
                 errors.append(f"{kind}: min must be <= max")
-        elif kind == "size_in":
-            for oid in node.size_ids:
-                if not _exists_id("cache_sizes", oid):
-                    errors.append(f"size_in: unknown cache_size id '{oid}'")
         # placed_year/after/before are structurally validated by Pydantic (date/int)
     return errors
 
@@ -92,13 +96,28 @@ def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks: List[Dict
 
         # expression already validated by DTO typing; still re-validate defensively
         expr_payload = t.get("expression")
+        expr_model = None
         try:
-            expr = expr_payload if isinstance(expr_payload, dict) else None
-            expr_model = TaskExpression.model_validate(expr_payload) if expr_payload is not None else None
+            expr_model = TASK_EXPRESSION_ADAPTER.validate_python(expr_payload)
         except Exception as e:
-            err_list.append(f"expression invalid: {e}")
+            # Essaye d’extraire des erreurs structurées si l’exception le permet
+            detail_str = None
+            try:
+                if hasattr(e, "errors"):
+                    errs = e.errors()
+                    if isinstance(errs, list):
+                        detail_str = " ; ".join(
+                            f"{er.get('loc')}: {er.get('msg')} ({er.get('type')})"
+                            for er in errs
+                        )
+            except Exception:
+                pass
+            if not detail_str:
+                detail_str = repr(e)
+            err_list.append(f"expression invalid: {detail_str}")
             expr_model = None
 
+        # Si l’AST est bien typée, on enchaîne avec la vérif des référentiels
         if expr_model is not None:
             err_list += _validate_referentials_expression(expr_model)
 
@@ -175,13 +194,18 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks: List[Dict[str, Any]]) -
     try:
         ops: List[UpdateOne] = []
         for d in new_docs:
+            # ne JAMAIS $set _id ni created_at
+            update_set = {k: v for k, v in d.items() if k not in ("_id", "created_at")}
+            set_on_insert = {"created_at": d.get("created_at", now)}
+
             ops.append(
                 UpdateOne(
                     {"_id": d["_id"], "user_challenge_id": uc_id},
-                    {"$set": d, "$setOnInsert": {"created_at": d.get("created_at", now)}},
-                    upsert=True
+                    {"$set": update_set, "$setOnInsert": set_on_insert},
+                    upsert=True,
                 )
             )
+
         if ops:
             coll.bulk_write(ops, ordered=True)
 
