@@ -27,7 +27,7 @@ def _exists_id(coll_name: str, _id: ObjectId) -> bool:
     return get_collection(coll_name).find_one({"_id": _id}, {"_id": 1}) is not None
 
 def _exists_attribute_id(cache_attribute_id: int) -> bool:
-    return get_collection("cache_attribute").find_one({"cache_attribute_id": cache_attribute_id}, {"_id": 1}) is not None
+    return get_collection("cache_attributes").find_one({"cache_attribute_id": cache_attribute_id}, {"_id": 1}) is not None
 
 def _walk_expr(expr: TaskExpression):
     """Yield (kind, payload) nodes for referential checks."""
@@ -47,14 +47,14 @@ def _validate_referentials_expression(expr: TaskExpression) -> List[str]:
     for kind, node in _walk_expr(expr):
         if kind == "type_in":
             for oid in node.type_ids:
-                if not _exists_id("cache_type", oid):
+                if not _exists_id("cache_types", oid):
                     errors.append(f"type_in: unknown cache_type id '{oid}'")
         elif kind == "state_in":
             for oid in node.state_ids:
-                if not _exists_id("state", oid):
+                if not _exists_id("states", oid):
                     errors.append(f"state_in: unknown state id '{oid}'")
         elif kind == "country_is":
-            if not _exists_id("country", node.country_id):
+            if not _exists_id("countries", node.country_id):
                 errors.append(f"country_is: unknown country id '{node.country_id}'")
         elif kind == "attributes":
             for i, a in enumerate(node.attributes):
@@ -63,6 +63,10 @@ def _validate_referentials_expression(expr: TaskExpression) -> List[str]:
         elif kind == "difficulty_between" or kind == "terrain_between":
             if node.min > node.max:
                 errors.append(f"{kind}: min must be <= max")
+        elif kind == "size_in":
+            for oid in node.size_ids:
+                if not _exists_id("cache_sizes", oid):
+                    errors.append(f"size_in: unknown cache_size id '{oid}'")
         # placed_year/after/before are structurally validated by Pydantic (date/int)
     return errors
 
