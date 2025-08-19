@@ -6,11 +6,13 @@ from .caches import router as caches_router
 from .challenges import router as challenges_router
 from .my_challenges import router as my_challenges_router
 from .my_challenge_tasks import router as my_challenge_tasks_router
+from .my_challenge_progress import router as my_challenge_progress_router
 routers = [
     base_router, 
     auth_router, 
     caches_router, 
     challenges_router,
     my_challenges_router,
-    my_challenge_tasks_router
+    my_challenge_tasks_router,
+    my_challenge_progress_router
 ]
