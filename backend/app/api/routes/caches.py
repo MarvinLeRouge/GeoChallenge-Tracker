@@ -101,23 +101,6 @@ async def upload_gpx(
 
     return result
 
-@router.get("/{gc}")
-def get_by_gc(gc: str):
-    coll = get_collection("caches")
-    doc = coll.find_one({"GC": gc})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Cache not found")
-    return _doc(doc)
-
-
-@router.get("/by-id/{id}")
-def get_by_id(id: str):
-    coll = get_collection("caches")
-    doc = coll.find_one({"_id": _oid(id)})
-    if not doc:
-        raise HTTPException(status_code=404, detail="Cache not found")
-    return _doc(doc)
-
 
 @router.post("/by-filter")
 def by_filter(payload: CacheFilterIn = Body(...)):
@@ -266,5 +249,31 @@ def within_radius(
         raise HTTPException(status_code=400, detail=f"2dsphere index required on caches.loc: {e}")
     docs = [_doc(d) for d in cur]
     # count with same query (rough, not exact geo count but OK for paging UI)
-    total = coll.count_documents({"loc": {"$nearSphere": {"$geometry": geo, "$maxDistance": radius_km * 1000.0}}, **q})
+    radius_radians = radius_km / 6378.1  # rayon de la Terre en km
+    total = coll.count_documents({
+        "loc": {
+            "$geoWithin": {
+                "$centerSphere": [[lon, lat], radius_radians]
+            }
+        },
+        **q
+    })
     return {"items": docs, "total": total, "page": page, "page_size": min(page_size, 200)}
+
+@router.get("/{gc}")
+def get_by_gc(gc: str):
+    coll = get_collection("caches")
+    doc = coll.find_one({"GC": gc})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Cache not found")
+    return _doc(doc)
+
+
+@router.get("/by-id/{id}")
+def get_by_id(id: str):
+    coll = get_collection("caches")
+    doc = coll.find_one({"_id": _oid(id)})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Cache not found")
+    return _doc(doc)
+
