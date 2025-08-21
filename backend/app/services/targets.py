@@ -6,7 +6,7 @@ from pymongo import ASCENDING
 from datetime import datetime, timezone
 
 from app.db.mongodb import get_collection
-from app.api.dto.target_dto import (
+from app.models.target_dto import (
     LocOut, MatchRef, TargetOut, PerTaskBucket,
     TargetsPreviewPerTaskResponse, TargetsPreviewGlobalResponse, CoverageGap,
 )
