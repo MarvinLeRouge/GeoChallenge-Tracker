@@ -159,6 +159,9 @@ def ensure_indexes() -> None:
     ensure_index('caches', [('loc', '2dsphere')], name='geo_loc_2dsphere')
     # Caches: accelerate attribute-based filters (RuleAttributes)
     ensure_index('caches', [('attributes.attribute_doc_id', ASCENDING), ('attributes.is_positive', ASCENDING)], name='ix_caches__attributes_attrdocid_ispos')
+    # NEW: combos fréquents pour targets
+    ensure_index('caches', [('type_id', ASCENDING), ('size_id', ASCENDING)], name='ix_caches__type_size')
+    ensure_index('caches', [('difficulty', ASCENDING), ('terrain', ASCENDING)], name='ix_caches__difficulty_terrain')
 
     # ---------- found_caches ----------
     ensure_index('found_caches', [('user_id', ASCENDING), ('cache_id', ASCENDING)], name='uniq_user_cache_found', unique=True)
