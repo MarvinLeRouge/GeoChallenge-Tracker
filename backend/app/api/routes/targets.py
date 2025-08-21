@@ -4,7 +4,7 @@ from typing import Optional, Literal
 from fastapi import APIRouter, Depends, Query, Path, HTTPException
 from bson import ObjectId
 
-from app.api.dto.target_dto import (
+from app.models.target_dto import (
     TargetsPreviewPerTaskResponse,
     TargetsPreviewGlobalResponse,
 )
@@ -12,7 +12,7 @@ from app.services.targets import (
     preview_targets_for_uc,
     preview_targets_multi_uc,
 )
-from app.api.auth import get_current_user
+from app.core.security import get_current_user
 from app.db.mongodb import get_collection
 
 router = APIRouter()
