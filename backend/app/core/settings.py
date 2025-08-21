@@ -53,3 +53,4 @@ class Settings(BaseSettings):
 settings = Settings()
 
 print("--- Settings loaded ---")
+print(settings)
