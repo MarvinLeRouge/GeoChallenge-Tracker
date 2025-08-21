@@ -77,7 +77,7 @@ async def upload_gpx(
     payload = await file.read()
     await file.close()
     try:
-        summary = import_gpx_payload(
+        result["summary"] = import_gpx_payload(
             payload=payload,
             filename=file.filename or "upload.gpx",
             user=current_user,
