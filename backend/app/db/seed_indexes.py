@@ -130,25 +130,20 @@ def ensure_indexes() -> None:
     # ---------- states ----------
     ensure_index('states', [('country_id', ASCENDING)])
     ensure_index('states', [('country_id', ASCENDING), ('name', ASCENDING)], name='uniq_state_name_per_country', unique=True)
-    ensure_index('states', [('country_id', ASCENDING), ('code', ASCENDING)],
-                 name='uniq_state_code_per_country_if_present', unique=True,
-                 partial={'code': {'$type': 'string'}})
+    ensure_index('states', [('country_id', ASCENDING), ('code', ASCENDING)], name='uniq_state_code_per_country_if_present', unique=True, partial={'code': {'$type': 'string'}})
 
     # ---------- cache_attributes ----------
     ensure_index('cache_attributes', [('cache_attribute_id', ASCENDING)], name='uniq_cache_attribute_id', unique=True)
-    ensure_index('cache_attributes', [('txt', ASCENDING)], name='uniq_cache_attribute_txt', unique=True,
-                 partial={'txt': {'$type': 'string'}})
+    ensure_index('cache_attributes', [('txt', ASCENDING)], name='uniq_cache_attribute_txt', unique=True, partial={'txt': {'$type': 'string'}})
     ensure_index('cache_attributes', [('name', ASCENDING)])
 
     # ---------- cache_sizes ----------
     ensure_index('cache_sizes', [('name', ASCENDING)], name='uniq_cache_size_name', unique=True)
-    ensure_index('cache_sizes', [('code', ASCENDING)], name='uniq_cache_size_code_if_present', unique=True,
-                 partial={'code': {'$type': 'string'}})
+    ensure_index('cache_sizes', [('code', ASCENDING)], name='uniq_cache_size_code_if_present', unique=True, partial={'code': {'$type': 'string'}})
 
     # ---------- cache_types ----------
     ensure_index('cache_types', [('name', ASCENDING)], name='uniq_cache_type_name', unique=True)
-    ensure_index('cache_types', [('code', ASCENDING)], name='uniq_cache_type_code_if_present', unique=True,
-                 partial={'code': {'$type': 'string'}})
+    ensure_index('cache_types', [('code', ASCENDING)], name='uniq_cache_type_code_if_present', unique=True, partial={'code': {'$type': 'string'}})
 
     # ---------- caches ----------
     ensure_index('caches', [('GC', ASCENDING)], name='uniq_gc_code', unique=True)
@@ -162,6 +157,11 @@ def ensure_indexes() -> None:
     ensure_index('caches', [('placed_at', DESCENDING)])
     ensure_text_index('caches', ['title', 'description_html'], name='text_title_desc')
     ensure_index('caches', [('loc', '2dsphere')], name='geo_loc_2dsphere')
+    # Caches: accelerate attribute-based filters (RuleAttributes)
+    ensure_index('caches', [('attributes.attribute_doc_id', ASCENDING), ('attributes.is_positive', ASCENDING)], name='ix_caches__attributes_attrdocid_ispos')
+    # NEW: combos fréquents pour targets
+    ensure_index('caches', [('type_id', ASCENDING), ('size_id', ASCENDING)], name='ix_caches__type_size')
+    ensure_index('caches', [('difficulty', ASCENDING), ('terrain', ASCENDING)], name='ix_caches__difficulty_terrain')
 
     # ---------- found_caches ----------
     ensure_index('found_caches', [('user_id', ASCENDING), ('cache_id', ASCENDING)], name='uniq_user_cache_found', unique=True)
@@ -178,6 +178,8 @@ def ensure_indexes() -> None:
     ensure_index('user_challenges', [('user_id', ASCENDING)])
     ensure_index('user_challenges', [('challenge_id', ASCENDING)])
     ensure_index('user_challenges', [('status', ASCENDING)])
+    # UserChallenges: fast listing by user + status sorted by most recently updated
+    ensure_index('user_challenges', [('user_id', ASCENDING), ('status', ASCENDING), ('updated_at', DESCENDING)],  name='ix_user_challenges__by_user_status_updated')
 
     # ---------- user_challenge_tasks ----------
     ensure_index('user_challenge_tasks', [('user_challenge_id', ASCENDING), ('order', ASCENDING)])
@@ -192,10 +194,9 @@ def ensure_indexes() -> None:
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('primary_task_id', ASCENDING)])
     ensure_index('targets', [('cache_id', ASCENDING)])
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)])
-
+    
     # ---------- progress ----------
-    ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)],
-                 name='uniq_progress_time_per_challenge', unique=True)
+    ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)], name='uniq_progress_time_per_challenge', unique=True)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from app.core.security import get_current_user
 from app.db.mongodb import get_collection
 from app.core.bson_utils import PyObjectId
 from app.services.gpx_importer import import_gpx_payload
+from app.services.challenge_autocreate import create_new_challenges_from_caches
 
 router = APIRouter(prefix="/caches", tags=["caches"])
 
@@ -74,6 +75,7 @@ async def upload_gpx(
     found: bool = Query(False, description="If true, also create found_caches with found_date"),
     current_user: dict = Depends(get_current_user),
 ):
+    result = {}
     payload = await file.read()
     await file.close()
     try:
@@ -83,12 +85,21 @@ async def upload_gpx(
             user=current_user,
             found=found,
         )
-        return summary
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}")
 
+    try:
+        # Variante simple (scan global optimisé: ne traite que les nouvelles caches challenge)
+        challenges_stats = create_new_challenges_from_caches()
+        # Variante optimisée si tu as la liste des _id caches importées :
+        # challenge_stats = create_new_challenges_from_caches(cache_ids=upserted_cache_ids)
+    except Exception as e:
+        challenges_stats = {"error": str(e)}
+    result["challenges_stats"] = challenges_stats
+
+    return result
 
 @router.get("/{gc}")
 def get_by_gc(gc: str):
