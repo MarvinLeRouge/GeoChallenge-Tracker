@@ -1,20 +1,30 @@
 # backend/app/main.py
 
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
+
 from app.api.routes import routers
 from app.db.seed_indexes import ensure_indexes
 from app.db.seed_data import seed_referentials
+from fastapi.concurrency import run_in_threadpool  # optionnel mais propre si fonctions sync
 
-app = FastAPI(title="GeoChallenge API")
-
-@app.on_event("startup")
-def _startup():
-    ensure_indexes()  # toujours
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # --- startup ---
+    # Si ensure_indexes / seed_referentials sont synchrones, on peut les déporter dans un thread
+    await run_in_threadpool(ensure_indexes)  # toujours
 
     if os.getenv("SEED_ON_STARTUP", "false").lower() == "true":
-        seed_referentials()  # idempotent et léger uniquement
+        await run_in_threadpool(seed_referentials)  # idempotent et léger
 
-# Inclusion des routes
+    yield  # l'app tourne ici
+
+    # --- shutdown ---
+    # rien pour le moment
+
+app = FastAPI(title="GeoChallenge API", lifespan=lifespan)
+
+# Inclusion des routes (comme avant)
 for r in routers:
     app.include_router(r)

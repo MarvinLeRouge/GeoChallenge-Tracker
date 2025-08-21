@@ -7,41 +7,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from app.core.utils import *
 from app.core.bson_utils import *
 from app.models._shared import *
-
-class AttributeSelector(BaseModel):
-    cache_attribute_id: int
-    is_positive: bool = True
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-        json_encoders={PyObjectId: str},
-    )
-
-class TaskExpression(BaseModel):
-    # Logical nodes (use aliases to expose JSON keys 'and'/'or'/'not')
-    and_: Optional[List['TaskExpression']] = Field(default=None, alias="and")
-    or_: Optional[List['TaskExpression']] = Field(default=None, alias="or")
-    not_: Optional['TaskExpression'] = Field(default=None, alias="not")
-
-    # Predicates
-    type_in: Optional[List[str]] = None
-    placed_year: Optional[int] = None
-    placed_before: Optional[dt.date] = None
-    placed_after: Optional[dt.date] = None
-    state_in: Optional[List[str]] = None
-    country_is: Optional[str] = None
-    difficulty_between: Optional[Tuple[float, float]] = None
-    terrain_between: Optional[Tuple[float, float]] = None
-    attributes: Optional[List[AttributeSelector]] = None
-
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-        json_encoders={PyObjectId: str},
-    )
-
-TaskExpression.model_rebuild()
+from app.models.challenge_ast import TaskExpression
 
 class UserChallengeTask(MongoBaseModel):
     user_challenge_id: PyObjectId
