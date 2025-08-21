@@ -1,6 +1,7 @@
 # backend/app/api/core/settings.py
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from rich import print
 
 class Settings(BaseSettings):
     # === App settings ===
@@ -30,6 +31,13 @@ class Settings(BaseSettings):
     smtp_username: str
     smtp_password: str
 
+    # === ELEVATION ===
+    elevation_provider: str
+    elevation_provider_endpoint: str
+    elevation_provider_max_points_per_req: int
+    elevation_provider_rate_delay_s: int
+    elevation_enabled: bool
+
     # === TEST ===
     test: str
     
@@ -45,3 +53,4 @@ class Settings(BaseSettings):
 settings = Settings()
 
 print("--- Settings loaded ---")
+print(settings)

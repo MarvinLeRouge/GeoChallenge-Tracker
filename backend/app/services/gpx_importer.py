@@ -16,6 +16,7 @@ from pymongo.errors import BulkWriteError
 from app.core.utils import *
 from app.db.mongodb import get_collection, get_column
 from app.services.parsers.GPXCacheParser import GPXCacheParser  # ton parser: __init__(gpx_file: Path), parse()
+from app.services.elevation_retrieval import fetch as fetch_elevations
 
 # --------- Constantes & FS helpers ---------
 
@@ -258,7 +259,7 @@ def _parse_dt_iso8601(s: Optional[str]) -> Optional[dt.datetime]:
 
 # --------- Import principal ---------
 
-def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -> dict:
+async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -> dict:
     """
     1) Matérialise le payload en fichiers dans backend/uploads/gpx
        - ZIP → dézippe, retourne la liste des .gpx extraits
@@ -335,7 +336,7 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
             "lat": lat,
             "lon": lon,
             "loc": loc,
-            "elevation": item.get("elevation"),
+            "elevation": None,
             "country_id": country_id,
             "state_id": state_id,
             "location_more": None,
@@ -346,6 +347,32 @@ def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -
         }
         all_caches_to_db.append(item_to_db)
         seen_gcs.add(gc)
+
+    # Ajout elevation
+    to_enrich_idx = []
+    points = []  # liste de tuples (lat, lon) pour l’API OpenTopo
+
+    for i, doc in enumerate(all_caches_to_db):
+        # On n’enrichit QUE les docs qui ont lat/lon valides et pas d’elevation
+        lat = doc.get("lat")
+        lon = doc.get("lon")
+        if lat is None or lon is None:
+            continue
+        if doc.get("elevation") is not None:
+            continue
+        to_enrich_idx.append(i)
+        # ⚠️ OpenTopoData attend "lat,lon" (ton loc interne est [lon, lat])
+        points.append((float(lat), float(lon)))
+
+    # Appel au service (gère batching, 100 pts max, URL max, 1 req/s, quotas…)
+    if points:
+        elevations = await fetch_elevations(points)   # renvoie une liste alignée de Optional[int]
+
+        # Réinjection dans les docs correspondants (on laisse None si échec)
+        for k, elev in enumerate(elevations):
+            if elev is not None:
+                all_caches_to_db[to_enrich_idx[k]]["elevation"] = int(elev)
+
 
     nb_items_to_db = len(all_caches_to_db)
     INSERTS_CHUNK_SIZE = 100
