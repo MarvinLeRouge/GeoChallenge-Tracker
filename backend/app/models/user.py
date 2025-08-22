@@ -1,4 +1,4 @@
-# backend/app/api/models/user.py
+# backend/app/models/user.py
 
 from __future__ import annotations
 from typing import Optional, List

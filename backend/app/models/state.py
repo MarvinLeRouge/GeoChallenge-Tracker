@@ -1,4 +1,4 @@
-# backend/app/api/models/state.py
+# backend/app/models/state.py
 
 from __future__ import annotations
 from typing import Optional
