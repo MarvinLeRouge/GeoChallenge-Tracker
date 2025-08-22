@@ -27,6 +27,7 @@ class TaskProgressItem(BaseModel):
     progress: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
     metrics: Dict[str, Any] = Field(default_factory=dict)   # e.g. {"current_count": 17}
     constraints: Optional[Dict[str, Any]] = None            # optional copy, for audit/explanations
+    aggregate: Optional[AggregateProgress] = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -54,3 +55,12 @@ class Progress(MongoBaseModel):
 
     # For auditing (append-only — no updated_at)
     created_at: dt.datetime = Field(default_factory=lambda: now())
+
+class AggregateProgress(BaseModel):
+    total: float = 0.0
+    target: float = 0.0
+    unit: str = "points"  # ou "meters" pour altitude
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
