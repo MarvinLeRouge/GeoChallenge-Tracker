@@ -1,5 +1,3 @@
-# backend/app/models/challenge_ast.py
-
 from __future__ import annotations
 from typing import List, Literal, Optional, Union
 from datetime import date
@@ -13,7 +11,7 @@ class ASTBase(BaseModel):
         populate_by_name=True,
     )
 
-# ---- Leaves (Task rules on caches) ----
+# ---- Cache-level leaves ----
 class RuleTypeIn(ASTBase):
     kind: Literal["type_in"] = "type_in"
     type_ids: List[PyObjectId]
@@ -36,11 +34,11 @@ class RulePlacedAfter(ASTBase):
 
 class RuleStateIn(ASTBase):
     kind: Literal["state_in"] = "state_in"
-    state_ids: List[PyObjectId]  # IDs référentiel "state"
+    state_ids: List[PyObjectId]
 
 class RuleCountryIs(ASTBase):
     kind: Literal["country_is"] = "country_is"
-    country_id: PyObjectId  # ou code ISO si tu préfères
+    country_id: PyObjectId
 
 class RuleDifficultyBetween(ASTBase):
     kind: Literal["difficulty_between"] = "difficulty_between"
@@ -61,10 +59,28 @@ class RuleAttributes(ASTBase):
     kind: Literal["attributes"] = "attributes"
     attributes: List[AttributeSelector]
 
+# ---- Aggregate leaves (apply to the set of eligible finds) ----
+class RuleAggSumDifficultyAtLeast(ASTBase):
+    kind: Literal["aggregate_sum_difficulty_at_least"] = "aggregate_sum_difficulty_at_least"
+    min_total: int = Field(ge=1)
+
+class RuleAggSumTerrainAtLeast(ASTBase):
+    kind: Literal["aggregate_sum_terrain_at_least"] = "aggregate_sum_terrain_at_least"
+    min_total: int = Field(ge=1)
+
+class RuleAggSumDiffPlusTerrAtLeast(ASTBase):
+    kind: Literal["aggregate_sum_diff_plus_terr_at_least"] = "aggregate_sum_diff_plus_terr_at_least"
+    min_total: int = Field(ge=1)
+
+class RuleAggSumAltitudeAtLeast(ASTBase):
+    kind: Literal["aggregate_sum_altitude_at_least"] = "aggregate_sum_altitude_at_least"
+    min_total: int = Field(ge=1)
+
 TaskLeaf = Union[
     RuleTypeIn, RuleSizeIn, RulePlacedYear, RulePlacedBefore, RulePlacedAfter,
     RuleStateIn, RuleCountryIs, RuleDifficultyBetween, RuleTerrainBetween,
-    RuleAttributes
+    RuleAttributes,
+    RuleAggSumDifficultyAtLeast, RuleAggSumTerrainAtLeast, RuleAggSumDiffPlusTerrAtLeast, RuleAggSumAltitudeAtLeast,
 ]
 
 class TaskAnd(ASTBase):
@@ -82,7 +98,7 @@ class TaskNot(ASTBase):
 TaskExpression = Union[TaskAnd, TaskOr, TaskNot, TaskLeaf]
 TaskAnd.model_rebuild(); TaskOr.model_rebuild(); TaskNot.model_rebuild()
 
-# ---- UCLogic (composition de tasks par ID) ----
+# ---- UC-level logic (composition by task ids, unchanged) ----
 class UCAnd(ASTBase):
     kind: Literal["and"] = "and"
     task_ids: List[PyObjectId]
