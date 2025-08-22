@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -66,6 +65,35 @@ def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
         # assume leaf
         return [expr]
 
+def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Return (aggregate_spec, cache_leaves). Only one aggregate leaf supported (MVP)."""
+    agg = None
+    cache_leaves: List[Dict[str, Any]] = []
+    for lf in leaves:
+        k = lf.get("kind")
+        if k in (
+            "aggregate_sum_difficulty_at_least",
+            "aggregate_sum_terrain_at_least",
+            "aggregate_sum_diff_plus_terr_at_least",
+            "aggregate_sum_altitude_at_least",
+        ):
+            if agg is None:
+                if "min_total" not in lf or lf["min_total"] is None:
+                    # ignore malformed aggregate leaf
+                    continue
+                if k == "aggregate_sum_difficulty_at_least":
+                    agg = {"kind": "difficulty", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_sum_terrain_at_least":
+                    agg = {"kind": "terrain", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_sum_diff_plus_terr_at_least":
+                    agg = {"kind": "diff_plus_terr", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_sum_altitude_at_least":
+                    agg = {"kind": "altitude", "min_total": int(lf["min_total"])}
+            # ignore additional aggregate leaves (handled in validator)
+        else:
+            cache_leaves.append(lf)
+    return agg, cache_leaves
+
 def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
     """Return list of (field, condition) pairs to be AND'ed together, targeting the 'cache.' namespace."""
     k = leaf.get("kind")
@@ -128,18 +156,22 @@ def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
     # unknown leaves are ignored (safe default)
     return out
 
-def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str]]:
+def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str], Optional[Dict[str, Any]]]:
     """
-    Returns: (signature, MATCH_CACHES, supported, notes)
+    Returns: (signature, MATCH_CACHES, supported, notes, aggregate_spec)
     - signature: stable-ish string
     - MATCH_CACHES: dict fields without the 'cache.' prefix
     - supported: False if OR/NOT present
     - notes: diagnostics
+    - aggregate_spec: optional dict like {'kind':'difficulty','min_total':30000}
     """
     leaves = _flatten_and_nodes(expr)
     if leaves is None:
-        return ("unsupported:or-not", {}, False, ["or/not unsupported in MVP"])
+        return ("unsupported:or-not", {}, False, ["or/not unsupported in MVP"], None)
     parts: List[Tuple[str, Any]] = []
+    # extract aggregate and keep only cache leaves for matching
+    agg_spec, cache_leaves = _extract_aggregate_spec(leaves)
+    leaves = cache_leaves
     for lf in leaves:
         parts.extend(_compile_leaf_to_cache_match(lf))
     # Build $and in dict form
@@ -147,8 +179,6 @@ def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, 
     for field, cond in parts:
         key = field  # will be prefixed by 'cache.' later in pipeline
         if key in match:
-            # merge with existing via $and by using $and at pipeline stage; simpler here: store as list
-            # We'll fallback to $and at query time if multiple conditions per same field exist.
             if not isinstance(match[key], list):
                 match[key] = [match[key]]
             match[key].append(cond)
@@ -160,7 +190,7 @@ def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, 
         signature = "and:" + _json.dumps({"leaves": leaves}, default=str, sort_keys=True)
     except Exception:
         signature = "and:compiled"
-    return (signature, match, True, [])
+    return (signature, match, True, [], agg_spec)
 
 def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]) -> int:
     fc = get_collection("found_caches")
@@ -188,6 +218,52 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]
     pipeline.append({"$count": "current_count"})
     rows = list(fc.aggregate(pipeline, allowDiskUse=False))
     return int(rows[0]["current_count"]) if rows else 0
+
+def _aggregate_total(user_id: ObjectId, match_caches: Dict[str, Any], spec: Dict[str, Any]) -> int:
+    """Compute aggregate total according to spec over user's found caches matching the filters."""
+    fc = get_collection("found_caches")
+    pipeline: List[Dict[str, Any]] = [
+        {"$match": {"user_id": user_id}},
+        {"$lookup": {
+            "from": "caches",
+            "localField": "cache_id",
+            "foreignField": "_id",
+            "as": "cache"
+        }},
+        {"$unwind": "$cache"},
+    ]
+    # Apply match on cache.*
+    conds: List[Dict[str, Any]] = []
+    for field, cond in match_caches.items():
+        if isinstance(cond, list):
+            for c in cond:
+                conds.append({f"cache.{field}": c})
+        else:
+            conds.append({f"cache.{field}": cond})
+    if conds:
+        pipeline.append({"$match": {"$and": conds}})
+
+    k = spec["kind"]
+    if k == "difficulty":
+        score_expr = {"$ifNull": ["$cache.difficulty", 0]}
+    elif k == "terrain":
+        score_expr = {"$ifNull": ["$cache.terrain", 0]}
+    elif k == "diff_plus_terr":
+        score_expr = {"$add": [
+            {"$ifNull": ["$cache.difficulty", 0]},
+            {"$ifNull": ["$cache.terrain", 0]},
+        ]}
+    elif k == "altitude":
+        score_expr = {"$ifNull": ["$cache.elevation", 0]}
+    else:
+        return 0
+
+    pipeline += [
+        {"$project": {"score": score_expr}},
+        {"$group": {"_id": None, "total": {"$sum": "$score"}}},
+    ]
+    rows = list(fc.aggregate(pipeline, allowDiskUse=False))
+    return int(rows[0]["total"]) if rows else 0
 
 # ---------- Public API ----------
 
@@ -225,7 +301,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
                 "created_at": t.get("created_at"),
             }
         else:
-            sig, match_caches, supported, notes = _compile_and_only(expr)
+            sig, match_caches, supported, notes, agg_spec = _compile_and_only(expr)
             if not supported:
                 snap = {
                     "task_id": t["_id"],
@@ -246,8 +322,37 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
                 tic = datetime.utcnow()
                 current = _count_found_caches_matching(user_id, match_caches)
                 ms = int((datetime.utcnow() - tic).total_seconds() * 1000)
+
+                # base percent on min_count
                 bounded = min(current, min_count) if min_count > 0 else current
-                percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
+                count_percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
+
+                # aggregate handling
+                aggregate_total = None
+                aggregate_target = None
+                aggregate_percent = None
+                aggregate_unit = None
+                if agg_spec:
+                    aggregate_total = _aggregate_total(user_id, match_caches, agg_spec)
+                    aggregate_target = int(agg_spec.get("min_total", 0)) or None
+                    if aggregate_target and aggregate_target > 0:
+                        aggregate_percent = max(0.0, min(100.0, 100.0 * (float(aggregate_total) / float(aggregate_target))))
+                    else:
+                        aggregate_percent = None
+                    # unit: altitude -> meters, otherwise points
+                    aggregate_unit = "meters" if agg_spec.get("kind") == "altitude" else "points"
+
+                # final percent rule (MVP):
+                # - if both count & aggregate constraints exist -> percent = min(count_percent, aggregate_percent)
+                # - if only count -> count_percent
+                # - if only aggregate -> aggregate_percent or 0 if None
+                if agg_spec and min_count > 0:
+                    final_percent = min(count_percent, (aggregate_percent or 0.0))
+                elif agg_spec and min_count == 0:
+                    final_percent = (aggregate_percent or 0.0)
+                else:
+                    final_percent = count_percent
+
                 snap = {
                     "task_id": t["_id"],
                     "order": order,
@@ -256,7 +361,15 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
                     "compiled_signature": sig,
                     "min_count": min_count,
                     "current_count": current,
-                    "percent": percent,
+                    "percent": final_percent,
+                    # per-task aggregate block for DTO:
+                    "aggregate": (
+                        None if not agg_spec else {
+                            "total": aggregate_total,
+                            "target": aggregate_target or 0,
+                            "unit": aggregate_unit or "points",
+                        }
+                    ),
                     "notes": notes,
                     "evaluated_in_ms": ms,
                     "last_evaluated_at": now(),
@@ -286,7 +399,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
         },
         "tasks": snapshots,
         "message": None,
-        "engine_version": "mvp-and-1",
+        "engine_version": "mvp-and-agg-1",
         "created_at": now(),
     }
     get_collection("progress").insert_one(doc)
@@ -358,3 +471,4 @@ def evaluate_new_progress(
         "skipped_count": len(uc_ids) - len(evaluated_ids),
         "uc_ids": evaluated_ids,
     }
+
