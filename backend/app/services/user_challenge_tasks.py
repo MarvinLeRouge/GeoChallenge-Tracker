@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from datetime import datetime
 from bson import ObjectId
 import re
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 from app.core.bson_utils import PyObjectId
 from app.db.mongodb import get_collection
 
@@ -44,7 +44,9 @@ def _exists_id(coll_name: str, oid: ObjectId) -> bool:
     return get_collection(coll_name).count_documents({"_id": oid}, limit=1) == 1
 
 def _exists_attribute_id(attr_id: int) -> bool:
-    return get_collection("cache_attributes").count_documents({"cache_attribute_id": int(attr_id)}, limit=1) >= 1
+    return get_collection("cache_attributes").count_documents(
+        {"cache_attribute_id": int(attr_id)}, limit=1
+    ) >= 1
 
 def _walk_expr(expr: TaskExpression):
     """Yield (kind, node, parent_kind) for structure validation."""
@@ -113,20 +115,37 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
     if aggregate_count > 1:
         errors.append("Only a single aggregate rule is supported per task (MVP)")
 
-    print("errors", errors)
     return errors
 
 # --------------------------------------------------------------------------------------
 # Public API kept from BEFORE: list_tasks / put_tasks / validate_only
 # --------------------------------------------------------------------------------------
 
-def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
+def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
     coll = get_collection("user_challenge_tasks")
-    items = list(coll.find(
+    cur = coll.find(
         {"user_challenge_id": uc_id},
         sort=[("order", 1), ("_id", 1)]
-    ))
-    # Cast to client shape if needed (ObjectId to str, etc.)
+    )
+
+    items: List[Dict[str, Any]] = []
+    for d in cur:
+        # title est requis côté TaskOut -> fallback si absent
+        title = d.get("title") or "Untitled task"
+        items.append({
+            "id": d["_id"],  # TaskOut.id (PyObjectId géré par tes encoders)
+            "order": d.get("order", 0),
+            "title": title,
+            "expression": d.get("expression"),
+            "constraints": d.get("constraints", {}),
+            "status": d.get("status"),                  # optionnel dans TaskOut
+            "metrics": d.get("metrics"),
+            "progress": d.get("progress"),
+            "last_evaluated_at": d.get("last_evaluated_at"),
+            "updated_at": d.get("updated_at"),
+            "created_at": d.get("created_at"),
+        })
+
     return items
 
 def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -162,6 +181,7 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
     Idempotent PUT of tasks for a given user_challenge.
     - Validates expressions (including aggregates)
     - Replaces existing tasks set (by uc_id) with new set (ordered)
+    - Returns {"items": [TaskOut, ...]} to match TasksListResponse
     """
     # Validate first (raises on error)
     _validate_tasks_payload(user_id, uc_id, tasks_payload)
@@ -172,24 +192,53 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
 
     # Prepare docs
     to_insert = []
+    now = datetime.utcnow()
     for i, item in enumerate(tasks_payload):
+        # id facultatif dans l'entrée (update); sinon on génère
+        _maybe_id = item.get("id") or item.get("_id")
+        doc_id = ObjectId(str(_maybe_id)) if _maybe_id else ObjectId()
+
+        # title requis côté TaskOut -> fallback propre
+        title = item.get("title") or f"Task #{i+1}"
+
         doc = {
-            "_id": ObjectId() if not item.get("_id") else ObjectId(str(item["_id"])),
+            "_id": doc_id,
             "user_challenge_id": uc_id,
             "order": int(item.get("order", i)),
+            "title": title,
             "expression": item["expression"],
             "constraints": item.get("constraints", {}),
+            "status": item.get("status") or "todo",
             "metrics": item.get("metrics", {}),
             "notes": item.get("notes"),
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
+            "last_evaluated_at": None,
+            "created_at": now,
+            "updated_at": now,
         }
         to_insert.append(doc)
 
     if to_insert:
         coll.insert_many(to_insert, ordered=True)
 
-    return {"ok": True, "count": len(to_insert)}
+    # Read-back in order and map to TaskOut shape (id, order, title, ...)
+    cur = coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
+    items: List[Dict[str, Any]] = []
+    for d in cur:
+        items.append({
+            "id": d["_id"],  # TaskOut.id: PyObjectId (laisser l'ObjectId, FastAPI saura l’encoder)
+            "order": d.get("order", 0),
+            "title": d.get("title"),
+            "expression": d.get("expression"),
+            "constraints": d.get("constraints", {}),
+            "status": d.get("status"),
+            "metrics": d.get("metrics"),
+            "progress": d.get("progress"),
+            "last_evaluated_at": d.get("last_evaluated_at"),
+            "updated_at": d.get("updated_at"),
+            "created_at": d.get("created_at"),
+        })
+
+    return items
 
 # --------------------------------------------------------------------------------------
 # Internal validation utils (payload-level)
@@ -216,7 +265,8 @@ def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: L
         if expr_raw is None:
             raise ValueError("each task must have an 'expression'")
         try:
-            expr_model = TaskExpression.model_validate(expr_raw)
+            # TaskExpression est un Union[...] -> utiliser un TypeAdapter en v2
+            expr_model = TypeAdapter(TaskExpression).validate_python(expr_raw)
         except ValidationError as e:
             raise ValueError(f"invalid expression at index {i}: {e}")
 
