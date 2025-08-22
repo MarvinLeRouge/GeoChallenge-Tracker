@@ -1,4 +1,4 @@
-# backend/app/api/models/cache_type.py
+# backend/app/models/cache_type.py
 
 from __future__ import annotations
 from typing import Optional, List

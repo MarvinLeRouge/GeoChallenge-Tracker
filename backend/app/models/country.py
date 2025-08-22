@@ -1,4 +1,4 @@
-# backend/app/api/models/country.py
+# backend/app/models/country.py
 
 from pydantic import BaseModel, Field
 from typing import Optional

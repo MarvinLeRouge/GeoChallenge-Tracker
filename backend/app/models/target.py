@@ -1,4 +1,4 @@
-# backend/app/api/models/target.py
+# backend/app/models/target.py
 
 from __future__ import annotations
 from typing import Optional, List, Dict, Any

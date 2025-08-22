@@ -1,4 +1,4 @@
-# backend/app/api/models/challenge.py
+# backend/app/models/challenge.py
 
 from __future__ import annotations
 from typing import Optional

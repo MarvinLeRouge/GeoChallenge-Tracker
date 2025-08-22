@@ -1,3 +1,5 @@
+# backend/app/services/parsers/HTMLSanitizer.py
+
 from selectolax.parser import HTMLParser, Node
 from urllib.parse import urlparse
 

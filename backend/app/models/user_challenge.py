@@ -1,4 +1,4 @@
-# backend/app/api/models/user_challenge.py
+# backend/app/models/user_challenge.py
 
 from __future__ import annotations
 import datetime as dt

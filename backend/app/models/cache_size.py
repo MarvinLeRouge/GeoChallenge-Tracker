@@ -1,4 +1,4 @@
-# backend/app/api/models/cache_size.py
+# backend/app/models/cache_size.py
 
 from __future__ import annotations
 from typing import Optional
