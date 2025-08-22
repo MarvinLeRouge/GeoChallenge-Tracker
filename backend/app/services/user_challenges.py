@@ -206,6 +206,13 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Di
             "as": "challenge"
         }},
         {"$unwind": "$challenge"},
+        { "$lookup": {
+            "from": "caches",
+            "localField": "challenge.cache_id",
+            "foreignField": "_id",
+            "as": "cache"
+        }},
+        { "$unwind": { "path": "$cache", "preserveNullAndEmptyArrays": True } },
         {"$project": {
             "_id": 1,
             "status": 1,
@@ -221,19 +228,31 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Di
                 "id": "$challenge._id",
                 "name": "$challenge.name",
                 "description": "$challenge.description",
+            },
+            "cache": {
+                "id": "$cache._id",
+                "GC": "$cache.GC",  # exposé en minuscule côté API
             }
         }},
     ]
+
     rows = list(ucs.aggregate(pipeline, allowDiskUse=False))
     if not rows:
         return None
+
     doc = rows[0]
-    cs = doc.get("computed_status")
-    st = doc.get("status")
+
+    # statut effectif
+    st, cs = doc.get("status"), doc.get("computed_status")
     doc["effective_status"] = "completed" if (st == "completed" or cs == "completed") else st
+
+    # sérialisation des ids
     doc["id"] = str(doc.pop("_id"))
     if isinstance(doc.get("challenge", {}).get("id"), ObjectId):
         doc["challenge"]["id"] = str(doc["challenge"]["id"])
+    if doc.get("cache") and isinstance(doc["cache"].get("id"), ObjectId):
+        doc["cache"]["id"] = str(doc["cache"]["id"])
+
     return doc
 
 def patch_user_challenge(

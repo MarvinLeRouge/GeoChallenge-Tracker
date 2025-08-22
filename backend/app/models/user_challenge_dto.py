@@ -30,6 +30,10 @@ class ListResponse(BaseModel):
     limit: int
     total: int
 
+class CacheDetail(BaseModel):
+    id: PyObjectId
+    GC: str
+
 class ChallengeDetail(BaseModel):
     id: PyObjectId
     name: str
@@ -48,6 +52,7 @@ class DetailResponse(BaseModel):
     overridden_at: Optional[datetime] = None
     notes: Optional[str] = None
     challenge: ChallengeDetail
+    cache: CacheDetail
 
 
 class PatchResponse(BaseModel):
