@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union
 from datetime import datetime
 from bson import ObjectId
-
+import re
 from pydantic import BaseModel, Field, ValidationError
 from app.core.bson_utils import PyObjectId
 from app.db.mongodb import get_collection
@@ -44,7 +44,7 @@ def _exists_id(coll_name: str, oid: ObjectId) -> bool:
     return get_collection(coll_name).count_documents({"_id": oid}, limit=1) == 1
 
 def _exists_attribute_id(attr_id: int) -> bool:
-    return get_collection("cache_attributes").count_documents({"attribute_id": int(attr_id)}, limit=1) >= 1
+    return get_collection("cache_attributes").count_documents({"cache_attribute_id": int(attr_id)}, limit=1) >= 1
 
 def _walk_expr(expr: TaskExpression):
     """Yield (kind, node, parent_kind) for structure validation."""
@@ -112,6 +112,8 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
 
     if aggregate_count > 1:
         errors.append("Only a single aggregate rule is supported per task (MVP)")
+
+    print("errors", errors)
     return errors
 
 # --------------------------------------------------------------------------------------
@@ -131,13 +133,29 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
     """
     Validate without writing. Returns { ok: bool, errors: [...] }.
     """
+    def _mk_err(index: int, field: str, code: str, message: str) -> Dict[str, Any]:
+        return {"index": index, "field": field, "code": code, "message": message}
+
     try:
         _validate_tasks_payload(user_id, uc_id, tasks_payload)
+
         return {"ok": True, "errors": []}
     except ValidationError as e:
-        return {"ok": False, "errors": [str(e)]}
+        # Pydantic validation of the AST structure / types
+        msg = "; ".join([err.get("msg", "validation error") for err in getattr(e, "errors", lambda: [])()] or [str(e)])
+
+        return {"ok": False, "errors": [_mk_err(0, "expression", "pydantic_validation_error", msg)]}
     except Exception as e:
-        return {"ok": False, "errors": [str(e)]}
+        # Our _validate_tasks_payload raises ValueError with messages like "invalid expression at index i: ...",
+        # or "constraints.min_count ... (index i)". Extract the index if present.
+        s = str(e)
+        m = re.search(r"index\s+(\d+)", s)
+        idx = int(m.group(1)) if m else 0
+        # Try to infer the field mentioned in the message, default to expression
+        field = "constraints" if "constraints" in s else "expression"
+        code = "invalid_expression" if "expression" in s else "invalid_payload"
+
+        return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
 def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
