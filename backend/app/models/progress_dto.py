@@ -8,6 +8,11 @@ from app.core.bson_utils import PyObjectId
 from app.models._shared import ProgressSnapshot as AggregateProgress  # percent, tasks_done, tasks_total, checked_at
 
 
+class AggregateProgressOut(BaseModel):
+    total: float
+    target: float
+    unit: str
+
 class TaskProgressItemOut(BaseModel):
     """Per-task snapshot returned by the progress endpoints.
 
@@ -20,6 +25,7 @@ class TaskProgressItemOut(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     supported_for_progress: bool = Field(default=True)
     compiled_signature: str = Field(..., description="Stable signature of compiled AND subtree, or a tag like 'override:done' / 'unsupported:or-not'")
+    aggregate: Optional[AggregateProgressOut] = None
 
     # constraints & evaluation
     min_count: int = Field(..., ge=0)
