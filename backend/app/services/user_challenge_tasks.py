@@ -359,6 +359,15 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
     normalized = _norm(expr_dict)
     return TypeAdapter(TE).validate_python(normalized)
 
+def _has_country_is(nodes) -> bool:
+    for n in nodes:
+        if isinstance(n, RuleCountryIs):
+            return True
+        # Si sous-AND imbriqué, on check récursivement
+        if isinstance(n, TaskAnd) and _has_country_is(n.nodes):
+            return True
+    return False
+
 def _walk_expr(expr: TaskExpression):
     """Yield (kind, node, parent_kind) for structure validation."""
     if isinstance(expr, (TaskAnd, TaskOr)):
@@ -411,6 +420,10 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
             for oid in node.state_ids:
                 if not _exists_id("states", oid):
                     errors.append(f"state_in: unknown state id '{oid}'")
+                # obligation d’un country_is sibling
+                if isinstance(expr, TaskAnd):
+                    if not _has_country_is(expr.nodes):
+                        errors.append("state_in requires a sibling country_is in the same AND group")
         elif kind == "country_is":
             if not _exists_id("countries", node.country_id):
                 errors.append(f"country_is: unknown country id '{node.country_id}'")
