@@ -216,137 +216,65 @@ class PatchTaskItem(BaseModel):
     metrics: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str] = None
 
-## --- Resolve code/name => document id
-def _resolve_code_to_id(collection_name, field_name, code):
-    if not code or not isinstance(code, str):
-        return None
-    code = code.lower()
-    fields_maps = collections_mapping.get(collection_name, None)
-    if fields_maps is None:
-        return None
-    field_map = fields_maps.get(field_name, None)
-    if field_map is None:
-        return None
-    result = field_map.get(code)
-    
-    return result
-
-def _resolve_attribute_code(code: str):
-    """Cherche un attribut par code – insensible à la casse."""
-    return _resolve_code_to_id("cache_attributes", "code", code)
-
-def _resolve_type_code(code: str):
-    """Cherche un type par code – insensible à la casse."""
-    return _resolve_code_to_id("cache_types", "code", code)
-
-def _resolve_size_code(code: str):
-    """Cherche un size par code – insensible à la casse."""
-    return _resolve_code_to_id("cache_sizes", "code", code)
-
-def _resolve_size_name(name: str):
-    """Cherche un size par name – insensible à la casse."""
-    return _resolve_code_to_id("cache_sizes", "name", name)
-
-def _resolve_country_name(name: str):
-    """Cherche un country par name – insensible à la casse."""
-    return _resolve_code_to_id("countries", "name", name)
-
-def _resolve_state_name(country_name: str, state_name: str):
-    """Cherche un state par name – insensible à la casse."""
-    country_id = _resolve_code_to_id("countries", "name", country_name)
-    if country_id is None:
-        return None
-    country_states = collections_mapping.get("countries")["by_country"]
-    state_id = country_states.get(state_name.lower(), None)
-
-    return state_id
-
 def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
     from app.models.challenge_ast import TaskExpression as TE
     def _norm(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
 
+            # --- attributes: code -> cache_attribute_doc_id (+ cache_attribute_id si connu)
             if k == "attributes" and isinstance(node.get("attributes"), list):
                 new_attrs = []
                 for a in node["attributes"]:
                     a = dict(a)
                     code = a.get("code")
-                    if code and not a.get("attribute_doc_id"):
-                        res = _resolve_attribute_code(code)
+                    # NOTE: le modèle AST attend 'cache_attribute_doc_id'
+                    if code and not a.get("cache_attribute_doc_id"):
+                        res = _resolve_attribute_code(code)  # doit renvoyer (oid, numeric_id)
                         if not res:
                             raise ValueError(f"index {index_for_errors}: attribute code not found '{code}'")
                         doc_id, num_id = res
-                        a["attribute_doc_id"] = doc_id
+                        a["cache_attribute_doc_id"] = doc_id
+                        # ne pas écraser si déjà présent
                         a.setdefault("cache_attribute_id", num_id)
                     new_attrs.append(a)
                 node = {**node, "attributes": new_attrs}
 
+            # --- type_in: cache_type_code -> cache_type_doc_id
             elif k == "type_in" and isinstance(node.get("types"), list):
                 new_types = []
                 for t in node["types"]:
                     t = dict(t)
-                    if t.get("cache_type_code") and not t.get("cache_type_id"):
-                        found = _resolve_type_code(t["cache_type_code"])
+                    if t.get("cache_type_code") and not t.get("cache_type_doc_id"):
+                        found = _resolve_type_code(t["cache_type_code"])  # retourne l'OID du doc type
                         if not found:
                             raise ValueError(f"index {index_for_errors}: type code not found '{t['cache_type_code']}'")
-                        t["cache_type_id"] = found
+                        t["cache_type_doc_id"] = found
                     new_types.append(t)
                 node = {**node, "types": new_types}
 
+            # --- size_in: code/name -> cache_size_doc_id
             elif k == "size_in" and isinstance(node.get("sizes"), list):
                 new_sizes = []
                 for s in node["sizes"]:
                     s = dict(s)
-                    if not s.get("size_id"):
+                    if not s.get("cache_size_doc_id"):
+                        found = None
                         if s.get("code"):
                             found = _resolve_size_code(s["code"])
                         elif s.get("name"):
                             found = _resolve_size_name(s["name"])
-                        else:
-                            found = None
                         if not found:
                             label = s.get("code") or s.get("name") or "<?>"
                             raise ValueError(f"index {index_for_errors}: size not found '{label}'")
-                        s["size_id"] = found
+                        s["cache_size_doc_id"] = found
                     new_sizes.append(s)
                 node = {**node, "sizes": new_sizes}
 
-            elif k == "country_is" and isinstance(node.get("country"), dict):
-                c = dict(node["country"])
-                if c.get("name") and not c.get("country_id"):
-                    found = _resolve_country_name(c["name"])
-                    if not found:
-                        raise ValueError(f"index {index_for_errors}: country name not found '{c['name']}'")
-                    c["country_id"] = found
-                node = {**node, "country": c}
+            # --- country_is, state_in: laisse comme tu as déjà (tes versions hautes sont OK)
+            # (country.name -> country_id si nécessaire, states via _resolve_state_name(...))
 
-            elif k == "state_in" and isinstance(node.get("states"), list):
-                # scope pays optionnel sur la règle
-                scope_cid = node.get("country_id")
-                scope_cname = node.get("country_name")
-                if not scope_cid and scope_cname:
-                    cid = _resolve_country_name(scope_cname)
-                    if not cid:
-                        raise ValueError(f"index {index_for_errors}: country_name not found '{scope_cname}'")
-                    scope_cid = cid
-
-                new_states, errs = [], []
-                for s in node["states"]:
-                    s = dict(s)
-                    if s.get("name") and not s.get("state_id"):
-                        sid, err = _resolve_state_name(s["name"], country_id=scope_cid)
-                        if err:
-                            errs.append(err)
-                        elif sid:
-                            s["state_id"] = sid
-                        else:
-                            errs.append(f"state name not found '{s['name']}'")
-                    new_states.append(s)
-                if errs:
-                    raise ValueError(f"index {index_for_errors}: " + "; ".join(errs))
-                node = {**node, "states": new_states}
-
+            # recurse
             for key, val in list(node.items()):
                 node[key] = _norm(val)
             return node
@@ -445,6 +373,33 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
 # Public API kept from BEFORE: list_tasks / put_tasks / validate_only
 # --------------------------------------------------------------------------------------
 
+def _legacy_fixup_expression(exp: Any) -> Any:
+    """Convert legacy short forms to canonical-compatible shapes (non-destructive)."""
+    def _fix(node: Any) -> Any:
+        if isinstance(node, dict):
+            k = node.get("kind")
+
+            # type_in: { codes: [...] } -> { types: [{cache_type_code: ...}, ...] }
+            if k == "type_in" and "codes" in node and "types" not in node:
+                node = {**node}
+                node["types"] = [{"cache_type_code": c} for c in node.pop("codes")]
+
+            # size_in: { codes: [...] } -> { sizes: [{code: ...}, ...] }
+            if k == "size_in" and "codes" in node and "sizes" not in node:
+                node = {**node}
+                node["sizes"] = [{"code": c} for c in node.pop("codes")]
+
+            # recurse into children
+            for kk, vv in list(node.items()):
+                node[kk] = _fix(vv)
+            return node
+
+        if isinstance(node, list):
+            return [_fix(x) for x in node]
+        return node
+
+    return _fix(exp)
+
 def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
     coll = get_collection("user_challenge_tasks")
     cur = coll.find(
@@ -452,15 +407,28 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
         sort=[("order", 1), ("_id", 1)]
     )
 
-    items: List[Dict[str, Any]] = []
+    tasks: List[Dict[str, Any]] = []
     for d in cur:
         # title est requis côté TaskOut -> fallback si absent
         title = d.get("title") or "Untitled task"
-        items.append({
+        exp = d.get("expression")
+
+        # Try to validate as-is
+        try:
+            exp_pre = preprocess_expression_default_and(exp)
+            exp_model = TypeAdapter(TaskExpression).validate_python(exp_pre)
+            exp_out = exp_model.model_dump(by_alias=True)
+        except Exception:
+            # Legacy repair, then validate
+            fixed = _legacy_fixup_expression(exp)
+            exp_pre = preprocess_expression_default_and(fixed)
+            exp_model = TypeAdapter(TaskExpression).validate_python(exp_pre)
+            exp_out = exp_model.model_dump(by_alias=True)
+        tasks.append({
             "id": d["_id"],  # TaskOut.id (PyObjectId géré par tes encoders)
             "order": d.get("order", 0),
             "title": title,
-            "expression": d.get("expression"),
+            "expression": exp_out,
             "constraints": d.get("constraints", {}),
             "status": d.get("status"),                  # optionnel dans TaskOut
             "metrics": d.get("metrics"),
@@ -470,7 +438,7 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
             "created_at": d.get("created_at"),
         })
 
-    return items
+    return tasks
 
 def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -501,36 +469,31 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
         return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
 def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Idempotent PUT of tasks for a given user_challenge.
-    - Validates expressions (including aggregates)
-    - Replaces existing tasks set (by uc_id) with new set (ordered)
-    - Returns {"items": [TaskOut, ...]} to match TasksListResponse
-    """
     # Validate first (raises on error)
     _validate_tasks_payload(user_id, uc_id, tasks_payload)
 
     coll = get_collection("user_challenge_tasks")
-    # Strategy: delete existing tasks for uc_id, then insert the new list (ordered)
     coll.delete_many({"user_challenge_id": uc_id})
 
-    # Prepare docs
     to_insert = []
     now = datetime.utcnow()
     for i, item in enumerate(tasks_payload):
-        # id facultatif dans l'entrée (update); sinon on génère
         _maybe_id = item.get("id") or item.get("_id")
         doc_id = ObjectId(str(_maybe_id)) if _maybe_id else ObjectId()
-
-        # title requis côté TaskOut -> fallback propre
         title = item.get("title") or f"Task #{i+1}"
+
+        # NEW: canonicalize expression for storage
+        expr_pre = preprocess_expression_default_and(item["expression"])
+        expr_model = TypeAdapter(TaskExpression).validate_python(expr_pre)
+        expr_model = _normalize_code_to_id(expr_model, index_for_errors=i)
+        expr_canonical = expr_model.model_dump(by_alias=True)
 
         doc = {
             "_id": doc_id,
             "user_challenge_id": uc_id,
             "order": int(item.get("order", i)),
             "title": title,
-            "expression": item["expression"],
+            "expression": expr_canonical,     # <--- store canonical
             "constraints": item.get("constraints", {}),
             "status": item.get("status") or "todo",
             "metrics": item.get("metrics", {}),
@@ -544,15 +507,15 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
     if to_insert:
         coll.insert_many(to_insert, ordered=True)
 
-    # Read-back in order and map to TaskOut shape (id, order, title, ...)
+    # read-back (already canonical)
     cur = coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
     items: List[Dict[str, Any]] = []
     for d in cur:
         items.append({
-            "id": d["_id"],  # TaskOut.id: PyObjectId (laisser l'ObjectId, FastAPI saura l’encoder)
+            "id": d["_id"],
             "order": d.get("order", 0),
             "title": d.get("title"),
-            "expression": d.get("expression"),
+            "expression": d.get("expression"),    # already canonical
             "constraints": d.get("constraints", {}),
             "status": d.get("status"),
             "metrics": d.get("metrics"),
