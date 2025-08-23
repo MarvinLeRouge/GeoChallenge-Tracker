@@ -1,5 +1,5 @@
-[{"id": 2, "code": "M", "name": "Micro", "order": 0},
-{"id": 8, "code": "S", "name": "Small", "order": 1},
-{"id": 3, "code": "R", "name": "Regular", "order": 2},
-{"id": 4, "code": "L", "name": "Large", "order": 3},
-{"id": 6, "code": "O", "name": "Other", "order": 4}]
+[{"cache_size_id": 2, "code": "M", "name": "Micro", "order": 0},
+{"cache_size_id": 8, "code": "S", "name": "Small", "order": 1},
+{"cache_size_id": 3, "code": "R", "name": "Regular", "order": 2},
+{"cache_size_id": 4, "code": "L", "name": "Large", "order": 3},
+{"cache_size_id": 6, "code": "O", "name": "Other", "order": 4}]

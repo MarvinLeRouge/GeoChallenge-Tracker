@@ -35,7 +35,7 @@ class TaskOut(BaseModel):
     created_at: Optional[datetime] = None
 
 class TasksListResponse(BaseModel):
-    items: List[TaskOut]
+    tasks: List[TaskOut]
 
 class ValidationErrorItem(BaseModel):
     index: int

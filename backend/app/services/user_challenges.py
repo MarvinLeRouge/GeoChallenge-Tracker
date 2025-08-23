@@ -151,6 +151,13 @@ def list_user_challenges(
             "as": "challenge"
         }},
         {"$unwind": "$challenge"},
+        {"$lookup": {
+            "from": "caches",
+            "localField": "challenge.cache_id",
+            "foreignField": "_id",
+            "as": "cache"
+        }},
+        {"$unwind": "$cache"},
         {"$sort": {"updated_at": -1, "_id": 1}},
         {"$facet": {
             "items": [
@@ -164,6 +171,7 @@ def list_user_challenges(
                     "progress": 1,
                     "updated_at": 1,
                     "challenge": {"id": "$challenge._id", "name": "$challenge.name"},
+                    "cache": {"id": "$cache._id", "GC": "$cache.GC"}
                 }},
             ],
             "total": [{"$count": "value"}],

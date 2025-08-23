@@ -24,6 +24,7 @@ class ListItem(BaseModel):
     progress: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = None
     challenge: ChallengeMini
+    cache: CacheDetail
 
 class ListResponse(BaseModel):
     items: List[ListItem]

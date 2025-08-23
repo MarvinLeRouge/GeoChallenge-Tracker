@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from datetime import datetime
 from bson import ObjectId
 import re
+from threading import RLock
+
 from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 from app.core.bson_utils import PyObjectId
 from app.db.mongodb import get_collection
@@ -20,6 +22,189 @@ from app.models.challenge_ast import (
     RuleAggSumDifficultyAtLeast, RuleAggSumTerrainAtLeast,
     RuleAggSumDiffPlusTerrAtLeast, RuleAggSumAltitudeAtLeast,
 )
+from app.models.challenge_ast import preprocess_expression_default_and  # <-- import
+
+collections_mapping: Dict[str, Dict[str, Any]] = {}
+_collections_lock = RLock()
+_mapping_ready = False
+
+def _as_oid(x) -> ObjectId:
+    return x if isinstance(x, ObjectId) else ObjectId(str(x))
+
+def _map_collection(collection_name: str, *, code_field: Optional[str] = None,
+                    name_field: Optional[str] = None,
+                    extra_numeric_id_field: Optional[str] = None) -> None:
+    """
+    Construit collections_mapping[collection_name] avec :
+      - ids: set(ObjectId)
+      - code: {lower -> ObjectId}         (si code_field)
+      - name: {lower -> ObjectId}         (si name_field)
+      - numeric_ids: set(int)             (si extra_numeric_id_field)
+      - doc_by_id: {ObjectId -> doc partiel}
+    """
+    coll = get_collection(collection_name)
+
+    # Construire la projection dynamiquement pour éviter les clés None
+    projection: Dict[str, int] = {"_id": 1}
+    if code_field:
+        projection[code_field] = 1
+    if name_field:
+        projection[name_field] = 1
+    if extra_numeric_id_field:
+        projection[extra_numeric_id_field] = 1
+
+    docs = list(coll.find({}, projection))
+
+    ids: set[ObjectId] = set()
+    code_map: Dict[str, ObjectId] = {}
+    name_map: Dict[str, ObjectId] = {}
+    numeric_ids: set[int] = set()
+    doc_by_id: Dict[ObjectId, Dict[str, Any]] = {}
+
+    for d in docs:
+        oid = d["_id"]
+        ids.add(oid)
+        doc_by_id[oid] = d
+        if code_field and d.get(code_field):
+            code_map[str(d[code_field]).lower()] = oid
+        if name_field and d.get(name_field):
+            name_map[str(d[name_field]).lower()] = oid
+        if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
+            try:
+                numeric_ids.add(int(d[extra_numeric_id_field]))
+            except Exception:
+                pass
+
+    out: Dict[str, Any] = {"ids": ids, "doc_by_id": doc_by_id}
+    if code_field:
+        out["code"] = code_map
+    if name_field:
+        out["name"] = name_map
+    if extra_numeric_id_field:
+        out["numeric_ids"] = numeric_ids
+
+    collections_mapping[collection_name] = out
+
+
+def _map_collection_states() -> None:
+    """
+    states :
+      collections_mapping["states"] = {
+        "ids": set(ObjectId),
+        "by_country": { str(country_id): { lower(state_name): ObjectId } }
+      }
+    """
+    coll = get_collection("states")
+    docs = list(coll.find({}, {"_id": 1, "country_id": 1, "name": 1}))
+
+    ids: set[ObjectId] = set()
+    by_country: Dict[str, Dict[str, ObjectId]] = {}
+
+    for d in docs:
+        sid = d["_id"]
+        cid = d.get("country_id")
+        nm = d.get("name")
+        ids.add(sid)
+        if cid and nm:
+            key = str(cid)
+            by_country.setdefault(key, {})
+            by_country[key][nm.lower()] = sid
+
+    collections_mapping["states"] = {"ids": ids, "by_country": by_country}
+
+
+def _populate_mapping() -> None:
+    collections_mapping.clear()
+    _map_collection("cache_attributes", code_field="code", name_field="txt",
+                    extra_numeric_id_field="cache_attribute_id")
+    _map_collection("cache_types",    code_field="code")
+    _map_collection("cache_sizes",    code_field="code", name_field="name")  # si "name" existe
+    _map_collection("countries",      name_field="name")
+    _map_collection_states()
+
+
+def refresh_referentials_cache():
+    """À appeler après un seed pour recharger les mappings en mémoire."""
+    _populate_mapping()
+
+
+# Populate au chargement du module
+if not _mapping_ready:
+    _populate_mapping()
+
+# --------------------------------------------------------------------------------------
+# Existence checks via cache
+# --------------------------------------------------------------------------------------
+
+def _exists_id(coll_name: str, oid: ObjectId) -> bool:
+    try:
+        oid = oid if isinstance(oid, ObjectId) else ObjectId(str(oid))
+    except Exception:
+        return False
+    entry = collections_mapping.get(coll_name) or {}
+    return oid in entry.get("ids", set())
+
+def _exists_attribute_id(attr_id: int) -> bool:
+    entry = collections_mapping.get("cache_attributes") or {}
+    try:
+        return int(attr_id) in entry.get("numeric_ids", set())
+    except Exception:
+        return False
+
+# --------------------------------------------------------------------------------------
+# Resolve code/name → document id (via cache)
+# --------------------------------------------------------------------------------------
+
+def _resolve_code_to_id(collection: str, field: str, value: str) -> Optional[ObjectId]:
+    entry = collections_mapping.get(collection) or {}
+    m = entry.get(field) or {}
+    return m.get(str(value).lower())
+
+def _resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]]]:
+    entry = collections_mapping.get("cache_attributes") or {}
+    # on tente par code, puis par 'txt' (rangé dans name_map)
+    oid = (entry.get("code", {}) or {}).get(code.lower())
+    if oid is None:
+        oid = (entry.get("name", {}) or {}).get(code.lower())
+    if oid is None:
+        return None
+    doc = (entry.get("doc_by_id") or {}).get(oid) or {}
+    num = int(doc["cache_attribute_id"]) if doc.get("cache_attribute_id") is not None else None
+    return oid, num
+
+def _resolve_type_code(code: str) -> Optional[ObjectId]:
+    return _resolve_code_to_id("cache_types", "code", code)
+
+def _resolve_size_code(code: str) -> Optional[ObjectId]:
+    return _resolve_code_to_id("cache_sizes", "code", code)
+
+def _resolve_size_name(name: str) -> Optional[ObjectId]:
+    return _resolve_code_to_id("cache_sizes", "name", name)
+
+def _resolve_country_name(name: str) -> Optional[ObjectId]:
+    return _resolve_code_to_id("countries", "name", name)
+
+def _resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None) -> Tuple[Optional[ObjectId], Optional[str]]:
+    entry = collections_mapping.get("states") or {}
+    by_country = entry.get("by_country", {})
+    target = (state_name or "").lower()
+
+    if country_id:
+        key = str(country_id if isinstance(country_id, ObjectId) else ObjectId(str(country_id)))
+        sid = (by_country.get(key) or {}).get(target)
+        return (sid, None) if sid else (None, f"state not found '{state_name}' in country '{key}'")
+
+    # pas de pays fourni → ambiguïtés possibles
+    hits = []
+    for cid, states in by_country.items():
+        if target in states:
+            hits.append(states[target])
+    if not hits:
+        return None, f"state name not found '{state_name}'"
+    if len(hits) > 1:
+        return None, f"state name ambiguous without country '{state_name}'"
+    return hits[0], None
+
 
 # ==== DTO-like models used by services ====
 class PatchTaskItem(BaseModel):
@@ -31,22 +216,148 @@ class PatchTaskItem(BaseModel):
     metrics: Dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str] = None
 
-# --------------------------------------------------------------------------------------
-# Helpers (validation + referentials) — unified & extended to support aggregate rules
-# --------------------------------------------------------------------------------------
+## --- Resolve code/name => document id
+def _resolve_code_to_id(collection_name, field_name, code):
+    if not code or not isinstance(code, str):
+        return None
+    code = code.lower()
+    fields_maps = collections_mapping.get(collection_name, None)
+    if fields_maps is None:
+        return None
+    field_map = fields_maps.get(field_name, None)
+    if field_map is None:
+        return None
+    result = field_map.get(code)
+    
+    return result
 
-def _exists_id(coll_name: str, oid: ObjectId) -> bool:
-    if not isinstance(oid, ObjectId):
-        try:
-            oid = ObjectId(str(oid))
-        except Exception:
-            return False
-    return get_collection(coll_name).count_documents({"_id": oid}, limit=1) == 1
+def _resolve_attribute_code(code: str):
+    """Cherche un attribut par code – insensible à la casse."""
+    return _resolve_code_to_id("cache_attributes", "code", code)
 
-def _exists_attribute_id(attr_id: int) -> bool:
-    return get_collection("cache_attributes").count_documents(
-        {"cache_attribute_id": int(attr_id)}, limit=1
-    ) >= 1
+def _resolve_type_code(code: str):
+    """Cherche un type par code – insensible à la casse."""
+    return _resolve_code_to_id("cache_types", "code", code)
+
+def _resolve_size_code(code: str):
+    """Cherche un size par code – insensible à la casse."""
+    return _resolve_code_to_id("cache_sizes", "code", code)
+
+def _resolve_size_name(name: str):
+    """Cherche un size par name – insensible à la casse."""
+    return _resolve_code_to_id("cache_sizes", "name", name)
+
+def _resolve_country_name(name: str):
+    """Cherche un country par name – insensible à la casse."""
+    return _resolve_code_to_id("countries", "name", name)
+
+def _resolve_state_name(country_name: str, state_name: str):
+    """Cherche un state par name – insensible à la casse."""
+    country_id = _resolve_code_to_id("countries", "name", country_name)
+    if country_id is None:
+        return None
+    country_states = collections_mapping.get("countries")["by_country"]
+    state_id = country_states.get(state_name.lower(), None)
+
+    return state_id
+
+def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
+    from app.models.challenge_ast import TaskExpression as TE
+    def _norm(node: Any) -> Any:
+        if isinstance(node, dict):
+            k = node.get("kind")
+
+            if k == "attributes" and isinstance(node.get("attributes"), list):
+                new_attrs = []
+                for a in node["attributes"]:
+                    a = dict(a)
+                    code = a.get("code")
+                    if code and not a.get("attribute_doc_id"):
+                        res = _resolve_attribute_code(code)
+                        if not res:
+                            raise ValueError(f"index {index_for_errors}: attribute code not found '{code}'")
+                        doc_id, num_id = res
+                        a["attribute_doc_id"] = doc_id
+                        a.setdefault("cache_attribute_id", num_id)
+                    new_attrs.append(a)
+                node = {**node, "attributes": new_attrs}
+
+            elif k == "type_in" and isinstance(node.get("types"), list):
+                new_types = []
+                for t in node["types"]:
+                    t = dict(t)
+                    if t.get("cache_type_code") and not t.get("cache_type_id"):
+                        found = _resolve_type_code(t["cache_type_code"])
+                        if not found:
+                            raise ValueError(f"index {index_for_errors}: type code not found '{t['cache_type_code']}'")
+                        t["cache_type_id"] = found
+                    new_types.append(t)
+                node = {**node, "types": new_types}
+
+            elif k == "size_in" and isinstance(node.get("sizes"), list):
+                new_sizes = []
+                for s in node["sizes"]:
+                    s = dict(s)
+                    if not s.get("size_id"):
+                        if s.get("code"):
+                            found = _resolve_size_code(s["code"])
+                        elif s.get("name"):
+                            found = _resolve_size_name(s["name"])
+                        else:
+                            found = None
+                        if not found:
+                            label = s.get("code") or s.get("name") or "<?>"
+                            raise ValueError(f"index {index_for_errors}: size not found '{label}'")
+                        s["size_id"] = found
+                    new_sizes.append(s)
+                node = {**node, "sizes": new_sizes}
+
+            elif k == "country_is" and isinstance(node.get("country"), dict):
+                c = dict(node["country"])
+                if c.get("name") and not c.get("country_id"):
+                    found = _resolve_country_name(c["name"])
+                    if not found:
+                        raise ValueError(f"index {index_for_errors}: country name not found '{c['name']}'")
+                    c["country_id"] = found
+                node = {**node, "country": c}
+
+            elif k == "state_in" and isinstance(node.get("states"), list):
+                # scope pays optionnel sur la règle
+                scope_cid = node.get("country_id")
+                scope_cname = node.get("country_name")
+                if not scope_cid and scope_cname:
+                    cid = _resolve_country_name(scope_cname)
+                    if not cid:
+                        raise ValueError(f"index {index_for_errors}: country_name not found '{scope_cname}'")
+                    scope_cid = cid
+
+                new_states, errs = [], []
+                for s in node["states"]:
+                    s = dict(s)
+                    if s.get("name") and not s.get("state_id"):
+                        sid, err = _resolve_state_name(s["name"], country_id=scope_cid)
+                        if err:
+                            errs.append(err)
+                        elif sid:
+                            s["state_id"] = sid
+                        else:
+                            errs.append(f"state name not found '{s['name']}'")
+                    new_states.append(s)
+                if errs:
+                    raise ValueError(f"index {index_for_errors}: " + "; ".join(errs))
+                node = {**node, "states": new_states}
+
+            for key, val in list(node.items()):
+                node[key] = _norm(val)
+            return node
+
+        if isinstance(node, list):
+            return [_norm(x) for x in node]
+        return node
+
+    expr_dict = expr.model_dump(by_alias=True)
+    normalized = _norm(expr_dict)
+    return TypeAdapter(TE).validate_python(normalized)
 
 def _walk_expr(expr: TaskExpression):
     """Yield (kind, node, parent_kind) for structure validation."""
@@ -265,8 +576,15 @@ def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: L
         if expr_raw is None:
             raise ValueError("each task must have an 'expression'")
         try:
-            # TaskExpression est un Union[...] -> utiliser un TypeAdapter en v2
-            expr_model = TypeAdapter(TaskExpression).validate_python(expr_raw)
+            # 1) appliquer la forme courte -> canonique (AND par défaut)
+            expr_pre = preprocess_expression_default_and(expr_raw)
+
+            # 2) valider/parse Pydantic (Union des nœuds)
+            expr_model = TypeAdapter(TaskExpression).validate_python(expr_pre)
+
+            # 3) tes normalisations existantes (ex: attributes.code -> ids, type_in.codes -> type_ids)
+            expr_model = _normalize_code_to_id(expr_model, index_for_errors=i)
+
         except ValidationError as e:
             raise ValueError(f"invalid expression at index {i}: {e}")
 
