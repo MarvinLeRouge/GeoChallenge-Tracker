@@ -23,9 +23,9 @@ def get_tasks(
     current_user: dict = Depends(get_current_user),
 ):
     user_id = ObjectId(str(current_user["_id"]))
-    items = list_tasks(user_id, ObjectId(str(uc_id)))
+    tasks = list_tasks(user_id, ObjectId(str(uc_id)))
 
-    return {"items": items}
+    return {"tasks": tasks}
 
 @router.put("", response_model=TasksListResponse, summary="Remplacer l'ensemble des tasks d'un UserChallenge (ordre inclus)")
 def put_tasks_route(
@@ -35,12 +35,12 @@ def put_tasks_route(
 ):
     user_id = ObjectId(str(current_user["_id"]))
     try:
-        items = put_tasks(user_id, ObjectId(str(uc_id)), [t.model_dump(by_alias=True) for t in payload.tasks])
+        tasks = put_tasks(user_id, ObjectId(str(uc_id)), [t.model_dump(by_alias=True) for t in payload.tasks])
     except ValueError as ve:
         detail = ve.args[0] if ve.args else {"error": "validation"}
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
     
-    return {"items": items}
+    return {"tasks": tasks}
 
 @router.post("/validate", response_model=TasksValidateResponse, summary="Valider une liste de tasks sans persistance")
 def validate_tasks_route(

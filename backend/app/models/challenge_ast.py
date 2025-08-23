@@ -1,9 +1,9 @@
 # backend/app/models/challenge_ast.py
 
 from __future__ import annotations
-from typing import List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 from datetime import date
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, RootModel
 from app.core.bson_utils import PyObjectId
 
 class ASTBase(BaseModel):
@@ -14,13 +14,40 @@ class ASTBase(BaseModel):
     )
 
 # ---- Cache-level leaves ----
+## --- Selectors ---
+class TypeSelector(ASTBase):
+    cache_type_doc_id: Optional[PyObjectId] = None
+    cache_type_id: Optional[int] = None
+    cache_type_code: Optional[str] = Field(default=None, description="Cache type code, e.g. 'whereigo'")
+
+class SizeSelector(ASTBase):
+    cache_size_doc_id: Optional[PyObjectId] = None
+    cache_size_id: Optional[int] = None
+    code: Optional[str] = Field(default=None, description="Cache size code")
+
+class StateSelector(ASTBase):
+    state_id: Optional[int] = None
+    name: Optional[str] = Field(default=None, description="Cache state")
+
+class CountrySelector(ASTBase):
+    country_id: Optional[int] = None
+    name: Optional[str] = Field(default=None, description="Cache country")
+
+class AttributeSelector(ASTBase):
+    cache_attribute_doc_id: Optional[PyObjectId] = None
+    cache_attribute_id: Optional[int] = None
+    code: Optional[str] = Field(default=None, description="Cache attribute code, e.g. 'picnic'")
+    is_positive: bool = True
+
+
+## --- Rules ---
 class RuleTypeIn(ASTBase):
     kind: Literal["type_in"] = "type_in"
-    type_ids: List[PyObjectId]
+    types: List[TypeSelector]
 
 class RuleSizeIn(ASTBase):
     kind: Literal["size_in"] = "size_in"
-    size_ids: List[PyObjectId]
+    sizes: List[SizeSelector]
 
 class RulePlacedYear(ASTBase):
     kind: Literal["placed_year"] = "placed_year"
@@ -40,7 +67,7 @@ class RuleStateIn(ASTBase):
 
 class RuleCountryIs(ASTBase):
     kind: Literal["country_is"] = "country_is"
-    country_id: PyObjectId
+    country: CountrySelector
 
 class RuleDifficultyBetween(ASTBase):
     kind: Literal["difficulty_between"] = "difficulty_between"
@@ -51,11 +78,6 @@ class RuleTerrainBetween(ASTBase):
     kind: Literal["terrain_between"] = "terrain_between"
     min: float = Field(ge=1.0, le=5.0)
     max: float = Field(ge=1.0, le=5.0)
-
-class AttributeSelector(ASTBase):
-    cache_attribute_id: int
-    attribute_doc_id: Optional[PyObjectId] = None
-    is_positive: bool = True
 
 class RuleAttributes(ASTBase):
     kind: Literal["attributes"] = "attributes"
@@ -114,3 +136,79 @@ class UCNot(ASTBase):
     task_id: PyObjectId
 
 UCLogic = Union[UCAnd, UCOr, UCNot]
+
+# Les kinds logiques et les kinds "feuilles" (règles) connus
+_LOGICAL_KINDS = {"and", "or", "not"}
+_RULE_KINDS = {
+    "attributes",
+    "type_in",
+    "size_in",
+    "placed_year",
+    "placed_before",
+    "placed_after",
+    "state_in",
+    "country_is",
+    "difficulty_between",
+    "terrain_between",
+    "aggregate_sum_difficulty_at_least",
+    "aggregate_sum_terrain_at_least",
+    "aggregate_sum_diff_plus_terr_at_least",
+    "aggregate_sum_altitude_at_least",
+}
+
+def preprocess_expression_default_and(expr: Any) -> Any:
+    """
+    Transforme des écritures "courtes" en une expression canonique
+    où 'kind'='and' est explicite et les règles sont dans 'nodes'.
+
+    Règles :
+    - Si expr est un dict sans 'kind', on considère que c'est un bloc 'and'.
+      - Si le dict ressemble déjà à un nœud logique (a 'nodes'), on met kind='and'.
+      - Si le dict ressemble à UNE règle (kind de règle OU clés de règle directes),
+        on l'enveloppe dans {'kind':'and','nodes':[<règle>]}.
+    - Si expr.kind ∈ RULE_KINDS (ex: 'type_in') au sommet, on enveloppe pareil.
+    - Sinon on renvoie tel quel.
+
+    Appelé AVANT la validation Pydantic sur l'AST.
+    """
+    # Cas non-dict (list, str, etc.) → inchangé
+    if not isinstance(expr, dict):
+        return expr
+
+    # Si pas de 'kind' → c'est un AND implicite
+    if "kind" not in expr:
+        # Si déjà une liste de 'nodes', on force 'and'
+        if "nodes" in expr and isinstance(expr["nodes"], list):
+            return {"kind": "and", "nodes": expr["nodes"]}
+
+        # Détection d'une "règle courte" (attributs/typage directs)
+        looks_like_rule = any(k in expr for k in (
+            "attributes", "type_ids", "codes", "size_ids",
+            "year", "date", "state_ids", "country_id",
+            "min", "max", "min_total"
+        ))
+        if looks_like_rule:
+            return {"kind": "and", "nodes": [expr]}
+
+        # Sinon, on met quand même un AND vide (laisser la validation gérer)
+        return {"kind": "and", "nodes": expr.get("nodes", [])}
+
+    # Si 'kind' est une règle au sommet → envelopper dans un AND
+    k = expr.get("kind")
+    if isinstance(k, str) and k in _RULE_KINDS:
+        return {"kind": "and", "nodes": [expr]}
+
+    # Si 'kind' est logique mais sans nodes et qu'on voit des champs de règle,
+    # on transforme en nodes=[ ce dict moins 'kind' ] (rare, mais utile)
+    if isinstance(k, str) and k in _LOGICAL_KINDS and not expr.get("nodes"):
+        looks_like_rule = any(field in expr for field in (
+            "attributes", "type_ids", "codes", "size_ids",
+            "year", "date", "state_ids", "country_id",
+            "min", "max", "min_total"
+        ))
+        if looks_like_rule:
+            rule_like = {kk: vv for kk, vv in expr.items() if kk != "kind"}
+            return {"kind": k, "nodes": [rule_like]}
+
+    # Déjà canonique
+    return expr

@@ -114,6 +114,17 @@ def patch_uc_batch(
 
     return BatchPatchResponse(updated_count=updated, total=len(items), results=results)
 
+@router.get("/{uc_id}", response_model=DetailResponse, summary="Détail d'un UserChallenge")
+def get_uc(
+    uc_id: PyObjectId = Path(...),
+    current_user: dict = Depends(get_current_user),
+):
+    user_id = ObjectId(str(current_user["_id"]))
+    doc = get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
+    if not doc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
+    return doc
+
 @router.patch("/{uc_id}", response_model=PatchResponse, summary="Modifier le statut/notes d'un UserChallenge")
 def patch_uc(
     uc_id: PyObjectId = Path(...),
@@ -132,13 +143,3 @@ def patch_uc(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return doc
 
-@router.get("/{uc_id}", response_model=DetailResponse, summary="Détail d'un UserChallenge")
-def get_uc(
-    uc_id: PyObjectId = Path(...),
-    current_user: dict = Depends(get_current_user),
-):
-    user_id = ObjectId(str(current_user["_id"]))
-    doc = get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
-    if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
-    return doc
