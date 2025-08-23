@@ -9,6 +9,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongodb import get_collection
 from app.core.utils import now
+from app.services.referentials_cache import _resolve_attribute_code, _resolve_type_code, _resolve_size_code, _resolve_size_name
 
 # ---------- Helpers ----------
 
@@ -102,9 +103,19 @@ def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
     out: List[Tuple[str, Any]] = []
     if k == "type_in":
         ids = leaf.get("type_ids") or []
+        if not ids and leaf.get("codes"):
+            for code in leaf.get("codes"):
+                id = _resolve_type_code(code)
+                if id:
+                    ids.append(id)
         out.append(("type_id", {"$in": ids}))
     elif k == "size_in":
         ids = leaf.get("size_ids") or []
+        if not ids and leaf.get("codes"):
+            for code in leaf.get("codes"):
+                id = _resolve_size_code(code)
+                if id:
+                    ids.append(id)
         out.append(("size_id", {"$in": ids}))
     elif k == "country_is":
         cid = leaf.get("country_id")
@@ -139,14 +150,13 @@ def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
     elif k == "attributes":
         # expect 'attributes': [{cache_attribute_id, is_positive, attribute_doc_id?}]
         attrs = leaf.get("attributes") or []
+        print("attrs", attrs)
         for a in attrs:
-            attr_doc_id = a.get("attribute_doc_id")
+            attr_doc_id = a.get("cache_attribute_doc_id")
+            if not attr_doc_id and a.get("code"):
+                attr_doc_id, _ = _resolve_attribute_code(a.get("code"))
             if not attr_doc_id:
-                # best-effort resolution by business id
-                caid = a.get("cache_attribute_id")
-                if caid is not None:
-                    attr_doc_id = _attr_id_by_cache_attr_id(int(caid))
-            if not attr_doc_id:
+
                 # can't resolve: leave no condition (won't match anything)
                 # better to add impossible match to ensure count==0
                 out.append(("attributes", {"$elemMatch": {"attribute_doc_id": ObjectId(), "is_positive": True}}))
@@ -156,6 +166,7 @@ def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
                     "is_positive": bool(a.get("is_positive", True))
                 }}))
     # unknown leaves are ignored (safe default)
+    print("_compile_leaf_to_cache_match", "leaf", leaf, "out", out)
     return out
 
 def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str], Optional[Dict[str, Any]]]:
