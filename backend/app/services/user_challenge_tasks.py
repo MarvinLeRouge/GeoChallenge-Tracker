@@ -294,7 +294,7 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
     coll.delete_many({"user_challenge_id": uc_id})
 
     to_insert = []
-    now = datetime.utcnow()
+    now = utcnow()
     for i, item in enumerate(tasks_payload):
         _maybe_id = item.get("id") or item.get("_id")
         doc_id = ObjectId(str(_maybe_id)) if _maybe_id else ObjectId()

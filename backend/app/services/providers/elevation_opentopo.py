@@ -9,6 +9,7 @@ import httpx
 
 from app.db.mongodb import get_collection
 from app.core.settings import settings
+from app.core.utils import *
 
 # Config
 ENDPOINT = settings.elevation_provider_endpoint
@@ -21,7 +22,7 @@ ENABLED = settings.elevation_enabled
 PROVIDER_KEY = "opentopodata_mapzen"
 
 def _quota_key_for_today() -> str:
-    today = dt.datetime.utcnow().date().isoformat()
+    today = utcnow().date().isoformat()
     return f"{PROVIDER_KEY}:{today}"
 
 def _read_quota() -> int:
@@ -31,7 +32,7 @@ def _read_quota() -> int:
 def _inc_quota(n: int) -> None:
     get_collection("api_quotas").update_one(
         {"_id": _quota_key_for_today()},
-        {"$inc": {"count": int(n)}, "$setOnInsert": {"created_at": dt.datetime.utcnow()}},
+        {"$inc": {"count": int(n)}, "$setOnInsert": {"created_at": utcnow()}},
         upsert=True,
     )
 

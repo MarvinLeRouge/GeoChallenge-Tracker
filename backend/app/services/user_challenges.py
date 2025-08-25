@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Literal
 from datetime import datetime
 from bson import ObjectId
 from pymongo import UpdateOne, ReturnDocument
 
 from app.db.mongodb import get_collection
 
-def _now() -> datetime:
-    return datetime.utcnow()
-
+from app.core.utils import *
 
 def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
     challenges = get_collection("challenges")
@@ -36,9 +34,9 @@ def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
                         "user_id": user_id,
                         "challenge_id": cid,
                         "status": "pending",
-                        "created_at": _now(),
+                        "created_at": utcnow(),
                     },
-                    "$set": {"updated_at": _now()},
+                    "$set": {"updated_at": utcnow()},
                 },
                 upsert=True,
             )
@@ -64,7 +62,7 @@ def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
                 {"cache_id": 1, "found_date": 1, "_id": 0},
             )
             updates: List[UpdateOne] = []
-            now = _now()
+            now = utcnow()
             for fc in cur:
                 ch_id = cache_to_challenge.get(fc["cache_id"])
                 if not ch_id:
@@ -281,18 +279,18 @@ def patch_user_challenge(
     """
     ucs = get_collection("user_challenges")
 
-    update: Dict[str, Any] = {"updated_at": _now()}
-    unset: Dict[str, ""] = {}
+    update: Dict[str, Any] = {"updated_at": utcnow()}
+    unset: Dict[str, Literal[""]] = {}
 
     if status is not None:
         update["status"] = status
         if status == "completed":
             update["manual_override"] = True
-            update["overridden_at"] = _now()
+            update["overridden_at"] = utcnow()
             if override_reason is not None:
                 update["override_reason"] = override_reason
             # Progression instantanée à 100% lors d'un override manuel
-            update["progress"] = {"percent": 100, "tasks_done": None, "tasks_total": None, "checked_at": _now()}
+            update["progress"] = {"percent": 100, "tasks_done": None, "tasks_total": None, "checked_at": utcnow()}
         else:
             update["manual_override"] = False
             unset["override_reason"] = ""

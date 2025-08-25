@@ -35,10 +35,17 @@ def get_progress_route(
 @router.post("/{uc_id}/progress/evaluate", response_model=ProgressEvaluateResponse, summary="Évaluer et insérer un snapshot immédiat")
 def evaluate_progress_route(
     uc_id: PyObjectId = Path(...),
+    force: bool = False,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = ObjectId(str(current_user["_id"]))
-    doc = evaluate_progress(user_id, ObjectId(str(uc_id)))
+    if force and current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seuls les administrateurs peuvent utiliser le paramètre 'force'"
+        )
+
+    doc = evaluate_progress(user_id = user_id, uc_id = ObjectId(str(uc_id)), force = force)
     return doc
 
 class EvaluateNewPayload(BaseModel):
