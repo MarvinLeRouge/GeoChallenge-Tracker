@@ -8,7 +8,7 @@ from app.models.target_dto import (
     TargetsPreviewPerTaskResponse,
     TargetsPreviewGlobalResponse,
 )
-from app.services.targets import (
+from backend.app.services.targets import (
     preview_targets_for_uc,
     preview_targets_multi_uc,
 )
