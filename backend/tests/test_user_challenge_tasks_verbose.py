@@ -7,6 +7,7 @@ import pytest
 from bson import ObjectId
 from rich import print as rprint
 
+from app.core.utils import *
 from app.db.mongodb import get_collection
 from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_only
 
@@ -87,8 +88,8 @@ def uc_ctx(admin_user_id):
         "_id": ObjectId(),
         "name": "PyTest Dummy Challenge",
         "description": "Challenge for testing UserChallengeTasks",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
     }
     challenges.insert_one(ch_doc)
 
@@ -98,8 +99,8 @@ def uc_ctx(admin_user_id):
         "user_id": admin_user_id,
         "challenge_id": ch_doc["_id"],
         "status": "pending",
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": utcnow(),
+        "updated_at": utcnow(),
     }
     ucs.insert_one(uc_doc)
 

@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from typing import Optional, List
 import datetime as dt
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from app.core.bson_utils import PyObjectId
 from app.models._shared import ProgressSnapshot as AggregateProgress  # percent, tasks_done, tasks_total, checked_at
 
+
+def _round_it(v: float, decimals: int = 0) -> float | None:
+    if v is None:
+        return v
+    return round(float(v), decimals)
 
 class AggregateProgressOut(BaseModel):
     total: float
@@ -48,6 +53,7 @@ class TaskProgressItemOut(BaseModel):
         json_encoders={PyObjectId: str},
     )
 
+    _round_percent = field_validator("percent", mode="before")(lambda v: _round_it(v, 1))
 
 class ProgressOut(BaseModel):
     """A full snapshot document for a given user_challenge at time t."""
@@ -65,7 +71,6 @@ class ProgressOut(BaseModel):
 
     # Optional annotations
     message: Optional[str] = None
-    engine_version: Optional[str] = None
 
     # Auditing
     created_at: Optional[dt.datetime] = None

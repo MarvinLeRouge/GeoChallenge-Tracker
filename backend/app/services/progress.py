@@ -8,7 +8,7 @@ from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongodb import get_collection
-from app.core.utils import now
+from app.core.utils import *
 from app.services.referentials_cache import _resolve_attribute_code, _resolve_type_code, _resolve_size_code, _resolve_size_name
 
 # ---------- Helpers ----------
@@ -280,7 +280,7 @@ def _aggregate_total(user_id: ObjectId, match_caches: Dict[str, Any], spec: Dict
 
 # ---------- Public API ----------
 
-def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
+def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force = False) -> Dict[str, Any]:
     """Evaluate tasks for a UC and insert a snapshot in 'progress'."""
     _ensure_uc_owned(user_id, uc_id)
     tasks = _get_tasks_for_uc(uc_id)
@@ -289,6 +289,21 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
     sum_min = 0
     tasks_supported = 0
     tasks_done = 0
+    uc_statuses = get_collection("user_challenges").find_one(
+        {"_id": uc_id},
+        {"status": 1, "computed_status": 1 }
+    )
+    uc_status = (uc_statuses or {}).get("status")
+    uc_computed_status = (uc_statuses or {}).get("computed_status")
+    if (not force) and (uc_computed_status == "completed" or uc_status == "completed"):
+        # Renvoyer le dernier snapshot existant, sans recalcul ni insertion
+        last = get_collection("progress").find_one(
+            {"user_challenge_id": uc_id},
+            sort=[("checked_at", -1), ("created_at", -1)]
+        )
+        if last:
+            return last  # même shape que vos snapshots persistés
+        # S'il n'y a pas encore de snapshot, on retombe sur le calcul normal
 
     for t in tasks:
         min_count = int(((t.get("constraints") or {}).get("min_count") or 0))
@@ -297,11 +312,12 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
         status = (t.get("status") or "todo").lower()
         expr = t.get("expression") or {}
 
-        if status == "done":
+        if status == "done" and not force:
             snap = {
                 "task_id": t["_id"],
                 "order": order,
                 "title": title,
+                "status": status,
                 "supported_for_progress": True,
                 "compiled_signature": "override:done",
                 "min_count": min_count,
@@ -332,13 +348,25 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
                     "created_at": t.get("created_at"),
                 }
             else:
-                tic = datetime.utcnow()
+                tic = utcnow()
                 current = _count_found_caches_matching(user_id, match_caches)
-                ms = int((datetime.utcnow() - tic).total_seconds() * 1000)
+                ms = int((utcnow() - tic).total_seconds() * 1000)
 
                 # base percent on min_count
                 bounded = min(current, min_count) if min_count > 0 else current
                 count_percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
+                new_status = ("done" if current >= min_count else status)
+                task_id = t["_id"]
+                t["status"] = new_status
+                if status != "done":
+                    get_collection("user_challenge_tasks").update_one(
+                        {"_id": task_id},
+                        {"$set": {
+                            "status": new_status,
+                            "last_evaluated_at": utcnow(),
+                            "updated_at": utcnow(),
+                        }}
+                    )
 
                 # aggregate handling
                 aggregate_total = None
@@ -370,6 +398,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
                     "task_id": t["_id"],
                     "order": order,
                     "title": title,
+                    "status": t["status"],
                     "supported_for_progress": True,
                     "compiled_signature": sig,
                     "min_count": min_count,
@@ -401,6 +430,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
         snapshots.append(snap)
 
     aggregate_percent = (100.0 * (sum_current / sum_min)) if sum_min > 0 else 0.0
+    aggregate_percent = round(aggregate_percent, 1)
     doc = {
         "user_challenge_id": uc_id,
         "checked_at": now(),
@@ -412,12 +442,22 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
         },
         "tasks": snapshots,
         "message": None,
-        "engine_version": "mvp-and-agg-1",
         "created_at": now(),
     }
+    if(uc_computed_status != "completed") and (tasks_done == tasks_supported):
+        new_status = "completed"
+        get_collection("user_challenges").update_one(
+            {"_id": uc_id},
+            {"$set": {
+                "computed_status": new_status,
+                "status": new_status,
+                "updated_at": utcnow(),
+            }}
+        )
     get_collection("progress").insert_one(doc)
     # enrich for response
     doc["id"] = str(doc.get("_id")) if "_id" in doc else None
+
     return doc
 
 def get_latest_and_history(

@@ -23,6 +23,8 @@ from bson import ObjectId
 
 from app.db.mongodb import get_collection
 
+from app.core.utils import *
+
 # Constante métier: attribut "Challenge cache" (geocaching.com)
 CHALLENGE_ATTRIBUTE_ID = 71
 
@@ -134,10 +136,10 @@ def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = N
                         'cache_id': cache_id,
                         'name': title,
                         'description': description,
-                        'created_at': datetime.utcnow(),
+                        'created_at': utcnow(),
                     },
                     '$set': {
-                        'updated_at': datetime.utcnow(),
+                        'updated_at': utcnow(),
                     },
                 },
                 upsert=True,
