@@ -122,6 +122,7 @@ def ensure_indexes() -> None:
     # Non-unique helpers
     ensure_index('users', [('is_active', ASCENDING)])
     ensure_index('users', [('is_verified', ASCENDING)])
+    ensure_index('users', [('location', '2dsphere')], name='geo_user_location_2dsphere')
 
     # ---------- countries ----------
     ensure_index('countries', [('name', ASCENDING)], name='uniq_country_name', unique=True)
@@ -187,16 +188,27 @@ def ensure_indexes() -> None:
     ensure_index('user_challenge_tasks', [('user_challenge_id', ASCENDING)])
     ensure_index('user_challenge_tasks', [('last_evaluated_at', DESCENDING)])
 
+    # ---------- progress ----------
+    ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)], name='uniq_progress_time_per_challenge', unique=True)
+
     # ---------- targets ----------
-    ensure_index('targets', [('user_challenge_id', ASCENDING), ('cache_id', ASCENDING)],
-                 name='uniq_target_per_challenge_cache', unique=True)
+    # Unicité d’un target par (UC, cache)
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('cache_id', ASCENDING)], name='uniq_target_per_challenge_cache', unique=True)
+
+    # Filtrages et tris courants
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('satisfies_task_ids', ASCENDING)])
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('primary_task_id', ASCENDING)])
     ensure_index('targets', [('cache_id', ASCENDING)])
-    ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)])
-    
-    # ---------- progress ----------
-    ensure_index('progress', [('user_challenge_id', ASCENDING), ('checked_at', ASCENDING)], name='uniq_progress_time_per_challenge', unique=True)
+    ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)], name='uc_score_desc')
+
+    # (NOUVEAU) Tri global par user : user_id est dénormalisé dans targets
+    ensure_index('targets', [('user_id', ASCENDING), ('score', DESCENDING)], name='user_score_desc')
+
+    # (NOUVEAU) Index géospatial : 'loc' (GeoJSON Point) est dénormalisé dans targets
+    ensure_index('targets', [('loc', '2dsphere')], name='geo_targets_loc_2dsphere')
+
+    # Tri récents si besoin d’ordonnancement temporel
+    ensure_index('targets', [('updated_at', DESCENDING), ('created_at', DESCENDING)], name='updated_created_desc')
 
 
 if __name__ == "__main__":

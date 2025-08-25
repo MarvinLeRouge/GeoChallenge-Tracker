@@ -1,68 +1,103 @@
-# backend/app/models/target_dto.py
-
+# app/models/target_dto.py
 from __future__ import annotations
-from typing import List, Optional, Literal, Dict, Any
+
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 
-# --- Types communs ---
+# ---- Types communs ----
 
 class LocOut(BaseModel):
-    """Latitude/Longitude en décimal."""
+    """Latitude/Longitude en décimal (format d’API)."""
     lat: float
     lng: float
 
 
+# ---- Sorties "list" pour les routes GET /targets ----
+
+class TargetListItemOut(BaseModel):
+    """
+    Élément d’une liste de targets :
+    - une cache candidate qui satisfait ≥1 task du UserChallenge
+    - distance_km n’apparaît que pour les endpoints 'nearby'
+    """
+    id: str                                        # id du document target
+    user_challenge_id: str
+    cache_id: str
+
+    # Résumé cache (optionnel selon la jointure effectuée côté service)
+    GC: Optional[str] = None
+    name: Optional[str] = None
+    loc: Optional[LocOut] = None
+
+    matched_task_ids: List[str] = Field(default_factory=list)
+    primary_task_id: Optional[str] = None
+
+    score: float
+    reasons: List[str] = Field(default_factory=list)
+    pinned: bool = False
+
+    distance_km: Optional[float] = None           # si recherche 'nearby'
+
+
+class TargetListResponse(BaseModel):
+    items: List[TargetListItemOut]
+    total: int
+    page: int
+    limit: int
+
+
+# ---- (Optionnel) DTO de preview "par tâche" ----
+
 class MatchRef(BaseModel):
-    """Référence (UC, Task) qu'une cache permet de couvrir."""
+    """Référence (UC, Task) qu’une cache permet de couvrir."""
     uc_id: str
     task_id: str
 
 
-# --- Sorties principales ---
-
 class TargetOut(BaseModel):
-    """Cache candidate ('cible') pour faire progresser des tâches/UC."""
+    """
+    Sortie enrichie pour des modes "preview" (si utilisés plus tard).
+    À n’utiliser que si le service alimente ces champs via des jointures.
+    """
     cache_id: str
     name: str
     loc: LocOut
-    type_id: str
-    difficulty: float
-    terrain: float
-    matched: List[MatchRef] = Field(default_factory=list)   # tâches couvertes
+    type_id: Optional[str] = None
+    difficulty: Optional[float] = None
+    terrain: Optional[float] = None
+    matched: List[MatchRef] = Field(default_factory=list)
     score: float
-    reasons: List[str] = Field(default_factory=list)        # explications compactes
-    distance_km: Optional[float] = None                     # si filtrage centre/rayon
-    already_found: bool = False                             # toujours False au MVP (filtré en amont)
-    pinned: bool = False                                    # réservé pour persistance future
+    reasons: List[str] = Field(default_factory=list)
+    distance_km: Optional[float] = None
+    already_found: bool = False
+    pinned: bool = False
 
 
 class PerTaskBucket(BaseModel):
-    """Groupe de candidats pour une tâche donnée."""
     uc_id: str
     task_id: str
-    needed: int                                             # min_count - current_count (>= 0)
+    needed: int
     candidates: List[TargetOut]
 
 
 class TargetsPreviewPerTaskResponse(BaseModel):
-    """Réponse en mode per_task : top-K par tâche."""
     mode: Literal["per_task"] = "per_task"
     buckets: List[PerTaskBucket]
-    meta: Dict[str, Any] = Field(default_factory=dict)      # ex: {"k": 5, "scope_size": 3}
+    meta: Dict[str, Any] = Field(default_factory=dict)
 
+
+# ---- (Optionnel) DTO de preview "global" ----
 
 class CoverageGap(BaseModel):
-    """Slots restants par tâche après sélection (mode global)."""
     uc_id: str
     task_id: str
-    remaining: int                                          # >= 0
+    remaining: int
 
 
 class TargetsPreviewGlobalResponse(BaseModel):
-    """Réponse en mode global : sélection gloutonne multi-couverture."""
     mode: Literal["global"] = "global"
-    selection: List[TargetOut]                              # jusqu'à K éléments
-    covered_pairs: int                                      # nb total de slots couverts
+    selection: List[TargetOut]
+    covered_pairs: int
     remaining: List[CoverageGap]
-    meta: Dict[str, Any] = Field(default_factory=dict)      # ex: {"k": 5, "pool": 120, "scope_size": 8}
+    meta: Dict[str, Any] = Field(default_factory=dict)

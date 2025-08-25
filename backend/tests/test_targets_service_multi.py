@@ -2,7 +2,7 @@ import asyncio
 from bson import ObjectId
 
 from app.models.target_dto import TargetsPreviewGlobalResponse
-from app.services.targets import preview_targets_multi_uc
+from backend.app.services.targets_tests import preview_targets_multi_uc
 
 # Fake scope for multi-UC (two UCs, one task each, both incomplete)
 uc1 = str(ObjectId("64a000000000000000000101"))
@@ -19,7 +19,7 @@ scope_stub_multi = [
 
 
 def test_preview_targets_multi_global(monkeypatch):
-    from app.services import targets as targets_service
+    from backend.app.services import targets_tests as targets_service
 
     # Monkeypatch async scope loader (multi-UC)
     async def scope_async(_user_id):

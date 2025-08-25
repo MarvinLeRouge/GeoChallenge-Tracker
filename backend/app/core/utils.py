@@ -6,4 +6,4 @@ def now():
     return dt.datetime.now()
 
 def utcnow():
-    return dt.now(dt.timezone.utc)
+    return dt.datetime.now(dt.timezone.utc)

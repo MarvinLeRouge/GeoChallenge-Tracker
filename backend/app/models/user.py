@@ -7,6 +7,11 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from app.core.utils import *
 from app.core.bson_utils import *
 
+class UserLocation(BaseModel):
+    lon: float
+    lat: float
+    updated_at: dt.datetime = Field(default_factory=lambda: utcnow())
+
 class Preferences(BaseModel):
     language: Optional[str] = "fr"
     dark_mode: Optional[bool] = False
@@ -32,7 +37,8 @@ class User(MongoBaseModel, UserBase):
     challenges: List[PyObjectId] = Field(default_factory=list)
     verification_code: Optional[str] = None
     verification_expires_at: Optional[dt.datetime] = None
-
+    location: Optional[UserLocation] = None
+    
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
 
