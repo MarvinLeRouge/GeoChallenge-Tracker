@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from app.core.security import get_current_user
 from app.core.utils import utcnow
 from app.services import user_profile
-from backend.app.services.targets import (
+from app.services.targets import (
     evaluate_targets_for_user_challenge,
     list_targets_for_user,
     list_targets_for_user_challenge,
@@ -16,6 +16,7 @@ from backend.app.services.targets import (
     list_targets_nearby_for_user,
     delete_targets_for_user_challenge,
 )
+from app.models.target_dto import TargetListResponse
 
 router = APIRouter(prefix="/my", tags=["targets"])
 
@@ -53,6 +54,7 @@ def evaluate_targets(
     lat: Optional[float] = Query(None, ge=-90, le=90),
     lon: Optional[float] = Query(None, ge=-180, le=180),
     radius_km: Optional[float] = Query(None, gt=0, description="Rayon pour filtre géo si activé."),
+    force: bool = Query(False, description="Forcer le recalcul même si des targets existent déjà."),
     current_user=Depends(get_current_user),
 ):
     """
@@ -83,6 +85,7 @@ def evaluate_targets(
         hard_limit_total=int(hard_limit_total),
         geo_ctx=geo_ctx,
         evaluated_at=utcnow(),
+        force=force,
     )
     # result attendu: {"ok": True, "inserted": int, "updated": int, "total": int}
     return result
@@ -99,6 +102,7 @@ def list_targets_uc(
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("-score", description="Ex: '-score', 'distance', 'GC'"),
     current_user=Depends(get_current_user),
+    response_model=TargetListResponse,
 ):
     """
     Liste paginée des targets pour un UserChallenge donné.
@@ -121,6 +125,7 @@ def list_targets_uc_nearby(
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("distance", description="Tri par défaut: distance"),
     current_user=Depends(get_current_user),
+    response_model=TargetListResponse,
 ):
     """
     Liste paginée des targets d'un UserChallenge proches d'un point.
@@ -158,6 +163,7 @@ def list_targets_all(
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("-score", description="Ex: '-score', 'distance', 'GC'"),
     current_user=Depends(get_current_user),
+    response_model=TargetListResponse,
 ):
     """
     Liste paginée des targets pour l'utilisateur sur l'ensemble de ses challenges (optionnellement filtrés par statut UC).
@@ -182,6 +188,7 @@ def list_targets_all_nearby(
     limit: int = Query(50, ge=1, le=200),
     sort: str = Query("distance", description="Tri par défaut: distance"),
     current_user=Depends(get_current_user),
+    response_model=TargetListResponse,
 ):
     """
     Liste paginée des targets proches d'un point, sur l'ensemble des challenges (optionnellement filtrés par statut UC).

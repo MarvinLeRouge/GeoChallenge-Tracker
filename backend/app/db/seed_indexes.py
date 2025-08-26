@@ -199,17 +199,14 @@ def ensure_indexes() -> None:
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('satisfies_task_ids', ASCENDING)])
     ensure_index('targets', [('user_challenge_id', ASCENDING), ('primary_task_id', ASCENDING)])
     ensure_index('targets', [('cache_id', ASCENDING)])
-    ensure_index('targets', [('user_challenge_id', ASCENDING), ('score', DESCENDING)], name='uc_score_desc')
-
-    # (NOUVEAU) Tri global par user : user_id est dénormalisé dans targets
     ensure_index('targets', [('user_id', ASCENDING), ('score', DESCENDING)], name='user_score_desc')
-
-    # (NOUVEAU) Index géospatial : 'loc' (GeoJSON Point) est dénormalisé dans targets
+    # Tri par score pour un UC donné
+    ensure_index('targets', [('user_id', ASCENDING), ('user_challenge_id', ASCENDING), ('score', DESCENDING)], name='ix_targets__uc_score_desc')
+    # Index géospatial sur loc (GeoJSON Point)
     ensure_index('targets', [('loc', '2dsphere')], name='geo_targets_loc_2dsphere')
 
     # Tri récents si besoin d’ordonnancement temporel
     ensure_index('targets', [('updated_at', DESCENDING), ('created_at', DESCENDING)], name='updated_created_desc')
-
 
 if __name__ == "__main__":
     ensure_indexes()

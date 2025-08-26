@@ -2,7 +2,7 @@ import asyncio
 from bson import ObjectId
 
 from app.models.target_dto import TargetsPreviewPerTaskResponse
-from backend.app.services.targets_tests import preview_targets_for_uc
+from app.services.targets_tests import preview_targets_for_uc
 
 # Fake scope (2 tasks, both incomplete)
 uc_oid = ObjectId("64a000000000000000000001")
@@ -19,7 +19,7 @@ scope_stub = [
 
 
 def test_preview_targets_for_uc_per_task(monkeypatch):
-    from backend.app.services import targets_tests as targets_service
+    from app.services import targets_tests as targets_service
 
     # Monkeypatch async scope loader
     async def scope_async(_uc_id):
@@ -72,7 +72,7 @@ def test_preview_targets_for_uc_per_task(monkeypatch):
 
 
 def test_preview_targets_for_uc_global(monkeypatch):
-    from backend.app.services import targets_tests as targets_service
+    from app.services import targets_tests as targets_service
 
     async def scope_async(_uc_id):
         return scope_stub

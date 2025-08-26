@@ -1,13 +1,13 @@
 # backend/app/services/user_challenge_tasks.py
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional
-from datetime import datetime
+from typing import Any, Dict, List, Optional, Iterable
 from bson import ObjectId
 import re
 
 from pydantic import BaseModel, Field, ValidationError, TypeAdapter
 from app.core.bson_utils import PyObjectId
+from app.core.utils import *
 from app.db.mongodb import get_collection
 from app.services.referentials_cache import *
 
@@ -22,7 +22,113 @@ from app.models.challenge_ast import (
     RuleAggSumDifficultyAtLeast, RuleAggSumTerrainAtLeast,
     RuleAggSumDiffPlusTerrAtLeast, RuleAggSumAltitudeAtLeast,
 )
-from app.models.challenge_ast import preprocess_expression_default_and  # <-- import
+from app.models.challenge_ast import preprocess_expression_default_and, TaskExpression as TE
+
+# ======================================================================================
+#                                   Public helpers
+# ======================================================================================
+
+def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
+    """
+    Compile **une expression** (déjà pydantic-validée et normalisée code→id)
+    en **filtre MongoDB** pour la collection `caches`.
+
+    Cette fonction est **la** brique partagée par:
+      - services/progress.py (comptage des caches trouvées qui satisfont la task)
+      - services/targets.py  (sélection des caches non-trouvées qui satisfont la task)
+    """
+    def _leaf_to_match(leaf: Any) -> Dict[str, Any]:
+        k = getattr(leaf, "kind", None)
+
+        if k == "type_in":
+            # canonique: node.type_ids (liste d'OIDs)
+            ids = [oid for oid in (getattr(leaf, "type_ids", None) or [])]
+            return {"type_id": {"$in": ids}} if ids else {}
+
+        if k == "size_in":
+            ids = [oid for oid in (getattr(leaf, "size_ids", None) or [])]
+            return {"size_id": {"$in": ids}} if ids else {}
+
+        if k == "placed_year":
+            y = int(getattr(leaf, "year"))
+            return {"placed_year": y}
+
+        if k == "placed_before":
+            d = getattr(leaf, "date")
+            return {"placed_at": {"$lt": d}}
+
+        if k == "placed_after":
+            d = getattr(leaf, "date")
+            return {"placed_at": {"$gt": d}}
+
+        if k == "difficulty_between":
+            return {"difficulty": {"$gte": leaf.min, "$lte": leaf.max}}
+
+        if k == "terrain_between":
+            return {"terrain": {"$gte": leaf.min, "$lte": leaf.max}}
+
+        if k == "country_is":
+            return {"country_id": leaf.country_id}
+
+        if k == "state_in":
+            ids = [oid for oid in (getattr(leaf, "state_ids", None) or [])]
+            return {"state_id": {"$in": ids}} if ids else {}
+
+        if k == "attributes":
+            # Liste d'attributs ET-és (tous doivent matcher)
+            clauses: List[Dict[str, Any]] = []
+            for a in leaf.attributes:
+                # on privilégie cache_attribute_doc_id si présent, sinon id numérique
+                attr_doc_id = getattr(a, "cache_attribute_doc_id", None) or getattr(a, "attribute_doc_id", None)
+                num_id = getattr(a, "cache_attribute_id", None)
+                is_pos = bool(getattr(a, "is_positive", True))
+                sub: Dict[str, Any] = {
+                    "attributes": {
+                        "$elemMatch": {
+                            "is_positive": is_pos
+                        }
+                    }
+                }
+                if attr_doc_id:
+                    sub["attributes"]["$elemMatch"]["attribute_doc_id"] = attr_doc_id
+                elif num_id is not None:
+                    sub["attributes"]["$elemMatch"]["cache_attribute_id"] = int(num_id)
+                # sinon: si seulement "code" => interdit ici (doit avoir été normalisé avant)
+                clauses.append(sub)
+            return {"$and": clauses} if clauses else {}
+
+        # Agrégats: ne participent pas au filtre "cache" (calculés côté progress/metrics)
+        if k in {
+            "aggregate_sum_difficulty_at_least",
+            "aggregate_sum_terrain_at_least",
+            "aggregate_sum_diff_plus_terr_at_least",
+            "aggregate_sum_altitude_at_least",
+        }:
+            return {}
+
+        # Par défaut: rien
+        return {}
+
+    def _node(expr_node: Any) -> Dict[str, Any]:
+        if isinstance(expr_node, TaskAnd):
+            parts = [ _node(n) for n in expr_node.nodes ]
+            parts = [p for p in parts if p]  # strip empties
+            return {"$and": parts} if parts else {}
+
+        if isinstance(expr_node, TaskOr):
+            parts = [ _node(n) for n in expr_node.nodes ]
+            parts = [p for p in parts if p]
+            return {"$or": parts} if parts else {}
+
+        if isinstance(expr_node, TaskNot):
+            inner = _node(expr_node.node)
+            return {"$nor": [inner]} if inner else {}
+
+        # Feuille
+        return _leaf_to_match(expr_node)
+
+    return _node(expr)
+
 
 # ==== DTO-like models used by services ====
 class PatchTaskItem(BaseModel):
@@ -35,7 +141,6 @@ class PatchTaskItem(BaseModel):
     notes: Optional[str] = None
 
 def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
-    from app.models.challenge_ast import TaskExpression as TE
     def _norm(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
@@ -48,7 +153,7 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                     code = a.get("code")
                     # NOTE: le modèle AST attend 'cache_attribute_doc_id'
                     if code and not a.get("cache_attribute_doc_id"):
-                        res = _resolve_attribute_code(code)  # doit renvoyer (oid, numeric_id)
+                        res = resolve_attribute_code(code)  # doit renvoyer (oid, numeric_id)
                         if not res:
                             raise ValueError(f"index {index_for_errors}: attribute code not found '{code}'")
                         doc_id, num_id = res
@@ -64,7 +169,7 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                 for t in node["types"]:
                     t = dict(t)
                     if t.get("cache_type_code") and not t.get("cache_type_doc_id"):
-                        found = _resolve_type_code(t["cache_type_code"])  # retourne l'OID du doc type
+                        found = resolve_type_code(t["cache_type_code"])  # retourne l'OID du doc type
                         if not found:
                             raise ValueError(f"index {index_for_errors}: type code not found '{t['cache_type_code']}'")
                         t["cache_type_doc_id"] = found
@@ -79,9 +184,9 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                     if not s.get("cache_size_doc_id"):
                         found = None
                         if s.get("code"):
-                            found = _resolve_size_code(s["code"])
+                            found = resolve_size_code(s["code"])
                         elif s.get("name"):
-                            found = _resolve_size_name(s["name"])
+                            found = resolve_size_name(s["name"])
                         if not found:
                             label = s.get("code") or s.get("name") or "<?>"
                             raise ValueError(f"index {index_for_errors}: size not found '{label}'")
@@ -89,8 +194,44 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                     new_sizes.append(s)
                 node = {**node, "sizes": new_sizes}
 
-            # --- country_is, state_in: laisse comme tu as déjà (tes versions hautes sont OK)
-            # (country.name -> country_id si nécessaire, states via _resolve_state_name(...))
+            # --- country_is: accepter {"country": {"code" | "name"}} et conserver les champs lisibles
+            elif k == "country_is":
+                c = dict(node.get("country") or {})
+                if not node.get("country_id"):
+                    cid = None
+                    if (not cid) and c.get("name"):
+                        cid = resolve_country_name(c["name"])
+                    if not cid:
+                        label = c.get("code") or c.get("name") or "<?>"
+                        raise ValueError(f"country_is: country not found '{label}' (index {index_for_errors})")
+                    node["country_id"] = cid
+                # conserver le bloc 'country' tel que fourni (lisibilité GET)
+                node["country"] = c or node.get("country") or {}
+
+            # --- state_in: accepter {"states":[{"name": ...}]} (et/ou "state_names": [...])
+            #               nécessite le country du même AND (tu as déjà une validation côté validate_task_expression)
+            elif k == "state_in":
+                # on collecte des ids à partir de plusieurs formes acceptées
+                state_ids = list(node.get("state_ids") or [])
+                # compat courte: state_names: ["X","Y"]
+                for nm in (node.get("state_names") or []):
+                    sid = resolve_state_name(nm, context_country_id=node.get("country_id") or (node.get("country") or {}).get("country_id"))
+                    if not sid:
+                        raise ValueError(f"state_in: state not found '{nm}' (index {index_for_errors})")
+                    state_ids.append(sid)
+                # forme riche: states: [{"name": ...}]
+                for s in (node.get("states") or []):
+                    s = dict(s)
+                    sid = s.get("state_id")
+                    if not sid and s.get("name"):
+                        sid = resolve_state_name(s["name"], context_country_id=node.get("country_id") or (node.get("country") or {}).get("country_id"))
+                    if not sid:
+                        label = s.get("name") or "<?>"
+                        raise ValueError(f"state_in: state not found '{label}' (index {index_for_errors})")
+                    state_ids.append(sid)
+                if state_ids:
+                    node["state_ids"] = list(dict.fromkeys(state_ids))  # dedup
+                # conserver 'states' et/ou 'state_names' (lisibilité GET)
 
             # recurse
             for key, val in list(node.items()):
@@ -105,7 +246,7 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
     normalized = _norm(expr_dict)
     return TypeAdapter(TE).validate_python(normalized)
 
-def _has_country_is(nodes) -> bool:
+def _has_country_is(nodes: Iterable[Any]) -> bool:
     for n in nodes:
         if isinstance(n, RuleCountryIs):
             return True
@@ -156,26 +297,26 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
 
         if kind == "type_in":
             for oid in node.type_ids:
-                if not _exists_id("cache_types", oid):
+                if not exists_id("cache_types", oid):
                     errors.append(f"type_in: unknown cache_type id '{oid}'")
         elif kind == "size_in":
             for oid in node.size_ids:
-                if not _exists_id("cache_sizes", oid):
+                if not exists_id("cache_sizes", oid):
                     errors.append(f"size_in: unknown cache_size id '{oid}'")
         elif kind == "state_in":
             for oid in node.state_ids:
-                if not _exists_id("states", oid):
+                if not exists_id("states", oid):
                     errors.append(f"state_in: unknown state id '{oid}'")
                 # obligation d’un country_is sibling
                 if isinstance(expr, TaskAnd):
                     if not _has_country_is(expr.nodes):
                         errors.append("state_in requires a sibling country_is in the same AND group")
         elif kind == "country_is":
-            if not _exists_id("countries", node.country_id):
+            if not exists_id("countries", node.country_id):
                 errors.append(f"country_is: unknown country id '{node.country_id}'")
         elif kind == "attributes":
             for i, a in enumerate(node.attributes):
-                if not _exists_attribute_id(a.cache_attribute_id):
+                if not exists_attribute_id(a.cache_attribute_id):
                     errors.append(f"attributes[{i}].cache_attribute_id unknown '{a.cache_attribute_id}'")
         elif kind in ("difficulty_between", "terrain_between"):
             if node.min > node.max:
@@ -218,7 +359,7 @@ def _legacy_fixup_expression(exp: Any) -> Any:
 
     return _fix(exp)
 
-def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
+def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
     coll = get_collection("user_challenge_tasks")
     cur = coll.find(
         {"user_challenge_id": uc_id},
@@ -286,7 +427,7 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
 
         return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
-def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
+def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     # Validate first (raises on error)
     _validate_tasks_payload(user_id, uc_id, tasks_payload)
 

@@ -9,6 +9,25 @@ from app.core.utils import utcnow
 from app.core.bson_utils import PyObjectId, MongoBaseModel
 
 
+# ---------- Diagnostics structurés ----------
+
+class TargetDiagnosticsSubscores(BaseModel):
+    """Sous-scores utilisés pour le tri/scoring."""
+    tasks: float = Field(ge=0.0, le=1.0)    # part des tasks non-done couvertes par la cache
+    urgency: float = Field(ge=0.0, le=1.0)  # max ratio (remaining/min_count) parmi les tasks couvertes
+    geo: float = Field(ge=0.0, le=1.0)      # facteur distance (1/(1+d/D0)) ou 1 si pas de géo
+
+class TargetDiagnostics(BaseModel):
+    """Bloc de diagnostic stocké côté DB pour transparence/debug."""
+    matched: List[Dict[str, Any]] = Field(default_factory=list)
+    subscores: TargetDiagnosticsSubscores
+    evaluated_at: dt.datetime = Field(default_factory=utcnow)
+
+    model_config = ConfigDict(
+        json_encoders={PyObjectId: str}
+    )
+
+
 # Schéma Mongo "targets"
 # - 1 document par (user_challenge_id, cache_id)
 # - dénormalisation minimale de la position (GeoJSON Point) pour $geoNear
@@ -29,7 +48,7 @@ class TargetCreate(BaseModel):
     loc: Optional[Dict[str, Any]] = None
 
     # utile en debug, jamais exposé côté API publique
-    diagnostics: Optional[Dict[str, Any]] = None
+    diagnostics: Optional[TargetDiagnostics] = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -44,7 +63,7 @@ class TargetUpdate(BaseModel):
     reasons: Optional[List[str]] = None
     pinned: Optional[bool] = None
     loc: Optional[Dict[str, Any]] = None
-    diagnostics: Optional[Dict[str, Any]] = None
+    diagnostics: Optional[TargetDiagnostics] = None
     updated_at: Optional[dt.datetime] = None
 
     model_config = ConfigDict(
@@ -69,7 +88,7 @@ class Target(MongoBaseModel):
     # GeoJSON Point: {"type": "Point", "coordinates": [lon, lat]}
     loc: Optional[Dict[str, Any]] = None
 
-    diagnostics: Optional[Dict[str, Any]] = None
+    diagnostics: Optional[TargetDiagnostics] = None
 
     created_at: dt.datetime = Field(default_factory=utcnow)
     updated_at: Optional[dt.datetime] = None

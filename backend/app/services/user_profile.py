@@ -5,7 +5,7 @@ from datetime import datetime
 from math import floor
 from app.core.utils import *
 from app.db.mongodb import get_collection
-print("USING services.user_profile FROM:", __file__)
+
 # --- PARSEUR POSITION (DD / DM / DMS) --------------------------------------
 
 # Normalise les symboles (prime/second), espaces, décimales
