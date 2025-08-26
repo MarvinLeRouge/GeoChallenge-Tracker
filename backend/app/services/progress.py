@@ -9,7 +9,7 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongodb import get_collection
 from app.core.utils import *
-from app.services.referentials_cache import _resolve_attribute_code, _resolve_type_code, _resolve_size_code, _resolve_size_name
+from app.services.query_builder import compile_and_only
 
 # ---------- Helpers ----------
 
@@ -30,181 +30,6 @@ def _attr_id_by_cache_attr_id(cache_attribute_id: int) -> Optional[ObjectId]:
     )
     return row["_id"] if row else None
 
-def _mk_date(dt_or_str: Any) -> datetime:
-    # Accept date, datetime, or ISO string
-    if isinstance(dt_or_str, datetime):
-        return dt_or_str
-    if isinstance(dt_or_str, date):
-        # interpret as midnight
-        return datetime(dt_or_str.year, dt_or_str.month, dt_or_str.day)
-    if isinstance(dt_or_str, str):
-        try:
-            # allow date-only or datetime formats
-            if len(dt_or_str) == 10:
-                y, m, d = [int(x) for x in dt_or_str.split("-")]
-                return datetime(y, m, d)
-            return datetime.fromisoformat(dt_or_str)
-        except Exception:
-            pass
-    raise ValueError(f"Invalid date value: {dt_or_str!r}")
-
-def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
-    """Return list of leaf nodes if expression is AND-only; otherwise None."""
-    if not isinstance(expr, dict):
-        return None
-    kind = expr.get("kind")
-    if kind == "and":
-        nodes = expr.get("nodes") or []
-        leaves: List[Dict[str, Any]] = []
-        for n in nodes:
-            sub = _flatten_and_nodes(n)
-            if sub is None:
-                return None
-            leaves.extend(sub)
-        return leaves
-    elif kind in ("or", "not"):
-        return None
-    else:
-        # assume leaf
-        return [expr]
-
-def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Return (aggregate_spec, cache_leaves). Only one aggregate leaf supported (MVP)."""
-    agg = None
-    cache_leaves: List[Dict[str, Any]] = []
-    for lf in leaves:
-        k = lf.get("kind")
-        if k in (
-            "aggregate_sum_difficulty_at_least",
-            "aggregate_sum_terrain_at_least",
-            "aggregate_sum_diff_plus_terr_at_least",
-            "aggregate_sum_altitude_at_least",
-        ):
-            if agg is None:
-                if "min_total" not in lf or lf["min_total"] is None:
-                    # ignore malformed aggregate leaf
-                    continue
-                if k == "aggregate_sum_difficulty_at_least":
-                    agg = {"kind": "difficulty", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_sum_terrain_at_least":
-                    agg = {"kind": "terrain", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_sum_diff_plus_terr_at_least":
-                    agg = {"kind": "diff_plus_terr", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_sum_altitude_at_least":
-                    agg = {"kind": "altitude", "min_total": int(lf["min_total"])}
-            # ignore additional aggregate leaves (handled in validator)
-        else:
-            cache_leaves.append(lf)
-    return agg, cache_leaves
-
-def _compile_leaf_to_cache_match(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
-    """Return list of (field, condition) pairs to be AND'ed together, targeting the 'cache.' namespace."""
-    k = leaf.get("kind")
-    out: List[Tuple[str, Any]] = []
-    if k == "type_in":
-        ids = leaf.get("type_ids") or []
-        if not ids and leaf.get("codes"):
-            for code in leaf.get("codes"):
-                id = _resolve_type_code(code)
-                if id:
-                    ids.append(id)
-        out.append(("type_id", {"$in": ids}))
-    elif k == "size_in":
-        ids = leaf.get("size_ids") or []
-        if not ids and leaf.get("codes"):
-            for code in leaf.get("codes"):
-                id = _resolve_size_code(code)
-                if id:
-                    ids.append(id)
-        out.append(("size_id", {"$in": ids}))
-    elif k == "country_is":
-        cid = leaf.get("country_id")
-        if cid:
-            out.append(("country_id", cid))
-    elif k == "state_in":
-        ids = leaf.get("state_ids") or []
-        out.append(("state_id", {"$in": ids}))
-    elif k == "placed_year":
-        y = leaf.get("year") or leaf.get("value")
-        if y is not None:
-            y = int(y)
-            start = datetime(y, 1, 1)
-            end = datetime(y + 1, 1, 1)
-            out.append(("placed_at", {"$gte": start, "$lt": end}))
-    elif k == "placed_before":
-        d = leaf.get("date") or leaf.get("value")
-        if d is not None:
-            out.append(("placed_at", {"$lt": _mk_date(d)}))
-    elif k == "placed_after":
-        d = leaf.get("date") or leaf.get("value")
-        if d is not None:
-            out.append(("placed_at", {"$gt": _mk_date(d)}))
-    elif k == "difficulty_between":
-        lo = leaf.get("min"); hi = leaf.get("max")
-        if lo is not None and hi is not None:
-            out.append(("difficulty", {"$gte": float(lo), "$lte": float(hi)}))
-    elif k == "terrain_between":
-        lo = leaf.get("min"); hi = leaf.get("max")
-        if lo is not None and hi is not None:
-            out.append(("terrain", {"$gte": float(lo), "$lte": float(hi)}))
-    elif k == "attributes":
-        # expect 'attributes': [{cache_attribute_id, is_positive, attribute_doc_id?}]
-        attrs = leaf.get("attributes") or []
-        print("attrs", attrs)
-        for a in attrs:
-            attr_doc_id = a.get("cache_attribute_doc_id")
-            if not attr_doc_id and a.get("code"):
-                attr_doc_id, _ = _resolve_attribute_code(a.get("code"))
-            if not attr_doc_id:
-
-                # can't resolve: leave no condition (won't match anything)
-                # better to add impossible match to ensure count==0
-                out.append(("attributes", {"$elemMatch": {"attribute_doc_id": ObjectId(), "is_positive": True}}))
-            else:
-                out.append(("attributes", {"$elemMatch": {
-                    "attribute_doc_id": attr_doc_id,
-                    "is_positive": bool(a.get("is_positive", True))
-                }}))
-    # unknown leaves are ignored (safe default)
-    print("_compile_leaf_to_cache_match", "leaf", leaf, "out", out)
-    return out
-
-def _compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str], Optional[Dict[str, Any]]]:
-    """
-    Returns: (signature, MATCH_CACHES, supported, notes, aggregate_spec)
-    - signature: stable-ish string
-    - MATCH_CACHES: dict fields without the 'cache.' prefix
-    - supported: False if OR/NOT present
-    - notes: diagnostics
-    - aggregate_spec: optional dict like {'kind':'difficulty','min_total':30000}
-    """
-    leaves = _flatten_and_nodes(expr)
-    if leaves is None:
-        return ("unsupported:or-not", {}, False, ["or/not unsupported in MVP"], None)
-    parts: List[Tuple[str, Any]] = []
-    # extract aggregate and keep only cache leaves for matching
-    agg_spec, cache_leaves = _extract_aggregate_spec(leaves)
-    leaves = cache_leaves
-    for lf in leaves:
-        parts.extend(_compile_leaf_to_cache_match(lf))
-    # Build $and in dict form
-    match: Dict[str, Any] = {}
-    for field, cond in parts:
-        key = field  # will be prefixed by 'cache.' later in pipeline
-        if key in match:
-            if not isinstance(match[key], list):
-                match[key] = [match[key]]
-            match[key].append(cond)
-        else:
-            match[key] = cond
-    # signature = sorted keys + repr of values (simple)
-    try:
-        import json as _json
-        signature = "and:" + _json.dumps({"leaves": leaves}, default=str, sort_keys=True)
-    except Exception:
-        signature = "and:compiled"
-    return (signature, match, True, [], agg_spec)
-
 def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]) -> int:
     fc = get_collection("found_caches")
     pipeline: List[Dict[str, Any]] = [
@@ -217,6 +42,7 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]
         }},
         {"$unwind": "$cache"},
     ]
+
     # Apply match on cache.*
     conds: List[Dict[str, Any]] = []
     for field, cond in match_caches.items():
@@ -330,7 +156,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force = False) -> Dict
                 "created_at": t.get("created_at"),
             }
         else:
-            sig, match_caches, supported, notes, agg_spec = _compile_and_only(expr)
+            sig, match_caches, supported, notes, agg_spec = compile_and_only(expr)
             if not supported:
                 snap = {
                     "task_id": t["_id"],

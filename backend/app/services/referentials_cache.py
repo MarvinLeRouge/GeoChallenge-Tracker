@@ -116,7 +116,7 @@ if not _mapping_ready:
 # Existence checks via cache
 # --------------------------------------------------------------------------------------
 
-def _exists_id(coll_name: str, oid: ObjectId) -> bool:
+def exists_id(coll_name: str, oid: ObjectId) -> bool:
     try:
         oid = oid if isinstance(oid, ObjectId) else ObjectId(str(oid))
     except Exception:
@@ -124,7 +124,7 @@ def _exists_id(coll_name: str, oid: ObjectId) -> bool:
     entry = collections_mapping.get(coll_name) or {}
     return oid in entry.get("ids", set())
 
-def _exists_attribute_id(attr_id: int) -> bool:
+def exists_attribute_id(attr_id: int) -> bool:
     entry = collections_mapping.get("cache_attributes") or {}
     try:
         return int(attr_id) in entry.get("numeric_ids", set())
@@ -140,7 +140,7 @@ def _resolve_code_to_id(collection: str, field: str, value: str) -> Optional[Obj
     m = entry.get(field) or {}
     return m.get(str(value).lower())
 
-def _resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]]]:
+def resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]]]:
     entry = collections_mapping.get("cache_attributes") or {}
     # on tente par code, puis par 'txt' (rangé dans name_map)
     oid = (entry.get("code", {}) or {}).get(code.lower())
@@ -152,19 +152,19 @@ def _resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]
     num = int(doc["cache_attribute_id"]) if doc.get("cache_attribute_id") is not None else None
     return oid, num
 
-def _resolve_type_code(code: str) -> Optional[ObjectId]:
+def resolve_type_code(code: str) -> Optional[ObjectId]:
     return _resolve_code_to_id("cache_types", "code", code)
 
-def _resolve_size_code(code: str) -> Optional[ObjectId]:
+def resolve_size_code(code: str) -> Optional[ObjectId]:
     return _resolve_code_to_id("cache_sizes", "code", code)
 
-def _resolve_size_name(name: str) -> Optional[ObjectId]:
+def resolve_size_name(name: str) -> Optional[ObjectId]:
     return _resolve_code_to_id("cache_sizes", "name", name)
 
-def _resolve_country_name(name: str) -> Optional[ObjectId]:
+def resolve_country_name(name: str) -> Optional[ObjectId]:
     return _resolve_code_to_id("countries", "name", name)
 
-def _resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None) -> Tuple[Optional[ObjectId], Optional[str]]:
+def resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None) -> Tuple[Optional[ObjectId], Optional[str]]:
     entry = collections_mapping.get("states") or {}
     by_country = entry.get("by_country", {})
     target = (state_name or "").lower()
