@@ -1,4 +1,5 @@
 # backend/app/models/progress.py
+# Modèles de snapshot de progression (global + par tâche) pour un UserChallenge, horodatés.
 
 from __future__ import annotations
 from typing import Optional, List, Dict, Any, Literal
@@ -21,7 +22,20 @@ Progress data model - clarification
 """
 
 class TaskProgressItem(BaseModel):
-    """Snapshot for a single task at this instant t."""
+    """Snapshot par tâche à l’instant t.
+
+    Description:
+        Capture l’état d’une tâche au moment du calcul (statut, compteurs, diagnostics)
+        afin d’alimenter les vues détaillées et l’agrégat global.
+
+    Attributes:
+        task_id (PyObjectId): Réf. de la tâche.
+        status (Literal['todo','in_progress','done']): État courant.
+        progress (ProgressSnapshot): Sous-agrégat/percent pour cette tâche.
+        metrics (dict[str, Any]): Compteurs/valeurs calculées (ex. `current_count`).
+        constraints (dict[str, Any] | None): Contraintes copiées à des fins d’audit.
+        aggregate (AggregateProgress | None): Agrégat dédié (ex. unités spécifiques).
+    """
     task_id: PyObjectId
     status: Literal["todo", "in_progress", "done"] = "todo"
     progress: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
@@ -37,7 +51,21 @@ class TaskProgressItem(BaseModel):
 
 
 class Progress(MongoBaseModel):
-    """Full, immutable snapshot for a user_challenge at time t."""
+    """Snapshot complet d’un UserChallenge à l’instant t.
+
+    Description:
+        Document immuable décrivant l’état agrégé du challenge et l’état de chaque tâche,
+        utilisé pour les graphiques et l’historique.
+
+    Attributes:
+        user_challenge_id (PyObjectId): Réf. UC concerné.
+        checked_at (datetime): Horodatage du calcul (axe temps).
+        aggregate (ProgressSnapshot): Agrégat global (toutes tâches supportées).
+        tasks (list[TaskProgressItem]): Détails par tâche.
+        message (str | None): Annotation éventuelle.
+        engine_version (str | None): Version du moteur d’évaluation.
+        created_at (datetime): Date de création (append-only).
+    """
     user_challenge_id: PyObjectId
 
     # Time axis for charts & projections
@@ -57,6 +85,13 @@ class Progress(MongoBaseModel):
     created_at: dt.datetime = Field(default_factory=lambda: now())
 
 class AggregateProgress(BaseModel):
+    """Agrégat simple (valeur/objectif/unité).
+
+    Attributes:
+        total (float): Valeur courante.
+        target (float): Objectif attendu.
+        unit (str): Unité (ex. "points", "meters").
+    """
     total: float = 0.0
     target: float = 0.0
     unit: str = "points"  # ou "meters" pour altitude

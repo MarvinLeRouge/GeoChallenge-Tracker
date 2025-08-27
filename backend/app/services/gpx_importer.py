@@ -1,4 +1,5 @@
 # backend/app/services/gpx_importer.py
+# Importe des caches depuis un fichier GPX (ou un ZIP de GPX), mappe référentiels, enrichit (altitude), et upsert found_caches.
 
 import os, math
 import io
@@ -24,16 +25,55 @@ UPLOADS_DIR = Path("../uploads/gpx").resolve()
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 
 def _is_zip(buf: bytes) -> bool:
+    """Détecter un ZIP via signature magique.
+
+    Description:
+        Vérifie les 4 premiers octets (`PK\\x03\\x04`) pour identifier un fichier ZIP.
+
+    Args:
+        buf (bytes): En-tête de fichier.
+
+    Returns:
+        bool: True si ZIP, sinon False.
+    """
     return buf[:4] == b"PK\x03\x04"
 
 def _safe_join(base: Path, *paths: str) -> Path:
-    """Empêche le path traversal lors de l'extraction ZIP."""
+    """Joindre des chemins en empêchant le path traversal.
+
+    Description:
+        Résout le chemin cible et vérifie qu’il est bien **sous** `base`. Lève une 400 sinon.
+
+    Args:
+        base (Path): Répertoire racine autorisé.
+        *paths (str): Segments à joindre.
+
+    Returns:
+        Path: Chemin final sécurisé.
+
+    Raises:
+        fastapi.HTTPException: 400 si tentative de path traversal.
+    """
     candidate = (base / Path(*paths)).resolve()
     if not str(candidate).startswith(str(base)):
         raise HTTPException(status_code=400, detail="Unsafe path in ZIP")
     return candidate
 
 def _validate_gpx_minimal_bytes(data: bytes) -> None:
+    """Valider grossièrement un GPX (buffer en mémoire).
+
+    Description:
+        Parse le XML et vérifie que la racine contient `gpx`. Lève une 400 en cas d’échec.
+
+    Args:
+        data (bytes): Contenu du fichier GPX.
+
+    Returns:
+        None
+
+    Raises:
+        fastapi.HTTPException: 400 si XML invalide ou racine != gpx.
+    """
     try:
         root = ET.fromstring(data)
     except ET.ParseError as e:
@@ -42,6 +82,20 @@ def _validate_gpx_minimal_bytes(data: bytes) -> None:
         raise HTTPException(status_code=400, detail="Root element is not <gpx>")
 
 def _validate_gpx_minimal_path(path: Path) -> None:
+    """Valider grossièrement un GPX (depuis un fichier sur disque).
+
+    Description:
+        Parse le XML en chemin et vérifie la racine `gpx`. Lève une 400 en cas d’échec.
+
+    Args:
+        path (Path): Chemin du fichier GPX.
+
+    Returns:
+        None
+
+    Raises:
+        fastapi.HTTPException: 400 si XML invalide ou racine != gpx.
+    """
     try:
         tree = ET.parse(path)
         root = tree.getroot()
@@ -51,6 +105,18 @@ def _validate_gpx_minimal_path(path: Path) -> None:
         raise HTTPException(status_code=400, detail=f"{path.name} is not a <gpx> file")
 
 def _write_single_gpx(payload: bytes, filename: Optional[str]) -> Path:
+    """Écrire un GPX unique dans le répertoire d’uploads.
+
+    Description:
+        Sanitize le nom, force l’extension `.gpx`, écrit le fichier, puis revalide le contenu.
+
+    Args:
+        payload (bytes): Données GPX brutes.
+        filename (str | None): Nom d’origine (facultatif).
+
+    Returns:
+        Path: Chemin du fichier écrit (validé).
+    """
     base = (filename or f"upload-{uuid.uuid4().hex}").replace(os.sep, "_")
     if not base.lower().endswith(".gpx"):
         base += ".gpx"
@@ -60,6 +126,21 @@ def _write_single_gpx(payload: bytes, filename: Optional[str]) -> Path:
     return out_path
 
 def _extract_zip_to_paths(payload: bytes) -> List[Path]:
+    """Extraire les .gpx d’un ZIP vers le répertoire d’uploads.
+
+    Description:
+        Parcourt les entrées du ZIP, ignore les répertoires et les fichiers non `.gpx`,
+        sécurise les chemins via `_safe_join`, écrit et valide chaque GPX.
+
+    Args:
+        payload (bytes): Contenu du fichier ZIP.
+
+    Returns:
+        list[Path]: Chemins des fichiers GPX extraits.
+
+    Raises:
+        fastapi.HTTPException: 400 si archive invalide ou si aucun GPX valide n’est présent.
+    """
     paths: List[Path] = []
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as z:
@@ -83,7 +164,19 @@ def _extract_zip_to_paths(payload: bytes) -> List[Path]:
     return paths
 
 def _materialize_to_paths(payload: bytes, filename: Optional[str]) -> List[Path]:
-    """Retourne la liste des paths GPX enregistrés en uploads (ZIP → multi, GPX → 1)."""
+    """Matérialiser un upload (ZIP→multi ou GPX→unique) en fichiers sur disque.
+
+    Description:
+        - Si ZIP: dézippe via `_extract_zip_to_paths`.
+        - Sinon: écrit via `_write_single_gpx` après validation basique.
+
+    Args:
+        payload (bytes): Données uploadées.
+        filename (str | None): Nom d’origine (pour labelliser le fichier écrit).
+
+    Returns:
+        list[Path]: Liste des chemins GPX matérialisés.
+    """
     if _is_zip(payload):
         return _extract_zip_to_paths(payload)
     # sinon single GPX
@@ -93,11 +186,27 @@ def _materialize_to_paths(payload: bytes, filename: Optional[str]) -> List[Path]
 # --------- Mapping helpers (IDEM) ---------
 
 def _normalize_name(name: Optional[str]) -> str:
+    """Normaliser un libellé pour matching référentiel.
+
+    Description:
+        Trim et `casefold()` pour des comparaisons tolérantes (ex. « micro » vs « Micro »).
+
+    Args:
+        name (str | None): Libellé source.
+
+    Returns:
+        str: Libellé normalisé (éventuellement chaîne vide).
+    """
     return (name or "").strip().casefold()
 
 def _get_all_countries_by_name() -> Dict[str, ObjectId]:
-    """
-    Retourne un index: nom_normalisé -> country id
+    """Indexer les pays par nom normalisé.
+
+    Description:
+        Construit `{name_normalized: country._id}` depuis `countries`.
+
+    Returns:
+        dict[str, ObjectId]: Index des pays.
     """
     result: Dict[str, ObjectId] = {}
     cursor = get_collection("countries").find({}, {"name": 1})
@@ -106,8 +215,13 @@ def _get_all_countries_by_name() -> Dict[str, ObjectId]:
     return result
 
 def _get_all_states_by_countryid_and_name() -> Dict[ObjectId, Dict[str, ObjectId]]:
-    """
-    Retourne un index imbriqué : (country_id, nom_normalisé) -> state id
+    """Indexer les états par (country_id, nom).
+
+    Description:
+        Construit `{country_id: {state_name_normalized: state._id}}` depuis `states`.
+
+    Returns:
+        dict[ObjectId, dict[str, ObjectId]]: Index imbriqué pays→états.
     """
     result: Dict[ObjectId, Dict[str, ObjectId]] = {}
     cursor = get_collection("states").find({}, {"name": 1, "country_id": 1})
@@ -118,8 +232,10 @@ def _get_all_states_by_countryid_and_name() -> Dict[ObjectId, Dict[str, ObjectId
     return result
 
 def _get_all_types_by_name() -> Dict[str, ObjectId]:
-    """
-    Retourne un index: nom_normalisé -> type _id
+    """Indexer les types par nom normalisé.
+
+    Returns:
+        dict[str, ObjectId]: `{type_name: _id}` depuis `cache_types`.
     """
     result: Dict[str, ObjectId] = {}
     cursor = get_collection("cache_types").find({}, {"name": 1})
@@ -128,8 +244,10 @@ def _get_all_types_by_name() -> Dict[str, ObjectId]:
     return result
 
 def _get_all_sizes_by_name() -> Dict[str, ObjectId]:
-    """
-    Retourne un index: nom_normalisé -> size _id
+    """Indexer les tailles par nom normalisé.
+
+    Returns:
+        dict[str, ObjectId]: `{size_name: _id}` depuis `cache_sizes`.
     """
     result: Dict[str, ObjectId] = {}
     cursor = get_collection("cache_sizes").find({}, {"name": 1})
@@ -138,8 +256,10 @@ def _get_all_sizes_by_name() -> Dict[str, ObjectId]:
     return result
 
 def _get_all_attributes_by_id() -> Dict[int, ObjectId]:
-    """
-    Retourne un index: id -> attribute _id
+    """Indexer les attributs par identifiant numérique global.
+
+    Returns:
+        dict[int, ObjectId]: `{cache_attribute_id: _id}` depuis `cache_attributes`.
     """
     result = {item["cache_attribute_id"]:item["_id"] for item in get_collection("cache_attributes").find({}, {"cache_attribute_id": 1})}
 
@@ -149,11 +269,22 @@ def _ensure_country_state(
     country_name: Optional[str],
     state_name: Optional[str],
     all_countries_by_name: Optional[Dict[str, ObjectId]] = None,
-    all_states_by_countryid_and_name: Optional[Dict[ObjectId, Dict[str, ObjectId]]] = None
+    all_states_by_countryid_and_name: Optional[Dict[ObjectId, Dict[str, ObjectId]]] = None,
 ) -> Tuple[Optional[ObjectId], Optional[ObjectId]]:
-    """
-    Retourne les ObjectId du pays et de l'état.
-    Si les dictionnaires indexés ne sont pas fournis, ils sont construits depuis la base.
+    """Garantir l’existence (et récupérer les _id) d’un pays/état.
+
+    Description:
+        Retourne les `_id` du pays et de l’état ; crée les documents manquants si nécessaires
+        et met à jour les index en mémoire passés en paramètres.
+
+    Args:
+        country_name (str | None): Nom du pays.
+        state_name (str | None): Nom de l’état/région.
+        all_countries_by_name (dict | None): Index pays (peut être fourni pour éviter des lectures DB).
+        all_states_by_countryid_and_name (dict | None): Index états (idem).
+
+    Returns:
+        tuple[ObjectId | None, ObjectId | None]: `(country_id, state_id)`.
     """
 
     # Récupération des pays si nécessaire
@@ -190,6 +321,19 @@ def _ensure_country_state(
     return country_id, state_id
 
 def get_type_by_name(cache_type_name: Optional[str], all_types_by_name: Optional[Dict[str, ObjectId]] = None):
+    """Résoudre le type par nom (avec synonymes).
+
+    Description:
+        Tente d’abord une correspondance exacte via l’index, puis des correspondances partielles,
+        et enfin un mapping de synonymes (ex. "unknown" → "mystery"). Retourne l’ObjectId ou None.
+
+    Args:
+        cache_type_name (str | None): Libellé type (ex. "Traditional").
+        all_types_by_name (dict | None): Index `{name_normalized: _id}` (recommandé).
+
+    Returns:
+        ObjectId | None: Référence du type si résolue.
+    """
     synonymes = {
         "unknown" : "mystery",
     }
@@ -214,6 +358,18 @@ def get_type_by_name(cache_type_name: Optional[str], all_types_by_name: Optional
     return type_id
 
 def get_size_by_name(cache_size_name: Optional[str], all_sizes_by_name: Optional[Dict[str, ObjectId]] = None):
+    """Résoudre la taille par nom.
+
+    Description:
+        Similarité avec `get_type_by_name` : exact puis partiel, retourne l’ObjectId ou None.
+
+    Args:
+        cache_size_name (str | None): Libellé taille (ex. "Micro").
+        all_sizes_by_name (dict | None): Index `{name_normalized: _id}`.
+
+    Returns:
+        ObjectId | None: Référence de la taille si résolue.
+    """
     cache_size_name = _normalize_name(cache_size_name)
     size_id = all_sizes_by_name.get(cache_size_name, None)
     if size_id is None:
@@ -224,7 +380,31 @@ def get_size_by_name(cache_size_name: Optional[str], all_sizes_by_name: Optional
 
     return size_id
 
-def _map_type_size_attrs(cache_type_name: Optional[str], cache_size_name: Optional[str], cache_attributes: Optional[List] = None, all_types_by_name: Optional[Dict[str, ObjectId]] = None, all_sizes_by_name: Optional[Dict[str, ObjectId]] = None, all_attributes_by_id: Optional[Dict[int, ObjectId]] = None) -> tuple[Optional[ObjectId], Optional[ObjectId], list]:
+def _map_type_size_attrs(
+    cache_type_name: Optional[str],
+    cache_size_name: Optional[str],
+    cache_attributes: Optional[List] = None,
+    all_types_by_name: Optional[Dict[str, ObjectId]] = None,
+    all_sizes_by_name: Optional[Dict[str, ObjectId]] = None,
+    all_attributes_by_id: Optional[Dict[int, ObjectId]] = None,
+) -> tuple[Optional[ObjectId], Optional[ObjectId], list]:
+    """Mapper type/size/attributes vers des références Mongo.
+
+    Description:
+        Résout les `type_id` et `size_id` puis convertit les attributs en
+        `{'attribute_doc_id': ObjectId, 'is_positive': bool}`.
+
+    Args:
+        cache_type_name (str | None): Libellé type.
+        cache_size_name (str | None): Libellé taille.
+        cache_attributes (list | None): Attributs GPX (id + is_positive).
+        all_types_by_name (dict | None): Index types.
+        all_sizes_by_name (dict | None): Index tailles.
+        all_attributes_by_id (dict | None): Index attributs.
+
+    Returns:
+        tuple[ObjectId | None, ObjectId | None, list]: `(type_id, size_id, attr_refs)`.
+    """
     cache_attributes = cache_attributes or []
     if all_types_by_name is None:
         all_types_by_name = _get_all_types_by_name()
@@ -248,6 +428,14 @@ def _map_type_size_attrs(cache_type_name: Optional[str], cache_size_name: Option
     return type_id, size_id, attr_refs
 
 def _parse_dt_iso8601(s: Optional[str]) -> Optional[dt.datetime]:
+    """Parser ISO 8601 (support 'Z') vers `datetime`.
+
+    Args:
+        s (str | None): Chaîne de date/heure.
+
+    Returns:
+        datetime | None: Objet `datetime` ou None si parsing impossible.
+    """
     if not s:
         return None
     try:
@@ -260,12 +448,25 @@ def _parse_dt_iso8601(s: Optional[str]) -> Optional[dt.datetime]:
 # --------- Import principal ---------
 
 async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -> dict:
-    """
-    1) Matérialise le payload en fichiers dans backend/uploads/gpx
-       - ZIP → dézippe, retourne la liste des .gpx extraits
-       - GPX → sauvegarde le fichier, retourne [path]
-    2) Parse chaque path avec GPXCacheParser(gpx_file=Path)
-    3) Insère caches (upsert par GC), puis found_caches si found=True & found_date
+    """Importer des caches depuis un upload GPX/ZIP (avec enrichissements).
+
+    Description:
+        1) Matérialise l’upload en fichiers GPX (ZIP → multi) dans `../uploads/gpx` (sécurité path traversal).\n
+        2) Parse via `GPXCacheParser` pour extraire les champs utiles.\n
+        3) Upsert des documents `caches` (par `GC`) avec mapping référentiels + `loc` GeoJSON.\n
+        4) **Enrichit l’altitude** (si lat/lon) via `services.elevation_retrieval.fetch`.\n
+        5) Si `found=True`, upsert des `found_caches` (par `user_id` + `cache_id`), gère `notes` et timestamps.
+
+    Args:
+        payload (bytes): Contenu du fichier uploadé (GPX ou ZIP).
+        filename (str): Nom de fichier d’origine (pour étiquette de sortie).
+        user (dict): Utilisateur courant (pour `found_caches`).
+        found (bool): Créer/mettre à jour les logs de trouvailles.
+
+    Returns:
+        dict: Résumé : `nb_gpx_files`, `nb_inserted_caches`, `nb_existing_caches`,
+              `nb_inserted_found_caches`, `nb_updated_found_caches`,
+              `nb_new_countries`, `nb_new_states`.
     """
     gpx_paths = _materialize_to_paths(payload, filename)
 

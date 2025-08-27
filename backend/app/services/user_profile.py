@@ -1,3 +1,6 @@
+# backend/app/services/user_profile.py
+# Parse des coordonnées (formats DD/DM/DMS), conversion, lecture/écriture en base (GeoJSON Point).
+
 from __future__ import annotations
 from bson import ObjectId
 import re
@@ -10,6 +13,17 @@ from app.db.mongodb import get_collection
 
 # Normalise les symboles (prime/second), espaces, décimales
 def _location_norm(s: str) -> str:
+    """Normaliser une chaîne de coordonnées.
+
+    Description:
+        Unifie décimales (virgule→point), symboles (′″→'") et espaces.
+
+    Args:
+        s: Chaîne brute.
+
+    Returns:
+        str: Chaîne normalisée.
+    """
     s = s.strip()
     # virgule décimale -> point
     s = re.sub(r'(\d),(\d)', r'\1.\2', s)
@@ -39,6 +53,19 @@ _LOCATION_COMP = re.compile(
 )
 
 def _location_to_degrees(d: float, m: float | None, s: float | None) -> float:
+    """Convertir degrés/minutes/secondes en degrés décimaux.
+
+    Args:
+        d: Degrés.
+        m: Minutes (0–<60) ou None.
+        s: Secondes (0–<60) ou None.
+
+    Returns:
+        float: Valeur en degrés décimaux.
+
+    Raises:
+        ValueError: Minutes/secondes hors bornes.
+    """
     val = float(d)
     if m is not None:
         if not (0 <= m < 60):
@@ -51,7 +78,14 @@ def _location_to_degrees(d: float, m: float | None, s: float | None) -> float:
     return val
 
 def _location_component_to_deg(match: re.Match) -> tuple[float, str | None, int]:
-    # retourne (degres_signés, hem_detectée_NSEW|None, raw_sign)
+    """Transformer un composant regex en (valeur, hémisphère, signe).
+
+    Args:
+        match: Résultat du motif `_LOCATION_COMP`.
+
+    Returns:
+        tuple: `(degres_signés, hem_NSEW|None, raw_sign in {+1,-1})`.
+    """
     g = match.groupdict()
     deg = float(g["deg"])
     min_ = float(g["min"]) if g.get("min") else None
@@ -62,9 +96,18 @@ def _location_component_to_deg(match: re.Match) -> tuple[float, str | None, int]
     return (val * raw_sign, hem, raw_sign)
 
 def _location_resolve_sign(value: float, hem: str | None, is_lat_guess: bool) -> float:
-    """
-    Applique la règle des signes : si signe numérique et hémisphère coexistent,
-    le signe numérique prévaut. Sinon utilise N/S (lat), E/W (lon).
+    """Appliquer la règle de signe en fonction de l’hémisphère.
+
+    Description:
+        Le signe numérique explicite prime ; sinon N/S règle la latitude, E/W la longitude.
+
+    Args:
+        value: Valeur absolue en degrés.
+        hem: Hémisphère détectée (N/S/E/W) ou None.
+        is_lat_guess: True si la valeur représente une latitude.
+
+    Returns:
+        float: Valeur signée cohérente.
     """
     if value < 0:
         return value  # signe explicite -> priorité
@@ -82,10 +125,20 @@ def _location_resolve_sign(value: float, hem: str | None, is_lat_guess: bool) ->
     return abs(value)
 
 def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
-    """
-    Retourne (lon, lat) à partir d'une string en DD/DM/DMS.
-    S'il y a des hémisphères dans les deux composants, on s'appuie dessus pour l'ordre.
-    Sinon, on suppose l'ordre (lat, lon).
+    """Parser une position libre vers (lon, lat).
+
+    Description:
+        Accepte formats DD/DM/DMS mixtes ; si hémisphères présents aux deux composants,
+        l’ordre est déduit ; sinon on suppose (lat, lon).
+
+    Args:
+        position: Chaîne de coordonnées.
+
+    Returns:
+        tuple[float, float]: (longitude, latitude).
+
+    Raises:
+        ValueError: Parsing impossible ou coordonnées hors bornes.
     """
     txt = _location_norm(position)
     # Extraire deux composants
@@ -126,11 +179,29 @@ def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
     return (lon, lat)
 
 def user_location_get(user_id: ObjectId):
+    """Lire la localisation (GeoJSON) de l’utilisateur.
+
+    Args:
+        user_id: Identifiant utilisateur.
+
+    Returns:
+        dict | None: Champ `location` (GeoJSON Point) ou None.
+    """
     doc = get_collection("users").find_one({"_id": user_id}, {"_id": 1, "location": 1})
     
     return (doc or {}).get("location")    
 
 def user_location_set(user_id: ObjectId, lon: float, lat: float):
+    """Écrire la localisation utilisateur (GeoJSON Point).
+
+    Args:
+        user_id: Identifiant utilisateur.
+        lon: Longitude (−180..180).
+        lat: Latitude (−90..90).
+
+    Returns:
+        UpdateResult: Résultat MongoDB (ack/modified).
+    """
     result = get_collection("users").update_one(
         {"_id": user_id},
         {"$set": {
@@ -144,14 +215,13 @@ def user_location_set(user_id: ObjectId, lon: float, lat: float):
     return result
 
 def degrees_to_deg_min_mil(decimal_coord: float) -> str:
-    """
-    Convertit une coordonnée décimale vers le format degrés minutes.
-    
+    """Convertir un degré décimal vers « degrés minutes.mmm ».
+
     Args:
-        decimal_coord: Coordonnée au format décimal (ex: 43.1234566 ou -43.1234566)
-    
+        decimal_coord: Coordonnée décimale (ex. 43.123456).
+
     Returns:
-        str: Coordonnée au format "DD MM.mmm" (ex: "43 07.407" ou "-43 07.407")
+        str: Forme `±DD MM.mmm`.
     """
     # Garder le signe
     sign = "-" if decimal_coord < 0 else "+"
@@ -167,6 +237,15 @@ def degrees_to_deg_min_mil(decimal_coord: float) -> str:
     return f"{sign}{degrees} {minutes:06.3f}"
 
 def coords_in_deg_min_mil(lat: float, lon: float) -> str:
+    """Formatter `(lat, lon)` en « N/S DD MM.mmm  E/O DD MM.mmm ».
+
+    Args:
+        lat: Latitude décimale.
+        lon: Longitude décimale.
+
+    Returns:
+        str: Chaîne formatée (ex. `N43 07.407 E005 23.456`).
+    """
     lat_str = degrees_to_deg_min_mil(lat)
     lat_str = lat_str.replace("+", "N")
     lat_str = lat_str.replace("-", "S")

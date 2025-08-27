@@ -1,13 +1,6 @@
-# app/db/seed_indexes.py
-"""
-Idempotent index seeding for GeoChallenge Tracker.
-
-- Uses get_collection() (no direct client here).
-- Matching by KEYS: if an index with same keys exists, keep it when options match.
-- If options differ (unique / partialFilterExpression / collation), drop & recreate.
-- Text indexes: Mongo allows ONE per collection; we compare weights (fields) and replace if needed.
-- Users: case-insensitive unique indexes (collation strength=2) on username & email.
-"""
+# backend/app/db/seed_indexes.py
+# Fournit des helpers pour assurer (créer/mettre à jour) les index Mongo avec comparaison d’options
+# (unique, partialFilterExpression, collation) et un seeding global `ensure_indexes()`.
 
 from __future__ import annotations
 
@@ -26,8 +19,17 @@ COLLATION_CI = Collation(locale="en", strength=2)
 
 
 def _normalize_key_from_mongo(key_doc: Dict[str, Any]) -> KeySpec:
-    """Mongo returns an OrderedDict-like mapping; convert to list of (field, direction).
-    Direction may be numeric (1/-1) or a string like '2dsphere'.
+    """Normalise la clé d’index renvoyée par Mongo.
+
+    Description:
+        Convertit le document de clé (Ordered mapping) en liste de tuples `(champ, direction)`,
+        où direction est un int (1/-1) ou une chaîne (ex. '2dsphere').
+
+    Args:
+        key_doc (Dict[str, Any]): Document `key` d’un index Mongo.
+
+    Returns:
+        KeySpec: Liste normalisée des paires (champ, direction).
     """
     norm: KeySpec = []
     for k, v in key_doc.items():
@@ -40,6 +42,18 @@ def _normalize_key_from_mongo(key_doc: Dict[str, Any]) -> KeySpec:
 
 
 def _find_existing_by_keys(coll, keys: KeySpec) -> Optional[Dict[str, Any]]:
+    """Recherche un index existant portant exactement ces clés.
+
+    Description:
+        Parcourt `coll.list_indexes()` et compare les clés via `_normalize_key_from_mongo`.
+
+    Args:
+        coll: Collection MongoDB.
+        keys (KeySpec): Clés d’index souhaitées.
+
+    Returns:
+        dict | None: Descripteur d’index existant ou `None` si absent.
+    """
     for ix in coll.list_indexes():
         if 'key' in ix and _normalize_key_from_mongo(ix['key']) == keys:
             return ix
@@ -47,6 +61,17 @@ def _find_existing_by_keys(coll, keys: KeySpec) -> Optional[Dict[str, Any]]:
 
 
 def _collation_to_dict(c: Optional[Collation]) -> Optional[Dict[str, Any]]:
+    """Convertit une collation Mongo en dict comparable.
+
+    Description:
+        Extrait les champs pertinents d’une `Collation` pour comparaison d’options.
+
+    Args:
+        c (Collation | None): Collation à convertir.
+
+    Returns:
+        dict | None: Dictionnaire de paramètres ou `None`.
+    """
     if c is None:
         return None
     # Collation has properties; we compare a subset that matters
@@ -62,7 +87,27 @@ def _collation_to_dict(c: Optional[Collation]) -> Optional[Dict[str, Any]]:
     }
 
 
-def _same_options(existing: Dict[str, Any], *, unique: Optional[bool], partial: Optional[Dict[str, Any]], collation: Optional[Collation]) -> bool:
+def _same_options(
+    existing: Dict[str, Any],
+    *,
+    unique: Optional[bool],
+    partial: Optional[Dict[str, Any]],
+    collation: Optional[Collation],
+) -> bool:
+    """Compare les options d’un index existant avec les options souhaitées.
+
+    Description:
+        Vérifie l’égalité sur `unique`, `partialFilterExpression` et `collation`.
+
+    Args:
+        existing (dict): Descripteur de l’index existant.
+        unique (bool | None): Caractère unique attendu.
+        partial (dict | None): Expression partielle attendue.
+        collation (Collation | None): Collation attendue.
+
+    Returns:
+        bool: True si les options correspondent, sinon False.
+    """
     ex_unique = bool(existing.get('unique', False))
     if bool(unique) != ex_unique:
         return False
@@ -74,10 +119,33 @@ def _same_options(existing: Dict[str, Any], *, unique: Optional[bool], partial: 
     return ( _collation_to_dict(collation) or None ) == ( ex_collation or None )
 
 
-def ensure_index(coll_name: str, keys: KeySpec, *, name: Optional[str] = None,
-                 unique: Optional[bool] = None,
-                 partial: Optional[Dict[str, Any]] = None,
-                 collation: Optional[Collation] = None) -> None:
+def ensure_index(
+    coll_name: str,
+    keys: KeySpec,
+    *,
+    name: Optional[str] = None,
+    unique: Optional[bool] = None,
+    partial: Optional[Dict[str, Any]] = None,
+    collation: Optional[Collation] = None,
+) -> None:
+    """Assure la présence d’un index simple (création/MAJ idempotente).
+
+    Description:
+        - Si un index avec **mêmes clés** et **mêmes options** existe : ne fait rien.
+        - S’il existe avec des **options différentes**, le supprime puis le recrée.
+        - Sinon, crée l’index avec les options fournies.
+
+    Args:
+        coll_name (str): Nom de la collection.
+        keys (KeySpec): Liste des paires (champ, direction).
+        name (str | None): Nom explicite de l’index.
+        unique (bool | None): Contrainte d’unicité.
+        partial (dict | None): `partialFilterExpression`.
+        collation (Collation | None): Collation.
+
+    Returns:
+        None
+    """
     coll = get_collection(coll_name)
     existing = _find_existing_by_keys(coll, keys)
     if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
@@ -97,7 +165,21 @@ def ensure_index(coll_name: str, keys: KeySpec, *, name: Optional[str] = None,
 
 
 def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: Optional[str] = None) -> None:
-    """Ensure a single text index over the given fields (weights = 1 each)."""
+    """Assure un **unique** index texte sur les champs donnés (poids = 1).
+
+    Description:
+        Mongo n’autorise **qu’un seul** index texte par collection :
+        - S’il existe et couvre exactement les `fields`, ne fait rien.
+        - Sinon, le supprime puis recrée un index texte sur ces champs.
+
+    Args:
+        coll_name (str): Nom de la collection.
+        fields (Iterable[str]): Champs à indexer en texte.
+        name (str | None): Nom explicite de l’index.
+
+    Returns:
+        None
+    """
     coll = get_collection(coll_name)
     wanted = {f: 1 for f in fields}
     existing = None
@@ -116,6 +198,18 @@ def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: Optional[s
 
 
 def ensure_indexes() -> None:
+    """Crée/assure l’ensemble des index utilisés par l’application.
+
+    Description:
+        Construit tous les index (utilisateurs, caches, challenges, progress, targets, etc.),
+        en appliquant les collations/idempotence adéquates.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
     # ---------- users (CI uniques via collation) ----------
     ensure_index('users', [('username', ASCENDING)], name='uniq_username_ci', unique=True, collation=COLLATION_CI)
     ensure_index('users', [('email', ASCENDING)], name='uniq_email_ci', unique=True, collation=COLLATION_CI)

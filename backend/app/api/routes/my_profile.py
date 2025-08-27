@@ -1,5 +1,7 @@
-# app/api/routes/my_profile.py
-from fastapi import APIRouter, Depends, HTTPException, status
+# backend/app/api/routes/my_profile.py
+# Routes "mon profil" : lecture/écriture de la localisation utilisateur (coordonnées ou expression textuelle).
+
+from fastapi import APIRouter, Depends, HTTPException, Body, status
 from bson import ObjectId
 
 from app.core.security import get_current_user
@@ -7,21 +9,41 @@ from app.core.utils import *
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
 from app.services.user_profile import *
 
-router = APIRouter(prefix="/my/profile", tags=["my_profile"])
+router = APIRouter(
+    prefix="/my/profile", 
+    tags=["my_profile"],
+    dependencies=[Depends(get_current_user)]
+)
 
 # --- ROUTES ---------------------------------------------------------------
 
-@router.put("/location", status_code=status.HTTP_200_OK)
+@router.put(
+    "/location",
+    status_code=status.HTTP_200_OK,
+    summary="Enregistrer ou mettre à jour ma localisation",
+    description=(
+        "Enregistre la localisation de l’utilisateur **au choix** :\n"
+        "- **Position textuelle** (`position`, ex. coordonnées DM)\n"
+        "- **Coordonnées numériques** (`lat`, `lon`)\n\n"
+        "Valide l’input et renvoie un message indiquant si une mise à jour a eu lieu."
+    ),
+)
 def put_my_location(
-    payload: UserLocationIn,
+    payload: UserLocationIn = Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
     current_user=Depends(get_current_user),
 ):
-    """
-    Enregistre / met à jour la localisation de l'utilisateur courant.
-    Accepte:
-      - lat/lon numériques
-      - ou position string en DD / DM / DMS, avec ° ' " optionnels, N/S/E/W optionnels,
-        virgule décimale tolérée.
+    """Enregistrer ou mettre à jour la localisation.
+
+    Description:
+        Sauvegarde la localisation via parsing d’une chaîne (`position`) ou directement via `lat`/`lon`.
+        Valide les bornes géographiques et renvoie un message d’état.
+
+    Args:
+        payload (UserLocationIn): Position textuelle ou coordonnées numériques.
+        current_user: Contexte utilisateur.
+
+    Returns:
+        dict: Message d’état (modifiée ou non).
     """
     user_id = current_user["_id"] if isinstance(current_user.get("_id"), ObjectId) else ObjectId(str(current_user["_id"]))
 
@@ -49,11 +71,25 @@ def put_my_location(
         return {"message": "Location was not updated"}
 
 
-@router.get("/location", response_model=UserLocationOut)
-def get_my_location(current_user=Depends(get_current_user)):
-    """
-    Retourne la dernière localisation enregistrée de l'utilisateur.
-    404 si aucune localisation n'est connue.
+@router.get(
+    "/location",
+    response_model=UserLocationOut,
+    summary="Obtenir ma dernière localisation",
+    description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
+)
+def get_my_location(
+    current_user=Depends(get_current_user),
+):
+    """Obtenir ma dernière localisation.
+
+    Description:
+        Récupère la dernière localisation sauvegardée pour l’utilisateur courant. Renvoie 404 si aucune n’existe.
+
+    Args:
+        current_user: Contexte utilisateur.
+
+    Returns:
+        UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
     user_id = current_user["_id"] if isinstance(current_user.get("_id"), ObjectId) else ObjectId(str(current_user["_id"]))
     loc = user_location_get(user_id)

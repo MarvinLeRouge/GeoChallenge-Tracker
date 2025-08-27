@@ -1,11 +1,15 @@
-# backend/auth – app/api/routes/auth.py
+# backend/app/api/routes/auth.py
+# Routes d'authentification et gestion des utilisateurs :
+# - Inscription, login, refresh token
+# - Vérification d'email et renvoi de code
+# - Utilise JWT et envoie d'email de confirmation
 
 from __future__ import annotations
 
 import datetime as dt
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
@@ -39,7 +43,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 COLLATION_CI = Collation(locale="en", strength=2)
 
 def users_coll() -> Collection:
-    # dependency callable that returns the users collection
+    """Retourne la collection MongoDB `users`."""
     return get_collection("users")
 
 
@@ -47,8 +51,37 @@ class MessageOut(BaseModel):
     message: str = Field(..., examples=["OK"])
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def register(payload: UserInRegister, users: Collection = Depends(users_coll)):
+@router.post(
+    "/register",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Inscription d’un nouvel utilisateur",
+    description=(
+        "Crée un compte utilisateur avec email et username uniques.\n\n"
+        "- Vérifie la force du mot de passe\n"
+        "- Hash le mot de passe\n"
+        "- Envoie un email avec un code de vérification (24h)\n"
+        "- Retourne les informations publiques du compte créé"
+    ),
+)
+def register(
+    payload: UserInRegister = Body(..., description="Données d'inscription : username, email et mot de passe."),
+    users: Collection = Depends(users_coll),
+):
+    """Inscription d’un utilisateur.
+
+    Description:
+        Enregistre un nouvel utilisateur après validation de la force du mot de passe et unicité (email/username).
+        Génère un code de vérification et envoie un email. Le compte est créé non vérifié.
+
+    Args:
+        payload (UserInRegister): Données d'inscription (username, email, password).
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        UserOut: Données publiques de l’utilisateur (id, username, email, role).
+    """
+
     username = (payload.username or "").strip()
     email = (payload.email or "").strip()
 
@@ -94,8 +127,34 @@ def register(payload: UserInRegister, users: Collection = Depends(users_coll)):
     }
 
 
-@router.post("/login", response_model=TokenPair)
-async def login(request: Request, users: Collection = Depends(users_coll)):
+@router.post(
+    "/login",
+    response_model=TokenPair,
+    summary="Connexion d’un utilisateur",
+    description=(
+        "Authentifie via formulaire OAuth2 **ou** JSON (username/email + password).\n\n"
+        "- Retourne un couple de jetons (access + refresh)\n"
+        "- Le compte doit être vérifié\n"
+        "- 401 si identifiants invalides ou compte non vérifié"
+    ),
+)
+async def login(
+    request: Request,
+    users: Collection = Depends(users_coll),
+):
+    """Connexion utilisateur.
+
+    Description:
+        Authentifie l’utilisateur avec identifiant (username/email) et mot de passe, puis génère un access token
+        et un refresh token JWT. Accepte `application/x-www-form-urlencoded`, `multipart/form-data` et JSON.
+
+    Args:
+        request (Request): Requête HTTP (support JSON ou formulaire).
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        TokenPair: Contenant access_token, refresh_token et token_type.
+    """
     # Accepte form-data OAuth2 (Swagger) OU JSON {identifier|username|email, password}
     ctype = request.headers.get("content-type", "")
     ident = ""
@@ -131,8 +190,34 @@ async def login(request: Request, users: Collection = Depends(users_coll)):
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh_token(payload: RefreshTokenRequest, users: Collection = Depends(users_coll)):
+@router.post(
+    "/refresh",
+    response_model=TokenResponse,
+    summary="Renouvellement du token d’accès",
+    description=(
+        "Génère un nouveau token d’accès à partir d’un refresh token valide.\n\n"
+        "- Vérifie la validité du refresh token\n"
+        "- Vérifie que l’utilisateur est actif\n"
+        "- Retourne un nouvel access token"
+    ),
+)
+def refresh_token(
+    payload: RefreshTokenRequest = Body(..., description="Refresh token JWT valide."),
+    users: Collection = Depends(users_coll),
+):
+    """Rafraîchissement du token d’accès.
+
+    Description:
+        Décode un refresh token JWT valide, contrôle l’existence et l’état de l’utilisateur,
+        puis génère un nouvel access token.
+
+    Args:
+        payload (RefreshTokenRequest): Refresh token à valider.
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        TokenResponse: Nouveau jeton d’accès.
+    """
     try:
         data = jwt.decode(payload.refresh_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         sub = data.get("sub")
@@ -154,12 +239,39 @@ class VerifyEmailBody(BaseModel):
 
 
 def create_verification_code() -> str:
+    """Crée un code de vérification aléatoire et unique."""
     import secrets
     return secrets.token_urlsafe(24)
 
 
-@router.get("/verify-email", response_model=MessageOut)
-def verify_email(code: str, users: Collection = Depends(users_coll)):
+@router.get(
+    "/verify-email",
+    response_model=MessageOut,
+    summary="Vérification d’email par code",
+    description=(
+        "Vérifie un code de confirmation reçu par email.\n\n"
+        "- Active l’utilisateur si code valide et non expiré\n"
+        "- Supprime le code et son expiration\n"
+        "- Retourne un message de confirmation"
+    ),
+)
+def verify_email(
+    code: str = Query(..., description="Code de vérification reçu par email, valide 24h."),
+    users: Collection = Depends(users_coll),
+):
+    """Vérification email.
+
+    Description:
+        Vérifie que le code fourni correspond à un compte en attente de vérification et non expiré,
+        puis active définitivement l’utilisateur.
+
+    Args:
+        code (str): Code de vérification envoyé par email.
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        MessageOut: Message confirmant la vérification.
+    """
     now_ts = now()
     user = users.find_one(
         {"verification_code": code, "verification_expires_at": {"$gte": now_ts}},
@@ -175,13 +287,58 @@ def verify_email(code: str, users: Collection = Depends(users_coll)):
     return {"message": "Email verified"}
 
 
-@router.post("/verify-email", response_model=MessageOut)
-def verify_email_post(body: VerifyEmailBody, users: Collection = Depends(users_coll)):
+@router.post(
+    "/verify-email",
+    response_model=MessageOut,
+    summary="Vérification d’email via POST",
+    description="Alternative POST pour transmettre le code de vérification dans le corps JSON.",
+)
+def verify_email_post(
+    body: VerifyEmailBody = Body(..., description="Objet contenant le code de vérification."),
+    users: Collection = Depends(users_coll),
+):
+    """Vérification email (POST).
+
+    Description:
+        Identique à la version GET mais reçoit le code dans un body JSON.
+
+    Args:
+        body (VerifyEmailBody): Objet contenant le code de vérification.
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        MessageOut: Message confirmant la vérification.
+    """
     return verify_email(code=body.code, users=users)
 
 
-@router.post("/resend-verification", response_model=MessageOut)
-def resend_verification(body: ResendVerificationRequest, users: Collection = Depends(users_coll)):
+@router.post(
+    "/resend-verification",
+    response_model=MessageOut,
+    summary="Renvoi du code de vérification",
+    description=(
+        "Régénère et renvoie un email de vérification si le compte existe et n’est pas encore activé.\n\n"
+        "- Ne révèle pas si le compte existe réellement\n"
+        "- Met à jour l’expiration du code (24h)"
+    ),
+)
+def resend_verification(
+    body: ResendVerificationRequest = Body(..., description="Identifiant (username ou email) de l’utilisateur."),
+    users: Collection = Depends(users_coll),
+):
+    """Renvoi d’email de vérification.
+
+    Description:
+        Génère et envoie un nouveau code de vérification pour l’utilisateur identifié (username/email),
+        si son compte n’est pas encore vérifié.
+
+    Args:
+        body (ResendVerificationRequest): Identifiant (username ou email).
+        users (Collection): Collection MongoDB des utilisateurs.
+
+    Returns:
+        MessageOut: Message de confirmation (sans divulguer l’existence du compte).
+    """
     ident = (body.identifier or "").strip()
     user = users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},

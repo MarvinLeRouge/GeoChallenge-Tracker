@@ -1,3 +1,6 @@
+# backend/app/api/routes/caches_elevation.py
+# Routes admin pour enrichir les caches avec l'altitude (appel fournisseur externe).
+
 from __future__ import annotations
 from typing import Optional, List
 
@@ -8,9 +11,14 @@ from app.core.security import get_current_user
 from app.db.mongodb import get_collection
 from app.services.elevation_retrieval import fetch as fetch_elevations
 
-router = APIRouter(tags=["caches", "admin-elevation"])
+router = APIRouter(
+    prefix="/caches_elevation", 
+    tags=["caches_elevation"],
+    dependencies=[Depends(get_current_user)]
+)
 
 def _is_admin(user) -> bool:
+    """Retourne True si l’utilisateur a un rôle administrateur."""
     # accept 'admin' role string or boolean flag
     role = getattr(user, "role", None) or getattr(user, "roles", None)
     if isinstance(role, str):
@@ -20,14 +28,37 @@ def _is_admin(user) -> bool:
     # fallback: allow if user has attribute is_admin True
     return bool(getattr(user, "is_admin", False))
 
-@router.post("/caches/elevation/backfill")
+@router.post(
+    "/caches/elevation/backfill",
+    summary="Backfill de l’altitude manquante (admin)",
+    description=(
+        "Complète l’altitude des caches dépourvues de valeur, par lots, en respectant les quotas du fournisseur.\n\n"
+        "- Parcours paginé de la collection\n"
+        "- Mode `dry_run` pour simuler sans écrire en base\n"
+        "- Réservé aux administrateurs"
+    ),
+)
 async def backfill_elevation(
-    limit: int = Query(1000, ge=1, le=20000),
-    page_size: int = Query(500, ge=10, le=1000),
-    dry_run: bool = Query(False),
+    limit: int = Query(1000, ge=1, le=20000, description="Nombre maximum de caches à traiter."),
+    page_size: int = Query(500, ge=10, le=1000, description="Taille de lot pour les lectures/écritures."),
+    dry_run: bool = Query(False, description="Si vrai, ne persiste pas les mises à jour (simulation)."),
     user = Depends(get_current_user),
 ):
-    """Admin-only: fill elevation for caches missing it, respecting provider quotas & 1 req/s."""
+    """Backfill d’altitude (admin).
+
+    Description:
+        Sélectionne les caches sans altitude (mais avec lat/lon valides), récupère l’altitude via un provider externe
+        et applique des mises à jour par lots. Peut fonctionner en mode simulation.
+
+    Args:
+        limit (int): Nombre maximum de caches à traiter.
+        page_size (int): Taille des lots.
+        dry_run (bool): Si vrai, exécute sans écrire en base.
+        user: Utilisateur courant (doit être admin).
+
+    Returns:
+        dict: Statistiques de traitement (scanned, updated, failed, batches, requests_used, dry_run).
+    """
     if not _is_admin(user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
 

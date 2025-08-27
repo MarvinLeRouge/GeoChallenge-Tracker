@@ -1,4 +1,5 @@
 # backend/app/services/user_challenge_tasks.py
+# Compile/valide les expressions de tâches, applique les normalisations code→id et opère le CRUD logique.
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Iterable
@@ -29,13 +30,16 @@ from app.models.challenge_ast import preprocess_expression_default_and, TaskExpr
 # ======================================================================================
 
 def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
-    """
-    Compile **une expression** (déjà pydantic-validée et normalisée code→id)
-    en **filtre MongoDB** pour la collection `caches`.
+    """Compiler une expression AST vers un filtre Mongo `caches`.
 
-    Cette fonction est **la** brique partagée par:
-      - services/progress.py (comptage des caches trouvées qui satisfont la task)
-      - services/targets.py  (sélection des caches non-trouvées qui satisfont la task)
+    Description:
+        Gère AND/OR/NOT pour les feuilles supportées ; ignore les feuilles d’agrégat (traitées ailleurs).
+
+    Args:
+        expr: Expression Pydantic déjà validée.
+
+    Returns:
+        dict: Filtre Mongo (peut contenir `$and/$or/$nor`).
     """
     def _leaf_to_match(leaf: Any) -> Dict[str, Any]:
         k = getattr(leaf, "kind", None)
@@ -132,6 +136,17 @@ def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
 
 # ==== DTO-like models used by services ====
 class PatchTaskItem(BaseModel):
+    """Payload interne pour patch/put de tâche.
+
+    Attributes:
+        _id (PyObjectId | None): Id existant (si update).
+        user_challenge_id (PyObjectId): UC parent.
+        order (int): Ordre d’affichage.
+        expression (TaskExpression): AST canonique.
+        constraints (dict): Contraintes.
+        metrics (dict): Métriques.
+        notes (str | None): Notes.
+    """
     _id: Optional[PyObjectId] = None
     user_challenge_id: PyObjectId
     order: int = 0
@@ -141,6 +156,21 @@ class PatchTaskItem(BaseModel):
     notes: Optional[str] = None
 
 def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
+    """Normaliser les codes/labels en ObjectId dans l’AST.
+
+    Description:
+        - Attributs: `code` → `cache_attribute_doc_id` (+ `cache_attribute_id`).
+        - Type: `cache_type_code` → `cache_type_doc_id`.
+        - Taille: `code`/`name` → `cache_size_doc_id`.
+        - Pays/État: résolution par nom/code avec erreurs explicites.
+
+    Args:
+        expr: Expression validée.
+        index_for_errors: Index de la tâche (pour messages d’erreur).
+
+    Returns:
+        TaskExpression: Expression enrichie d’identifiants.
+    """
     def _norm(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
@@ -247,6 +277,14 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
     return TypeAdapter(TE).validate_python(normalized)
 
 def _has_country_is(nodes: Iterable[Any]) -> bool:
+    """Tester la présence d’un nœud `country_is` dans un AND.
+
+    Args:
+        nodes: Nœuds frères.
+
+    Returns:
+        bool: True si `country_is` trouvé.
+    """
     for n in nodes:
         if isinstance(n, RuleCountryIs):
             return True
@@ -256,7 +294,14 @@ def _has_country_is(nodes: Iterable[Any]) -> bool:
     return False
 
 def _walk_expr(expr: TaskExpression):
-    """Yield (kind, node, parent_kind) for structure validation."""
+    """Itérer (kind, node, parent_kind) à des fins de validation structurelle.
+
+    Args:
+        expr: Expression à parcourir.
+
+    Returns:
+        Iterable[tuple[str, Any, str|None]]: Triplets (kind, node, parent).
+    """
     if isinstance(expr, (TaskAnd, TaskOr)):
         parent = expr.kind
         for child in expr.nodes:
@@ -270,6 +315,14 @@ def _walk_expr(expr: TaskExpression):
     return [(expr.kind, expr, None)]
 
 def _is_aggregate_kind(kind: str) -> bool:
+    """Indiquer si `kind` correspond à une feuille d’agrégat.
+
+    Args:
+        kind: Nom de la règle.
+
+    Returns:
+        bool: True si agrégat.
+    """
     return kind in (
         "aggregate_sum_difficulty_at_least",
         "aggregate_sum_terrain_at_least",
@@ -278,11 +331,18 @@ def _is_aggregate_kind(kind: str) -> bool:
     )
 
 def validate_task_expression(expr: TaskExpression) -> List[str]:
-    """
-    Extended validation:
-    - referentials (types, sizes, states, country, attributes)
-    - numeric ranges
-    - aggregates: AND-only (not under OR/NOT), at most 1 aggregate per task
+    """Validation étendue d’une expression de tâche.
+
+    Description:
+        - Référentiels (types, tailles, pays/états, attributs)
+        - Bornes numériques (min/max)
+        - Agrégats: **AND-only**, au plus un par tâche
+
+    Args:
+        expr: Expression déjà Pydantic-validée.
+
+    Returns:
+        list[str]: Liste d’erreurs (vide si OK).
     """
     errors: List[str] = []
     aggregate_count = 0
@@ -333,7 +393,18 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
 # --------------------------------------------------------------------------------------
 
 def _legacy_fixup_expression(exp: Any) -> Any:
-    """Convert legacy short forms to canonical-compatible shapes (non-destructive)."""
+    """Adapter d’anciennes formes courtes vers la forme canonique.
+
+    Description:
+        Ex.: `type_in.codes -> type_in.types[{cache_type_code}]`,
+        `size_in.codes -> size_in.sizes[{code}]`.
+
+    Args:
+        exp: Expression brute.
+
+    Returns:
+        Any: Expression transformée non destructivement.
+    """
     def _fix(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
@@ -360,6 +431,19 @@ def _legacy_fixup_expression(exp: Any) -> Any:
     return _fix(exp)
 
 def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
+    """Lister les tâches d’un UC (déjà canoniques pour l’API).
+
+    Description:
+        Lit, tente une validation telle quelle, sinon applique un « legacy fixup »
+        puis renvoie l’expression **canonisée** (AND par défaut).
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+
+    Returns:
+        list[dict]: Tâches prêtes pour `TaskOut`.
+    """
     coll = get_collection("user_challenge_tasks")
     cur = coll.find(
         {"user_challenge_id": uc_id},
@@ -400,8 +484,15 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
     return tasks
 
 def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Validate without writing. Returns { ok: bool, errors: [...] }.
+    """Valider un payload de tâches **sans persister**.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        tasks_payload: Liste d’items de tâches.
+
+    Returns:
+        dict: `{ok: bool, errors: list[...]}`
     """
     def _mk_err(index: int, field: str, code: str, message: str) -> Dict[str, Any]:
         return {"index": index, "field": field, "code": code, "message": message}
@@ -428,6 +519,20 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
         return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
 def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remplacer toutes les tâches d’un UC (canonisation + insert).
+
+    Description:
+        Valide, efface l’existant, insère des tâches **canonisées** (code→id),
+        puis relit pour retour stable.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        tasks_payload: Liste de tâches.
+
+    Returns:
+        list[dict]: Tâches stockées (canonisées).
+    """
     # Validate first (raises on error)
     _validate_tasks_payload(user_id, uc_id, tasks_payload)
 
@@ -491,8 +596,24 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
 # --------------------------------------------------------------------------------------
 
 def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> None:
-    """
-    Raises Exception on first error; used by both validate_only & put_tasks.
+    """Valider le payload de tâches (lève à la première erreur).
+
+    Description:
+        - Unicité/cohérence des `order`
+        - Pydantic parse + normalisation code→id
+        - Validation étendue (`validate_task_expression`)
+        - Sanity check des `constraints` (min_count ≥ 0)
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        tasks_payload: Liste d’items.
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: En cas d’invalidité structurelle ou métier.
     """
     if not isinstance(tasks_payload, list) or len(tasks_payload) == 0:
         raise ValueError("tasks_payload must be a non-empty list")
