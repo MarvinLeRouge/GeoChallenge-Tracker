@@ -1,10 +1,5 @@
-
 # backend/app/api/routes/challenges.py
-
-"""
-Routes `challenges` — création automatique depuis les caches portant l'attribut challenge (cache_attribute_id=71).
-Protégé admin. Utilise PyObjectId pour la validation côté Swagger/OpenAPI.
-"""
+# Routes admin pour (re)créer les challenges automatiquement depuis les caches "challenge".
 
 from __future__ import annotations
 
@@ -18,10 +13,15 @@ from app.core.security import get_current_user
 
 from app.services.challenge_autocreate import create_challenges_from_caches
 
-router = APIRouter(prefix="/challenges", tags=["challenges"])
+router = APIRouter(
+    prefix="/challenges", 
+    tags=["challenges"],
+    dependencies=[Depends(get_current_user)]
+)
 
 
 def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    """Vérifie que l’utilisateur a un rôle admin, sinon 403."""
     role = current_user.get("role")
     if role != "admin":
         # Ajuste le message si tu préfères
@@ -36,10 +36,34 @@ class RefreshIn(BaseModel):
     )
 
 
-@router.post("/refresh-from-caches", summary="Auto-crée les challenges depuis les caches 'challenge' (attr_id=71)",
-             dependencies=[Depends(require_admin)])
-def refresh_from_caches(payload: RefreshIn = Body(default_factory=RefreshIn)):
-    # PyObjectId hérite d'ObjectId -> compatible, mais on convertit explicitement pour éviter les surprises
+@router.post(
+    "/refresh-from-caches",
+    summary="(Re)crée les challenges depuis les caches 'challenge'",
+    description=(
+        "Analyse les caches marquées 'challenge' et crée/met à jour les documents de challenge.\n\n"
+        "- Option: restreindre à une liste de `cache_ids`\n"
+        "- Réservé aux administrateurs (dépendance `require_admin`)"
+    ),
+    dependencies=[Depends(require_admin)],
+)
+def refresh_from_caches(
+    payload: RefreshIn = Body(
+        default_factory=RefreshIn,
+        description="Paramètres d’exécution : optionnellement une liste de `cache_ids` (_id Mongo) à considérer.",
+    ),
+):
+    """(Re)création de challenges à partir des caches.
+
+    Description:
+        Lance la génération/rafraîchissement des challenges depuis les caches marquées comme 'challenge'
+        (p. ex. via un attribut spécifique). Peut être restreint à certaines caches.
+
+    Args:
+        payload (RefreshIn): Liste optionnelle de `cache_ids` MongoDB à traiter.
+
+    Returns:
+        dict: Indicateur de succès et statistiques de traitement.
+    """
     cache_ids = None
     if payload.cache_ids:
         cache_ids = [ObjectId(str(x)) for x in payload.cache_ids]

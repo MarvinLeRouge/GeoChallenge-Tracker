@@ -1,4 +1,5 @@
 # backend/app/models/challenge_ast.py
+# AST décrivant les sélecteurs/règles de tâches et la logique (and/or/not) côté UserChallenge.
 
 from __future__ import annotations
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -7,6 +8,12 @@ from pydantic import BaseModel, Field, ConfigDict, RootModel
 from app.core.bson_utils import PyObjectId
 
 class ASTBase(BaseModel):
+    """Base Pydantic pour tous les nœuds AST.
+
+    Description:
+        Active les encoders `PyObjectId` et `populate_by_name`, tolère les types arbitraires,
+        afin d’obtenir un JSON/OpenAPI propre pour Swagger.
+    """
     model_config = ConfigDict(
         arbitrary_types_allowed=True,
         json_encoders={PyObjectId: str},
@@ -16,24 +23,58 @@ class ASTBase(BaseModel):
 # ---- Cache-level leaves ----
 ## --- Selectors ---
 class TypeSelector(ASTBase):
+    """Sélecteur par type de cache.
+
+    Attributes:
+        cache_type_doc_id (PyObjectId | None): Réf. `cache_types._id`.
+        cache_type_id (int | None): Identifiant numérique global.
+        cache_type_code (str | None): Code type (ex. "whereigo").
+    """
     cache_type_doc_id: Optional[PyObjectId] = None
     cache_type_id: Optional[int] = None
     cache_type_code: Optional[str] = Field(default=None, description="Cache type code, e.g. 'whereigo'")
 
 class SizeSelector(ASTBase):
+    """Sélecteur par taille de cache.
+
+    Attributes:
+        cache_size_doc_id (PyObjectId | None): Réf. `cache_sizes._id`.
+        cache_size_id (int | None): Identifiant numérique global.
+        code (str | None): Code de taille.
+    """
     cache_size_doc_id: Optional[PyObjectId] = None
     cache_size_id: Optional[int] = None
     code: Optional[str] = Field(default=None, description="Cache size code")
 
 class StateSelector(ASTBase):
+    """Sélecteur par État/région.
+
+    Attributes:
+        state_id (int | None): Identifiant numérique (référentiel).
+        name (str | None): Nom de l’État/région.
+    """
     state_id: Optional[int] = None
     name: Optional[str] = Field(default=None, description="Cache state")
 
 class CountrySelector(ASTBase):
+    """Sélecteur par pays.
+
+    Attributes:
+        country_id (int | None): Identifiant numérique (référentiel).
+        name (str | None): Nom du pays.
+    """
     country_id: Optional[int] = None
     name: Optional[str] = Field(default=None, description="Cache country")
 
 class AttributeSelector(ASTBase):
+    """Sélecteur par attribut(s) de cache.
+
+    Attributes:
+        cache_attribute_doc_id (PyObjectId | None): Réf. `cache_attributes._id`.
+        cache_attribute_id (int | None): Identifiant numérique global.
+        code (str | None): Code attribut (ex. "picnic").
+        is_positive (bool): True si l’attribut est affirmatif.
+    """
     cache_attribute_doc_id: Optional[PyObjectId] = None
     cache_attribute_id: Optional[int] = None
     code: Optional[str] = Field(default=None, description="Cache attribute code, e.g. 'picnic'")
@@ -42,61 +83,75 @@ class AttributeSelector(ASTBase):
 
 ## --- Rules ---
 class RuleTypeIn(ASTBase):
+    """Règle: type ∈ {…}."""
     kind: Literal["type_in"] = "type_in"
     types: List[TypeSelector]
 
 class RuleSizeIn(ASTBase):
+    """Règle: taille ∈ {…}."""
     kind: Literal["size_in"] = "size_in"
     sizes: List[SizeSelector]
 
 class RulePlacedYear(ASTBase):
+    """Règle: cache placée l’année donnée (bornée côté modèle)."""
     kind: Literal["placed_year"] = "placed_year"
     year: int = Field(ge=1999, le=2100)
 
 class RulePlacedBefore(ASTBase):
+    """Règle: cache placée **avant** la date donnée (incluse/exclue selon logique d’évaluation)."""
     kind: Literal["placed_before"] = "placed_before"
     date: date
 
 class RulePlacedAfter(ASTBase):
+    """Règle: cache placée **après** la date donnée (incluse/exclue selon logique d’évaluation)."""
     kind: Literal["placed_after"] = "placed_after"
     date: date
 
 class RuleStateIn(ASTBase):
+    """Règle: État ∈ {…} (liste d’ObjectId)."""
     kind: Literal["state_in"] = "state_in"
     state_ids: List[PyObjectId]
 
 class RuleCountryIs(ASTBase):
+    """Règle: pays == valeur (sélecteur unique)."""
     kind: Literal["country_is"] = "country_is"
     country: CountrySelector
 
 class RuleDifficultyBetween(ASTBase):
+    """Règle: difficulté ∈ [min, max] (1.0–5.0)."""
     kind: Literal["difficulty_between"] = "difficulty_between"
     min: float = Field(ge=1.0, le=5.0)
     max: float = Field(ge=1.0, le=5.0)
 
 class RuleTerrainBetween(ASTBase):
+    """Règle: terrain ∈ [min, max] (1.0–5.0)."""
     kind: Literal["terrain_between"] = "terrain_between"
     min: float = Field(ge=1.0, le=5.0)
     max: float = Field(ge=1.0, le=5.0)
 
 class RuleAttributes(ASTBase):
+    """Règle: ensemble d’attributs (±)."""
     kind: Literal["attributes"] = "attributes"
     attributes: List[AttributeSelector]
 
 # ---- Aggregate leaves (apply to the set of eligible finds) ----
 class RuleAggSumDifficultyAtLeast(ASTBase):
+    """Règle agrégée: somme(difficulté) ≥ min_total (sur l’ensemble de trouvailles éligibles)."""
     kind: Literal["aggregate_sum_difficulty_at_least"] = "aggregate_sum_difficulty_at_least"
     min_total: int = Field(ge=1)
 
 class RuleAggSumTerrainAtLeast(ASTBase):
+    """Règle agrégée: somme(terrain) ≥ min_total (sur l’ensemble de trouvailles éligibles)."""
     kind: Literal["aggregate_sum_terrain_at_least"] = "aggregate_sum_terrain_at_least"
     min_total: int = Field(ge=1)
 
 class RuleAggSumDiffPlusTerrAtLeast(ASTBase):
+    """Règle agrégée: somme(difficulté+terrain) ≥ min_total."""
     kind: Literal["aggregate_sum_diff_plus_terr_at_least"] = "aggregate_sum_diff_plus_terr_at_least"
     min_total: int = Field(ge=1)
 
 class RuleAggSumAltitudeAtLeast(ASTBase):
+    """Règle agrégée: somme(altitude) ≥ min_total."""
     kind: Literal["aggregate_sum_altitude_at_least"] = "aggregate_sum_altitude_at_least"
     min_total: int = Field(ge=1)
 
@@ -108,14 +163,29 @@ TaskLeaf = Union[
 ]
 
 class TaskAnd(ASTBase):
+    """Nœud logique AND.
+
+    Attributes:
+        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Sous-nœuds.
+    """
     kind: Literal["and"] = "and"
     nodes: List[Union["TaskAnd", "TaskOr", "TaskNot", TaskLeaf]]
 
 class TaskOr(ASTBase):
+    """Nœud logique OR.
+
+    Attributes:
+        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Sous-nœuds.
+    """
     kind: Literal["or"] = "or"
     nodes: List[Union["TaskAnd", "TaskOr", "TaskNot", TaskLeaf]]
 
 class TaskNot(ASTBase):
+    """Nœud logique NOT.
+
+    Attributes:
+        node (TaskAnd | TaskOr | TaskLeaf): Sous-nœud.
+    """
     kind: Literal["not"] = "not"
     node: Union["TaskAnd", "TaskOr", TaskLeaf]
 
@@ -124,14 +194,17 @@ TaskAnd.model_rebuild(); TaskOr.model_rebuild(); TaskNot.model_rebuild()
 
 # ---- UC-level logic (composition by task ids, unchanged) ----
 class UCAnd(ASTBase):
+    """Logique UC: AND des `task_ids`."""
     kind: Literal["and"] = "and"
     task_ids: List[PyObjectId]
 
 class UCOr(ASTBase):
+    """Logique UC: OR des `task_ids`."""
     kind: Literal["or"] = "or"
     task_ids: List[PyObjectId]
 
 class UCNot(ASTBase):
+    """Logique UC: NOT d’un `task_id`."""
     kind: Literal["not"] = "not"
     task_id: PyObjectId
 
@@ -157,19 +230,18 @@ _RULE_KINDS = {
 }
 
 def preprocess_expression_default_and(expr: Any) -> Any:
-    """
-    Transforme des écritures "courtes" en une expression canonique
-    où 'kind'='and' est explicite et les règles sont dans 'nodes'.
+    """Normalise une expression courte en `AND` explicite.
 
-    Règles :
-    - Si expr est un dict sans 'kind', on considère que c'est un bloc 'and'.
-      - Si le dict ressemble déjà à un nœud logique (a 'nodes'), on met kind='and'.
-      - Si le dict ressemble à UNE règle (kind de règle OU clés de règle directes),
-        on l'enveloppe dans {'kind':'and','nodes':[<règle>]}.
-    - Si expr.kind ∈ RULE_KINDS (ex: 'type_in') au sommet, on enveloppe pareil.
-    - Sinon on renvoie tel quel.
+    Description:
+        Transforme les écritures abrégées (sans `kind`, avec règles directes, etc.)
+        en une structure canonique où `kind='and'` et les règles sont dans `nodes`.
+        Appelée **avant** la validation Pydantic de l’AST.
 
-    Appelé AVANT la validation Pydantic sur l'AST.
+    Args:
+        expr (Any): Expression brute (dict/objets/…).
+
+    Returns:
+        Any: Expression normalisée (dict) prête pour la validation.
     """
     # Cas non-dict (list, str, etc.) → inchangé
     if not isinstance(expr, dict):

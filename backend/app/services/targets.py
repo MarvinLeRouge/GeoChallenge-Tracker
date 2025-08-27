@@ -1,4 +1,5 @@
-# app/services/targets.py
+# backend/app/services/targets.py
+# Calcule des caches candidates par UserChallenge (anti-join des trouvailles, scoring, géo), et listings.
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -15,16 +16,40 @@ from app.core.utils import utcnow
 # ------------------------------------------------------------
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Distance Haversine en kilomètres.
+
+    Args:
+        lat1: Latitude point A.
+        lon1: Longitude point A.
+        lat2: Latitude point B.
+        lon2: Longitude point B.
+
+    Returns:
+        float: Distance en kilomètres.
+    """
     R = 6371.0
     dlat = radians(lat2 - lat1); dlon = radians(lon2 - lon1)
     a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
     return 2 * R * asin(sqrt(a))
 
 def _get_username(user_id: ObjectId) -> Optional[str]:
+    """Obtenir le username d’un utilisateur.
+
+    Args:
+        user_id: Identifiant utilisateur.
+
+    Returns:
+        str | None: `username` ou None si absent.
+    """
     u = get_collection("users").find_one({"_id": user_id}, {"username": 1})
     return (u or {}).get("username")
 
 def _get_user_location(user_id: ObjectId) -> Optional[Tuple[float, float]]:
+    """Obtenir la dernière position utilisateur (lat, lon).
+
+    Returns:
+        tuple[float, float] | None: (lat, lon) si disponible, sinon None.
+    """
     u = get_collection("users").find_one({"_id": user_id}, {"location": 1})
     loc = (u or {}).get("location")
     if loc and isinstance(loc, dict) and (loc.get("type") == "Point"):
@@ -34,9 +59,16 @@ def _get_user_location(user_id: ObjectId) -> Optional[Tuple[float, float]]:
     return None
 
 def _latest_progress_task_map(uc_id: ObjectId) -> Dict[ObjectId, Dict[str, Any]]:
-    """
-    Retourne {task_id: {min_count, current_count}} depuis le dernier snapshot progress,
-    s'il existe; sinon {}. :contentReference[oaicite:3]{index=3}
+    """Index des métriques par tâche depuis le dernier snapshot.
+
+    Description:
+        Retourne `{task_id: {'min_count': int, 'current_count': int}}` pour l’UC.
+
+    Args:
+        uc_id: Id du UserChallenge.
+
+    Returns:
+        dict: Carte `task_id -> {min_count, current_count}`.
     """
     p = get_collection("progress").find_one(
         {"user_challenge_id": uc_id},
@@ -55,11 +87,27 @@ def _latest_progress_task_map(uc_id: ObjectId) -> Dict[ObjectId, Dict[str, Any]]
     return out
 
 def _task_constraints_min_count(task_doc: Dict[str, Any]) -> int:
+    """Extraire `min_count` des contraintes d’une tâche.
+
+    Args:
+        task_doc: Document tâche.
+
+    Returns:
+        int: Valeur `min_count` (défaut 0).
+    """
     return int(((task_doc.get("constraints") or {}).get("min_count") or 0))
 
 def _choose_primary_task_by_ratio(task_matches: List[Dict[str, Any]]) -> Optional[ObjectId]:
-    """
-    Sélection par RATIO (remaining / max(1,min_count)), puis min_count desc, puis tid asc.
+    """Choisir la tâche primaire par ratio d’urgence.
+
+    Description:
+        Trie par `remaining/min_count` décroissant, puis `min_count` décroissant, puis id.
+
+    Args:
+        task_matches: Liste d’items `{_id, min_count, current_count, remaining, ratio}`.
+
+    Returns:
+        ObjectId | None: `task_id` primaire ou None.
     """
     if not task_matches:
         return None
@@ -73,13 +121,28 @@ def _choose_primary_task_by_ratio(task_matches: List[Dict[str, Any]]) -> Optiona
 
     return sorted(task_matches, key=key)[0]["_id"]
 
-def _score_cache(match_count: int, total_tasks_not_done: int, max_ratio: float, geo_factor: float,
-                 alpha=1.0, beta=1.0, gamma=1.0) -> float:
-    """
-    S_tasks = match_count / total_tasks_not_done (si 0 -> 0)
-    S_urgency = max_ratio (déjà ∈ [0,1])
-    S_geo = geo_factor (∈ [0,1])
-    score = produit géométrique pondéré
+def _score_cache(
+    match_count: int,
+    total_tasks_not_done: int,
+    max_ratio: float,
+    geo_factor: float,
+    alpha=1.0,
+    beta=1.0,
+    gamma=1.0,
+) -> float:
+    """Calculer un score multiplicatif (tâches × urgence × géo).
+
+    Args:
+        match_count: Nombre de tâches couvertes.
+        total_tasks_not_done: Tâches restantes au global.
+        max_ratio: Urgence max parmi les matches.
+        geo_factor: Facteur ∈ [0,1] dérivé de la distance.
+        alpha: Poids S_tasks.
+        beta: Poids S_urgency.
+        gamma: Poids S_geo.
+
+    Returns:
+        float: Score final.
     """
     if total_tasks_not_done <= 0:
         s_tasks = 0.0
@@ -98,16 +161,29 @@ def evaluate_targets_for_user_challenge(
     uc_id: ObjectId,
     limit_per_task: int = 200,
     hard_limit_total: int = 2000,
-    geo_ctx: Optional[Dict[str, Any]] = None,  # {"lat":..,"lon":..,"radius_km":..}
+    geo_ctx: Optional[Dict[str, Any]] = None,
     evaluated_at: Optional[datetime] = None,
-    force: bool = False,   # <-- ajouté
+    force: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Calcule et persiste les targets pour un UC.
-    - Anti-join caches non trouvées
-    - Exclut caches posées par l'utilisateur (owner == username)
-    - Géo optionnelle
-    - Fusion multi-tâches, scoring, upserts
+    """Évaluer/persister les targets d’un UserChallenge.
+
+    Description:
+        - Anti-join des caches déjà trouvées par l’utilisateur.
+        - Exclusion des caches posées par le user (`owner != username`).
+        - Filtre géo optionnel (via `$geoNear`) + calcul d’un score.
+        - Upsert par `(user_id, user_challenge_id, cache_id)`.
+
+    Args:
+        user_id: Utilisateur propriétaire.
+        uc_id: UserChallenge ciblé.
+        limit_per_task: Cap par tâche.
+        hard_limit_total: Cap global d’agrégation.
+        geo_ctx: Contexte géo `{lat, lon, radius_km}`.
+        evaluated_at: Timestamp d’évaluation (défaut: maintenant).
+        force: Ne pas court-circuiter si suffisamment de targets existent.
+
+    Returns:
+        dict: `{ok, inserted, updated, total, skipped?}`.
     """
     coll_uc = get_collection("user_challenges")
     uc = coll_uc.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
@@ -346,6 +422,18 @@ def list_targets_for_user_challenge(
     limit: int = 50,
     sort: str = "-score",
 ) -> Dict[str, Any]:
+    """Lister les targets d’un UserChallenge (paginé).
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        page: Numéro de page.
+        limit: Taille de page.
+        sort: Clé de tri (ex. `-score`).
+
+    Returns:
+        dict: `{items, total, page, limit}`.
+    """
     coll = get_collection("targets")
     q = {"user_id": user_id, "user_challenge_id": uc_id}
     sort_spec = [("score", -1)] if sort == "-score" else [("updated_at", -1)]
@@ -379,6 +467,21 @@ def list_targets_nearby_for_user_challenge(
     limit: int = 50,
     sort: str = "distance",
 ) -> Dict[str, Any]:
+    """Lister les targets proches (par UC) via `$geoNear`.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        lat: Latitude de référence.
+        lon: Longitude de référence.
+        radius_km: Rayon en kilomètres.
+        page: Page (≥1).
+        limit: Taille de page.
+        sort: `distance` (asc) ou `-distance` (desc).
+
+    Returns:
+        dict: `{items, total, page, limit}` avec `distance_km`.
+    """
     coll = get_collection("targets")
     pipeline: List[Dict[str, Any]] = [
         {"$geoNear": {
@@ -424,7 +527,18 @@ def list_targets_for_user(
     limit: int = 50,
     sort: str = "-score",
 ) -> Dict[str, Any]:
-    # Optionnel: filtrer par status UC via $lookup user_challenges
+    """Lister toutes les targets de l’utilisateur (tous challenges).
+
+    Args:
+        user_id: Utilisateur.
+        status_filter: Filtre sur le statut UC (ex. 'accepted').
+        page: Page (≥1).
+        limit: Taille de page.
+        sort: `-score` ou `updated_at`.
+
+    Returns:
+        dict: `{items, total, page, limit}`.
+    """
     pipeline: List[Dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
         {"$lookup": {
@@ -475,6 +589,21 @@ def list_targets_nearby_for_user(
     limit: int = 50,
     sort: str = "distance",
 ) -> Dict[str, Any]:
+    """Lister les targets proches (tous challenges) via `$geoNear`.
+
+    Args:
+        user_id: Utilisateur.
+        lat: Latitude de référence.
+        lon: Longitude de référence.
+        radius_km: Rayon en kilomètres.
+        status_filter: Filtre statut UC (optionnel).
+        page: Page (≥1).
+        limit: Taille de page.
+        sort: `distance` (asc) ou `-distance` (desc).
+
+    Returns:
+        dict: `{items, total, page, limit}` avec `distance_km`.
+    """
     pipeline: List[Dict[str, Any]] = [
         {"$geoNear": {
             "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
@@ -525,5 +654,14 @@ def list_targets_nearby_for_user(
     return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
 
 def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
+    """Supprimer toutes les targets d’un UserChallenge.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+
+    Returns:
+        dict: `{ok, deleted}`.
+    """
     res = get_collection("targets").delete_many({"user_challenge_id": uc_id, "user_id": user_id})
     return {"ok": True, "deleted": int(res.deleted_count)}

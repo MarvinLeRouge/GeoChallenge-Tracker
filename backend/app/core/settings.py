@@ -1,9 +1,18 @@
-# backend/app/api/core/settings.py
+# backend/app/core/settings.py
+# Chargement des variables d’environnement via Pydantic Settings, avec propriétés utiles (ex. `mongodb_uri`).
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich import print
 
 class Settings(BaseSettings):
+    """Paramètres de l’application (Pydantic Settings).
+
+    Description:
+        Regroupe la configuration (app, MongoDB, JWT, admin, mail, elevation). Les valeurs
+        sont chargées depuis `.env` (voir `model_config`). Fournit des valeurs par défaut
+        lorsque pertinent (ex. `jwt_algorithm`, `jwt_expiration_minutes`).
+
+    """
     # === App settings ===
     app_name: str = "GeoChallenge"
     environment: str = "development"  # or "production"
@@ -45,7 +54,15 @@ class Settings(BaseSettings):
 
     @property
     def mongodb_uri(self) -> str:
-        """Build the full MongoDB URI from template."""
+        """Construit l’URI MongoDB à partir du template et des credentials.
+
+        Description:
+            Remplace les tokens `[[MONGODB_USER]]` et `[[MONGODB_PASSWORD]]` dans `mongodb_uri_tpl`
+            par les valeurs chargées, afin d’obtenir une URI complète.
+
+        Returns:
+            str: URI MongoDB complète.
+        """
         return self.mongodb_uri_tpl.replace("[[MONGODB_USER]]", self.mongodb_user)\
                                    .replace("[[MONGODB_PASSWORD]]", self.mongodb_password)
 

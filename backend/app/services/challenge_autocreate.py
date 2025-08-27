@@ -1,5 +1,5 @@
-
 # backend/app/services/challenge_autocreate.py
+# Génère des documents Challenge pour les caches portant l’attribut "challenge" (id=71). Idempotent, via upsert.
 
 """
 Création automatique des Challenges à partir des caches qui portent l'attribut "challenge".
@@ -30,7 +30,21 @@ CHALLENGE_ATTRIBUTE_ID = 71
 
 
 def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectId:
-    """Résout l'_id du document référentiel (collection `cache_attributes`) pour `cache_attribute_id`."""
+    """Résoudre l’_id référentiel de l’attribut « challenge ».
+
+    Description:
+        Cherche dans la collection `cache_attributes` le document dont `cache_attribute_id == attribute_id`
+        (par défaut 71), et retourne son `_id`. Utilisé pour matcher les caches challenge.
+
+    Args:
+        attribute_id (int): Identifiant numérique global de l’attribut (par défaut 71).
+
+    Returns:
+        ObjectId: Identifiant du document référentiel d’attribut.
+
+    Raises:
+        RuntimeError: Si aucun attribut correspondant n’est trouvé (référentiels non seedés).
+    """
     attr_coll = get_collection('cache_attributes')
     doc = attr_coll.find_one({'cache_attribute_id': attribute_id}, {'_id': 1})
     if not doc:
@@ -42,7 +56,20 @@ def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectI
 
 
 def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
-    """Balayage global optimisé via `$lookup` vers `challenges` pour ne retenir que les nouvelles."""
+    """Lister globalement les caches challenge non encore présentes dans `challenges`.
+
+    Description:
+        Exécute un pipeline d’agrégation sur `caches` :
+        - filtre `attributes.elemMatch(attribute_doc_id, is_positive=True)`
+        - `$lookup` vers `challenges` pour exclure celles déjà liées
+        - projection légère (`title`, `description_html`)
+
+    Args:
+        attribute_doc_id (ObjectId): Référence de l’attribut « challenge » (référentiel).
+
+    Returns:
+        Iterable[dict]: Curseur d’agrégation sur les caches candidates.
+    """
     caches = get_collection('caches')
     pipeline = [
         {
@@ -79,7 +106,19 @@ def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
 
 
 def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Iterable[ObjectId]):
-    """Sous-ensemble: filtre par _id ∈ cache_ids puis exclusion par set des cache_id déjà connus."""
+    """Lister un sous-ensemble de caches challenge à partir d’_id fournis.
+
+    Description:
+        Applique `_id ∈ cache_ids` puis exclut localement les `cache_id` déjà présents dans `challenges`.
+        Filtre également par attribut « challenge » positif.
+
+    Args:
+        attribute_doc_id (ObjectId): Référence de l’attribut « challenge » (référentiel).
+        cache_ids (Iterable[ObjectId]): Sous-ensemble d’identifiants de caches à considérer.
+
+    Returns:
+        Iterable[dict]: Curseur de recherche sur les caches candidates (projection légère).
+    """
     caches = get_collection('caches')
     challenges = get_collection('challenges')
 
@@ -104,12 +143,19 @@ def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Ite
 
 
 def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = None) -> Dict[str, Any]:
-    """Crée (ou laisse en place) les `Challenge` pour les caches qui portent l'attribut "challenge".
+    """Créer (upsert) les challenges à partir des caches « challenge ».
 
-    - Si `cache_ids` est fourni: ne considère que ces caches (cas import GPX incrémental).
-    - Sinon: balaye l'ensemble de la collection `caches` avec pipeline `$lookup`.
+    Description:
+        Source des caches candidates :
+        - si `cache_ids` est fourni, utilise le sous-ensemble (optimisé) ;
+        - sinon, scanne la collection via `$lookup` pour exclure l’existant.
+        Effectue des `UpdateOne(..., upsert=True)` sur `challenges` avec `cache_id` unique.
 
-    Retourne un dict de stats: {'matched': int, 'created': int, 'skipped_existing': int}.
+    Args:
+        cache_ids (Iterable[ObjectId] | None): Optionnel — restreindre aux caches fournies.
+
+    Returns:
+        dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}`.
     """
     attr_doc_id = _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
 
@@ -155,11 +201,18 @@ def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = N
     return {'matched': matched, 'created': created, 'skipped_existing': skipped_existing}
 
 def create_new_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = None) -> Dict[str, Any]:
-    """
-    Wrapper haut-niveau : calcule explicitement l'ensemble des caches candidates,
-    retire celles déjà présentes dans `challenges`, et délègue à `create_challenges_from_caches`.
-    IMPORTANT : si aucun nouvel _id n'est à traiter, on retourne des stats vides
-    (et on n'exécute PAS de scan global).
+    """Wrapper : déterminer explicitement les nouveaux `_id` avant création.
+
+    Description:
+        Calcule l’ensemble des candidates (`caches` + attribut « challenge ») puis soustrait
+        les `cache_id` déjà présents dans `challenges`. Si l’ensemble est vide, **n’effectue pas**
+        de scan global inutile. Délègue ensuite à `create_challenges_from_caches`.
+
+    Args:
+        cache_ids (Iterable[ObjectId] | None): Optionnel — sous-ensemble d’entrée.
+
+    Returns:
+        dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}` (zéro si rien à créer).
     """
     attr_doc_id = _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
     caches = get_collection('caches')

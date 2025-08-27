@@ -1,4 +1,5 @@
-# app/services/query_builder.py
+# backend/app/services/query_builder.py
+# Transforme une expression canonique (AND-only) en conditions MongoDB pour la collection `caches`.
 
 from __future__ import annotations
 from typing import Any, Dict, List, Tuple, Optional
@@ -14,6 +15,17 @@ from app.services.referentials_cache import (
 # (cf. services/user_challenge_tasks.put_tasks qui stocke l'expression canonicalisée). :contentReference[oaicite:1]{index=1}
 
 def _mk_date(dt_or_str: Any) -> datetime:
+    """Normaliser divers formats de date vers `datetime`.
+
+    Description:
+        Accepte `datetime`, `date` ou `str` (ISO ou `YYYY-MM-DD`). Lève `ValueError` pour les formats invalides.
+
+    Args:
+        dt_or_str (Any): Valeur de date/heure à convertir.
+
+    Returns:
+        datetime: Date normalisée.
+    """
     if isinstance(dt_or_str, datetime):
         return dt_or_str
     if isinstance(dt_or_str, date):
@@ -26,6 +38,17 @@ def _mk_date(dt_or_str: Any) -> datetime:
     raise ValueError(f"Invalid date: {dt_or_str!r}")
 
 def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    """Aplatir récursivement les nœuds `AND` en une liste de feuilles.
+
+    Description:
+        Retourne `None` si l’expression contient des `OR`/`NOT` (non supportés par le compilateur « AND-only »).
+
+    Args:
+        expr (dict): Expression AST canonique.
+
+    Returns:
+        list[dict] | None: Feuilles si AND pur, sinon None.
+    """
     kind = expr.get("kind")
     if kind == "and":
         out: List[Dict[str, Any]] = []
@@ -40,6 +63,22 @@ def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     return [expr]  # leaf
 
 def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Extraire la spécification d’agrégat et les feuilles « cache.* ».
+
+    Description:
+        Détecte la **première** feuille d’agrégat parmi:
+        - `aggregate_sum_difficulty_at_least`
+        - `aggregate_sum_terrain_at_least`
+        - `aggregate_sum_diff_plus_terr_at_least`
+        - `aggregate_sum_altitude_at_least`
+        Retourne `(agg_spec, leaves_sans_agrégat)`.
+
+    Args:
+        leaves (list[dict]): Feuilles AND.
+
+    Returns:
+        tuple[dict | None, list[dict]]: Spéc d’agrégat (ou None) et feuilles restantes.
+    """
     agg = None
     cache_leaves: List[Dict[str, Any]] = []
     for lf in leaves:
@@ -65,6 +104,22 @@ def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict
     return agg, cache_leaves
 
 def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
+    """Compiler une feuille AST en `(champ, condition)` sur `caches`.
+
+    Description:
+        Supporte notamment:
+        - `type_in`, `size_in` (résolution via référentiels/aliases)
+        - `country_is`, `state_in`
+        - `placed_year`, `placed_before`, `placed_after`
+        - `difficulty_between`, `terrain_between`
+        - `attributes` (±, `attributes.$elemMatch`)
+
+    Args:
+        leaf (dict): Feuille individuelle.
+
+    Returns:
+        list[tuple[str, Any]]: Paires `(champ, condition)` à fusionner en AND.
+    """
     k = leaf.get("kind")
     out: List[Tuple[str, Any]] = []
 
@@ -236,9 +291,24 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
     return out
 
 def compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str], Optional[Dict[str, Any]]]:
-    """
-    Retourne (signature, match_caches, supported, notes, aggregate_spec)
-    - match_caches: dict de conditions pour la coll `caches` (clé=champ, valeur=cond)
+    """Compiler une expression AND en filtres Mongo « caches.* ».
+
+    Description:
+        - Rejette `OR`/`NOT` (`supported=False`, notes).\n
+        - Extrait un éventuel agrégat (diff/terr/diff+terr/altitude).\n
+        - Compile chaque feuille en paires `(champ, condition)` et fusionne par champ (AND).\n
+        - Génère une signature stable de l’expression (`"and:" + json.dumps(leaves)`).
+
+    Args:
+        expr (dict): Expression canonique.
+
+    Returns:
+        tuple:
+            str: Signature compilée.
+            dict: `match_caches` — conditions AND par champ.
+            bool: `supported` — True si AND pur.
+            list[str]: `notes` — avertissements/causes de non-support.
+            dict | None: `aggregate_spec` — spécification d’agrégat.
     """
     leaves = _flatten_and_nodes(expr)
     if leaves is None:

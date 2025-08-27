@@ -1,4 +1,5 @@
 # backend/app/services/progress.py
+# Calcule des snapshots de progression par UserChallenge, mise à jour des statuts, et accès à l’historique.
 
 from __future__ import annotations
 
@@ -14,6 +15,21 @@ from app.services.query_builder import compile_and_only
 # ---------- Helpers ----------
 
 def _ensure_uc_owned(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
+    """Vérifier que l’UC appartient bien à l’utilisateur.
+
+    Description:
+        Contrôle l’existence de `user_challenges[_id=uc_id, user_id=user_id]`. Lève en cas de non-appartenance.
+
+    Args:
+        user_id (ObjectId): Identifiant utilisateur.
+        uc_id (ObjectId): Identifiant UserChallenge.
+
+    Returns:
+        dict: Document minimal (_id) si autorisé.
+
+    Raises:
+        PermissionError: Si l’UC n’appartient pas à l’utilisateur (ou n’existe pas).
+    """
     ucs = get_collection("user_challenges")
     row = ucs.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
     if not row:
@@ -21,16 +37,45 @@ def _ensure_uc_owned(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
     return row
 
 def _get_tasks_for_uc(uc_id: ObjectId) -> List[Dict[str, Any]]:
+    """Récupérer les tâches d’un UC (triées).
+
+    Args:
+        uc_id (ObjectId): Identifiant UserChallenge.
+
+    Returns:
+        list[dict]: Tâches triées par `order`, puis `_id`.
+    """
     coll = get_collection("user_challenge_tasks")
     return list(coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)]))
 
 def _attr_id_by_cache_attr_id(cache_attribute_id: int) -> Optional[ObjectId]:
+    """Résoudre l’ObjectId d’un attribut de cache par ID numérique global.
+
+    Args:
+        cache_attribute_id (int): Identifiant numérique global (ex. 71).
+
+    Returns:
+        ObjectId | None: Référence du document `cache_attributes` ou None.
+    """
     row = get_collection("cache_attributes").find_one(
         {"cache_attribute_id": cache_attribute_id}, {"_id": 1}
     )
     return row["_id"] if row else None
 
 def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]) -> int:
+    """Compter les trouvailles d’un utilisateur qui matchent des conditions « caches.* ».
+
+    Description:
+        Pipeline: filtre par `user_id` sur `found_caches`, `$lookup` vers `caches`, `$unwind`,
+        puis application des conditions (`match_caches`) sur `cache.*`, et `$count`.
+
+    Args:
+        user_id (ObjectId): Utilisateur concerné.
+        match_caches (dict): Conditions AND sur des champs de `caches`.
+
+    Returns:
+        int: Nombre de trouvailles correspondantes.
+    """
     fc = get_collection("found_caches")
     pipeline: List[Dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
@@ -59,7 +104,23 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: Dict[str, Any]
     return int(rows[0]["current_count"]) if rows else 0
 
 def _aggregate_total(user_id: ObjectId, match_caches: Dict[str, Any], spec: Dict[str, Any]) -> int:
-    """Compute aggregate total according to spec over user's found caches matching the filters."""
+    """Calculer une somme agrégée (difficulté, terrain, diff+terr, altitude).
+
+    Description:
+        Filtre via `match_caches` puis somme la métrique demandée :
+        - `difficulty` → somme des difficultés
+        - `terrain` → somme des terrains
+        - `diff_plus_terr` → somme (difficulté + terrain)
+        - `altitude` → somme des altitudes
+
+    Args:
+        user_id (ObjectId): Utilisateur.
+        match_caches (dict): Conditions AND sur `caches`.
+        spec (dict): Spécification d’agrégat (`{'kind': ..., 'min_total': int}`).
+
+    Returns:
+        int: Total agrégé (0 si `kind` inconnu).
+    """
     fc = get_collection("found_caches")
     pipeline: List[Dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
@@ -106,8 +167,25 @@ def _aggregate_total(user_id: ObjectId, match_caches: Dict[str, Any], spec: Dict
 
 # ---------- Public API ----------
 
-def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force = False) -> Dict[str, Any]:
-    """Evaluate tasks for a UC and insert a snapshot in 'progress'."""
+def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> Dict[str, Any]:
+    """Évaluer les tâches d’un UC et insérer un snapshot.
+
+    Description:
+        - Vérifie l’appartenance de l’UC (`_ensure_uc_owned`).\n
+        - Si `force=False` et que l’UC est déjà `completed`, retourne le dernier snapshot (si existant).\n
+        - Pour chaque tâche, compile l’expression (`compile_and_only`), compte les trouvailles, met à jour
+          éventuellement le statut de la tâche, calcule les agrégats et le pourcentage.\n
+        - Calcule l’agrégat global et crée un document `progress`. Si toutes les tâches supportées sont `done`,
+          met à jour `user_challenges` en `completed` (statuts déclaré & calculé).
+
+    Args:
+        user_id (ObjectId): Utilisateur.
+        uc_id (ObjectId): UserChallenge.
+        force (bool): Forcer le recalcul même si UC complété.
+
+    Returns:
+        dict: Document snapshot inséré (avec `id` ajouté pour la réponse).
+    """
     _ensure_uc_owned(user_id, uc_id)
     tasks = _get_tasks_for_uc(uc_id)
     snapshots: List[Dict[str, Any]] = []
@@ -292,6 +370,21 @@ def get_latest_and_history(
     limit: int = 10,
     before: Optional[datetime] = None,
 ) -> Dict[str, Any]:
+    """Obtenir le dernier snapshot et un historique court.
+
+    Description:
+        Récupère jusqu’à `limit` snapshots (tri desc), renvoie le plus récent et un historique
+        résumé (date + agrégat). `before` permet de paginer en arrière.
+
+    Args:
+        user_id (ObjectId): Utilisateur.
+        uc_id (ObjectId): UserChallenge.
+        limit (int): Taille max de l’historique (≥1).
+        before (datetime | None): Curseur temporel exclusif.
+
+    Returns:
+        dict: `{'latest': dict | None, 'history': list[dict]}`.
+    """
     _ensure_uc_owned(user_id, uc_id)
     coll = get_collection("progress")
     q = {"user_challenge_id": uc_id}
@@ -321,7 +414,22 @@ def evaluate_new_progress(
     limit: int = 50,
     since: Optional[datetime] = None,
 ) -> Dict[str, Any]:
-    """Evaluate first snapshot for UC that have none yet (accepted by default)."""
+    """Évaluer un premier snapshot pour les UC sans progression.
+
+    Description:
+        Sélectionne les UC de l’utilisateur avec statut `accepted` (et `pending` si demandé),
+        optionnellement créés depuis `since`, **ignore** ceux ayant déjà du `progress`,
+        puis évalue jusqu’à `limit` items.
+
+    Args:
+        user_id (ObjectId): Utilisateur.
+        include_pending (bool): Inclure les UC `pending`.
+        limit (int): Nombre max d’UC à traiter.
+        since (datetime | None): Filtre de date de création.
+
+    Returns:
+        dict: `{'evaluated_count': int, 'skipped_count': int, 'uc_ids': list[str]}`.
+    """
     ucs = get_collection("user_challenges")
     progress = get_collection("progress")
 

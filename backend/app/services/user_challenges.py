@@ -1,4 +1,5 @@
 # backend/app/services/user_challenges.py
+# Crée les UserChallenges manquants, liste/filtre, récupère un détail et applique des patches.
 
 from __future__ import annotations
 
@@ -12,6 +13,19 @@ from app.db.mongodb import get_collection
 from app.core.utils import *
 
 def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
+    """Créer les UserChallenges manquants (status=pending).
+
+    Description:
+        - Upsert un UC par challenge inexistant pour l’utilisateur.
+        - Marque `computed_status=completed` pour les UC dont la cache mère est trouvée
+          (et met un snapshot 100%).
+
+    Args:
+        user_id: Identifiant utilisateur.
+
+    Returns:
+        dict: `{'created', 'existing', 'total_user_challenges'}`.
+    """
     challenges = get_collection("challenges")
     ucs = get_collection("user_challenges")
     found = get_collection("found_caches")
@@ -102,6 +116,20 @@ def list_user_challenges(
     page: int,
     limit: int,
 ) -> Dict[str, Any]:
+    """Lister les UserChallenges (paginé + filtre effectif).
+
+    Description:
+        Filtre spécial par statut effectif (tient compte de `computed_status`).
+
+    Args:
+        user_id: Utilisateur.
+        status: Filtre (`pending|accepted|dismissed|completed` ou None).
+        page: Numéro de page.
+        limit: Taille de page.
+
+    Returns:
+        dict: `{items, page, limit, total}`.
+    """
     ucs = get_collection("user_challenges")
     pipeline: List[Dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
@@ -203,6 +231,15 @@ def list_user_challenges(
     return {"items": items, "page": page, "limit": limit, "total": result["total"]}
 
 def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Dict[str, Any]]:
+    """Obtenir le détail d’un UserChallenge.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+
+    Returns:
+        dict | None: Détail enrichi (challenge + cache), ou None si introuvable.
+    """
     ucs = get_collection("user_challenges")
     pipeline: List[Dict[str, Any]] = [
         {"$match": {"_id": uc_id, "user_id": user_id}},
@@ -270,12 +307,22 @@ def patch_user_challenge(
     notes: Optional[str],
     override_reason: Optional[str],
 ) -> Optional[Dict[str, Any]]:
-    """
-    Met à jour le statut/notes d'un UserChallenge.
-    - status: pending|accepted|dismissed|completed (optionnel)
-    - notes: texte libre (optionnel)
-    - override: si status=completed, marque manual_override=True et trace overridden_at/override_reason
-    Retourne le document mis à jour (dict) ou None si introuvable.
+    """Modifier le statut/notes d’un UserChallenge.
+
+    Description:
+        - `status=completed` → active `manual_override`, trace `overridden_at/reason`
+          et met un snapshot de progression à 100%.
+        - `status=accepted` → déclenche une évaluation de progression initiale si besoin.
+
+    Args:
+        user_id: Utilisateur.
+        uc_id: UserChallenge.
+        status: Nouveau statut (optionnel).
+        notes: Notes libres (optionnel).
+        override_reason: Raison d’override (optionnel).
+
+    Returns:
+        dict | None: Document UC mis à jour (avec `effective_status`) ou None.
     """
     ucs = get_collection("user_challenges")
 
