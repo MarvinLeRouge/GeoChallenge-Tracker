@@ -2,7 +2,7 @@
 # Schémas d’entrée/sortie pour gérer/valider les tâches d’un UserChallenge.
 
 from __future__ import annotations
-
+import datetime as dt
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, conlist
 from datetime import datetime
@@ -65,6 +65,9 @@ class TaskOut(BaseModel):
     status: Optional[str] = None
     metrics: Optional[Dict[str, Any]] = None
     progress: Optional[Dict[str, Any]] = None
+    start_found_at: Optional[dt.datetime] = None
+    completed_at: Optional[dt.datetime] = None
+
     last_evaluated_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
@@ -100,3 +103,7 @@ class TasksValidateResponse(BaseModel):
     """
     ok: bool
     errors: List[ValidationErrorItem] = []
+
+# --- Rebuild Pydantic models to resolve forward/circular refs (Pydantic v2) ---
+TaskOut.model_rebuild()
+TasksListResponse.model_rebuild()

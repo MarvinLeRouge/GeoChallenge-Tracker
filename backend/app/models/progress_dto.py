@@ -78,6 +78,11 @@ class TaskProgressItemOut(BaseModel):
     notes: List[str] = Field(default_factory=list)
     evaluated_in_ms: int = Field(default=0, ge=0)
 
+    # projection
+    start_found_at: Optional[dt.datetime] = None
+    completed_at: Optional[dt.datetime] = None
+    estimated_completion_at: Optional[dt.datetime] = None
+    
     # server bookkeeping (optional)
     last_evaluated_at: Optional[dt.datetime] = None
     updated_at: Optional[dt.datetime] = None
@@ -117,6 +122,9 @@ class ProgressOut(BaseModel):
 
     # Optional annotations
     message: Optional[str] = None
+
+    # Projection
+    estimated_completion_at: Optional[dt.datetime] = None
 
     # Auditing
     created_at: Optional[dt.datetime] = None

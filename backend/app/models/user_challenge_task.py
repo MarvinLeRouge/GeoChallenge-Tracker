@@ -39,7 +39,11 @@ class UserChallengeTask(MongoBaseModel):
     metrics: dict = Field(default_factory=dict)      # ex: {"current_count": 3}
     # Current aggregated snapshot for this task (history is in Progress collection)
     progress: Optional[ProgressSnapshot] = None
+    start_found_at: Optional[dt.datetime] = None
+    completed_at: Optional[dt.datetime] = None
 
     last_evaluated_at: Optional[dt.datetime] = None
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
+
+UserChallengeTask.model_rebuild()
