@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+import math
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
@@ -165,6 +166,37 @@ def _aggregate_total(user_id: ObjectId, match_caches: Dict[str, Any], spec: Dict
     rows = list(fc.aggregate(pipeline, allowDiskUse=False))
     return int(rows[0]["total"]) if rows else 0
 
+def _nth_found_date(user_id: ObjectId, match_caches: Dict[str, Any], n: int) -> Optional[date]:
+    if n <= 0:
+        return None
+    fc = get_collection("found_caches")
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {"$lookup": {"from": "caches", "localField": "cache_id", "foreignField": "_id", "as": "cache"}},
+        {"$unwind": "$cache"},
+    ]
+    and_conds = []
+    for field, cond in match_caches.items():
+        if isinstance(cond, list):
+            for c in cond:
+                and_conds.append({f"cache.{field}": c})
+        else:
+            and_conds.append({f"cache.{field}": cond})
+    if and_conds:
+        pipeline.append({"$match": {"$and": and_conds}})
+    pipeline += [
+        {"$sort": {"found_date": ASCENDING}},
+        {"$skip": max(0, n - 1)},
+        {"$limit": 1},
+        {"$project": {"_id": 0, "found_date": 1}},
+    ]
+    rows = list(fc.aggregate(pipeline, allowDiskUse=False))
+    return rows[0]["found_date"] if rows else None
+
+# alias pratique
+def _first_found_date(user_id: ObjectId, match_caches: Dict[str, Any]) -> Optional[date]:
+    return _nth_found_date(user_id, match_caches, 1)
+
 # ---------- Public API ----------
 
 def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> Dict[str, Any]:
@@ -298,6 +330,40 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> Dict[s
                 else:
                     final_percent = count_percent
 
+                # --- dates de progression persistées sur la task ---
+                task_id = t["_id"]
+                min_count = int(((t.get("constraints") or {}).get("min_count") or 0))
+
+                # 2.1 start_found_at : première trouvaille qui matche
+                start_dt = _first_found_date(user_id, match_caches)
+                if start_dt and not t.get("start_found_at"):
+                    get_collection("user_challenge_tasks").update_one(
+                        {"_id": task_id},
+                        {"$set": {"start_found_at": start_dt, "updated_at": utcnow()}}
+                    )
+                    t["start_found_at"] = start_dt  # en mémoire pour la suite
+
+                # 2.2 completed_at : date de la min_count-ième trouvaille
+                completed_dt = None
+                if min_count > 0 and current >= min_count:
+                    completed_dt = _nth_found_date(user_id, match_caches, min_count)
+
+                # persister la date si atteinte, sinon l'annuler si elle existait mais plus valide
+                if completed_dt:
+                    if t.get("completed_at") != completed_dt:
+                        get_collection("user_challenge_tasks").update_one(
+                            {"_id": task_id},
+                            {"$set": {"completed_at": completed_dt, "updated_at": utcnow()}}
+                        )
+                        t["completed_at"] = completed_dt
+                else:
+                    if t.get("completed_at") is not None:
+                        get_collection("user_challenge_tasks").update_one(
+                            {"_id": task_id},
+                            {"$set": {"completed_at": None, "updated_at": utcnow()}}
+                        )
+                        t["completed_at"] = None
+
                 snap = {
                     "task_id": t["_id"],
                     "order": order,
@@ -394,6 +460,59 @@ def get_latest_and_history(
     items = list(cur)
     latest = items[0] if items else None
     history = items[1:] if len(items) > 1 else []
+
+    # --- enrichir 'latest' avec ETA par tâche + ETA globale ---
+    if latest:
+        # map (task_id -> {start_found_at, completed_at, min_count courant})
+        tasks_coll = get_collection("user_challenge_tasks")
+        tdocs = list(tasks_coll.find({"user_challenge_id": uc_id}, {"_id": 1, "start_found_at": 1, "completed_at": 1, "constraints": 1}))
+        dates_by_tid: Dict[ObjectId, Dict[str, Any]] = {
+            d["_id"]: {
+                "start": d.get("start_found_at"),
+                "done": d.get("completed_at"),
+                "min_count": int(((d.get("constraints") or {}).get("min_count") or 0)),
+            } for d in tdocs
+        }
+
+        # calcule ETA par tâche du snapshot 'latest' en fonction d'aujourd'hui
+        now_dt = now()
+        eta_values: List[datetime] = []
+        for it in (latest.get("tasks") or []):
+            tid = it.get("task_id")
+            cur = int(it.get("current_count") or 0)
+            # min_count : priorité au snapshot si présent, sinon doc task
+            min_c = int(it.get("min_count") or dates_by_tid.get(tid, {}).get("min_count") or 0)
+            info = dates_by_tid.get(tid) or {}
+            start = info.get("start")
+            done = info.get("done")
+
+            eta = None
+            if done:
+                # terminé -> ETA figée
+                # found_date est un 'date', on le normalise en 'datetime' pour la réponse
+                eta = datetime(done.year, done.month, done.day)  # 00:00 locale/UTC selon now()
+            elif start and cur >= 1 and min_c > 0:
+                # progression -> extrapolation
+                # vitesse = (cur - 1) / jours écoulés depuis la 1ère trouvaille
+                elapsed_days = max((now_dt.date() - start.date()).days, 1)
+                speed = float(cur - 1) / float(elapsed_days)
+                remaining = max(0, min_c - cur)
+                if speed > 0.0 and remaining > 0:
+                    eta_days = int(math.ceil(remaining / speed))
+                    eta_date = now_dt.date() + timedelta(days=eta_days)
+                    eta = datetime(eta_date.year, eta_date.month, eta_date.day)
+                # sinon, eta = None
+
+            # injecter l'ETA par tâche dans l'objet 'latest' (pour DTO)
+            it["estimated_completion_at"] = eta
+
+            if eta:
+                eta_values.append(eta)
+
+        # ETA globale = max des ETA non-None
+        latest.setdefault("aggregate", {})
+        latest["estimated_completion_at"] = (max(eta_values) if eta_values else None)
+
     def _summarize(d: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "checked_at": d["checked_at"],

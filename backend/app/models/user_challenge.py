@@ -48,5 +48,8 @@ class UserChallenge(MongoBaseModel):
     progress: Optional[ProgressSnapshot] = None
     notes: Optional[str] = None
 
+    # Projection
+    estimated_completion_at: Optional[dt.datetime] = None
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
