@@ -39,15 +39,16 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     container_name: geo-frontend
-    ports:
-      - "5173:80"
-    env_file:
-      - .env
     environment:
-      - VITE_API_URL=${VITE_API_URL}
+      - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
     volumes:
       - ./frontend:/app
-
+      - /app/node_modules  # évite d’écraser node_modules du conteneur
