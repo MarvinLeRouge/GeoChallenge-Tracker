@@ -129,6 +129,11 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
     return user
 
+def require_admin(user=Depends(get_current_user)):
+    if not user.get("role") == "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+    return user
+
 def validate_password_strength(password: str) -> None:
     """Valide la complexité du mot de passe.
 
