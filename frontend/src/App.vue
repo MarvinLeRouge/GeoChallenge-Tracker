@@ -12,7 +12,8 @@ const message = ref('')
 
 onMounted(async () => {
   try {
-    const res = await fetch('http://localhost:8000/ping')
+    const res = await fetch('/api/ping')
+    console.log("res")
     const data = await res.text()
     message.value = data
   } catch (err) {
