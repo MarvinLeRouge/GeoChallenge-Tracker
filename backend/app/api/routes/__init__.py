@@ -11,6 +11,7 @@ from .my_challenge_tasks import router as my_challenge_tasks_router
 from .my_challenge_progress import router as my_challenge_progress_router
 from .my_challenge_targets import router as my_challenge_targets_router
 from .my_profile import router as my_profile_router
+from .maintenance import router as maintenance_router
 routers = [
     base_router, 
     auth_router, 
@@ -21,5 +22,6 @@ routers = [
     my_challenge_tasks_router,
     my_challenge_progress_router,
     my_challenge_targets_router,
-    my_profile_router
+    my_profile_router,
+    maintenance_router
 ]
