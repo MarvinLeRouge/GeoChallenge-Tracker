@@ -15,7 +15,7 @@
       "src/**/*.tsx",
       "src/**/*.vue",
       "vite.config.ts"
-    ],
+, "src/main.js.bak"    ],
     "exclude": ["node_modules", "dist"]
   }
   
