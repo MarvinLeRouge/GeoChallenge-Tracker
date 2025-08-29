@@ -4,6 +4,8 @@
     <aside class="w-56 border-r hidden md:block">
       <nav class="p-4 space-y-2">
         <RouterLink to="/" class="block hover:underline">Accueil</RouterLink>
+        <RouterLink to="/protected" class="block hover:underline">Zone protégée</RouterLink>
+        <RouterLink to="/login" class="block hover:underline">Login</RouterLink>
       </nav>
     </aside>
 
