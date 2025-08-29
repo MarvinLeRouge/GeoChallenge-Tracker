@@ -10,7 +10,11 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@heroicons/vue": "^2.2.0",
     "axios": "^1.11.0",
+    "flowbite": "^3.1.2",
+    "flowbite-vue": "^0.2.1",
+    "lucide-vue-next": "^0.542.0",
     "pinia": "^3.0.3",
     "tailwindcss": "^3.4.17",
     "vue": "^3.5.17",
