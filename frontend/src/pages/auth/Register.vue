@@ -20,7 +20,14 @@
             <p class="text-xs text-gray-500">8+ caractères, mélange conseillé (majuscules, chiffres, symboles).</p>
         </div>
 
-        <button class="border rounded px-3 py-2" :disabled="loading">
+        <div class="space-y-1">
+            <label class="text-sm font-medium">Confirmation mot de passe</label>
+            <input v-model="confirm" type="password" class="border rounded w-full p-2" autocomplete="new-password"
+                required />
+            <p v-if="confirm && password!==confirm" class="text-xs text-red-600">Ne correspond pas.</p>
+        </div>
+
+        <button class="border rounded px-3 py-2" :disabled="loading || !canSubmit">
             {{ loading ? 'Création…' : 'Créer mon compte' }}
         </button>
 
@@ -33,17 +40,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/http'
 import { toast } from 'vue-sonner'
 
 const router = useRouter()
-const username = ref(''), email = ref(''), password = ref('')
+const username = ref(''), email = ref(''), password = ref(''), confirm  = ref('')
+const canSubmit = computed(() => password.value.length>0 && password.value === confirm.value)
 const loading = ref(false)
 const error = ref('')
 
 async function submit() {
+    if (!canSubmit.value) { toast.error('Sécurité du mot de passe', { description:'Les mots de passe ne correspondent pas.' }); return }
     error.value = ''
     loading.value = true
     try {
