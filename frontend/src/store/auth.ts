@@ -52,6 +52,7 @@ export const useAuthStore = defineStore('auth', {
       this.initialized = true
       // 👉 restaurer l'access, ne PAS appeler refresh ici
       this.accessToken = sessionStorage.getItem('access_token') || ''
+      if (!this.accessToken) return            // ⟵ évite le 401 au premier chargement
       try { await this.fetchMe() } catch { /* l'interceptor fera refresh si 401 */ }
     }
   }
