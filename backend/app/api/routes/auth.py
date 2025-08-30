@@ -9,7 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from pydantic import BaseModel, Field
@@ -67,6 +67,7 @@ class MessageOut(BaseModel):
 def register(
     payload: UserInRegister = Body(..., description="Données d'inscription : username, email et mot de passe."),
     users: Collection = Depends(users_coll),
+    background_tasks: BackgroundTasks = None,
 ):
     """Inscription d’un utilisateur.
 
@@ -113,10 +114,13 @@ def register(
     }
     res = users.insert_one(doc)
 
-    try:
-        send_verification_email(email=email, code=verification_code)
-    except Exception:
-        pass
+    if background_tasks:
+        background_tasks.add_task(
+            send_verification_email,
+            to_email=email,
+            username=username,
+            code=verification_code,
+        )
 
     created = users.find_one({"_id": res.inserted_id}, {"_id": 1, "email": 1, "username": 1, "role": 1})
     return {
@@ -325,6 +329,7 @@ def verify_email_post(
 def resend_verification(
     body: ResendVerificationRequest = Body(..., description="Identifiant (username ou email) de l’utilisateur."),
     users: Collection = Depends(users_coll),
+    background_tasks: BackgroundTasks = None,
 ):
     """Renvoi d’email de vérification.
 
@@ -351,8 +356,12 @@ def resend_verification(
             {"_id": user["_id"]},
             {"$set": {"verification_code": code, "verification_expires_at": now() + dt.timedelta(hours=24), "updated_at": now()}}
         )
-        try:
-            send_verification_email(email=user["email"], code=code)
-        except Exception:
-            pass
+        if background_tasks:
+            background_tasks.add_task(
+                send_verification_email,
+                to_email=user["email"],
+                username=user.get("username", ""),
+                code=code,
+            )
+            
     return {"message": "If the account exists and is not verified, a new email was sent."}
