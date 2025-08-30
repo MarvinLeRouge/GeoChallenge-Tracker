@@ -65,7 +65,7 @@ def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
         str: Jeton JWT signé.
     """
     to_encode = data.copy()
-    expire = now() + (expires_delta or dt.timedelta(minutes=60))
+    expire = now() + (expires_delta or dt.timedelta(minutes=15))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     
@@ -134,7 +134,7 @@ def require_admin(user=Depends(get_current_user)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
 
-def validate_password_strength(password: str) -> None:
+def validate_password_strength(password: str) -> bool:
     """Valide la complexité du mot de passe.
 
     Description:
@@ -160,6 +160,8 @@ def validate_password_strength(password: str) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
         )
+    
+    return True
 
 def generate_verification_code():
     """Génère un code de vérification.
