@@ -275,6 +275,8 @@
 
     
   </div>
+  <Toaster position="top-center" rich-colors close-button />
+
 </template>
 
 <script setup lang="ts">
@@ -290,6 +292,7 @@ import {
   WrenchScrewdriverIcon, ChevronDownIcon, DocumentTextIcon
 } from '@heroicons/vue/24/outline'
 import { Flag, Mountain, Trophy, Target, LocateFixed } from 'lucide-vue-next'
+import { Toaster } from 'vue-sonner'
 
 const menuOpen = ref(false)
 const panelRef = ref<HTMLElement | null>(null)
