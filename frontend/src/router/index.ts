@@ -2,11 +2,11 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
 const routes = [
-  { path: '/', name: 'home', component: () => import('@/pages/HomeDummy.vue') },
+  { path: '/', name: 'home', component: () => import('@/pages/Home.vue') },
   { path: '/login', name: 'login', component: () => import('@/pages/auth/Login.vue') },
   { path: '/register', name: 'register', component: () => import('@/pages/auth/Register.vue') },
-  { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') },
-  { path: '/:pathMatch(.*)*', name: '404', component: () => import('@/pages/NotFound.vue') },
+  { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') }, // pour tests
+  { path: '/:pathMatch(.*)*', name: '404', component: () => import('@/pages/404.vue') },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })
