@@ -57,3 +57,78 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      OWNER_LC: ${{ needs.build.outputs.OWNER_LC || env.OWNER_LC }}
+      REPO_LC: ${{ needs.build.outputs.REPO_LC || env.REPO_LC }}
+      SHA_TAG: sha-${{ github.sha }}
+    steps:
+      - name: Deploy over SSH (compose pull + up) — Variante A (latest)
+        if: ${{ true }}   # mets à false si tu utilises la variante B
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /home/deploy/apps/geochallenge/compose
+
+            # Les images sont publiques → pas besoin de docker login
+            # Si tu passes un jour en privé, décommente :
+            # echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
+
+            # Pull des images taggées 'latest' et redémarrage
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Nettoyage léger
+            docker image prune -f
+
+      - name: Deploy over SSH (compose pull + up) — Variante B (immutable sha)
+        if: ${{ false }}  # mets à true pour activer cette variante
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /home/deploy/apps/geochallenge/compose
+
+            # Construire les noms d’images immuables
+            IMG_BACK="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:${{ env.SHA_TAG }}"
+            IMG_FRONT="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:${{ env.SHA_TAG }}"
+
+            # Mettre à jour app.env pour figer les versions
+            ENV_FILE="../shared/env/app.env"
+            grep -q '^IMAGE_BACKEND=' "$ENV_FILE" && \
+              sed -i "s|^IMAGE_BACKEND=.*|IMAGE_BACKEND=${IMG_BACK}|" "$ENV_FILE" || \
+              echo "IMAGE_BACKEND=${IMG_BACK}" >> "$ENV_FILE"
+
+            grep -q '^IMAGE_FRONTEND=' "$ENV_FILE" && \
+              sed -i "s|^IMAGE_FRONTEND=.*|IMAGE_FRONTEND=${IMG_FRONT}|" "$ENV_FILE" || \
+              echo "IMAGE_FRONTEND=${IMG_FRONT}" >> "$ENV_FILE"
+
+            # Pull + restart
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            # Nettoyage léger
+            docker image prune -f
+      - name: Healthcheck backend (HTTP)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            # attend un peu que le container démarre
+            sleep 5
+            curl -fsS http://localhost:8000/ping || (docker compose logs --tail=200 backend && exit 1)
