@@ -71,7 +71,6 @@ jobs:
 
     steps:
       - name: Deploy over SSH (compose pull + up) — Variante A (latest)
-        if: ${{ true }}   # mets à false si tu utilises la variante B
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
@@ -79,36 +78,31 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
-            set -euo pipefail
-            cd /home/deploy/apps/gctracker/compose
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
+            set -Eeuo pipefail
 
-      - name: Deploy over SSH (compose pull + up) — Variante B (immutable sha)
-        if: ${{ false }}  # mets à true pour activer cette variante
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          script_stop: true
-          script: |
-            set -euo pipefail
-            cd /home/deploy/apps/gctracker/compose
+            echo "== whoami ==" && whoami
+            echo "== date ==" && date -Is
+            echo "== go to compose dir =="
 
-            IMG_BACK="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:${{ env.SHA_TAG }}"
-            IMG_FRONT="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:${{ env.SHA_TAG }}"
+            cd /home/deploy/apps/geochallenge/compose
+            echo "PWD: $(pwd)"
+            echo "== list files =="
+            ls -la
 
-            ENV_FILE="../shared/env/app.env"
-            grep -q '^IMAGE_BACKEND=' "$ENV_FILE" && \
-              sed -i "s|^IMAGE_BACKEND=.*|IMAGE_BACKEND=${IMG_BACK}|" "$ENV_FILE" || \
-              echo "IMAGE_BACKEND=${IMG_BACK}" >> "$ENV_FILE"
+            echo "== show env entries from ../shared/env/app.env =="
+            grep -E '^(IMAGE_BACKEND|IMAGE_FRONTEND|BACKEND_PORT|FRONTEND_PORT)=' ../shared/env/app.env || true
 
-            grep -q '^IMAGE_FRONTEND=' "$ENV_FILE" && \
-              sed -i "s|^IMAGE_FRONTEND=.*|IMAGE_FRONTEND=${IMG_FRONT}|" "$ENV_FILE" || \
-              echo "IMAGE_FRONTEND=${IMG_FRONT}" >> "$ENV_FILE"
+            echo "== docker compose version =="
+            docker compose version
 
-            docker compose pull
-            docker compose up -d --remove-orphans
-            docker image prune -f
+            echo "== preview resolved compose (with --env-file) =="
+            docker compose --env-file ../shared/env/app.env config
+
+            echo "== pull images =="
+            docker compose --env-file ../shared/env/app.env pull
+
+            echo "== up -d (remove orphans) =="
+            docker compose --env-file ../shared/env/app.env up -d --remove-orphans
+
+            echo "== ps =="
+            docker compose ps
