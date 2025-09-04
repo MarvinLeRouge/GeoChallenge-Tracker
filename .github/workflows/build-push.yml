@@ -84,7 +84,7 @@ jobs:
             echo "== date ==" && date -Is
             echo "== go to compose dir =="
 
-            cd /home/deploy/apps/geochallenge/compose
+            cd /home/deploy/apps/gctracker/compose
             echo "PWD: $(pwd)"
             echo "== list files =="
             ls -la
