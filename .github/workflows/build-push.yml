@@ -105,4 +105,4 @@ jobs:
             docker compose --env-file ../shared/env/app.env up -d --remove-orphans
 
             echo "== ps =="
-            docker compose ps
+            docker compose --env-file ../shared/env/app.env ps
