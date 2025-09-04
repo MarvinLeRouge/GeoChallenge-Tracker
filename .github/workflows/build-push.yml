@@ -80,7 +80,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /home/deploy/apps/geochallenge/compose
+            cd /home/deploy/apps/gctracker/compose
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
@@ -95,7 +95,7 @@ jobs:
           script_stop: true
           script: |
             set -euo pipefail
-            cd /home/deploy/apps/geochallenge/compose
+            cd /home/deploy/apps/gctracker/compose
 
             IMG_BACK="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:${{ env.SHA_TAG }}"
             IMG_FRONT="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:${{ env.SHA_TAG }}"
