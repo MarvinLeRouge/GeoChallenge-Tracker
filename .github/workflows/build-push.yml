@@ -1,29 +1,25 @@
-name: build-and-push
-
-on:
-  push:
-    branches: ["main"]
-  workflow_dispatch: {}
-
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # on calcule owner/repo en minuscules pour GHCR
-      OWNER_LC: ${{ github.repository_owner }}
+    # ✅ Expose les valeurs en outputs pour le job deploy
+    outputs:
+      owner_lc: ${{ steps.names.outputs.owner_lc }}
+      repo_lc: ${{ steps.names.outputs.repo_lc }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Compute lowercase owner & repo
+        id: names
         run: |
           REPO_LC="${GITHUB_REPOSITORY##*/}"
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER}"
+          # Pour ce job (build), on exporte dans l'env
           echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
           echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
+          # Pour le job suivant (deploy), on expose en outputs
+          echo "owner_lc=${OWNER_LC,,}" >> $GITHUB_OUTPUT
+          echo "repo_lc=${REPO_LC,,}" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -35,7 +31,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Backend
       - name: Build & Push backend
         uses: docker/build-push-action@v6
         with:
@@ -46,7 +41,6 @@ jobs:
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:latest
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:sha-${{ github.sha }}
 
-      # Frontend
       - name: Build & Push frontend
         uses: docker/build-push-action@v6
         with:
@@ -56,55 +50,45 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
-
   deploy:
     runs-on: ubuntu-latest
     needs: build
     env:
-      OWNER_LC: ${{ needs.build.outputs.OWNER_LC || env.OWNER_LC }}
-      REPO_LC: ${{ needs.build.outputs.REPO_LC || env.REPO_LC }}
+      OWNER_LC: ${{ needs.build.outputs.owner_lc }}
+      REPO_LC: ${{ needs.build.outputs.repo_lc }}
       SHA_TAG: sha-${{ github.sha }}
+
     steps:
       - name: Deploy over SSH (compose pull + up) — Variante A (latest)
         if: ${{ true }}   # mets à false si tu utilises la variante B
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
             set -euo pipefail
             cd /home/deploy/apps/geochallenge/compose
-
-            # Les images sont publiques → pas besoin de docker login
-            # Si tu passes un jour en privé, décommente :
-            # echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
-
-            # Pull des images taggées 'latest' et redémarrage
             docker compose pull
             docker compose up -d --remove-orphans
-
-            # Nettoyage léger
             docker image prune -f
 
       - name: Deploy over SSH (compose pull + up) — Variante B (immutable sha)
         if: ${{ false }}  # mets à true pour activer cette variante
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
             set -euo pipefail
             cd /home/deploy/apps/geochallenge/compose
 
-            # Construire les noms d’images immuables
             IMG_BACK="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:${{ env.SHA_TAG }}"
             IMG_FRONT="ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:${{ env.SHA_TAG }}"
 
-            # Mettre à jour app.env pour figer les versions
             ENV_FILE="../shared/env/app.env"
             grep -q '^IMAGE_BACKEND=' "$ENV_FILE" && \
               sed -i "s|^IMAGE_BACKEND=.*|IMAGE_BACKEND=${IMG_BACK}|" "$ENV_FILE" || \
@@ -114,9 +98,6 @@ jobs:
               sed -i "s|^IMAGE_FRONTEND=.*|IMAGE_FRONTEND=${IMG_FRONT}|" "$ENV_FILE" || \
               echo "IMAGE_FRONTEND=${IMG_FRONT}" >> "$ENV_FILE"
 
-            # Pull + restart
             docker compose pull
             docker compose up -d --remove-orphans
-
-            # Nettoyage léger
             docker image prune -f
