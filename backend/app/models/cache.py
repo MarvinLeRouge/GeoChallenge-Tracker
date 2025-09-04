@@ -1,37 +1,135 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Literal
+# backend/app/models/cache.py
+# Modèle principal d’une géocache (métadonnées, typage, localisation, attributs, stats).
+
+from __future__ import annotations
+
+from typing import Optional, List, Literal, Dict, Any
 import datetime as dt
+from pydantic import BaseModel, Field, ConfigDict
+
+from app.core.utils import *
 from app.core.bson_utils import *
 
+
+class CacheAttributeRef(BaseModel):
+    """Référence d’attribut de cache.
+
+    Description:
+        Lien vers un document `cache_attributes` avec indication du sens (positif/négatif).
+
+    Attributes:
+        attribute_doc_id (PyObjectId): Référence à `cache_attributes._id`.
+        is_positive (bool): True si l’attribut est affirmatif, False s’il est négatif.
+    """
+    attribute_doc_id: PyObjectId   # référence à cache_attributes._id
+    is_positive: bool              # attribut positif (True) ou négatif (False)
+
+    # Sous-modèle: ajouter model_config pour gérer PyObjectId partout (nested)
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
+
+
 class CacheBase(BaseModel):
+    """Champs de base d’une géocache.
+
+    Description:
+        Structure commune pour la création/lecture des caches : identifiants GC, typage,
+        localisation (lat/lon + GeoJSON), attributs, difficultés/terrain, dates et stats.
+
+    Attributes:
+        GC (str): Code unique de la cache (ex. "GC123AB").
+        title (str): Titre public.
+        description_html (str | None): Description HTML.
+        url (str | None): URL source (ex. listing).
+        type_id (PyObjectId | None): Réf. `CacheType`.
+        size_id (PyObjectId | None): Réf. `CacheSize`.
+        country_id (PyObjectId | None): Réf. `Country`.
+        state_id (PyObjectId | None): Réf. État/région.
+        lat (float | None): Latitude décimale.
+        lon (float | None): Longitude décimale.
+        loc (dict[str, Any] | None): Point GeoJSON `[lon, lat]` pour 2dsphere.
+        elevation (int | None): Altitude en mètres.
+        location_more (dict[str, Any] | None): Détails libres (ville, département…).
+        difficulty (float | None): Note 1.0–5.0.
+        terrain (float | None): Note 1.0–5.0.
+        attributes (list[CacheAttributeRef]): Attributs (positifs/négatifs).
+        placed_at (datetime | None): Date/heure de mise en place.
+        owner (str | None): Propriétaire (texte).
+        favorites (int | None): Compteur de favoris.
+        status (Literal['active','disabled','archived'] | None): Statut.
+    """
     GC: str
     title: str
-    cache_type: PyObjectId  # e.g., "traditional", "mystery", ...
-    size: PyObjectId        # e.g., "small", "regular", ...
-    difficulty: float
-    terrain: float
-    placed_date: datetime
-    latitude: float
-    longitude: float
-    elevation: Optional[int] = None
-    county_id: Optional[PyObjectId] = None
-    location_more: Optional[dict] = None
-    attributes: Optional[List[PyObjectId]] = []
+    description_html: Optional[str] = None
+    url: Optional[str] = None
+
+    # Typage / classement
+    type_id: Optional[PyObjectId] = None      # ref -> CacheType
+    size_id: Optional[PyObjectId] = None      # ref -> CacheSize
+
+    # Localisation
+    country_id: Optional[PyObjectId] = None   # ref -> Country
+    state_id: Optional[PyObjectId] = None     # ref -> State
+    lat: Optional[float] = None
+    lon: Optional[float] = None
+    # GeoJSON pour index 2dsphere (coordonnées [lon, lat])
+    loc: Optional[Dict[str, Any]] = None
+    elevation: Optional[int] = None           # en mètres (optionnel)
+    location_more: Optional[Dict[str, Any]] = None  # infos libres (ville, département...)
+
+    # Caractéristiques
+    difficulty: Optional[float] = None        # 1.0 .. 5.0
+    terrain: Optional[float] = None           # 1.0 .. 5.0
+    attributes: List[CacheAttributeRef] = Field(default_factory=list)
+
+    # Dates & stats
+    placed_at: Optional[dt.datetime] = None
+    owner: Optional[str] = None
+    favorites: Optional[int] = None
+    status: Optional[Literal["active", "disabled", "archived"]] = None
+
 
 class CacheCreate(CacheBase):
-    pass  # tous les champs sont requis ou ont des valeurs par défaut
+    """Payload de création d’une géocache.
+
+    Description:
+        Identique à `CacheBase` ; sert d’entrée pour l’API de création/import.
+    """
+    pass
+
 
 class CacheUpdate(BaseModel):
-    elevation: Optional[int]
-    country_id: Optional[PyObjectId]
-    county_id: Optional[PyObjectId]
-    location_more: Optional[dict]
+    """Payload de mise à jour partielle d’une géocache.
 
-class Cache(CacheBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
+    Description:
+        Champs modifiables usuels (titre, description, élévation, état, attributs, statut).
+
+    Attributes:
+        title (str | None): Nouveau titre.
+        description_html (str | None): Nouvelle description.
+        url (str | None): Nouvelle URL.
+        elevation (int | None): Nouvelle altitude.
+        state_id (PyObjectId | None): État/région.
+        location_more (dict[str, Any] | None): Détails de localisation libres.
+        attributes (list[CacheAttributeRef] | None): Nouvelle liste d’attributs.
+        status (Literal['active','disabled','archived'] | None): Nouveau statut.
+    """
+    title: Optional[str] = None
+    description_html: Optional[str] = None
+    url: Optional[str] = None
+    elevation: Optional[int] = None
+    state_id: Optional[PyObjectId] = None
+    location_more: Optional[Dict[str, Any]] = None
+    attributes: Optional[List[CacheAttributeRef]] = None
+    status: Optional[Literal["active", "disabled", "archived"]] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
+
+
+class Cache(MongoBaseModel, CacheBase):
+    """Document Mongo d’une géocache (avec horodatage).
+
+    Description:
+        Étend `CacheBase` avec les champs de traçabilité (_id, created_at, updated_at).
+    """
+    created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: Optional[dt.datetime] = None
-
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}

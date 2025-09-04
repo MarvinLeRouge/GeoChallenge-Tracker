@@ -1,42 +1,101 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
+# backend/app/models/progress.py
+# Modèles de snapshot de progression (global + par tâche) pour un UserChallenge, horodatés.
+
+from __future__ import annotations
+from typing import Optional, List, Dict, Any, Literal
 import datetime as dt
+from pydantic import BaseModel, Field, ConfigDict
+from app.core.utils import *
 from app.core.bson_utils import *
+from app.models._shared import ProgressSnapshot  # shared snapshot structure
 
-class ProgressPoint(BaseModel):
-    date: datetime
-    value: int   # nombre de caches validées à ce moment
+"""
+Progress data model - clarification
 
-class ProgressBase(BaseModel):
-    user_id: PyObjectId
+- A series is built by multiple documents over time.
+- One Progress document represents one instant t for a given `user_challenge_id`.
+  It freezes all intersections at that time:
+    * the global state of the user challenge (`aggregate`),
+    * the state of each task in that challenge (`tasks[]`).
+- To draw time-series charts, query all Progress docs for a `user_challenge_id`,
+  sort by `checked_at`, and read `aggregate` or each `tasks[i].progress`.
+"""
+
+class TaskProgressItem(BaseModel):
+    """Snapshot par tâche à l’instant t.
+
+    Description:
+        Capture l’état d’une tâche au moment du calcul (statut, compteurs, diagnostics)
+        afin d’alimenter les vues détaillées et l’agrégat global.
+
+    Attributes:
+        task_id (PyObjectId): Réf. de la tâche.
+        status (Literal['todo','in_progress','done']): État courant.
+        progress (ProgressSnapshot): Sous-agrégat/percent pour cette tâche.
+        metrics (dict[str, Any]): Compteurs/valeurs calculées (ex. `current_count`).
+        constraints (dict[str, Any] | None): Contraintes copiées à des fins d’audit.
+        aggregate (AggregateProgress | None): Agrégat dédié (ex. unités spécifiques).
+    """
     task_id: PyObjectId
+    status: Literal["todo", "in_progress", "done"] = "todo"
+    progress: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
+    metrics: Dict[str, Any] = Field(default_factory=dict)   # e.g. {"current_count": 17}
+    constraints: Optional[Dict[str, Any]] = None            # optional copy, for audit/explanations
+    aggregate: Optional[AggregateProgress] = None
 
-    current_value: int = 0
-    goal: int                # cible à atteindre
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+        json_encoders={PyObjectId: str},
+    )
 
-    # Série temporelle d’historique de progression
-    time_series: Optional[List[ProgressPoint]] = []
 
-    # Estimation (facultative)
-    estimated_completion_date: Optional[dt.datetime] = None
+class Progress(MongoBaseModel):
+    """Snapshot complet d’un UserChallenge à l’instant t.
 
-    # Indice de pertinence de la projection (pas encore implémenté)
-    prediction_score: Optional[float] = None
+    Description:
+        Document immuable décrivant l’état agrégé du challenge et l’état de chaque tâche,
+        utilisé pour les graphiques et l’historique.
 
-class ProgressCreate(ProgressBase):
-    pass
+    Attributes:
+        user_challenge_id (PyObjectId): Réf. UC concerné.
+        checked_at (datetime): Horodatage du calcul (axe temps).
+        aggregate (ProgressSnapshot): Agrégat global (toutes tâches supportées).
+        tasks (list[TaskProgressItem]): Détails par tâche.
+        message (str | None): Annotation éventuelle.
+        engine_version (str | None): Version du moteur d’évaluation.
+        created_at (datetime): Date de création (append-only).
+    """
+    user_challenge_id: PyObjectId
 
-class ProgressUpdate(BaseModel):
-    current_value: Optional[int]
-    time_series: Optional[List[ProgressPoint]]
-    estimated_completion_date: Optional[dt.datetime]
-    prediction_score: Optional[float]
+    # Time axis for charts & projections
+    checked_at: dt.datetime = Field(default_factory=lambda: now())
 
-class Progress(ProgressBase):
-    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    created_at: dt.datetime = Field(default_factory=lambda: dt.datetime.now(dt.timezone.utc))
-    updated_at: Optional[dt.datetime] = None
+    # Aggregate state for the whole challenge
+    aggregate: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {PyObjectId: str}
+    # Per-task snapshots at this instant (one item per task belonging to the user_challenge)
+    tasks: List[TaskProgressItem] = Field(default_factory=list)
+
+    # Optional annotations
+    message: Optional[str] = None
+    engine_version: Optional[str] = None
+
+    # For auditing (append-only — no updated_at)
+    created_at: dt.datetime = Field(default_factory=lambda: now())
+
+class AggregateProgress(BaseModel):
+    """Agrégat simple (valeur/objectif/unité).
+
+    Attributes:
+        total (float): Valeur courante.
+        target (float): Objectif attendu.
+        unit (str): Unité (ex. "points", "meters").
+    """
+    total: float = 0.0
+    target: float = 0.0
+    unit: str = "points"  # ou "meters" pour altitude
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+    )
