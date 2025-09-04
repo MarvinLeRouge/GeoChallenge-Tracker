@@ -1,0 +1,57 @@
+name: build-and-push
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write   # nécessaire pour pousser sur GHCR avec GITHUB_TOKEN
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute lowercase repo name
+        shell: bash
+        run: |
+          REPO_LC="${GITHUB_REPOSITORY##*/}"
+          echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR (GITHUB_TOKEN)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Backend
+      - name: Build & Push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/${{ env.REPO_LC }}/backend:latest
+            ghcr.io/${{ env.OWNER }}/${{ env.REPO_LC }}/backend:sha-${{ github.sha }}
+
+      # Frontend
+      - name: Build & Push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/${{ env.REPO_LC }}/frontend:latest
+            ghcr.io/${{ env.OWNER }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
