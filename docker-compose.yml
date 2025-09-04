@@ -17,6 +17,10 @@ services:
       - MONGODB_URI_TPL=${MONGODB_URI_TPL}
       - MONGODB_DB=${MONGODB_DB}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+    depends_on:
+      - maildev
     volumes:
       - ./backend:/app
       - ./backend/generate_secret.py:/app/generate_secret.py
@@ -24,19 +28,28 @@ services:
       - ./backend/data/samples:/app/data/samples  # pour tests de dev
       - ./.env:/app/.env
 
+  maildev:
+    container_name: geo-maildev
+    image: maildev/maildev
+    ports:
+      - "1080:1080"
+      - "1025:1025"
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: dev
     container_name: geo-frontend
-    ports:
-      - "5173:80"
-    env_file:
-      - .env
     environment:
-      - VITE_API_URL=${VITE_API_URL}
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=/api
     depends_on:
       - backend
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
     volumes:
       - ./frontend:/app
-
+      - /app/node_modules  # évite d’écraser node_modules du conteneur

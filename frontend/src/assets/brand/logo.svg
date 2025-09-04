@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" aria-label="GeoChallenge Tracker - pin with progress bars (solid colors, 48px)" viewBox="0 0 64 64">
+  <defs>
+    <clipPath id="a">
+      <circle cx="32" cy="26" r="16"/>
+    </clipPath>
+  </defs>
+  <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="6" d="M32 6c-12.15 0-22 9.85-22 22 0 16.5 22 30 22 30s22-13.5 22-30c0-12.15-9.85-22-22-22z"/>
+  <g clip-path="url(#a)">
+    <rect width="6" height="10" x="20" y="32" fill="#EF4444" rx="1.5"/>
+    <rect width="6" height="18" x="28" y="24" fill="#F59E0B" rx="1.5"/>
+    <rect width="6" height="26" x="36" y="16" fill="#22C55E" rx="1.5"/>
+  </g>
+</svg>
