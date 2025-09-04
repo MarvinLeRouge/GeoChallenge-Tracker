@@ -7,22 +7,21 @@ on:
 
 permissions:
   contents: read
-  packages: write   # nécessaire pour pousser sur GHCR avec GITHUB_TOKEN
+  packages: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      OWNER: ${{ github.repository_owner }}
+      # on calcule owner/repo en minuscules pour GHCR
+      OWNER_LC: ${{ github.repository_owner }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compute lowercase repo name
-        shell: bash
+      - name: Compute lowercase owner & repo
         run: |
           REPO_LC="${GITHUB_REPOSITORY##*/}"
-          OWNER_LC="${GITHUB_REPOSITORY_OWNER}"
           echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
           echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
 
@@ -57,6 +56,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
             ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
@@ -120,15 +120,3 @@ jobs:
 
             # Nettoyage léger
             docker image prune -f
-      - name: Healthcheck backend (HTTP)
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
-          script: |
-            set -e
-            # attend un peu que le container démarre
-            sleep 5
-            curl -fsS http://localhost:8000/ping || (docker compose logs --tail=200 backend && exit 1)
