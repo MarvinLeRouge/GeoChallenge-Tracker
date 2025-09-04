@@ -10,6 +10,8 @@ __pycache__/
 Thumbs.db
 *.gpx
 *.zip
+*.gpx
+*.csv
 
 # Python
 *.egg-info/

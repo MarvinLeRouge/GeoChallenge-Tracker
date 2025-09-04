@@ -15,9 +15,10 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     setTokens(tokens: Tokens) {
       this.accessToken = tokens.access_token || ''
+      sessionStorage.setItem('access_token', this.accessToken)
       if (tokens.refresh_token) {
         this.refreshToken = tokens.refresh_token
-        localStorage.setItem('refresh_token', tokens.refresh_token)
+        localStorage.setItem('refresh_token', this.refreshToken)
       }
     },
     async login({ identifier, password }: LoginPayload) {
@@ -43,14 +44,16 @@ export const useAuthStore = defineStore('auth', {
       this.accessToken = ''
       this.refreshToken = ''
       this.user = null
+      sessionStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
     },
     async init() {
       if (this.initialized) return
       this.initialized = true
-      if (this.refreshToken) {
-        try { await this.refresh(); await this.fetchMe() } catch { this.logout() }
-      }
+      // 👉 restaurer l'access, ne PAS appeler refresh ici
+      this.accessToken = sessionStorage.getItem('access_token') || ''
+      if (!this.accessToken) return            // ⟵ évite le 401 au premier chargement
+      try { await this.fetchMe() } catch { /* l'interceptor fera refresh si 401 */ }
     }
   }
 })
