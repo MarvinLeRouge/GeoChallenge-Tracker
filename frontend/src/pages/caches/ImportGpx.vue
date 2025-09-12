@@ -1,0 +1,164 @@
+<template>
+    <section class="max-w-screen-md mx-auto space-y-6">
+      <header class="space-y-1">
+        <h1 class="text-xl font-semibold">Importer un fichier GPX/ZIP</h1>
+        <p class="text-sm text-gray-600">
+          Un seul fichier à la fois. ZIP accepté (les GPX qu’il contient seront traités).
+        </p>
+      </header>
+  
+      <!-- Form -->
+      <form class="space-y-5" @submit.prevent="submit">
+        <!-- Fichier -->
+        <div class="space-y-1">
+          <label class="text-sm font-medium">Fichier</label>
+          <input
+            type="file"
+            accept=".gpx,.zip"
+            @change="onPick"
+          />
+          <p v-if="file" class="text-xs text-gray-500">
+            {{ file.name }} — {{ (file.size/1024).toFixed(0) }} Ko
+          </p>
+        </div>
+  
+        <!-- Caches “trouvées” -->
+        <div class="space-y-1">
+          <label class="text-sm font-medium">Contenu</label>
+          <label class="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" v-model="found" />
+            <span>Le fichier contient des caches <strong>trouvées</strong></span>
+          </label>
+          <p class="text-xs text-gray-500">
+            Si coché, toutes les caches marquées “found” dans le GPX seront ajoutées à vos trouvailles dans GC Tracker.
+          </p>
+        </div>
+  
+        <!-- Actions -->
+        <div class="flex items-center gap-3">
+          <button
+            class="border rounded px-3 py-2"
+            :disabled="!file || loading"
+            type="submit"
+          >
+            {{ loading ? `Import… ${progress}%` : 'Importer' }}
+          </button>
+  
+          <RouterLink class="underline text-sm" to="/my/challenges">
+            Mes challenges
+          </RouterLink>
+        </div>
+  
+        <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
+      </form>
+  
+      <!-- Résultats import -->
+      <div v-if="result" class="space-y-4">
+        <h2 class="text-lg font-semibold">Résumé d’import</h2>
+  
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="rounded border p-3">
+            <h3 class="text-sm font-medium mb-2">Statistiques</h3>
+            <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
+              <template v-for="(val, key) in result.summary" :key="key">
+                <dt class="text-gray-500 capitalize">{{ pretty(key) }}</dt>
+                <dd>{{ val }}</dd>
+              </template>
+            </dl>
+          </div>
+  
+          <div v-if="result.challenge_stats" class="rounded border p-3">
+            <h3 class="text-sm font-medium mb-2">Challenges détectés</h3>
+            <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
+              <template v-for="(val, key) in result.challenge_stats" :key="key">
+                <dt class="text-gray-500 capitalize">{{ pretty(key) }}</dt>
+                <dd>{{ val }}</dd>
+              </template>
+            </dl>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Résultats sync -->
+      <div v-if="sync" class="space-y-2">
+        <h2 class="text-lg font-semibold">Synchronisation de vos challenges</h2>
+        <div class="rounded border p-3">
+          <pre class="text-xs overflow-auto">{{ sync }}</pre>
+        </div>
+      </div>
+    </section>
+  </template>
+  
+  <script setup lang="ts">
+  import { ref } from 'vue'
+  import { toast } from 'vue-sonner'
+  import api from '@/api/http'
+  
+  type ImportResponse = {
+    summary: Record<string, number | string>
+    challenge_stats?: Record<string, number | string>
+  }
+  
+  const file = ref<File | null>(null)
+  const found = ref(false)
+  const loading = ref(false)
+  const progress = ref(0)
+  const error = ref('')
+  const result = ref<ImportResponse | null>(null)
+  const sync = ref<any>(null)
+  
+  function onPick(e: Event) {
+    const input = e.target as HTMLInputElement
+    file.value = input.files && input.files[0] ? input.files[0] : null
+  }
+  
+  function pretty(k: string) {
+    return k.replaceAll('_', ' ')
+  }
+  
+  async function submit() {
+    if (!file.value) return
+    loading.value = true
+    progress.value = 0
+    error.value = ''
+    result.value = null
+    sync.value = null
+  
+    try {
+      const fd = new FormData()
+      fd.append('file', file.value)
+  
+      // Import
+      const { data } = await api.post<ImportResponse>('/caches/upload-gpx', fd, {
+        params: { found: found.value || undefined }, // si false → omis (backend: défaut false)
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (p) => {
+          if (p.total) progress.value = Math.round((p.loaded / p.total) * 100)
+        }
+      })
+  
+      result.value = data
+      toast.success('GPX importé', { description: 'Vos données ont été mises à jour.' })
+  
+      // Sync challenges (manuel côté front)
+      try {
+        const { data: s } = await api.post('/my/challenges/sync')
+        sync.value = s
+        toast.success('Challenges synchronisés')
+      } catch (e: any) {
+        toast.error('Synchronisation partielle', { description: e?.response?.data?.detail || 'Impossible de synchroniser.' })
+      }
+    } catch (e: any) {
+      const s = e?.response?.status
+      if (s === 400) {
+        error.value = 'Fichier GPX/ZIP invalide ou mal formé.'
+      } else {
+        error.value = e?.response?.data?.detail || (s ? `Erreur ${s}` : 'Import impossible.')
+      }
+      toast.error('Import échoué', { description: error.value })
+    } finally {
+      loading.value = false
+    }
+  }
+  </script>
+  
