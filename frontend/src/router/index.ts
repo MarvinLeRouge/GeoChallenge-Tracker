@@ -1,17 +1,55 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 
+// auth
+const authRoutes = [
+  { path: '/login', name: 'auth/login', component: () => import('@/pages/auth/Login.vue') },
+  { path: '/register', name: 'auth/register', component: () => import('@/pages/auth/Register.vue') },
+]
+// caches
+const cachesRoutes = [
+  { path: '/caches/import-gpx', name: 'caches/import-gpx', component: () => import('@/pages/caches/ImportGpx.vue') },
+  { path: '/caches/by-filter', name: 'caches/by-filter',
+    component: () => import('@/pages/_NotImplemented.vue'),
+    props: { title: 'Recherche par filtres', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
+    meta: { dense: true, noFabPadding: true }    
+  },
+  { path: '/caches/within-bbox', name: 'caches/within-bbox',
+    component: () => import('@/pages/_NotImplemented.vue'),
+    props: { title: 'Recherche par bbox', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
+    meta: { dense: true, noFabPadding: true }    
+  },
+  { path: '/caches/within-radius', name: 'caches/within-radius',
+    component: () => import('@/pages/_NotImplemented.vue'),
+    props: { title: 'Recherche par rayon', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
+    meta: { dense: true, noFabPadding: true }    
+  }
+]
+// Challenges
+//const challengesRoutes = []
+// Targets
+//const targetsRoutes = []
+// Help
+// const helpRoutes = []
+
 const routes = [
   { path: '/', name: 'home', component: () => import('@/pages/Home.vue') },
-  { path: '/login', name: 'login', component: () => import('@/pages/auth/Login.vue') },
-  { path: '/register', name: 'register', component: () => import('@/pages/auth/Register.vue') },
+  ...authRoutes, ...cachesRoutes,
+
   { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') }, // pour tests
+
   { path: '/:pathMatch(.*)*', name: '404', component: () => import('@/pages/404.vue') },
 ]
 
-const router = createRouter({ history: createWebHistory(), routes })
+console.log(routes)
 
-const PUBLIC_NAMES = new Set(['home', '404', 'login','register','verify-email','resend-verification'])
+const router = createRouter({
+  history: createWebHistory(), 
+  routes,
+  scrollBehavior: (to, from, saved) => saved ?? (to.hash ? { el: to.hash } : { top: 0 }),
+})
+
+const PUBLIC_NAMES = new Set(['home', 'legal', '404', 'auth/login','auth/register','auth/verify-email','auth/resend-verification'])
 const PUBLIC_PREFIXES = ['/help']
 
 router.beforeEach(async (to) => {
@@ -20,8 +58,8 @@ router.beforeEach(async (to) => {
 
   // protégé ?
   const isPublic = PUBLIC_NAMES.has(String(to.name||'')) || PUBLIC_PREFIXES.some(p => to.path.startsWith(p))  
-  if (!isPublic && !auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
-  if (isPublic && auth.isAuthenticated && (to.name==='login'||to.name==='register')) return { path: '/' }
+  if (!isPublic && !auth.isAuthenticated) return { name: 'auth/login', query: { redirect: to.fullPath } }
+  if (isPublic && auth.isAuthenticated && (to.name==='auth/login'||to.name==='auth/register')) return { path: '/' }
 })
 
 export default router
