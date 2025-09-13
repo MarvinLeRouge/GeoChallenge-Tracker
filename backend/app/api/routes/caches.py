@@ -115,7 +115,7 @@ async def upload_gpx(
     """
 
     result = {}
-    # 3) lecture streaming avec plafond dur
+    # lecture streaming avec limite de taille
     read_bytes = 0
     chunks: list[bytes] = []
     while True:
