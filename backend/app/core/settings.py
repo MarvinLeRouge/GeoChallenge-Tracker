@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     elevation_provider_rate_delay_s: int
     elevation_enabled: bool
 
+    # UPLOAD
+    one_mb: int
+    max_upload_mb: int
+
     # === TEST ===
     test: str
     
@@ -65,6 +69,10 @@ class Settings(BaseSettings):
         """
         return self.mongodb_uri_tpl.replace("[[MONGODB_USER]]", self.mongodb_user)\
                                    .replace("[[MONGODB_PASSWORD]]", self.mongodb_password)
+
+    @property
+    def max_upload_bytes(self) -> int:
+        return self.max_upload_mb * self.one_mb
 
 # Instance globale
 settings = Settings()
