@@ -16,6 +16,7 @@ from bson import ObjectId
 from pymongo import DESCENDING, ASCENDING
 from pymongo.collation import Collation
 
+from app.core.settings import settings
 from app.core.security import get_current_user
 from app.db.mongodb import get_collection
 from app.core.bson_utils import PyObjectId
@@ -85,8 +86,13 @@ class CacheFilterIn(BaseModel):
         "Charge un fichier GPX (ou ZIP contenant un GPX) et importe les géocaches associées.\n\n"
         "- Optionnellement, marque les caches comme trouvées (création de `found_caches`)\n"
         "- Tente ensuite une création automatique de challenges à partir des caches importées\n"
+        f"- **Limite de taille** : {settings.max_upload_mb} Mo\n"
         "- Retourne un résumé d’import et des statistiques liées aux challenges"
     ),
+    responses={
+        413: {"description": "Payload too large"},
+        400: {"description": "Fichier invalide"},
+    },
 )
 async def upload_gpx(
     file: UploadFile = File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX)."),
@@ -109,8 +115,26 @@ async def upload_gpx(
     """
 
     result = {}
-    payload = await file.read()
+    # lecture streaming avec limite de taille
+    read_bytes = 0
+    chunks: list[bytes] = []
+    while True:
+        chunk = await file.read(settings.one_mb)
+        if not chunk:
+            break
+        read_bytes += len(chunk)
+        if read_bytes > settings.max_upload_bytes:
+            # Important: fermer le fichier et renvoyer 413
+            await file.close()
+            raise HTTPException(
+                status_code=413,
+                detail=f"Fichier trop volumineux (>{settings.max_upload_mb} Mo).",
+            )
+        chunks.append(chunk)
+
     await file.close()
+    payload = b"".join(chunks)
+
     try:
         result["summary"] = await import_gpx_payload(
             payload=payload,
