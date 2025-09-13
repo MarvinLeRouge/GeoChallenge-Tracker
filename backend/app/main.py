@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from app.api.routes import routers
 from app.db.seed_indexes import ensure_indexes
 from app.db.seed_data import seed_referentials
+from app.core.settings import settings
+from app.core.middleware import MaxBodySizeMiddleware
 from fastapi.concurrency import run_in_threadpool  # optionnel mais propre si fonctions sync
 
 @asynccontextmanager
@@ -24,6 +26,12 @@ async def lifespan(app: FastAPI):
     # rien pour le moment
 
 app = FastAPI(title="GeoChallenge API", lifespan=lifespan)
+# ⚠️ Ordre des middlewares = ordre d’ajout.
+# Mets la limite de taille tôt, avant (ou à côté de) CORS/GZip/etc.
+app.add_middleware(
+    MaxBodySizeMiddleware,
+    max_body_size=settings.max_upload_bytes,
+)
 
 # Inclusion des routes (comme avant)
 for r in routers:
