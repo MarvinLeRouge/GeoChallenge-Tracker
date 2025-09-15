@@ -53,3 +53,24 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules  # évite d’écraser node_modules du conteneur
+
+  tiles:
+    image: nginx:1.25-alpine
+    container_name: geo-tiles
+    restart: unless-stopped
+    command: ["sh","-lc","rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+    volumes:
+      # conf Nginx pour /tiles
+      - ./ops/nginx/tiles.conf:/etc/nginx/conf.d/tiles.conf:ro
+      # fichier de santé optionnel (tuile locale pour test)
+      - ./ops/nginx/www:/var/www:ro
+      # cache disque persistant
+      - tiles_cache:/var/cache/nginx/tiles_cache
+    ports:
+      # si tu veux exposer directement (utile en test IP)
+      - "8080:80"
+    networks:
+      - default
+
+volumes:
+  tiles_cache:
