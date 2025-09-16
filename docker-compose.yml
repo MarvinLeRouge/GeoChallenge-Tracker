@@ -67,6 +67,7 @@ services:
       # cache disque persistant
       - tiles_cache:/var/cache/nginx/tiles_cache
     ports:
+      # port mapping
       - "8080:80"
     networks:
       - default
