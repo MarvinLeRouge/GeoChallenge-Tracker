@@ -40,4 +40,4 @@ Permettre aux géocacheurs passionnés de :
 docker compose up --build
 ```
 
-modification test pour push action 20250904-18h04
+modification test pour webhook discord
