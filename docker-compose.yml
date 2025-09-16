@@ -52,7 +52,7 @@ services:
       - .env
     volumes:
       - ./frontend:/app
-      - /app/node_modules  # évite d’écraser node_modules du conteneur
+      - /app/node_modules  # ne pas écraser node_modules du conteneur
 
   tiles:
     image: nginx:1.25-alpine
@@ -67,7 +67,6 @@ services:
       # cache disque persistant
       - tiles_cache:/var/cache/nginx/tiles_cache
     ports:
-      # si tu veux exposer directement (utile en test IP)
       - "8080:80"
     networks:
       - default
