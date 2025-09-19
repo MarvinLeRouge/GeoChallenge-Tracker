@@ -1,5 +1,5 @@
 # ---------------------------
-# 🧱 docker-compose.yml (racine)
+# 🧱 docker-compose.yml (optimisé dev/prod)
 # ---------------------------
 services:
   backend:
@@ -23,10 +23,10 @@ services:
       - maildev
     volumes:
       - ./backend:/app
-      - ./backend/generate_secret.py:/app/generate_secret.py
-      - ./backend/uploads:/app/uploads         # pour fichiers utilisateur
-      - ./backend/data/samples:/app/data/samples  # pour tests de dev
+      - ./backend/uploads:/app/uploads
+      - ./backend/data/samples:/app/data/samples
       - ./.env:/app/.env
+    restart: unless-stopped
 
   maildev:
     container_name: geo-maildev
@@ -34,43 +34,95 @@ services:
     ports:
       - "1080:1080"
       - "1025:1025"
+    restart: unless-stopped
 
-  frontend:
+  # --- Mode développement uniquement ---
+  frontend-dev:
+    profiles: ["dev"]
     build:
       context: ./frontend
       dockerfile: Dockerfile
       target: dev
-    container_name: geo-frontend
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - VITE_API_URL=/api
-    depends_on:
-      - backend
-    ports:
-      - "5173:5173"
+    container_name: geo-frontend-dev
     env_file:
       - .env
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=${VITE_API_URL:-/api}
+      - VITE_TILE_URL=${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
+    depends_on:
+      - backend
+      - tiles
+    ports:
+      - "5173:5173"
     volumes:
       - ./frontend:/app
-      - /app/node_modules  # ne pas écraser node_modules du conteneur
+      - /app/node_modules
 
+  # --- Mode production uniquement ---
+  frontend:
+    profiles: ["prod"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_TILE_URL: ${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
+    container_name: geo-frontend
+    depends_on:
+      - backend
+      - tiles
+    env_file:
+      - .env
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+
+  # --- Service tiles (commun dev/prod) ---
   tiles:
     image: nginx:1.25-alpine
     container_name: geo-tiles
     restart: unless-stopped
-    command: ["sh","-lc","rm -f /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+    command: |
+      sh -c "
+        rm -f /etc/nginx/conf.d/default.conf &&
+        mkdir -p /var/log/nginx /var/cache/nginx/tiles_cache &&
+        nginx -g 'daemon off;'
+      "
     volumes:
-      # conf Nginx pour /tiles
+      # Configuration optimisée
       - ./ops/nginx/tiles.conf:/etc/nginx/conf.d/tiles.conf:ro
-      # fichier de santé optionnel (tuile locale pour test)
+      # Santé + assets locaux
       - ./ops/nginx/www:/var/www:ro
-      # cache disque persistant
+      # Cache persistant avec permissions
       - tiles_cache:/var/cache/nginx/tiles_cache
+      # Logs pour debug
+      - tiles_logs:/var/log/nginx
     ports:
-      # port mapping 
       - "8080:80"
-    networks:
-      - default
+    # Limite mémoire pour éviter les fuites
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    # Santé du conteneur
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/tiles/_health.png || exit 1"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
 volumes:
   tiles_cache:
+    driver: local
+  tiles_logs:
+    driver: local
+
+# --- Commandes rapides ---
+# Développement: docker-compose --profile dev up -d
+# Production:    docker-compose --profile prod up -d
+# Les deux:      docker-compose --profile dev --profile prod up -d

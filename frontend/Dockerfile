@@ -16,6 +16,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
+# >>> Vite environment (build-time) <<<
+ARG VITE_API_URL
+ARG VITE_TILE_URL
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_TILE_URL=${VITE_TILE_URL}
+# >>> Vite environment (build-time) <<<
 RUN npm run build
 
 # ---- Prod (Nginx) ----
