@@ -9,7 +9,9 @@ const authRoutes = [
 
 // Caches
 const cachesRoutes = [
-  { path: '/caches/import-gpx', name: 'caches/import-gpx', component: () => import('@/pages/caches/ImportGpx.vue') },
+  { path: '/caches/import-gpx', name: 'caches/import-gpx', 
+    component: () => import('@/pages/caches/ImportGpx.vue') 
+  },
   { path: '/caches/by-filter', name: 'caches/by-filter',
     component: () => import('@/pages/_NotImplemented.vue'),
     props: { title: 'Recherche par filtres', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
@@ -20,11 +22,15 @@ const cachesRoutes = [
     props: { title: 'Recherche par bbox', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
     meta: { dense: true, noFabPadding: true }    
   },
-  { path: '/caches/within-radius', name: 'caches/within-radius',
-    component: () => import('@/pages/_NotImplemented.vue'),
-    props: { title: 'Recherche par rayon', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
-    meta: { dense: true, noFabPadding: true }    
+  { path: '/caches/within-radius', name: 'caches-radius',
+    component: () => import('@/pages/caches/WithinRadius.vue'),
+    meta: { dense: true, noFabPadding: true }
+  },
+  { path: '/caches/map-demo', name: 'caches-map-demo',
+    component: () => import('@/pages/caches/MapDemo.vue'),
+    meta: { dense: true, noFabPadding: true }
   }
+  
 ]
 
 // Challenges (placeholder)
