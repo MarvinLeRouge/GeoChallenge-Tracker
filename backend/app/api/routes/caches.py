@@ -46,6 +46,58 @@ def _oid(v: str | ObjectId | None) -> ObjectId | None:
     except Exception:
         raise HTTPException(status_code=400, detail=f"Invalid ObjectId: {v}")
 
+# ------------------------- compact helpers -------------------------
+
+# Collections et champs d'étiquette (ajuste "name" si ton schéma diffère)
+TYPE_COLLECTION = "cache_types"
+SIZE_COLLECTION = "cache_sizes"
+TYPE_LABEL_FIELD = "name"
+TYPE_CODE_FIELD = "code"
+SIZE_LABEL_FIELD = "name"
+SIZE_CODE_FIELD = "code"
+
+# Liste des champs à retourner en mode "compact"
+COMPACT_FIELDS = {
+    "_id": 1,
+    "GC": 1,
+    "title": 1,
+    "type_id": 1,
+    "size_id": 1,
+    "difficulty": 1,
+    "terrain": 1,
+    "lat": 1,
+    "lon": 1,
+}
+
+def _compact_lookups_and_project():
+    """Stades $lookup/$project pour enrichir type/size (label+code) et projeter les champs compacts."""
+    return [
+        {"$lookup": {
+            "from": TYPE_COLLECTION,
+            "localField": "type_id",
+            "foreignField": "_id",
+            "as": "_type"
+        }},
+        {"$lookup": {
+            "from": SIZE_COLLECTION,
+            "localField": "size_id",
+            "foreignField": "_id",
+            "as": "_size"
+        }},
+        # on prend les 1ers éléments et on fabrique des objets {label, code}
+        {"$addFields": {
+            "type": {
+                "label": {"$ifNull": [{"$arrayElemAt": [f"$_type.{TYPE_LABEL_FIELD}", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": [f"$_type.{TYPE_CODE_FIELD}", 0]}, None]},
+            },
+            "size": {
+                "label": {"$ifNull": [{"$arrayElemAt": [f"$_size.{SIZE_LABEL_FIELD}", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": [f"$_size.{SIZE_CODE_FIELD}", 0]}, None]},
+            },
+        }},
+        # on retire les tableaux temporaires
+        {"$project": {**COMPACT_FIELDS, "type": 1, "size": 1}},
+    ]
 
 # ------------------------- schemas -------------------------
 
@@ -185,6 +237,7 @@ def by_filter(
             "- `sort`, `page`, `page_size`"
         ),
     ),
+    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
 ):
     """Recherche multi-critères de géocaches.
 
@@ -255,8 +308,20 @@ def by_filter(
     page = max(1, payload.page)
     skip = (page - 1) * page_size
 
-    cur = coll.find(q).sort(sort).skip(skip).limit(page_size)
-    docs = [_doc(d) for d in cur]
+    if compact:
+        pipeline = [
+            {"$match": q},
+            {"$sort": dict(sort)},
+            {"$skip": skip},
+            {"$limit": page_size},
+            *_compact_lookups_and_project(),
+        ]
+        cur = coll.aggregate(pipeline)
+        docs = [_doc(d) for d in cur]
+    else:
+        cur = coll.find(q).sort(sort).skip(skip).limit(page_size)
+        docs = [_doc(d) for d in cur]
+
     total = coll.count_documents(q)
     return {"items": docs, "total": total, "page": page, "page_size": page_size}
 
@@ -284,6 +349,7 @@ def within_bbox(
         "-placed_at",
         description="Clé de tri: '-placed_at' (défaut), '-favorites', 'difficulty', 'terrain'.",
     ),
+    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
 ):
     """Liste les caches d’une BBox.
 
@@ -327,8 +393,20 @@ def within_bbox(
     page = max(1, page)
     skip = (page - 1) * page_size
 
-    cur = coll.find(q).sort(order).skip(skip).limit(page_size)
-    docs = [_doc(d) for d in cur]
+    if compact:
+        pipeline = [
+            {"$match": q},
+            {"$sort": dict(order)},
+            {"$skip": skip},
+            {"$limit": page_size},
+            *_compact_lookups_and_project(),
+        ]
+        cur = coll.aggregate(pipeline)
+        docs = [_doc(d) for d in cur]
+    else:
+        cur = coll.find(q).sort(order).skip(skip).limit(page_size)
+        docs = [_doc(d) for d in cur]
+
     total = coll.count_documents(q)
     return {"items": docs, "total": total, "page": page, "page_size": page_size}
 
@@ -351,6 +429,7 @@ def within_radius(
     size_id: Optional[str] = Query(None, description="Filtre optionnel: identifiant de taille (ObjectId)."),
     page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
     page_size: int = Query(100, ge=1, le=200, description="Taille de page (1–200)."),
+    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
 ):
     """Recherche par rayon autour d’un point.
 
@@ -395,6 +474,9 @@ def within_radius(
         {"$skip": max(0, (page - 1) * min(page_size, 200))},
         {"$limit": min(page_size, 200)},
     ]
+    if compact:
+        pipeline += _compact_lookups_and_project()
+
     try:
         cur = coll.aggregate(pipeline)
     except Exception as e:
@@ -433,7 +515,33 @@ def get_by_gc(
     """
 
     coll = get_collection("caches")
-    doc = coll.find_one({"GC": gc})
+    cur = coll.aggregate([
+        {"$match": {"GC": gc}},
+        {"$lookup": {
+            "from": "cache_types",
+            "localField": "type_id",
+            "foreignField": "_id",
+            "as": "_type",
+        }},
+        {"$lookup": {
+            "from": "cache_sizes",
+            "localField": "size_id",
+            "foreignField": "_id",
+            "as": "_size",
+        }},
+        {"$addFields": {
+            "type": {
+                "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+            },
+            "size": {
+                "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+            },
+        }},
+        {"$limit": 1},
+    ])
+    doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
     return _doc(doc)
@@ -460,7 +568,34 @@ def get_by_id(
         dict: Document cache sérialisé.
     """
     coll = get_collection("caches")
-    doc = coll.find_one({"_id": _oid(id)})
+    oid = _oid(id)
+    cur = coll.aggregate([
+        {"$match": {"_id": oid}},
+        {"$lookup": {
+            "from": "cache_types",
+            "localField": "type_id",
+            "foreignField": "_id",
+            "as": "_type",
+        }},
+        {"$lookup": {
+            "from": "cache_sizes",
+            "localField": "size_id",
+            "foreignField": "_id",
+            "as": "_size",
+        }},
+        {"$addFields": {
+            "type": {
+                "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+            },
+            "size": {
+                "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
+                "code":  {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+            },
+        }},
+        {"$limit": 1},
+    ])
+    doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
     return _doc(doc)
