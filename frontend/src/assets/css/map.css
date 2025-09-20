@@ -1,0 +1,27 @@
+/* --- Crosshair picker (Leaflet) --- */
+.leaflet-container.pick-mode {
+    cursor: crosshair;
+}
+
+.leaflet-crosshair-overlay {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    width: 36px;
+    height: 36px;
+    display: none;
+}
+
+.leaflet-container.pick-mode .leaflet-crosshair-overlay {
+    display: block;
+}
+
+.leaflet-crosshair-overlay svg {
+    display: block;
+}
+
+.with-fab {
+    padding-right: calc(4.5rem + env(safe-area-inset-right, 0px));
+}
