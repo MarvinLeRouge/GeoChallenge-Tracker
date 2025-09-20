@@ -35,6 +35,7 @@ import L from 'leaflet'
 import MapBase from '@/components/map/MapBase.vue'
 import api from '@/api/http'
 import 'leaflet.markercluster'
+import { getIconFor } from '@/config/cache-icon'
 
 let map: L.Map | null = null
 let circle: L.Circle | null = null
@@ -46,6 +47,7 @@ const radiusKm = ref(10)
 const picking = ref(false)
 const loading = ref(false)
 const count = ref<number | null>(null)
+
 
 function onMapReady(m: L.Map) {
     map = m
@@ -86,12 +88,18 @@ async function search() {
 
         console.log("data", data)
         if (data?.type === 'FeatureCollection') {
-            L.geoJSON(data).addTo(results!)
+            // GeoJSON
+            L.geoJSON(data, {
+                pointToLayer: (feat, latlng) => L.marker(latlng, { icon: getIconFor(feat?.properties?.type) }),
+            }).eachLayer((lyr) => cluster!.addLayer(lyr))
             count.value = data.features?.length ?? 0
         } else if (Array.isArray(data?.items)) {
             data.items.forEach((c: any) => {
+                console.log(c)
                 const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
-                if (isFinite(lat) && isFinite(lon)) cluster!.addLayer(L.marker([lat, lon]))
+                if (isFinite(lat) && isFinite(lon)) {
+                    cluster!.addLayer(L.marker([lat, lon], { icon: getIconFor(c.type) }))
+                }
             })
             count.value = data.total
         } else {
