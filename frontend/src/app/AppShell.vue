@@ -19,7 +19,7 @@
     </main>
 
     <!-- FAB (menu trigger) -->
-    <button @click="openMenu()" class="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-40
+    <button @click="openMenu()" class="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(1rem,env(safe-area-inset-right))] z-1101
              h-14 w-14 rounded-full shadow-lg border border-gray-200 bg-white
              flex items-center justify-center active:scale-95 transition" aria-label="Ouvrir le menu">
       <Bars3Icon class="w-7 h-7" />

@@ -4,16 +4,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch, defineEmits, defineExpose } from "vue";
 import L from 'leaflet'
+import { installCrosshairPicker, type CrosshairPicker } from "./crosshairPicker";
 import { useAuthStore } from '@/store/auth'
 
 type LatLng = [number, number] // [lat, lng]
 const props = defineProps<{ center?: LatLng; zoom?: number; attribution?: string }>()
 
-const emit = defineEmits<{ (e:'ready', map:L.Map):void; (e:'click', ev:L.LeafletMouseEvent):void }>()
+const emit = defineEmits<{
+    (e: "ready", map: L.Map): void;
+    (e: "pick", payload: { lat: number; lng: number }): void;
+}>();
 const el = ref<HTMLDivElement | null>(null)
 let map: L.Map | null = null
+let picker: CrosshairPicker | null = null;
 const auth = useAuthStore()
 
 const fallbackCenter: LatLng = [46.6, 2.6]  // France approx
@@ -61,31 +66,35 @@ function tileUrl() {
     return `/tiles/{z}/{x}/{y}${retina}.png`
 }
 
+// --- listener resize défini au niveau module pour pouvoir le retirer proprement ---
+const onResize = () => map?.invalidateSize(true);
+
 function init() {
-  if (!el.value) return
-  map = L.map(el.value, { zoomControl: true })
-  L.tileLayer(tileUrl(), { maxZoom: 19, attribution: attribution.value }).addTo(map)
-  map.setView(currentCenter(), initialZoom.value)
-  map.on('click', (ev) => emit('click', ev))
-  emit('ready', map)               // <-- expose la carte
-  setTimeout(() => map?.invalidateSize(true), 0)
+    if (!el.value) return;
+    map = L.map(el.value, { zoomControl: true });
+    L.tileLayer(tileUrl(), { maxZoom: 19, attribution: attribution.value }).addTo(map);
+    map.setView(currentCenter(), initialZoom.value);
+    // (si tu n’en as pas besoin, tu peux retirer cet emit de click)
+    // map.on("click", (ev) => emit("click" as any, ev));
+
+    emit("ready", map);              // ✅ on garde CE emit
+    setTimeout(() => map?.invalidateSize(true), 0);
 }
-defineExpose({ getMap: () => map }) // <-- accès alternatif
-/*
-function init() {
-    if (!el.value) return
-    map = L.map(el.value, { zoomControl: true })
-    L.tileLayer(tileUrl(), { maxZoom: 19, attribution: attribution.value, crossOrigin: true }).addTo(map)
-    map.setView(currentCenter(), initialZoom.value)
-    // forcer le resize après montage
-    setTimeout(() => map?.invalidateSize(true), 0)
-}
-*/
+
 onMounted(() => {
     init()
-    const onResize = () => map?.invalidateSize()
-    window.addEventListener('resize', onResize)
+    window.addEventListener("resize", onResize);
+
+    // Crosshair picker installé mais inactif tant qu’on ne l’active pas
+    if (map) {
+        picker = installCrosshairPicker(map, (ll) => {
+            emit("pick", { lat: ll.lat, lng: ll.lng });
+        });
+    }
+
+
     onBeforeUnmount(() => window.removeEventListener('resize', onResize))
+    // ➕ Ajout non intrusif du picker (désactivé par défaut)
 })
 
 // si le profil arrive après coup, on recadre UNE fois
@@ -93,8 +102,29 @@ let recentered = false
 watch(() => auth.user, (u) => {
     if (!map || recentered || props.center) return
     const c = getUserCenter()
-    console.log("c", c)
     if (c) { map.setView(c, initialZoom.value); recentered = true }
 }, { immediate: true })
-onBeforeUnmount(() => { map?.remove(); map = null })
+
+onBeforeUnmount(() => {
+    window.removeEventListener("resize", onResize);
+    if (picker) picker.destroy();
+    if (map) {
+        map.remove();
+        map = null;
+    }
+});
+
+// ➕ Exposer des méthodes au parent (pour déclencher depuis un bouton)
+function enablePick() {
+    console.log("[MapBase] enablePick()");
+    console.log("[MapBase] picker is", picker);
+
+    picker?.enable();
+}
+function disablePick() {
+    console.log("[MapBase] disablePick()");
+    picker?.disable();
+}
+defineExpose({ getMap: () => map, enablePick, disablePick });
+
 </script>
