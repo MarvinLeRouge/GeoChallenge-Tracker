@@ -26,8 +26,8 @@ export function installCrosshairPicker(
   let active = false;
 
   const handlePick = (e: L.LeafletMouseEvent) => {
-    onPick(e.latlng);       // ou map.getCenter() si tu préfères le centre
     disable();
+    onPick(e.latlng);       // ou map.getCenter() si tu préfères le centre
   };
 
   function enable() {

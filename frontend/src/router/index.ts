@@ -18,8 +18,7 @@ const cachesRoutes = [
     meta: { dense: true, noFabPadding: true }    
   },
   { path: '/caches/within-bbox', name: 'caches/within-bbox',
-    component: () => import('@/pages/_NotImplemented.vue'),
-    props: { title: 'Recherche par bbox', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
+    component: () => import('@/pages/caches/WithinBbox.vue'),
     meta: { dense: true, noFabPadding: true }    
   },
   { path: '/caches/within-radius', name: 'caches-radius',
