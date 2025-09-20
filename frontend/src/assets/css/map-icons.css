@@ -1,0 +1,18 @@
+.gc-pin {
+    width: var(--s);
+    height: var(--s);
+    border-radius: 9999px;
+    background: #fff;
+    border: var(--w) solid var(--c);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.gc-pin span {
+    color: var(--c);
+    font-size: calc(var(--s) * 0.43);
+    line-height: 1;
+    transform: translateY(-1px);
+}

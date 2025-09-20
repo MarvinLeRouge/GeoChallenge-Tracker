@@ -36,47 +36,30 @@ services:
       - "1025:1025"
     restart: unless-stopped
 
-  # --- Mode développement uniquement ---
-  frontend-dev:
-    profiles: ["dev"]
+  # --- Frontend unifié avec variable d'environnement ---
+  frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: dev
-    container_name: geo-frontend-dev
+      target: ${DOCKER_TARGET:-dev}
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api}
+        VITE_TILE_URL: ${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
+    container_name: geo-frontend
     env_file:
       - .env
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:-true}
       - VITE_API_URL=${VITE_API_URL:-/api}
       - VITE_TILE_URL=${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
     depends_on:
       - backend
       - tiles
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_INTERNAL_PORT:-5173}"
     volumes:
       - ./frontend:/app
       - /app/node_modules
-
-  # --- Mode production uniquement ---
-  frontend:
-    profiles: ["prod"]
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: prod
-      args:
-        VITE_API_URL: ${VITE_API_URL:-/api}
-        VITE_TILE_URL: ${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
-    container_name: geo-frontend
-    depends_on:
-      - backend
-      - tiles
-    env_file:
-      - .env
-    ports:
-      - "8081:80"
     restart: unless-stopped
 
   # --- Service tiles (commun dev/prod) ---
