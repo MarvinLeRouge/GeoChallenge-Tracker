@@ -3,33 +3,31 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
+from typing import Any
 
-from app.core.security import get_current_user
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+
+from app.core.security import get_current_user, get_current_user_id
 from app.core.utils import utcnow
-from app.services import user_profile
+from app.models.target_dto import TargetListResponse
 from app.services.targets import (
+    delete_targets_for_user_challenge,
     evaluate_targets_for_user_challenge,
     list_targets_for_user,
     list_targets_for_user_challenge,
-    list_targets_nearby_for_user_challenge,
     list_targets_nearby_for_user,
-    delete_targets_for_user_challenge,
+    list_targets_nearby_for_user_challenge,
 )
-from app.models.target_dto import TargetListResponse
+from app.services.user_profile import user_location_get
 
-router = APIRouter(
-    prefix="/my", 
-    tags=["targets"],
-    dependencies=[Depends(get_current_user)]
-)
+router = APIRouter(prefix="/my", tags=["targets"], dependencies=[Depends(get_current_user)])
 
 
 # ---------------------------
 # Helpers
 # ---------------------------
+
 
 def _as_objid(v: Any) -> ObjectId:
     """Convertit une valeur en ObjectId (en conservant l’ObjectId s’il est déjà typé).
@@ -64,6 +62,7 @@ def _current_user_id(current_user: dict) -> ObjectId:
 # Evaluate / refresh (per UserChallenge)
 # ---------------------------
 
+
 @router.post(
     "/challenges/{uc_id}/targets/evaluate",
     status_code=status.HTTP_200_OK,
@@ -79,13 +78,22 @@ def _current_user_id(current_user: dict) -> ObjectId:
 def evaluate_targets(
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     limit_per_task: int = Query(500, ge=1, le=5000, description="Cap de calcul par tâche."),
-    hard_limit_total: int = Query(2000, ge=1, le=20000, description="Cap global avant fusion/score."),
-    include_geo_filter: bool = Query(False, description="Activer un filtre géographique pendant l’évaluation."),
-    lat: Optional[float] = Query(None, ge=-90, le=90, description="Latitude pour filtre géo (si activé)."),
-    lon: Optional[float] = Query(None, ge=-180, le=180, description="Longitude pour filtre géo (si activé)."),
-    radius_km: Optional[float] = Query(None, gt=0, description="Rayon (km) requis si `include_geo_filter=true`."),
+    hard_limit_total: int = Query(
+        2000, ge=1, le=20000, description="Cap global avant fusion/score."
+    ),
+    include_geo_filter: bool = Query(
+        False, description="Activer un filtre géographique pendant l’évaluation."
+    ),
+    lat: float | None = Query(
+        None, ge=-90, le=90, description="Latitude pour filtre géo (si activé)."
+    ),
+    lon: float | None = Query(
+        None, ge=-180, le=180, description="Longitude pour filtre géo (si activé)."
+    ),
+    radius_km: float | None = Query(
+        None, gt=0, description="Rayon (km) requis si `include_geo_filter=true`."
+    ),
     force: bool = Query(False, description="Forcer le recalcul même si des targets existent déjà."),
-    current_user=Depends(get_current_user),
 ):
     """Évaluer et persister les targets d’un UserChallenge.
 
@@ -102,25 +110,30 @@ def evaluate_targets(
         lon (float | None): Longitude si filtre géo.
         radius_km (float | None): Rayon (km) requis si filtre géo actif.
         force (bool): Recalcul même si des targets existent.
-        current_user: Contexte utilisateur.
 
     Returns:
         dict: Compte-rendu `{ok, inserted, updated, total}`.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
 
     geo_ctx = None
     if include_geo_filter:
         # si lat/lon non fournis, tenter depuis le profil
         if lat is None or lon is None:
-            loc = user_profile.user_location_get(user_id)
+            loc = user_location_get(user_id)
             if not loc:
-                raise HTTPException(status_code=422, detail="No user location found; provide lat/lon or save your location first.")
+                raise HTTPException(
+                    status_code=422,
+                    detail="No user location found; provide lat/lon or save your location first.",
+                )
             lon, lat = loc["coordinates"][0], loc["coordinates"][1]
         if radius_km is None:
-            raise HTTPException(status_code=422, detail="radius_km is required when include_geo_filter=true.")
-        geo_ctx = {"lat": float(lat), "lon": float(lon), "radius_km": float(radius_km)}
+            raise HTTPException(
+                status_code=422,
+                detail="radius_km is required when include_geo_filter=true.",
+            )
+        geo_ctx = {"lat": lat, "lon": lon, "radius_km": radius_km}
 
     result = evaluate_targets_for_user_challenge(
         user_id=user_id,
@@ -139,6 +152,7 @@ def evaluate_targets(
 # Listing (per UserChallenge)
 # ---------------------------
 
+
 @router.get(
     "/challenges/{uc_id}/targets",
     response_model=TargetListResponse,
@@ -154,7 +168,6 @@ def list_targets_uc(
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
-    current_user=Depends(get_current_user),
 ):
     """Lister les targets d’un UserChallenge (paginé).
 
@@ -166,12 +179,11 @@ def list_targets_uc(
         page (int): Page (≥1).
         limit (int): Taille de page (1–200).
         sort (str): Clé de tri.
-        current_user: Contexte utilisateur.
 
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
     return list_targets_for_user_challenge(
         user_id=user_id, uc_id=uc_oid, page=int(page), limit=int(limit), sort=sort
@@ -191,12 +203,15 @@ def list_targets_uc(
 def list_targets_uc_nearby(
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     radius_km: float = Query(50.0, gt=0, description="Rayon de recherche (km)."),
-    lat: Optional[float] = Query(None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."),
-    lon: Optional[float] = Query(None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."),
+    lat: float | None = Query(
+        None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."
+    ),
+    lon: float | None = Query(
+        None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."
+    ),
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
-    current_user=Depends(get_current_user),
 ):
     """Lister les targets proches d’un point (par UC).
 
@@ -211,26 +226,34 @@ def list_targets_uc_nearby(
         page (int): Page (≥1).
         limit (int): Taille de page (1–200).
         sort (str): Clé de tri.
-        current_user: Contexte utilisateur.
 
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
 
+    final_lat: float
+    final_lon: float
+
     if lat is None or lon is None:
-        loc = user_profile.user_location_get(user_id)
+        loc = user_location_get(user_id)
         if not loc:
-            raise HTTPException(status_code=422, detail="No user location found; provide lat/lon or save your location first.")
-        lon, lat = loc["coordinates"][0], loc["coordinates"][1]
+            raise HTTPException(
+                status_code=422,
+                detail="No user location found; provide lat/lon or save your location first.",
+            )
+        final_lon, final_lat = loc["coordinates"][0], loc["coordinates"][1]
+    else:
+        final_lat = lat
+        final_lon = lon
 
     return list_targets_nearby_for_user_challenge(
         user_id=user_id,
         uc_id=uc_oid,
-        lat=float(lat),
-        lon=float(lon),
-        radius_km=float(radius_km),
+        lat=final_lat,
+        lon=final_lon,
+        radius_km=radius_km,
         page=int(page),
         limit=int(limit),
         sort=sort,
@@ -240,6 +263,7 @@ def list_targets_uc_nearby(
 # ---------------------------
 # Global listing (all accepted challenges of the user)
 # ---------------------------
+
 
 @router.get(
     "/targets",
@@ -252,11 +276,10 @@ def list_targets_uc_nearby(
     ),
 )
 def list_targets_all(
-    status_filter: Optional[str] = Query(None, description="Filtrer les UC (ex. 'accepted')."),
+    status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
-    current_user=Depends(get_current_user),
 ):
     """Lister toutes mes targets (paginé).
 
@@ -268,12 +291,11 @@ def list_targets_all(
         page (int): Page (≥1).
         limit (int): Taille de page (1–200).
         sort (str): Clé de tri.
-        current_user: Contexte utilisateur.
 
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
     return list_targets_for_user(
         user_id=user_id,
         status_filter=(status_filter or None),
@@ -295,13 +317,16 @@ def list_targets_all(
 )
 def list_targets_all_nearby(
     radius_km: float = Query(50.0, gt=0, description="Rayon (km)."),
-    lat: Optional[float] = Query(None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."),
-    lon: Optional[float] = Query(None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."),
-    status_filter: Optional[str] = Query(None, description="Filtrer les UC (ex. 'accepted')."),
+    lat: float | None = Query(
+        None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."
+    ),
+    lon: float | None = Query(
+        None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."
+    ),
+    status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
-    current_user=Depends(get_current_user),
 ):
     """Lister les targets proches (tous challenges).
 
@@ -316,23 +341,31 @@ def list_targets_all_nearby(
         page (int): Page (≥1).
         limit (int): Taille de page (1–200).
         sort (str): Clé de tri.
-        current_user: Contexte utilisateur.
 
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
+    final_lat: float
+    final_lon: float
+
     if lat is None or lon is None:
-        loc = user_profile.user_location_get(user_id)
+        loc = user_location_get(user_id)
         if not loc:
-            raise HTTPException(status_code=422, detail="No user location found; provide lat/lon or save your location first.")
-        lon, lat = loc["coordinates"][0], loc["coordinates"][1]
+            raise HTTPException(
+                status_code=422,
+                detail="No user location found; provide lat/lon or save your location first.",
+            )
+        final_lon, final_lat = loc["coordinates"][0], loc["coordinates"][1]
+    else:
+        final_lat = lat
+        final_lon = lon
 
     return list_targets_nearby_for_user(
         user_id=user_id,
-        lat=float(lat),
-        lon=float(lon),
-        radius_km=float(radius_km),
+        lat=final_lat,
+        lon=final_lon,
+        radius_km=radius_km,
         status_filter=(status_filter or None),
         page=int(page),
         limit=int(limit),
@@ -344,6 +377,7 @@ def list_targets_all_nearby(
 # Maintenance
 # ---------------------------
 
+
 @router.delete(
     "/challenges/{uc_id}/targets",
     status_code=status.HTTP_200_OK,
@@ -352,7 +386,6 @@ def list_targets_all_nearby(
 )
 def clear_targets_uc(
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
-    current_user=Depends(get_current_user),
 ):
     """Supprimer les targets d’un UserChallenge.
 
@@ -361,12 +394,11 @@ def clear_targets_uc(
 
     Args:
         uc_id (str): Identifiant du UserChallenge.
-        current_user: Contexte utilisateur.
 
     Returns:
         dict: Résultat `{ok, deleted}`.
     """
-    user_id = _current_user_id(current_user)
+    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
     result = delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_oid)
     # result attendu: {"ok": True, "deleted": n}

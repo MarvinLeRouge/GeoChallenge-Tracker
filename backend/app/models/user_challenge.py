@@ -2,13 +2,17 @@
 # État d’un challenge pour un utilisateur (statuts déclarés/calculés, logique UC, notes, progress).
 
 from __future__ import annotations
+
 import datetime as dt
-from typing import Optional, List, Any, Literal
-from pydantic import BaseModel, Field, ConfigDict
-from app.core.utils import *
-from app.core.bson_utils import *
-from app.models._shared import *
+from typing import Literal
+
+from pydantic import Field
+
+from app.core.bson_utils import MongoBaseModel, PyObjectId
+from app.core.utils import now
+from app.models._shared import ProgressSnapshot
 from app.models.challenge_ast import UCLogic
+
 
 class UserChallenge(MongoBaseModel):
     """Document Mongo « UserChallenge ».
@@ -31,25 +35,26 @@ class UserChallenge(MongoBaseModel):
         created_at (datetime): Création (local).
         updated_at (datetime | None): MAJ.
     """
+
     user_id: PyObjectId
     challenge_id: PyObjectId
     # Déclaration UTILISATEUR (peut être "completed" même si non satisfaisant algorithmiquement)
     status: Literal["pending", "accepted", "dismissed", "completed"] = "pending"
 
     # Statut CALCULÉ par l’évaluation (UCLogic sur les tasks)
-    computed_status: Optional[Literal["pending", "accepted", "dismissed", "completed"]] = None
+    computed_status: Literal["pending", "accepted", "dismissed", "completed"] | None = None
 
     # Traçabilité de l’override
     manual_override: bool = False
-    override_reason: Optional[str] = None
-    overridden_at: Optional[dt.datetime] = None
-    logic: Optional[UCLogic] = None
+    override_reason: str | None = None
+    overridden_at: dt.datetime | None = None
+    logic: UCLogic | None = None
     # Aggregated, current snapshot for the whole challenge (redundant with history in Progress collection)
-    progress: Optional[ProgressSnapshot] = None
-    notes: Optional[str] = None
+    progress: ProgressSnapshot | None = None
+    notes: str | None = None
 
     # Projection
-    estimated_completion_at: Optional[dt.datetime] = None
+    estimated_completion_at: dt.datetime | None = None
 
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None

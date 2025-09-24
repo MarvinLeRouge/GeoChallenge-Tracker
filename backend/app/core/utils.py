@@ -3,6 +3,7 @@
 
 import datetime as dt
 
+
 def now():
     """Date/heure locale (naive).
 
@@ -14,6 +15,7 @@ def now():
         datetime.datetime: Timestamp local (naive).
     """
     return dt.datetime.now()
+
 
 def utcnow():
     """Date/heure UTC (timezone-aware).

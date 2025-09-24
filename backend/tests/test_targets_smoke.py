@@ -1,15 +1,17 @@
 # tests/test_targets_api_smoke.py
 import os
+
+import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
-import pytest
 
-from app.main import app
 from app.db.mongodb import get_collection
+from app.main import app
 
 # -----------------------
 # Helpers
 # -----------------------
+
 
 def _login_and_headers(client: TestClient):
     username = os.environ.get("ADMIN_USERNAME")
@@ -28,45 +30,57 @@ def _login_and_headers(client: TestClient):
     assert token, f"no access_token in response: {js}"
     return {"Authorization": f"Bearer {token}"}, username
 
+
 def _admin_user_id(admin_username: str):
     u = get_collection("users").find_one({"username": admin_username}, {"_id": 1})
     assert u, f"user '{admin_username}' introuvable en DB"
     return u["_id"]
 
+
 def _one_multitask_uc_for_user(user_id: ObjectId):
     # UC avec au moins 2 tasks pour CE user
-    agg = list(get_collection("user_challenge_tasks").aggregate([
-        {"$lookup": {
-            "from": "user_challenges",
-            "localField": "user_challenge_id",
-            "foreignField": "_id",
-            "as": "uc"
-        }},
-        {"$unwind": "$uc"},
-        {"$match": {"uc.user_id": user_id}},
-        {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
-        {"$match": {"cnt": {"$gte": 2}}},
-        {"$limit": 1},
-    ]))
+    agg = list(
+        get_collection("user_challenge_tasks").aggregate(
+            [
+                {
+                    "$lookup": {
+                        "from": "user_challenges",
+                        "localField": "user_challenge_id",
+                        "foreignField": "_id",
+                        "as": "uc",
+                    }
+                },
+                {"$unwind": "$uc"},
+                {"$match": {"uc.user_id": user_id}},
+                {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
+                {"$match": {"cnt": {"$gte": 2}}},
+                {"$limit": 1},
+            ]
+        )
+    )
     assert agg, "Aucun user_challenge multi-tasks pour cet utilisateur"
     uc_id = agg[0]["_id"]
     uc = get_collection("user_challenges").find_one({"_id": uc_id})
     assert uc, "user_challenge introuvable"
     return uc
 
+
 # -----------------------
 # Fixtures
 # -----------------------
 
+
 @pytest.fixture()
 def client():
     return TestClient(app)
+
 
 @pytest.fixture()
 def auth_context(client):
     headers, admin_username = _login_and_headers(client)
     admin_uid = _admin_user_id(admin_username)
     return client, headers, admin_uid
+
 
 @pytest.fixture()
 def cleanup_targets():
@@ -76,9 +90,11 @@ def cleanup_targets():
     if created_for_uc:
         get_collection("targets").delete_many({"user_challenge_id": {"$in": created_for_uc}})
 
+
 # -----------------------
 # Tests
 # -----------------------
+
 
 def test_targets_e2e_api(auth_context, cleanup_targets):
     client, headers, user_id = auth_context
@@ -110,13 +126,19 @@ def test_targets_e2e_api(auth_context, cleanup_targets):
 
     # Cohérences de base
     found_ids = set(
-        x["cache_id"] for x in get_collection("found_caches")
-        .find({"user_id": user_id}, {"cache_id": 1, "_id": 0})
+        x["cache_id"]
+        for x in get_collection("found_caches").find(
+            {"user_id": user_id}, {"cache_id": 1, "_id": 0}
+        )
     )
-    username = (get_collection("users").find_one({"_id": user_id}, {"username": 1}) or {}).get("username")
+    username = (get_collection("users").find_one({"_id": user_id}, {"username": 1}) or {}).get(
+        "username"
+    )
     task_ids = set(
-        t["_id"] for t in get_collection("user_challenge_tasks")
-        .find({"user_challenge_id": ObjectId(uc_id)}, {"_id": 1})
+        t["_id"]
+        for t in get_collection("user_challenge_tasks").find(
+            {"user_challenge_id": ObjectId(uc_id)}, {"_id": 1}
+        )
     )
 
     for it in items:
@@ -131,6 +153,7 @@ def test_targets_e2e_api(auth_context, cleanup_targets):
         cache = get_collection("caches").find_one({"_id": ObjectId(it["cache_id"])}, {"owner": 1})
         if username and cache and "owner" in cache:
             assert cache["owner"] != username
+
 
 def test_targets_skip_and_force_api(auth_context, cleanup_targets):
     client, headers, user_id = auth_context
@@ -159,9 +182,14 @@ def test_targets_skip_and_force_api(auth_context, cleanup_targets):
     assert js2["total"] >= total_1
 
     # 3) evaluate avec force => recalc
-    r3 = client.post(f"/my/challenges/{uc_id}/targets/evaluate", params={"force": True}, headers=headers)
+    r3 = client.post(
+        f"/my/challenges/{uc_id}/targets/evaluate",
+        params={"force": True},
+        headers=headers,
+    )
     assert r3.status_code == 200, r3.text
     assert r3.json().get("ok") is True
+
 
 def test_targets_nearby_api(auth_context, cleanup_targets):
     client, headers, user_id = auth_context

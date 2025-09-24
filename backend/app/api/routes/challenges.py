@@ -3,36 +3,25 @@
 
 from __future__ import annotations
 
-from typing import List, Optional
-from fastapi import APIRouter, Body, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from typing import Annotated
+
 from bson import ObjectId
+from fastapi import APIRouter, Body, Depends
+from pydantic import BaseModel, Field
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user
-
+from app.core.security import get_current_user, require_admin
 from app.services.challenge_autocreate import create_challenges_from_caches
 
 router = APIRouter(
-    prefix="/challenges", 
-    tags=["challenges"],
-    dependencies=[Depends(get_current_user)]
+    prefix="/challenges", tags=["challenges"], dependencies=[Depends(get_current_user)]
 )
 
 
-def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
-    """Vérifie que l’utilisateur a un rôle admin, sinon 403."""
-    role = current_user.get("role")
-    if role != "admin":
-        # Ajuste le message si tu préfères
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required")
-    return current_user
-
-
 class RefreshIn(BaseModel):
-    cache_ids: Optional[List[PyObjectId]] = Field(
+    cache_ids: list[PyObjectId] | None = Field(
         default=None,
-        description="Liste optionnelle de cache_ids (_id Mongo) à considérer; si absent, balaye toute la collection."
+        description="Liste optionnelle de cache_ids (_id Mongo) à considérer; si absent, balaye toute la collection.",
     )
 
 
@@ -47,10 +36,13 @@ class RefreshIn(BaseModel):
     dependencies=[Depends(require_admin)],
 )
 def refresh_from_caches(
-    payload: RefreshIn = Body(
-        default_factory=RefreshIn,
-        description="Paramètres d’exécution : optionnellement une liste de `cache_ids` (_id Mongo) à considérer.",
-    ),
+    payload: Annotated[
+        RefreshIn,
+        Body(
+            default_factory=RefreshIn,
+            description="Paramètres d’exécution : optionnellement une liste de `cache_ids` (_id Mongo) à considérer.",
+        ),
+    ],
 ):
     """(Re)création de challenges à partir des caches.
 

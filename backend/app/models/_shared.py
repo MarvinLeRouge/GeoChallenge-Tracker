@@ -1,11 +1,15 @@
 # backend/app/models/_shared.py
 # Types communs utilisés par plusieurs modèles (ex. ProgressSnapshot).
- 
+
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict
+
 import datetime as dt
-from app.core.bson_utils import *
-from app.core.utils import *
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.bson_utils import PyObjectId
+from app.core.utils import now
+
 
 class ProgressSnapshot(BaseModel):
     """Snapshot agrégé de progression.
@@ -23,6 +27,7 @@ class ProgressSnapshot(BaseModel):
     Returns:
         ProgressSnapshot: Objet prêt à sérialiser (encodage ObjectId géré).
     """
+
     percent: float = 0.0
     tasks_done: int = 0
     tasks_total: int = 0
@@ -33,4 +38,3 @@ class ProgressSnapshot(BaseModel):
         arbitrary_types_allowed=True,
         json_encoders={PyObjectId: str},
     )
-

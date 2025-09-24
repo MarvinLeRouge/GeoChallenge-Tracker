@@ -2,18 +2,20 @@
 # Calcule des caches candidates par UserChallenge (anti-join des trouvailles, scoring, géo), et listings.
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
-from bson import ObjectId
-from math import radians, sin, cos, asin, sqrt
 from datetime import datetime
+from math import asin, cos, radians, sin, sqrt
+from typing import Any
 
+from bson import ObjectId
+
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 from app.services.query_builder import compile_and_only  # <- brique commune
-from app.core.utils import utcnow
 
 # ------------------------------------------------------------
 # utilitaires
 # ------------------------------------------------------------
+
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Distance Haversine en kilomètres.
@@ -28,11 +30,13 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         float: Distance en kilomètres.
     """
     R = 6371.0
-    dlat = radians(lat2 - lat1); dlon = radians(lon2 - lon1)
-    a = sin(dlat/2)**2 + cos(radians(lat1))*cos(radians(lat2))*sin(dlon/2)**2
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
     return 2 * R * asin(sqrt(a))
 
-def _get_username(user_id: ObjectId) -> Optional[str]:
+
+def _get_username(user_id: ObjectId) -> str | None:
     """Obtenir le username d’un utilisateur.
 
     Args:
@@ -44,7 +48,8 @@ def _get_username(user_id: ObjectId) -> Optional[str]:
     u = get_collection("users").find_one({"_id": user_id}, {"username": 1})
     return (u or {}).get("username")
 
-def _get_user_location(user_id: ObjectId) -> Optional[Tuple[float, float]]:
+
+def _get_user_location(user_id: ObjectId) -> tuple[float, float] | None:
     """Obtenir la dernière position utilisateur (lat, lon).
 
     Returns:
@@ -53,12 +58,13 @@ def _get_user_location(user_id: ObjectId) -> Optional[Tuple[float, float]]:
     u = get_collection("users").find_one({"_id": user_id}, {"location": 1})
     loc = (u or {}).get("location")
     if loc and isinstance(loc, dict) and (loc.get("type") == "Point"):
-        lon, lat = (loc.get("coordinates") or [None, None])
+        lon, lat = loc.get("coordinates") or [None, None]
         if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
             return (lat, lon)
     return None
 
-def _latest_progress_task_map(uc_id: ObjectId) -> Dict[ObjectId, Dict[str, Any]]:
+
+def _latest_progress_task_map(uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]:
     """Index des métriques par tâche depuis le dernier snapshot.
 
     Description:
@@ -71,13 +77,12 @@ def _latest_progress_task_map(uc_id: ObjectId) -> Dict[ObjectId, Dict[str, Any]]
         dict: Carte `task_id -> {min_count, current_count}`.
     """
     p = get_collection("progress").find_one(
-        {"user_challenge_id": uc_id},
-        sort=[("checked_at", -1), ("created_at", -1)]
+        {"user_challenge_id": uc_id}, sort=[("checked_at", -1), ("created_at", -1)]
     )
-    out: Dict[ObjectId, Dict[str, Any]] = {}
+    out: dict[ObjectId, dict[str, Any]] = {}
     if not p:
         return out
-    for t in (p.get("tasks") or []):
+    for t in p.get("tasks") or []:
         tid = t.get("task_id")
         if tid:
             out[tid] = {
@@ -86,7 +91,8 @@ def _latest_progress_task_map(uc_id: ObjectId) -> Dict[ObjectId, Dict[str, Any]]
             }
     return out
 
-def _task_constraints_min_count(task_doc: Dict[str, Any]) -> int:
+
+def _task_constraints_min_count(task_doc: dict[str, Any]) -> int:
     """Extraire `min_count` des contraintes d’une tâche.
 
     Args:
@@ -95,9 +101,10 @@ def _task_constraints_min_count(task_doc: Dict[str, Any]) -> int:
     Returns:
         int: Valeur `min_count` (défaut 0).
     """
-    return int(((task_doc.get("constraints") or {}).get("min_count") or 0))
+    return int((task_doc.get("constraints") or {}).get("min_count") or 0)
 
-def _choose_primary_task_by_ratio(task_matches: List[Dict[str, Any]]) -> Optional[ObjectId]:
+
+def _choose_primary_task_by_ratio(task_matches: list[dict[str, Any]]) -> ObjectId | None:
     """Choisir la tâche primaire par ratio d’urgence.
 
     Description:
@@ -112,7 +119,7 @@ def _choose_primary_task_by_ratio(task_matches: List[Dict[str, Any]]) -> Optiona
     if not task_matches:
         return None
 
-    def key(d: Dict[str, Any]):
+    def key(d: dict[str, Any]):
         mc = int(d.get("min_count", 0))
         cur = int(d.get("current_count", 0))
         remaining = max(0, mc - cur)
@@ -120,6 +127,7 @@ def _choose_primary_task_by_ratio(task_matches: List[Dict[str, Any]]) -> Optiona
         return (-ratio, -mc, str(d.get("_id")))
 
     return sorted(task_matches, key=key)[0]["_id"]
+
 
 def _score_cache(
     match_count: int,
@@ -150,21 +158,23 @@ def _score_cache(
         s_tasks = max(0.0, min(1.0, float(match_count) / float(total_tasks_not_done)))
     s_urg = max(0.0, min(1.0, max_ratio))
     s_geo = max(0.0, min(1.0, geo_factor))
-    return (s_tasks ** alpha) * (s_urg ** beta) * (s_geo ** gamma)
+    return (s_tasks**alpha) * (s_urg**beta) * (s_geo**gamma)
+
 
 # ------------------------------------------------------------
 # évaluation
 # ------------------------------------------------------------
+
 
 def evaluate_targets_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     limit_per_task: int = 200,
     hard_limit_total: int = 2000,
-    geo_ctx: Optional[Dict[str, Any]] = None,
-    evaluated_at: Optional[datetime] = None,
+    geo_ctx: dict[str, Any] | None = None,
+    evaluated_at: datetime | None = None,
     force: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Évaluer/persister les targets d’un UserChallenge.
 
     Description:
@@ -194,7 +204,13 @@ def evaluate_targets_for_user_challenge(
     coll_targets = get_collection("targets")
     existing = coll_targets.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
     if (not force) and existing >= min(hard_limit_total, limit_per_task * 5):
-        return {"ok": True, "inserted": 0, "updated": 0, "total": existing, "skipped": True}
+        return {
+            "ok": True,
+            "inserted": 0,
+            "updated": 0,
+            "total": existing,
+            "skipped": True,
+        }
 
     # Récup params utilisateur
     username = _get_username(user_id)
@@ -206,13 +222,15 @@ def evaluate_targets_for_user_challenge(
         ref_latlon = user_loc  # (lat, lon)
 
     # Tasks canonisées (déjà en base via put_tasks) :contentReference[oaicite:4]{index=4}
-    tasks = list(get_collection("user_challenge_tasks").find(
-        {"user_challenge_id": uc_id}
-    ).sort([("order", 1), ("_id", 1)]))
+    tasks = list(
+        get_collection("user_challenge_tasks")
+        .find({"user_challenge_id": uc_id})
+        .sort([("order", 1), ("_id", 1)])
+    )
 
     # Progrès courant (pour récupérer min_count/current_count) :contentReference[oaicite:5]{index=5}
     prog_map = _latest_progress_task_map(uc_id)
-    not_done_task_ids: List[ObjectId] = []
+    not_done_task_ids: list[ObjectId] = []
     for t in tasks:
         mc = _task_constraints_min_count(t)
         cur = int((prog_map.get(t["_id"]) or {}).get("current_count", 0))
@@ -220,7 +238,7 @@ def evaluate_targets_for_user_challenge(
             not_done_task_ids.append(t["_id"])
 
     # Collecte candidates par task
-    unique_by_cache: Dict[ObjectId, Dict[str, Any]] = {}
+    unique_by_cache: dict[ObjectId, dict[str, Any]] = {}
     total_seen = 0
 
     for t in tasks:
@@ -231,20 +249,43 @@ def evaluate_targets_for_user_challenge(
             continue  # on ignore OR/NOT pour le MVP
 
         # pipeline sur caches
-        pipeline: List[Dict[str, Any]] = []
+        pipeline: list[dict[str, Any]] = []
 
         # $geoNear en tête si geo_ctx avec radius_km
         use_geo = False
         if geo_ctx and ("lat" in geo_ctx) and ("lon" in geo_ctx) and ("radius_km" in geo_ctx):
             use_geo = True
-            pipeline.append({
-                "$geoNear": {
-                    "near": {"type": "Point", "coordinates": [float(geo_ctx["lon"]), float(geo_ctx["lat"])]},
-                    "distanceField": "distance_m",
-                    "maxDistance": float(geo_ctx["radius_km"]) * 1000.0,
-                    "spherical": True,
-                    "key": "loc",
-                    "query": {
+            pipeline.append(
+                {
+                    "$geoNear": {
+                        "near": {
+                            "type": "Point",
+                            "coordinates": [
+                                float(geo_ctx["lon"]),
+                                float(geo_ctx["lat"]),
+                            ],
+                        },
+                        "distanceField": "distance_m",
+                        "maxDistance": float(geo_ctx["radius_km"]) * 1000.0,
+                        "spherical": True,
+                        "key": "loc",
+                        "query": {
+                            "$or": [
+                                {"status": "active"},
+                                {"status": {"$exists": False}},
+                                {"status": None},
+                                # (optionnel) autoriser "enabled"/"available" si tu en as :
+                                {"status": "enabled"},
+                                {"status": "available"},
+                            ]
+                        },  # filtre grossier déjà là
+                    }
+                }
+            )
+        else:
+            pipeline.append(
+                {
+                    "$match": {
                         "$or": [
                             {"status": "active"},
                             {"status": {"$exists": False}},
@@ -253,23 +294,12 @@ def evaluate_targets_for_user_challenge(
                             {"status": "enabled"},
                             {"status": "available"},
                         ]
-                    }  # filtre grossier déjà là
+                    }
                 }
-            })
-        else:
-            pipeline.append({"$match": {
-                "$or": [
-                    {"status": "active"},
-                    {"status": {"$exists": False}},
-                    {"status": None},
-                    # (optionnel) autoriser "enabled"/"available" si tu en as :
-                    {"status": "enabled"},
-                    {"status": "available"},
-                ]
-            }})
+            )
 
         # appliquer match_caches
-        and_conds: List[Dict[str, Any]] = []
+        and_conds: list[dict[str, Any]] = []
         for field, cond in (match_caches or {}).items():
             if isinstance(cond, list):
                 for c in cond:
@@ -286,28 +316,43 @@ def evaluate_targets_for_user_challenge(
 
         # anti-join found_caches de ce user :contentReference[oaicite:7]{index=7}
         pipeline += [
-            {"$lookup": {
-                "from": "found_caches",
-                "let": {"cache_id": "$_id"},
-                "pipeline": [
-                    {"$match": {
-                        "$expr": {"$and": [
-                            {"$eq": ["$cache_id", "$$cache_id"]},
-                            {"$eq": ["$user_id", user_id]},
-                        ]}
-                    }}
-                ],
-                "as": "found"
-            }},
+            {
+                "$lookup": {
+                    "from": "found_caches",
+                    "let": {"cache_id": "$_id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$cache_id", "$$cache_id"]},
+                                        {"$eq": ["$user_id", user_id]},
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "as": "found",
+                }
+            },
             {"$match": {"found": {"$size": 0}}},
         ]
 
         # projection minimale
-        pipeline.append({"$project": {
-            "_id": 1, "GC": 1, "title": 1, "loc": 1, "owner": 1,
-            "difficulty": 1, "terrain": 1,
-            **({"distance_m": 1} if use_geo else {})
-        }})
+        pipeline.append(
+            {
+                "$project": {
+                    "_id": 1,
+                    "GC": 1,
+                    "title": 1,
+                    "loc": 1,
+                    "owner": 1,
+                    "difficulty": 1,
+                    "terrain": 1,
+                    **({"distance_m": 1} if use_geo else {}),
+                }
+            }
+        )
 
         pipeline.append({"$limit": int(limit_per_task)})
 
@@ -320,7 +365,7 @@ def evaluate_targets_for_user_challenge(
             if not entry:
                 entry = {
                     "cache": r,
-                    "matched_tasks": [],   # [{_id, min_count, current_count, remaining, ratio}]
+                    "matched_tasks": [],  # [{_id, min_count, current_count, remaining, ratio}]
                 }
                 unique_by_cache[cid] = entry
                 total_seen += 1
@@ -331,18 +376,21 @@ def evaluate_targets_for_user_challenge(
             cur = int((prog_map.get(t["_id"]) or {}).get("current_count", 0))
             remaining = max(0, mc - cur)
             ratio = (remaining / max(1, mc)) if mc > 0 else (1.0 if remaining > 0 else 0.0)
-            entry["matched_tasks"].append({
-                "_id": t["_id"],
-                "min_count": mc,
-                "current_count": cur,
-                "remaining": remaining,
-                "ratio": ratio,
-            })
+            entry["matched_tasks"].append(
+                {
+                    "_id": t["_id"],
+                    "min_count": mc,
+                    "current_count": cur,
+                    "remaining": remaining,
+                    "ratio": ratio,
+                }
+            )
         if total_seen >= hard_limit_total:
             break
 
     # Upserts
-    inserted = 0; updated = 0
+    inserted = 0
+    updated = 0
     now = evaluated_at or utcnow()
 
     # total de tasks non terminées (pour S_tasks)
@@ -359,7 +407,11 @@ def evaluate_targets_for_user_challenge(
         # S_geo
         s_geo = 1.0
         dist_km = None
-        if ref_latlon and data["cache"].get("loc") and isinstance(data["cache"]["loc"].get("coordinates"), list):
+        if (
+            ref_latlon
+            and data["cache"].get("loc")
+            and isinstance(data["cache"]["loc"].get("coordinates"), list)
+        ):
             lon, lat = data["cache"]["loc"]["coordinates"]
             dist_km = _haversine_km(ref_latlon[0], ref_latlon[1], lat, lon)
             # fonction lissée ~ 10km
@@ -372,8 +424,9 @@ def evaluate_targets_for_user_challenge(
         score = _score_cache(len(matched), total_tasks_not_done, max_ratio, s_geo)
 
         # raisons & diag
-        reasons = [f"covers {len(matched)} task(s); max_ratio={round(max_ratio,2)}"] + \
-                  ([f"dist≈{round(dist_km,1)}km"] if dist_km is not None else [])
+        reasons = [f"covers {len(matched)} task(s); max_ratio={round(max_ratio,2)}"] + (
+            [f"dist≈{round(dist_km,1)}km"] if dist_km is not None else []
+        )
 
         doc = {
             "user_id": user_id,
@@ -408,12 +461,16 @@ def evaluate_targets_for_user_challenge(
         elif res.modified_count > 0:
             updated += 1
 
-    total = get_collection("targets").count_documents({"user_id": user_id, "user_challenge_id": uc_id})
+    total = get_collection("targets").count_documents(
+        {"user_id": user_id, "user_challenge_id": uc_id}
+    )
     return {"ok": True, "inserted": inserted, "updated": updated, "total": int(total)}
+
 
 # ------------------------------------------------------------
 # listings
 # ------------------------------------------------------------
+
 
 def list_targets_for_user_challenge(
     user_id: ObjectId,
@@ -421,7 +478,7 @@ def list_targets_for_user_challenge(
     page: int = 1,
     limit: int = 50,
     sort: str = "-score",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lister les targets d’un UserChallenge (paginé).
 
     Args:
@@ -441,21 +498,32 @@ def list_targets_for_user_challenge(
     cur = coll.find(q).sort(sort_spec).skip(skip).limit(int(limit))
     items = []
     for d in cur:
-        items.append({
-            "id": str(d.get("_id")),
-            "user_challenge_id": str(d.get("user_challenge_id")),
-            "cache_id": str(d.get("cache_id")),
-            "GC": None,  # join côté front si besoin; on peut aussi enrichir via lookup si nécessaire
-            "name": None,
-            "loc": (lambda loc: {"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None)(d.get("loc")),
-            "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
-            "primary_task_id": str(d.get("primary_task_id")) if d.get("primary_task_id") else None,
-            "score": float(d.get("score") or 0),
-            "reasons": d.get("reasons") or [],
-            "pinned": bool(d.get("pinned") or False),
-        })
+        items.append(
+            {
+                "id": str(d.get("_id")),
+                "user_challenge_id": str(d.get("user_challenge_id")),
+                "cache_id": str(d.get("cache_id")),
+                "GC": None,  # join côté front si besoin; on peut aussi enrichir via lookup si nécessaire
+                "name": None,
+                "loc": (
+                    lambda loc: (
+                        {"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]}
+                        if loc
+                        else None
+                    )
+                )(d.get("loc")),
+                "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
+                "primary_task_id": (
+                    str(d.get("primary_task_id")) if d.get("primary_task_id") else None
+                ),
+                "score": float(d.get("score") or 0),
+                "reasons": d.get("reasons") or [],
+                "pinned": bool(d.get("pinned") or False),
+            }
+        )
     total = coll.count_documents(q)
     return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+
 
 def list_targets_nearby_for_user_challenge(
     user_id: ObjectId,
@@ -466,7 +534,7 @@ def list_targets_nearby_for_user_challenge(
     page: int = 1,
     limit: int = 50,
     sort: str = "distance",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lister les targets proches (par UC) via `$geoNear`.
 
     Args:
@@ -483,50 +551,70 @@ def list_targets_nearby_for_user_challenge(
         dict: `{items, total, page, limit}` avec `distance_km`.
     """
     coll = get_collection("targets")
-    pipeline: List[Dict[str, Any]] = [
-        {"$geoNear": {
-            "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
-            "distanceField": "distance_m",
-            "maxDistance": float(radius_km) * 1000.0,
-            "spherical": True,
-            "key": "loc",
-            "query": {"user_id": user_id, "user_challenge_id": uc_id},
-        }},
+    pipeline: list[dict[str, Any]] = [
+        {
+            "$geoNear": {
+                "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                "distanceField": "distance_m",
+                "maxDistance": float(radius_km) * 1000.0,
+                "spherical": True,
+                "key": "loc",
+                "query": {"user_id": user_id, "user_challenge_id": uc_id},
+            }
+        },
         {"$sort": {"distance_m": 1 if sort == "distance" else -1}},
-        {"$skip": max(0, (int(page)-1) * int(limit))},
+        {"$skip": max(0, (int(page) - 1) * int(limit))},
         {"$limit": int(limit)},
-        {"$project": {
-            "_id": 1, "user_challenge_id": 1, "cache_id": 1, "score": 1, "pinned": 1,
-            "reasons": 1, "loc": 1, "distance_m": 1, "satisfies_task_ids": 1, "primary_task_id": 1,
-        }},
+        {
+            "$project": {
+                "_id": 1,
+                "user_challenge_id": 1,
+                "cache_id": 1,
+                "score": 1,
+                "pinned": 1,
+                "reasons": 1,
+                "loc": 1,
+                "distance_m": 1,
+                "satisfies_task_ids": 1,
+                "primary_task_id": 1,
+            }
+        },
     ]
     rows = list(coll.aggregate(pipeline, allowDiskUse=False))
     items = []
     for d in rows:
         loc = d.get("loc")
-        items.append({
-            "id": str(d.get("_id")),
-            "user_challenge_id": str(d.get("user_challenge_id")),
-            "cache_id": str(d.get("cache_id")),
-            "GC": None, "name": None,
-            "loc": ({"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None),
-            "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
-            "primary_task_id": str(d.get("primary_task_id")) if d.get("primary_task_id") else None,
-            "score": float(d.get("score") or 0),
-            "reasons": d.get("reasons") or [],
-            "pinned": bool(d.get("pinned") or False),
-            "distance_km": round(float(d.get("distance_m") or 0)/1000.0, 3),
-        })
+        items.append(
+            {
+                "id": str(d.get("_id")),
+                "user_challenge_id": str(d.get("user_challenge_id")),
+                "cache_id": str(d.get("cache_id")),
+                "GC": None,
+                "name": None,
+                "loc": (
+                    {"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None
+                ),
+                "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
+                "primary_task_id": (
+                    str(d.get("primary_task_id")) if d.get("primary_task_id") else None
+                ),
+                "score": float(d.get("score") or 0),
+                "reasons": d.get("reasons") or [],
+                "pinned": bool(d.get("pinned") or False),
+                "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
+            }
+        )
     total = coll.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
     return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
 
+
 def list_targets_for_user(
     user_id: ObjectId,
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
     page: int = 1,
     limit: int = 50,
     sort: str = "-score",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lister toutes les targets de l’utilisateur (tous challenges).
 
     Args:
@@ -539,56 +627,75 @@ def list_targets_for_user(
     Returns:
         dict: `{items, total, page, limit}`.
     """
-    pipeline: List[Dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
-        {"$lookup": {
-            "from": "user_challenges",
-            "localField": "user_challenge_id",
-            "foreignField": "_id",
-            "as": "uc"
-        }},
+        {
+            "$lookup": {
+                "from": "user_challenges",
+                "localField": "user_challenge_id",
+                "foreignField": "_id",
+                "as": "uc",
+            }
+        },
         {"$unwind": "$uc"},
     ]
     if status_filter:
         pipeline.append({"$match": {"uc.status": status_filter}})
     pipeline += [
         {"$sort": {"score": -1} if sort == "-score" else {"updated_at": -1}},
-        {"$skip": max(0, (int(page)-1) * int(limit))},
+        {"$skip": max(0, (int(page) - 1) * int(limit))},
         {"$limit": int(limit)},
-        {"$project": {
-            "_id": 1, "user_challenge_id": 1, "cache_id": 1, "score": 1, "pinned": 1,
-            "reasons": 1, "loc": 1, "satisfies_task_ids": 1, "primary_task_id": 1,
-        }},
+        {
+            "$project": {
+                "_id": 1,
+                "user_challenge_id": 1,
+                "cache_id": 1,
+                "score": 1,
+                "pinned": 1,
+                "reasons": 1,
+                "loc": 1,
+                "satisfies_task_ids": 1,
+                "primary_task_id": 1,
+            }
+        },
     ]
     rows = list(get_collection("targets").aggregate(pipeline, allowDiskUse=False))
     items = []
     for d in rows:
         loc = d.get("loc")
-        items.append({
-            "id": str(d.get("_id")),
-            "user_challenge_id": str(d.get("user_challenge_id")),
-            "cache_id": str(d.get("cache_id")),
-            "GC": None, "name": None,
-            "loc": ({"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None),
-            "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
-            "primary_task_id": str(d.get("primary_task_id")) if d.get("primary_task_id") else None,
-            "score": float(d.get("score") or 0),
-            "reasons": d.get("reasons") or [],
-            "pinned": bool(d.get("pinned") or False),
-        })
+        items.append(
+            {
+                "id": str(d.get("_id")),
+                "user_challenge_id": str(d.get("user_challenge_id")),
+                "cache_id": str(d.get("cache_id")),
+                "GC": None,
+                "name": None,
+                "loc": (
+                    {"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None
+                ),
+                "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
+                "primary_task_id": (
+                    str(d.get("primary_task_id")) if d.get("primary_task_id") else None
+                ),
+                "score": float(d.get("score") or 0),
+                "reasons": d.get("reasons") or [],
+                "pinned": bool(d.get("pinned") or False),
+            }
+        )
     total = get_collection("targets").count_documents({"user_id": user_id})
     return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+
 
 def list_targets_nearby_for_user(
     user_id: ObjectId,
     lat: float,
     lon: float,
     radius_km: float,
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
     page: int = 1,
     limit: int = 50,
     sort: str = "distance",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lister les targets proches (tous challenges) via `$geoNear`.
 
     Args:
@@ -604,21 +711,25 @@ def list_targets_nearby_for_user(
     Returns:
         dict: `{items, total, page, limit}` avec `distance_km`.
     """
-    pipeline: List[Dict[str, Any]] = [
-        {"$geoNear": {
-            "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
-            "distanceField": "distance_m",
-            "maxDistance": float(radius_km) * 1000.0,
-            "spherical": True,
-            "key": "loc",
-            "query": {"user_id": user_id},
-        }},
-        {"$lookup": {
-            "from": "user_challenges",
-            "localField": "user_challenge_id",
-            "foreignField": "_id",
-            "as": "uc"
-        }},
+    pipeline: list[dict[str, Any]] = [
+        {
+            "$geoNear": {
+                "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                "distanceField": "distance_m",
+                "maxDistance": float(radius_km) * 1000.0,
+                "spherical": True,
+                "key": "loc",
+                "query": {"user_id": user_id},
+            }
+        },
+        {
+            "$lookup": {
+                "from": "user_challenges",
+                "localField": "user_challenge_id",
+                "foreignField": "_id",
+                "as": "uc",
+            }
+        },
         {"$unwind": "$uc"},
     ]
     if status_filter:
@@ -626,34 +737,52 @@ def list_targets_nearby_for_user(
 
     pipeline += [
         {"$sort": {"distance_m": 1 if sort == "distance" else -1}},
-        {"$skip": max(0, (int(page)-1) * int(limit))},
+        {"$skip": max(0, (int(page) - 1) * int(limit))},
         {"$limit": int(limit)},
-        {"$project": {
-            "_id": 1, "user_challenge_id": 1, "cache_id": 1, "score": 1, "pinned": 1,
-            "reasons": 1, "loc": 1, "distance_m": 1, "satisfies_task_ids": 1, "primary_task_id": 1,
-        }},
+        {
+            "$project": {
+                "_id": 1,
+                "user_challenge_id": 1,
+                "cache_id": 1,
+                "score": 1,
+                "pinned": 1,
+                "reasons": 1,
+                "loc": 1,
+                "distance_m": 1,
+                "satisfies_task_ids": 1,
+                "primary_task_id": 1,
+            }
+        },
     ]
     rows = list(get_collection("targets").aggregate(pipeline, allowDiskUse=False))
     items = []
     for d in rows:
         loc = d.get("loc")
-        items.append({
-            "id": str(d.get("_id")),
-            "user_challenge_id": str(d.get("user_challenge_id")),
-            "cache_id": str(d.get("cache_id")),
-            "GC": None, "name": None,
-            "loc": ({"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None),
-            "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
-            "primary_task_id": str(d.get("primary_task_id")) if d.get("primary_task_id") else None,
-            "score": float(d.get("score") or 0),
-            "reasons": d.get("reasons") or [],
-            "pinned": bool(d.get("pinned") or False),
-            "distance_km": round(float(d.get("distance_m") or 0)/1000.0, 3),
-        })
+        items.append(
+            {
+                "id": str(d.get("_id")),
+                "user_challenge_id": str(d.get("user_challenge_id")),
+                "cache_id": str(d.get("cache_id")),
+                "GC": None,
+                "name": None,
+                "loc": (
+                    {"lat": loc["coordinates"][1], "lng": loc["coordinates"][0]} if loc else None
+                ),
+                "matched_task_ids": [str(x) for x in (d.get("satisfies_task_ids") or [])],
+                "primary_task_id": (
+                    str(d.get("primary_task_id")) if d.get("primary_task_id") else None
+                ),
+                "score": float(d.get("score") or 0),
+                "reasons": d.get("reasons") or [],
+                "pinned": bool(d.get("pinned") or False),
+                "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
+            }
+        )
     total = get_collection("targets").count_documents({"user_id": user_id})
     return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
 
-def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> Dict[str, Any]:
+
+def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
     """Supprimer toutes les targets d’un UserChallenge.
 
     Args:

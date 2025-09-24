@@ -2,11 +2,14 @@
 # Référentiel listant les tailles (Small, Micro, Regular, …) avec ordre d’affichage.
 
 from __future__ import annotations
-from typing import Optional
+
 import datetime as dt
+
 from pydantic import BaseModel, Field
-from app.core.utils import *
-from app.core.bson_utils import *
+
+from app.core.bson_utils import MongoBaseModel
+from app.core.utils import now
+
 
 class CacheSizeBase(BaseModel):
     """Taille de cache (référentiel).
@@ -19,9 +22,11 @@ class CacheSizeBase(BaseModel):
         code (str | None): Code court (ex. "S", "M").
         order (int | None): Ordre d’affichage.
     """
-    name: str                    # ex: "Small", "Micro", "Regular"
-    code: Optional[str] = None   # code interne ou abbr (ex: "S", "M")
-    order: Optional[int] = None  # ordonnancement des cache sizes
+
+    name: str  # ex: "Small", "Micro", "Regular"
+    code: str | None = None  # code interne ou abbr (ex: "S", "M")
+    order: int | None = None  # ordonnancement des cache sizes
+
 
 class CacheSizeCreate(CacheSizeBase):
     """Payload de création d’une taille de cache.
@@ -29,7 +34,9 @@ class CacheSizeCreate(CacheSizeBase):
     Description:
         Identique à `CacheSizeBase` pour insertion dans le référentiel.
     """
+
     pass
+
 
 class CacheSizeUpdate(BaseModel):
     """Payload de mise à jour d’une taille de cache.
@@ -42,9 +49,11 @@ class CacheSizeUpdate(BaseModel):
         code (str | None): Nouveau code.
         order (int | None): Nouvel ordre.
     """
-    name: Optional[str] = None
-    code: Optional[str] = None
-    order: Optional[int] = None
+
+    name: str | None = None
+    code: str | None = None
+    order: int | None = None
+
 
 class CacheSize(MongoBaseModel, CacheSizeBase):
     """Document Mongo d’une taille de cache (référentiel).
@@ -52,5 +61,6 @@ class CacheSize(MongoBaseModel, CacheSizeBase):
     Description:
         Étend `CacheSizeBase` avec _id, created_at, updated_at.
     """
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None

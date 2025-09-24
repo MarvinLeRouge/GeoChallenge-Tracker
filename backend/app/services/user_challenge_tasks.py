@@ -2,34 +2,47 @@
 # Compile/valide les expressions de tâches, applique les normalisations code→id et opère le CRUD logique.
 
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Iterable
-from bson import ObjectId
-import re
 
-from pydantic import BaseModel, Field, ValidationError, TypeAdapter
+import re
+from collections.abc import Iterable
+from typing import Any, cast
+
+from bson import ObjectId
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+
 from app.core.bson_utils import PyObjectId
-from app.core.utils import *
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
-from app.services.referentials_cache import *
 
 # ==== AST imports (must match your models) ====
 from app.models.challenge_ast import (
+    RuleCountryIs,
+    TaskAnd,
     TaskExpression,
-    TaskAnd, TaskOr, TaskNot,
-    RuleTypeIn, RuleSizeIn, RulePlacedYear, RulePlacedBefore, RulePlacedAfter,
-    RuleStateIn, RuleCountryIs, RuleDifficultyBetween, RuleTerrainBetween,
-    RuleAttributes,
-    # Aggregate leaves
-    RuleAggSumDifficultyAtLeast, RuleAggSumTerrainAtLeast,
-    RuleAggSumDiffPlusTerrAtLeast, RuleAggSumAltitudeAtLeast,
+    TaskNot,
+    TaskOr,
+    preprocess_expression_default_and,
 )
-from app.models.challenge_ast import preprocess_expression_default_and, TaskExpression as TE
+from app.models.challenge_ast import (
+    TaskExpression as TE,
+)
+from app.services.referentials_cache import (
+    exists_attribute_id,
+    exists_id,
+    resolve_attribute_code,
+    resolve_country_name,
+    resolve_size_code,
+    resolve_size_name,
+    resolve_state_name,
+    resolve_type_code,
+)
 
 # ======================================================================================
 #                                   Public helpers
 # ======================================================================================
 
-def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
+
+def compile_expression_to_cache_match(expr: TaskExpression) -> dict[str, Any]:
     """Compiler une expression AST vers un filtre Mongo `caches`.
 
     Description:
@@ -41,7 +54,8 @@ def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
     Returns:
         dict: Filtre Mongo (peut contenir `$and/$or/$nor`).
     """
-    def _leaf_to_match(leaf: Any) -> Dict[str, Any]:
+
+    def _leaf_to_match(leaf: Any) -> dict[str, Any]:
         k = getattr(leaf, "kind", None)
 
         if k == "type_in":
@@ -54,15 +68,15 @@ def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
             return {"size_id": {"$in": ids}} if ids else {}
 
         if k == "placed_year":
-            y = int(getattr(leaf, "year"))
+            y = int(leaf.year)
             return {"placed_year": y}
 
         if k == "placed_before":
-            d = getattr(leaf, "date")
+            d = leaf.date
             return {"placed_at": {"$lt": d}}
 
         if k == "placed_after":
-            d = getattr(leaf, "date")
+            d = leaf.date
             return {"placed_at": {"$gt": d}}
 
         if k == "difficulty_between":
@@ -80,19 +94,15 @@ def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
 
         if k == "attributes":
             # Liste d'attributs ET-és (tous doivent matcher)
-            clauses: List[Dict[str, Any]] = []
+            clauses: list[dict[str, Any]] = []
             for a in leaf.attributes:
                 # on privilégie cache_attribute_doc_id si présent, sinon id numérique
-                attr_doc_id = getattr(a, "cache_attribute_doc_id", None) or getattr(a, "attribute_doc_id", None)
+                attr_doc_id = getattr(a, "cache_attribute_doc_id", None) or getattr(
+                    a, "attribute_doc_id", None
+                )
                 num_id = getattr(a, "cache_attribute_id", None)
                 is_pos = bool(getattr(a, "is_positive", True))
-                sub: Dict[str, Any] = {
-                    "attributes": {
-                        "$elemMatch": {
-                            "is_positive": is_pos
-                        }
-                    }
-                }
+                sub: dict[str, Any] = {"attributes": {"$elemMatch": {"is_positive": is_pos}}}
                 if attr_doc_id:
                     sub["attributes"]["$elemMatch"]["attribute_doc_id"] = attr_doc_id
                 elif num_id is not None:
@@ -113,14 +123,14 @@ def compile_expression_to_cache_match(expr: TaskExpression) -> Dict[str, Any]:
         # Par défaut: rien
         return {}
 
-    def _node(expr_node: Any) -> Dict[str, Any]:
+    def _node(expr_node: Any) -> dict[str, Any]:
         if isinstance(expr_node, TaskAnd):
-            parts = [ _node(n) for n in expr_node.nodes ]
+            parts = [_node(n) for n in expr_node.nodes]
             parts = [p for p in parts if p]  # strip empties
             return {"$and": parts} if parts else {}
 
         if isinstance(expr_node, TaskOr):
-            parts = [ _node(n) for n in expr_node.nodes ]
+            parts = [_node(n) for n in expr_node.nodes]
             parts = [p for p in parts if p]
             return {"$or": parts} if parts else {}
 
@@ -147,13 +157,15 @@ class PatchTaskItem(BaseModel):
         metrics (dict): Métriques.
         notes (str | None): Notes.
     """
-    _id: Optional[PyObjectId] = None
+
+    _id: PyObjectId | None = None
     user_challenge_id: PyObjectId
     order: int = 0
     expression: TaskExpression
-    constraints: Dict[str, Any] = Field(default_factory=dict)
-    metrics: Dict[str, Any] = Field(default_factory=dict)
-    notes: Optional[str] = None
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    notes: str | None = None
+
 
 def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
     """Normaliser les codes/labels en ObjectId dans l’AST.
@@ -171,6 +183,7 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
     Returns:
         TaskExpression: Expression enrichie d’identifiants.
     """
+
     def _norm(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
@@ -185,7 +198,9 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                     if code and not a.get("cache_attribute_doc_id"):
                         res = resolve_attribute_code(code)  # doit renvoyer (oid, numeric_id)
                         if not res:
-                            raise ValueError(f"index {index_for_errors}: attribute code not found '{code}'")
+                            raise ValueError(
+                                f"index {index_for_errors}: attribute code not found '{code}'"
+                            )
                         doc_id, num_id = res
                         a["cache_attribute_doc_id"] = doc_id
                         # ne pas écraser si déjà présent
@@ -199,9 +214,13 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                 for t in node["types"]:
                     t = dict(t)
                     if t.get("cache_type_code") and not t.get("cache_type_doc_id"):
-                        found = resolve_type_code(t["cache_type_code"])  # retourne l'OID du doc type
+                        found = resolve_type_code(
+                            t["cache_type_code"]
+                        )  # retourne l'OID du doc type
                         if not found:
-                            raise ValueError(f"index {index_for_errors}: type code not found '{t['cache_type_code']}'")
+                            raise ValueError(
+                                f"index {index_for_errors}: type code not found '{t['cache_type_code']}'"
+                            )
                         t["cache_type_doc_id"] = found
                     new_types.append(t)
                 node = {**node, "types": new_types}
@@ -233,7 +252,9 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                         cid = resolve_country_name(c["name"])
                     if not cid:
                         label = c.get("code") or c.get("name") or "<?>"
-                        raise ValueError(f"country_is: country not found '{label}' (index {index_for_errors})")
+                        raise ValueError(
+                            f"country_is: country not found '{label}' (index {index_for_errors})"
+                        )
                     node["country_id"] = cid
                 # conserver le bloc 'country' tel que fourni (lisibilité GET)
                 node["country"] = c or node.get("country") or {}
@@ -244,20 +265,32 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
                 # on collecte des ids à partir de plusieurs formes acceptées
                 state_ids = list(node.get("state_ids") or [])
                 # compat courte: state_names: ["X","Y"]
-                for nm in (node.get("state_names") or []):
-                    sid = resolve_state_name(nm, context_country_id=node.get("country_id") or (node.get("country") or {}).get("country_id"))
+                for nm in node.get("state_names") or []:
+                    sid = resolve_state_name(
+                        nm,
+                        country_id=node.get("country_id")
+                        or (node.get("country") or {}).get("country_id"),
+                    )
                     if not sid:
-                        raise ValueError(f"state_in: state not found '{nm}' (index {index_for_errors})")
+                        raise ValueError(
+                            f"state_in: state not found '{nm}' (index {index_for_errors})"
+                        )
                     state_ids.append(sid)
                 # forme riche: states: [{"name": ...}]
-                for s in (node.get("states") or []):
+                for s in node.get("states") or []:
                     s = dict(s)
                     sid = s.get("state_id")
                     if not sid and s.get("name"):
-                        sid = resolve_state_name(s["name"], context_country_id=node.get("country_id") or (node.get("country") or {}).get("country_id"))
+                        sid = resolve_state_name(
+                            s["name"],
+                            context_country_id=node.get("country_id")
+                            or (node.get("country") or {}).get("country_id"),
+                        )
                     if not sid:
                         label = s.get("name") or "<?>"
-                        raise ValueError(f"state_in: state not found '{label}' (index {index_for_errors})")
+                        raise ValueError(
+                            f"state_in: state not found '{label}' (index {index_for_errors})"
+                        )
                     state_ids.append(sid)
                 if state_ids:
                     node["state_ids"] = list(dict.fromkeys(state_ids))  # dedup
@@ -276,6 +309,7 @@ def _normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> Tas
     normalized = _norm(expr_dict)
     return TypeAdapter(TE).validate_python(normalized)
 
+
 def _has_country_is(nodes: Iterable[Any]) -> bool:
     """Tester la présence d’un nœud `country_is` dans un AND.
 
@@ -293,6 +327,7 @@ def _has_country_is(nodes: Iterable[Any]) -> bool:
             return True
     return False
 
+
 def _walk_expr(expr: TaskExpression):
     """Itérer (kind, node, parent_kind) à des fins de validation structurelle.
 
@@ -309,10 +344,11 @@ def _walk_expr(expr: TaskExpression):
                 yield (k, n, pk if pk is not None else parent)
         return
     if isinstance(expr, TaskNot):
-        for k, n, pk in _walk_expr(expr.node):
+        for k, n, _pk in _walk_expr(expr.node):
             yield (k, n, "not")
         return
     return [(expr.kind, expr, None)]
+
 
 def _is_aggregate_kind(kind: str) -> bool:
     """Indiquer si `kind` correspond à une feuille d’agrégat.
@@ -330,7 +366,8 @@ def _is_aggregate_kind(kind: str) -> bool:
         "aggregate_sum_altitude_at_least",
     )
 
-def validate_task_expression(expr: TaskExpression) -> List[str]:
+
+def validate_task_expression(expr: TaskExpression) -> list[str]:
     """Validation étendue d’une expression de tâche.
 
     Description:
@@ -344,14 +381,16 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
     Returns:
         list[str]: Liste d’erreurs (vide si OK).
     """
-    errors: List[str] = []
+    errors: list[str] = []
     aggregate_count = 0
 
     for kind, node, parent in _walk_expr(expr):
         if _is_aggregate_kind(kind):
             aggregate_count += 1
             if parent in ("or", "not"):
-                errors.append(f"{kind}: aggregate rules are only supported under AND (not under {parent})")
+                errors.append(
+                    f"{kind}: aggregate rules are only supported under AND (not under {parent})"
+                )
             # check min_total presence & type via Pydantic already; nothing else here
             continue
 
@@ -370,14 +409,18 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
                 # obligation d’un country_is sibling
                 if isinstance(expr, TaskAnd):
                     if not _has_country_is(expr.nodes):
-                        errors.append("state_in requires a sibling country_is in the same AND group")
+                        errors.append(
+                            "state_in requires a sibling country_is in the same AND group"
+                        )
         elif kind == "country_is":
             if not exists_id("countries", node.country_id):
                 errors.append(f"country_is: unknown country id '{node.country_id}'")
         elif kind == "attributes":
             for i, a in enumerate(node.attributes):
                 if not exists_attribute_id(a.cache_attribute_id):
-                    errors.append(f"attributes[{i}].cache_attribute_id unknown '{a.cache_attribute_id}'")
+                    errors.append(
+                        f"attributes[{i}].cache_attribute_id unknown '{a.cache_attribute_id}'"
+                    )
         elif kind in ("difficulty_between", "terrain_between"):
             if node.min > node.max:
                 errors.append(f"{kind}: min must be <= max")
@@ -388,9 +431,11 @@ def validate_task_expression(expr: TaskExpression) -> List[str]:
 
     return errors
 
+
 # --------------------------------------------------------------------------------------
 # Public API kept from BEFORE: list_tasks / put_tasks / validate_only
 # --------------------------------------------------------------------------------------
+
 
 def _legacy_fixup_expression(exp: Any) -> Any:
     """Adapter d’anciennes formes courtes vers la forme canonique.
@@ -405,6 +450,7 @@ def _legacy_fixup_expression(exp: Any) -> Any:
     Returns:
         Any: Expression transformée non destructivement.
     """
+
     def _fix(node: Any) -> Any:
         if isinstance(node, dict):
             k = node.get("kind")
@@ -430,7 +476,8 @@ def _legacy_fixup_expression(exp: Any) -> Any:
 
     return _fix(exp)
 
-def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
+
+def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> list[dict[str, Any]]:
     """Lister les tâches d’un UC (déjà canoniques pour l’API).
 
     Description:
@@ -445,12 +492,9 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
         list[dict]: Tâches prêtes pour `TaskOut`.
     """
     coll = get_collection("user_challenge_tasks")
-    cur = coll.find(
-        {"user_challenge_id": uc_id},
-        sort=[("order", 1), ("_id", 1)]
-    )
+    cur = coll.find({"user_challenge_id": uc_id}, sort=[("order", 1), ("_id", 1)])
 
-    tasks: List[Dict[str, Any]] = []
+    tasks: list[dict[str, Any]] = []
     for d in cur:
         # title est requis côté TaskOut -> fallback si absent
         title = d.get("title") or "Untitled task"
@@ -459,31 +503,36 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> List[Dict[str, Any]]:
         # Try to validate as-is
         try:
             exp_pre = preprocess_expression_default_and(exp)
-            exp_model = TypeAdapter(TaskExpression).validate_python(exp_pre)
+            exp_model = cast(TaskExpression, TypeAdapter(TaskExpression).validate_python(exp_pre))
             exp_out = exp_model.model_dump(by_alias=True)
         except Exception:
             # Legacy repair, then validate
             fixed = _legacy_fixup_expression(exp)
             exp_pre = preprocess_expression_default_and(fixed)
-            exp_model = TypeAdapter(TaskExpression).validate_python(exp_pre)
+            exp_model = cast(TaskExpression, TypeAdapter(TaskExpression).validate_python(exp_pre))
             exp_out = exp_model.model_dump(by_alias=True)
-        tasks.append({
-            "id": d["_id"],  # TaskOut.id (PyObjectId géré par tes encoders)
-            "order": d.get("order", 0),
-            "title": title,
-            "expression": exp_out,
-            "constraints": d.get("constraints", {}),
-            "status": d.get("status"),                  # optionnel dans TaskOut
-            "metrics": d.get("metrics"),
-            "progress": d.get("progress"),
-            "last_evaluated_at": d.get("last_evaluated_at"),
-            "updated_at": d.get("updated_at"),
-            "created_at": d.get("created_at"),
-        })
+        tasks.append(
+            {
+                "id": d["_id"],  # TaskOut.id (PyObjectId géré par tes encoders)
+                "order": d.get("order", 0),
+                "title": title,
+                "expression": exp_out,
+                "constraints": d.get("constraints", {}),
+                "status": d.get("status"),  # optionnel dans TaskOut
+                "metrics": d.get("metrics"),
+                "progress": d.get("progress"),
+                "last_evaluated_at": d.get("last_evaluated_at"),
+                "updated_at": d.get("updated_at"),
+                "created_at": d.get("created_at"),
+            }
+        )
 
     return tasks
 
-def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+def validate_only(
+    user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Valider un payload de tâches **sans persister**.
 
     Args:
@@ -494,7 +543,8 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
     Returns:
         dict: `{ok: bool, errors: list[...]}`
     """
-    def _mk_err(index: int, field: str, code: str, message: str) -> Dict[str, Any]:
+
+    def _mk_err(index: int, field: str, code: str, message: str) -> dict[str, Any]:
         return {"index": index, "field": field, "code": code, "message": message}
 
     try:
@@ -503,9 +553,15 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
         return {"ok": True, "errors": []}
     except ValidationError as e:
         # Pydantic validation of the AST structure / types
-        msg = "; ".join([err.get("msg", "validation error") for err in getattr(e, "errors", lambda: [])()] or [str(e)])
+        msg = "; ".join(
+            [err.get("msg", "validation error") for err in getattr(e, "errors", lambda: [])()]
+            or [str(e)]
+        )
 
-        return {"ok": False, "errors": [_mk_err(0, "expression", "pydantic_validation_error", msg)]}
+        return {
+            "ok": False,
+            "errors": [_mk_err(0, "expression", "pydantic_validation_error", msg)],
+        }
     except Exception as e:
         # Our _validate_tasks_payload raises ValueError with messages like "invalid expression at index i: ...",
         # or "constraints.min_count ... (index i)". Extract the index if present.
@@ -518,7 +574,10 @@ def validate_only(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[s
 
         return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
-def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+
+def put_tasks(
+    user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     """Remplacer toutes les tâches d’un UC (canonisation + insert).
 
     Description:
@@ -548,7 +607,7 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
 
         # NEW: canonicalize expression for storage
         expr_pre = preprocess_expression_default_and(item["expression"])
-        expr_model = TypeAdapter(TaskExpression).validate_python(expr_pre)
+        expr_model: TaskExpression = TypeAdapter(TaskExpression).validate_python(expr_pre)
         expr_model = _normalize_code_to_id(expr_model, index_for_errors=i)
         expr_canonical = expr_model.model_dump(by_alias=True)
 
@@ -557,7 +616,7 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
             "user_challenge_id": uc_id,
             "order": int(item.get("order", i)),
             "title": title,
-            "expression": expr_canonical,     # <--- store canonical
+            "expression": expr_canonical,  # <--- store canonical
             "constraints": item.get("constraints", {}),
             "status": item.get("status") or "todo",
             "metrics": item.get("metrics", {}),
@@ -573,29 +632,35 @@ def put_tasks(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, 
 
     # read-back (already canonical)
     cur = coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
-    items: List[Dict[str, Any]] = []
+    items: list[dict[str, Any]] = []
     for d in cur:
-        items.append({
-            "id": d["_id"],
-            "order": d.get("order", 0),
-            "title": d.get("title"),
-            "expression": d.get("expression"),    # already canonical
-            "constraints": d.get("constraints", {}),
-            "status": d.get("status"),
-            "metrics": d.get("metrics"),
-            "progress": d.get("progress"),
-            "last_evaluated_at": d.get("last_evaluated_at"),
-            "updated_at": d.get("updated_at"),
-            "created_at": d.get("created_at"),
-        })
+        items.append(
+            {
+                "id": d["_id"],
+                "order": d.get("order", 0),
+                "title": d.get("title"),
+                "expression": d.get("expression"),  # already canonical
+                "constraints": d.get("constraints", {}),
+                "status": d.get("status"),
+                "metrics": d.get("metrics"),
+                "progress": d.get("progress"),
+                "last_evaluated_at": d.get("last_evaluated_at"),
+                "updated_at": d.get("updated_at"),
+                "created_at": d.get("created_at"),
+            }
+        )
 
     return items
+
 
 # --------------------------------------------------------------------------------------
 # Internal validation utils (payload-level)
 # --------------------------------------------------------------------------------------
 
-def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: List[Dict[str, Any]]) -> None:
+
+def _validate_tasks_payload(
+    user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
+) -> None:
     """Valider le payload de tâches (lève à la première erreur).
 
     Description:
@@ -636,13 +701,13 @@ def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: L
             expr_pre = preprocess_expression_default_and(expr_raw)
 
             # 2) valider/parse Pydantic (Union des nœuds)
-            expr_model = TypeAdapter(TaskExpression).validate_python(expr_pre)
+            expr_model: TaskExpression = TypeAdapter(TaskExpression).validate_python(expr_pre)
 
             # 3) tes normalisations existantes (ex: attributes.code -> ids, type_in.codes -> type_ids)
             expr_model = _normalize_code_to_id(expr_model, index_for_errors=i)
 
-        except ValidationError as e:
-            raise ValueError(f"invalid expression at index {i}: {e}")
+        except ValidationError as err:
+            raise ValueError(f"invalid expression at index {i}: {err}") from err
 
         # NEW: extended validation (aggregates + referentials)
         errs = validate_task_expression(expr_model)
@@ -656,9 +721,10 @@ def _validate_tasks_payload(user_id: ObjectId, uc_id: ObjectId, tasks_payload: L
                 mc = int(constraints["min_count"])
                 if mc < 0:
                     raise ValueError
-            except Exception:
-                raise ValueError(f"constraints.min_count must be a non-negative integer (index {i})")
+            except Exception as err:
+                raise ValueError(
+                    f"constraints.min_count must be a non-negative integer (index {i})"
+                ) from err
 
     # Optional: verify uc_id belongs to user? (depends on your security model)
     # get_collection("user_challenges").find_one({"_id": uc_id, "user_id": user_id}) ...
-

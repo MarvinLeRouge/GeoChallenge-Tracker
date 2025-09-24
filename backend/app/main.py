@@ -2,14 +2,18 @@
 
 import os
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.concurrency import (
+    run_in_threadpool,
+)  # optionnel mais propre si fonctions sync
 
 from app.api.routes import routers
-from app.db.seed_indexes import ensure_indexes
-from app.db.seed_data import seed_referentials
-from app.core.settings import settings
 from app.core.middleware import MaxBodySizeMiddleware
-from fastapi.concurrency import run_in_threadpool  # optionnel mais propre si fonctions sync
+from app.core.settings import settings
+from app.db.seed_data import seed_referentials
+from app.db.seed_indexes import ensure_indexes
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +28,7 @@ async def lifespan(app: FastAPI):
 
     # --- shutdown ---
     # rien pour le moment
+
 
 app = FastAPI(title="GeoChallenge API", lifespan=lifespan)
 # ⚠️ Ordre des middlewares = ordre d’ajout.

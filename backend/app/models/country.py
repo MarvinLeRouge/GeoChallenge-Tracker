@@ -1,11 +1,13 @@
 # backend/app/models/country.py
 # Référentiel minimal des pays (nom + code ISO).
 
-from pydantic import BaseModel, Field
-from typing import Optional
 import datetime as dt
-from app.core.utils import *
-from app.core.bson_utils import *
+
+from pydantic import BaseModel, Field
+
+from app.core.bson_utils import MongoBaseModel
+from app.core.utils import now
+
 
 class CountryBase(BaseModel):
     """Pays (référentiel).
@@ -14,12 +16,16 @@ class CountryBase(BaseModel):
         name (str): Nom (ex. "France").
         code (str | None): Code ISO 3166-1 alpha-2 (ex. "FR").
     """
-    name: str                      # ex: "France"
-    code: Optional[str] = None     # ex: "FR", "DE", ISO 3166-1 alpha-2
+
+    name: str  # ex: "France"
+    code: str | None = None  # ex: "FR", "DE", ISO 3166-1 alpha-2
+
 
 class CountryCreate(CountryBase):
     """Payload de création d’un pays (référentiel)."""
+
     pass
+
 
 class CountryUpdate(BaseModel):
     """Payload de mise à jour d’un pays.
@@ -28,8 +34,10 @@ class CountryUpdate(BaseModel):
         name (str | None): Nouveau nom.
         code (str | None): Nouveau code.
     """
-    name: Optional[str]
-    code: Optional[str]
+
+    name: str | None
+    code: str | None
+
 
 class Country(MongoBaseModel, CountryBase):
     """Document Mongo d’un pays (référentiel).
@@ -37,5 +45,6 @@ class Country(MongoBaseModel, CountryBase):
     Description:
         Étend `CountryBase` avec _id, created_at, updated_at.
     """
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None

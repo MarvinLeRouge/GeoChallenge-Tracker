@@ -3,21 +3,27 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Body, status
-from bson import ObjectId
+from typing import Annotated
 
-from app.core.security import get_current_user
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
+
 from app.core.bson_utils import PyObjectId
+from app.core.security import get_current_user, get_current_user_id
 from app.models.user_challenge_task_dto import (
-    TaskIn, TasksPutIn, TasksListResponse, TasksValidateIn, TasksValidateResponse
+    TasksListResponse,
+    TasksPutIn,
+    TasksValidateIn,
+    TasksValidateResponse,
 )
 from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_only
 
 router = APIRouter(
     prefix="/my/challenges/{uc_id}/tasks",
     tags=["my-challenge-tasks"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_user)],
 )
+
 
 @router.get(
     "",
@@ -26,8 +32,7 @@ router = APIRouter(
     description="Retourne la liste **ordonnée** des tâches associées au UserChallenge.",
 )
 def get_tasks(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
 ):
     """Lister les tâches d’un UserChallenge.
 
@@ -36,15 +41,15 @@ def get_tasks(
 
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         TasksListResponse: Tâches ordonnées.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     tasks = list_tasks(user_id, ObjectId(str(uc_id)))
 
     return {"tasks": tasks}
+
 
 @router.put(
     "",
@@ -53,9 +58,10 @@ def get_tasks(
     description="Remplace **l’intégralité** des tâches (avec leur ordre) pour le UserChallenge.",
 )
 def put_tasks_route(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    payload: TasksPutIn = Body(..., description="Liste complète de tâches à appliquer (ordre inclus)."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    payload: Annotated[
+        TasksPutIn, Body(..., description="Liste complète de tâches à appliquer (ordre inclus).")
+    ],
 ):
     """Remplacer l’ensemble des tâches (ordre inclus).
 
@@ -65,19 +71,23 @@ def put_tasks_route(
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
         payload (TasksPutIn): Nouvelles tâches (liste complète).
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         TasksListResponse: Tâches persistées après remplacement.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     try:
-        tasks = put_tasks(user_id, ObjectId(str(uc_id)), [t.model_dump(by_alias=True) for t in payload.tasks])
+        tasks = put_tasks(
+            user_id,
+            ObjectId(str(uc_id)),
+            [t.model_dump(by_alias=True) for t in payload.tasks],
+        )
     except ValueError as ve:
         detail = ve.args[0] if ve.args else {"error": "validation"}
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
-    
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail) from ve
+
     return {"tasks": tasks}
+
 
 @router.post(
     "/validate",
@@ -86,9 +96,8 @@ def put_tasks_route(
     description="Valide la cohérence d’une liste de tâches **sans l’enregistrer**.",
 )
 def validate_tasks_route(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    payload: TasksValidateIn = Body(..., description="Liste de tâches à valider."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    payload: Annotated[TasksValidateIn, Body(..., description="Liste de tâches à valider.")],
 ):
     """Valider une liste de tâches (sans persistance).
 
@@ -98,12 +107,15 @@ def validate_tasks_route(
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
         payload (TasksValidateIn): Tâches à valider.
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         TasksValidateResponse: Détails de validation (erreurs, avertissements, etc.).
     """
-    user_id = ObjectId(str(current_user["_id"]))
-    res = validate_only(user_id, ObjectId(str(uc_id)), [t.model_dump(by_alias=True) for t in payload.tasks])
-    
+    user_id = get_current_user_id()
+    res = validate_only(
+        user_id,
+        ObjectId(str(uc_id)),
+        [t.model_dump(by_alias=True) for t in payload.tasks],
+    )
+
     return res

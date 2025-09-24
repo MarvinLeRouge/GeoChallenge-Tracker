@@ -1,27 +1,24 @@
-
 import time
+
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 
-from app.main import app as fastapi_app
 from app.core.security import get_current_user
 from app.db.mongodb import get_collection
+from app.main import app as fastapi_app
 
 # -----------------------
 # Self-contained fixtures
 # -----------------------
 
+
 def _find_admin_user():
     users = get_collection("users")
     # Support either a 'role' string or 'roles' array containing 'admin'
-    user = users.find_one({
-        "$or": [
-            {"role": "admin"},
-            {"roles": {"$in": ["admin"]}}
-        ]
-    })
+    user = users.find_one({"$or": [{"role": "admin"}, {"roles": {"$in": ["admin"]}}]})
     return user
+
 
 @pytest.fixture(scope="session")
 def admin_user_doc():
@@ -32,22 +29,27 @@ def admin_user_doc():
         pytest.skip("Admin user found but has no valid _id ObjectId.")
     return user
 
+
 @pytest.fixture(scope="session")
 def app(admin_user_doc):
     # Dependency override to impersonate the admin user document returned by the DB
     def _override_current_user():
         return admin_user_doc
+
     fastapi_app.dependency_overrides[get_current_user] = _override_current_user
     yield fastapi_app
     fastapi_app.dependency_overrides.pop(get_current_user, None)
+
 
 @pytest.fixture(scope="session")
 def client(app):
     return TestClient(app)
 
+
 # -----------------------
 # Helper functions
 # -----------------------
+
 
 def _get_uc_ids_by_status(client: TestClient, status: str, limit=50):
     r = client.get("/my/challenges", params={"status": status, "limit": limit})
@@ -58,6 +60,7 @@ def _get_uc_ids_by_status(client: TestClient, status: str, limit=50):
     if not items:
         return []
     return [it.get("id") or it.get("_id") for it in items if (it.get("id") or it.get("_id"))]
+
 
 def _pick_any_uc_id(client: TestClient):
     for st in ["accepted", "pending", "completed", "dismissed"]:
@@ -72,12 +75,14 @@ def _pick_any_uc_id(client: TestClient):
             return items[0].get("id") or items[0].get("_id")
     return None
 
+
 def _has_tasks(client: TestClient, uc_id: str) -> bool:
     r = client.get(f"/my/challenges/{uc_id}/tasks")
     if r.status_code != 200:
         return False
     items = (r.json() or {}).get("items", [])
     return len(items) > 0
+
 
 def _ensure_minimal_tasks(client: TestClient, uc_id: str) -> None:
     """Ensure the UC has at least 2 tasks:
@@ -97,14 +102,12 @@ def _ensure_minimal_tasks(client: TestClient, uc_id: str) -> None:
                     "nodes": [
                         {
                             "kind": "attributes",
-                            "attributes": [
-                                {"cache_attribute_id": 71, "is_positive": True}
-                            ]
+                            "attributes": [{"cache_attribute_id": 71, "is_positive": True}],
                         }
-                    ]
+                    ],
                 },
                 "constraints": {"min_count": 1},
-                "status": "done"
+                "status": "done",
             },
             {
                 "title": "Smoke OR (unsupported)",
@@ -113,20 +116,16 @@ def _ensure_minimal_tasks(client: TestClient, uc_id: str) -> None:
                     "nodes": [
                         {
                             "kind": "attributes",
-                            "attributes": [
-                                {"cache_attribute_id": 71, "is_positive": True}
-                            ]
+                            "attributes": [{"cache_attribute_id": 71, "is_positive": True}],
                         },
                         {
                             "kind": "attributes",
-                            "attributes": [
-                                {"cache_attribute_id": 71, "is_positive": False}
-                            ]
-                        }
-                    ]
+                            "attributes": [{"cache_attribute_id": 71, "is_positive": False}],
+                        },
+                    ],
                 },
-                "constraints": {"min_count": 5}
-            }
+                "constraints": {"min_count": 5},
+            },
         ]
     }
     # Validate first to get clear errors if referentials are missing
@@ -143,6 +142,7 @@ def _ensure_minimal_tasks(client: TestClient, uc_id: str) -> None:
     items = (r2.json() or {}).get("items", [])
     assert len(items) >= 2
 
+
 def _recompute_aggregate(tasks):
     # Only tasks with supported_for_progress == True are included
     supported = [t for t in tasks if t.get("supported_for_progress", True)]
@@ -153,7 +153,7 @@ def _recompute_aggregate(tasks):
     tasks_done = 0
     for t in supported:
         cur = max(0, int(t.get("current_count", 0)))
-        mn  = max(0, int(t.get("min_count", 0)))
+        mn = max(0, int(t.get("min_count", 0)))
         bounded = min(cur, mn)
         sum_cur += bounded
         if bounded >= mn and mn > 0:
@@ -161,12 +161,15 @@ def _recompute_aggregate(tasks):
     percent = 0.0 if sum_min == 0 else 100.0 * (sum_cur / sum_min)
     return {"percent": percent, "tasks_total": len(supported), "tasks_done": tasks_done}
 
+
 def _approx(a: float, b: float, tol=1e-6):
     return abs(a - b) <= tol * max(1.0, abs(b))
+
 
 # -----------------------
 # Tests
 # -----------------------
+
 
 def test_progress_evaluate_smoke(client: TestClient):
     uc_id = _pick_any_uc_id(client)
@@ -186,12 +189,16 @@ def test_progress_evaluate_smoke(client: TestClient):
     # Recompute aggregate from tasks
     tasks = snap.get("tasks", [])
     agg = _recompute_aggregate(tasks)
-    assert _approx(float(snap["aggregate"]["percent"]), agg["percent"]), (snap["aggregate"], agg)
+    assert _approx(float(snap["aggregate"]["percent"]), agg["percent"]), (
+        snap["aggregate"],
+        agg,
+    )
     assert snap["aggregate"]["tasks_total"] == agg["tasks_total"]
     assert snap["aggregate"]["tasks_done"] == agg["tasks_done"]
 
     # Ensure there's at least one unsupported task present (the OR we created)
     assert any(t.get("supported_for_progress") is False for t in tasks)
+
 
 def test_progress_history_and_ordering(client: TestClient):
     uc_id = _pick_any_uc_id(client)
@@ -220,10 +227,14 @@ def test_progress_history_and_ordering(client: TestClient):
         # Ensure we have at least one history item and it's not later than latest
         assert history[0].get("checked_at") <= latest_ts
 
+
 def test_new_progress_batch_idempotent(client: TestClient):
     # First call: evaluate accepted UC without snapshot (if any)
     r1 = client.post("/my/challenges/new/progress", params={"limit": 50})
-    assert r1.status_code in (200, 207), r1.text  # 207 if you choose multi-status; else 200
+    assert r1.status_code in (
+        200,
+        207,
+    ), r1.text  # 207 if you choose multi-status; else 200
     data1 = r1.json()
     evaluated1 = data1.get("evaluated_count", 0)
 
@@ -234,6 +245,7 @@ def test_new_progress_batch_idempotent(client: TestClient):
     evaluated2 = data2.get("evaluated_count", 0)
 
     assert evaluated2 <= evaluated1
+
 
 def test_auto_evaluation_on_accept(client: TestClient):
     # Find a pending UC (if none, skip)

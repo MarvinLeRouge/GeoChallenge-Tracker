@@ -3,15 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any
 import datetime as dt
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any
 
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.bson_utils import MongoBaseModel, PyObjectId
 from app.core.utils import utcnow
-from app.core.bson_utils import PyObjectId, MongoBaseModel
-
 
 # ---------- Diagnostics structurés ----------
+
 
 class TargetDiagnosticsSubscores(BaseModel):
     """Sous-scores de diagnostic (0–1).
@@ -21,9 +22,13 @@ class TargetDiagnosticsSubscores(BaseModel):
         urgency (float): Urgence (max ratio remaining/min_count).
         geo (float): Facteur distance (1 si pas de contrainte géo).
     """
-    tasks: float = Field(ge=0.0, le=1.0)    # part des tasks non-done couvertes par la cache
-    urgency: float = Field(ge=0.0, le=1.0)  # max ratio (remaining/min_count) parmi les tasks couvertes
-    geo: float = Field(ge=0.0, le=1.0)      # facteur distance (1/(1+d/D0)) ou 1 si pas de géo
+
+    tasks: float = Field(ge=0.0, le=1.0)  # part des tasks non-done couvertes par la cache
+    urgency: float = Field(
+        ge=0.0, le=1.0
+    )  # max ratio (remaining/min_count) parmi les tasks couvertes
+    geo: float = Field(ge=0.0, le=1.0)  # facteur distance (1/(1+d/D0)) ou 1 si pas de géo
+
 
 class TargetDiagnostics(BaseModel):
     """Bloc de diagnostic complet.
@@ -36,18 +41,18 @@ class TargetDiagnostics(BaseModel):
         subscores (TargetDiagnosticsSubscores): Sous-scores de la target.
         evaluated_at (datetime): Timestamp UTC du calcul.
     """
-    matched: List[Dict[str, Any]] = Field(default_factory=list)
+
+    matched: list[dict[str, Any]] = Field(default_factory=list)
     subscores: TargetDiagnosticsSubscores
     evaluated_at: dt.datetime = Field(default_factory=utcnow)
 
-    model_config = ConfigDict(
-        json_encoders={PyObjectId: str}
-    )
+    model_config = ConfigDict(json_encoders={PyObjectId: str})
 
 
 # Schéma Mongo "targets"
 # - 1 document par (user_challenge_id, cache_id)
 # - dénormalisation minimale de la position (GeoJSON Point) pour $geoNear
+
 
 class TargetCreate(BaseModel):
     """Payload d’upsert d’une target.
@@ -64,22 +69,23 @@ class TargetCreate(BaseModel):
         loc (dict | None): GeoJSON Point `[lon, lat]`.
         diagnostics (TargetDiagnostics | None): Diagnostic interne.
     """
+
     user_id: PyObjectId
     user_challenge_id: PyObjectId
     cache_id: PyObjectId
 
     primary_task_id: PyObjectId
-    satisfies_task_ids: List[PyObjectId] = Field(default_factory=list)
+    satisfies_task_ids: list[PyObjectId] = Field(default_factory=list)
 
-    score: Optional[float] = None
-    reasons: Optional[List[str]] = None
+    score: float | None = None
+    reasons: list[str] | None = None
     pinned: bool = False
 
     # GeoJSON Point: {"type": "Point", "coordinates": [lon, lat]}
-    loc: Optional[Dict[str, Any]] = None
+    loc: dict[str, Any] | None = None
 
     # utile en debug, jamais exposé côté API publique
-    diagnostics: Optional[TargetDiagnostics] = None
+    diagnostics: TargetDiagnostics | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -100,13 +106,14 @@ class TargetUpdate(BaseModel):
         diagnostics (TargetDiagnostics | None): Diagnostic.
         updated_at (datetime | None): Timestamp MAJ.
     """
-    satisfies_task_ids: Optional[List[PyObjectId]] = None
-    score: Optional[float] = None
-    reasons: Optional[List[str]] = None
-    pinned: Optional[bool] = None
-    loc: Optional[Dict[str, Any]] = None
-    diagnostics: Optional[TargetDiagnostics] = None
-    updated_at: Optional[dt.datetime] = None
+
+    satisfies_task_ids: list[PyObjectId] | None = None
+    score: float | None = None
+    reasons: list[str] | None = None
+    pinned: bool | None = None
+    loc: dict[str, Any] | None = None
+    diagnostics: TargetDiagnostics | None = None
+    updated_at: dt.datetime | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -135,24 +142,25 @@ class Target(MongoBaseModel):
         created_at (datetime): Création (UTC).
         updated_at (datetime | None): MAJ (UTC).
     """
+
     user_id: PyObjectId
     user_challenge_id: PyObjectId
     cache_id: PyObjectId
 
     primary_task_id: PyObjectId
-    satisfies_task_ids: List[PyObjectId] = Field(default_factory=list)
+    satisfies_task_ids: list[PyObjectId] = Field(default_factory=list)
 
-    score: Optional[float] = None
-    reasons: Optional[List[str]] = None
+    score: float | None = None
+    reasons: list[str] | None = None
     pinned: bool = False
 
     # GeoJSON Point: {"type": "Point", "coordinates": [lon, lat]}
-    loc: Optional[Dict[str, Any]] = None
+    loc: dict[str, Any] | None = None
 
-    diagnostics: Optional[TargetDiagnostics] = None
+    diagnostics: TargetDiagnostics | None = None
 
     created_at: dt.datetime = Field(default_factory=utcnow)
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,

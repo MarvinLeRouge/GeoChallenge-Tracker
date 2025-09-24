@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Any, Literal
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
-
 # ---- Types communs ----
+
 
 class LocOut(BaseModel):
     """Coordonnées décimales.
@@ -16,11 +17,13 @@ class LocOut(BaseModel):
         lat (float): Latitude.
         lng (float): Longitude.
     """
+
     lat: float
     lng: float
 
 
 # ---- Sorties "list" pour les routes GET /targets ----
+
 
 class TargetListItemOut(BaseModel):
     """Élément de liste « target ».
@@ -43,23 +46,24 @@ class TargetListItemOut(BaseModel):
         pinned (bool): Épinglée.
         distance_km (float | None): Distance (si mode nearby).
     """
-    id: str                                        # id du document target
+
+    id: str  # id du document target
     user_challenge_id: str
     cache_id: str
 
     # Résumé cache (optionnel selon la jointure effectuée côté service)
-    GC: Optional[str] = None
-    name: Optional[str] = None
-    loc: Optional[LocOut] = None
+    GC: str | None = None
+    name: str | None = None
+    loc: LocOut | None = None
 
-    matched_task_ids: List[str] = Field(default_factory=list)
-    primary_task_id: Optional[str] = None
+    matched_task_ids: list[str] = Field(default_factory=list)
+    primary_task_id: str | None = None
 
     score: float
-    reasons: List[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
     pinned: bool = False
 
-    distance_km: Optional[float] = None           # si recherche 'nearby'
+    distance_km: float | None = None  # si recherche 'nearby'
 
 
 class TargetListResponse(BaseModel):
@@ -71,13 +75,15 @@ class TargetListResponse(BaseModel):
         page (int): Page courante.
         limit (int): Taille de page.
     """
-    items: List[TargetListItemOut]
+
+    items: list[TargetListItemOut]
     total: int
     page: int
     limit: int
 
 
 # ---- (Optionnel) DTO de preview "par tâche" ----
+
 
 class MatchRef(BaseModel):
     """Référence (UC, Task) couverte.
@@ -86,6 +92,7 @@ class MatchRef(BaseModel):
         uc_id (str): UC visé.
         task_id (str): Tâche couverte.
     """
+
     uc_id: str
     task_id: str
 
@@ -110,16 +117,17 @@ class TargetOut(BaseModel):
         already_found (bool): Déjà trouvée.
         pinned (bool): Épinglée.
     """
+
     cache_id: str
     name: str
     loc: LocOut
-    type_id: Optional[str] = None
-    difficulty: Optional[float] = None
-    terrain: Optional[float] = None
-    matched: List[MatchRef] = Field(default_factory=list)
+    type_id: str | None = None
+    difficulty: float | None = None
+    terrain: float | None = None
+    matched: list[MatchRef] = Field(default_factory=list)
     score: float
-    reasons: List[str] = Field(default_factory=list)
-    distance_km: Optional[float] = None
+    reasons: list[str] = Field(default_factory=list)
+    distance_km: float | None = None
     already_found: bool = False
     pinned: bool = False
 
@@ -133,10 +141,11 @@ class PerTaskBucket(BaseModel):
         needed (int): Restant à couvrir.
         candidates (list[TargetOut]): Sélection proposée.
     """
+
     uc_id: str
     task_id: str
     needed: int
-    candidates: List[TargetOut]
+    candidates: list[TargetOut]
 
 
 class TargetsPreviewPerTaskResponse(BaseModel):
@@ -147,12 +156,14 @@ class TargetsPreviewPerTaskResponse(BaseModel):
         buckets (list[PerTaskBucket]): Groupes par tâche.
         meta (dict): Métadonnées libres.
     """
+
     mode: Literal["per_task"] = "per_task"
-    buckets: List[PerTaskBucket]
-    meta: Dict[str, Any] = Field(default_factory=dict)
+    buckets: list[PerTaskBucket]
+    meta: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---- (Optionnel) DTO de preview "global" ----
+
 
 class CoverageGap(BaseModel):
     """Manque de couverture.
@@ -162,6 +173,7 @@ class CoverageGap(BaseModel):
         task_id (str): Tâche.
         remaining (int): Reste à couvrir.
     """
+
     uc_id: str
     task_id: str
     remaining: int
@@ -177,8 +189,9 @@ class TargetsPreviewGlobalResponse(BaseModel):
         remaining (list[CoverageGap]): Manques restants.
         meta (dict): Métadonnées libres.
     """
+
     mode: Literal["global"] = "global"
-    selection: List[TargetOut]
+    selection: list[TargetOut]
     covered_pairs: int
-    remaining: List[CoverageGap]
-    meta: Dict[str, Any] = Field(default_factory=dict)
+    remaining: list[CoverageGap]
+    meta: dict[str, Any] = Field(default_factory=dict)

@@ -1,12 +1,11 @@
-
 # tests/test_my_challenges_routes.py
-from typing import Dict, Optional, List
 import pytest
-from fastapi.testclient import TestClient
 from bson import ObjectId
+from fastapi.testclient import TestClient
 
-from app.main import app
 from app.core.security import get_current_user
+from app.main import app
+
 
 # ---- TestClient with a fake authenticated user (dependency override) ----
 @pytest.fixture(scope="module")
@@ -17,21 +16,25 @@ def client():
     yield c
     app.dependency_overrides.clear()
 
-def _paginated(client) -> Dict:
+
+def _paginated(client) -> dict:
     resp = client.get("/my/challenges")
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, dict) and "items" in data and isinstance(data["items"], list)
     return data
 
-def _items(client) -> List[Dict]:
+
+def _items(client) -> list[dict]:
     return _paginated(client)["items"]
 
-def _sync_and_get_one(client) -> Optional[Dict]:
+
+def _sync_and_get_one(client) -> dict | None:
     r = client.post("/my/challenges/sync")
     assert r.status_code in (200, 201)
     items = _items(client)
     return items[0] if items else None
+
 
 # --- Liste + filtre par statut ---
 def test_list_and_filter_status(client):
@@ -44,6 +47,7 @@ def test_list_and_filter_status(client):
     d2 = r_pending.json()
     assert isinstance(d2, dict) and "items" in d2 and isinstance(d2["items"], list)
 
+
 # --- Détail ---
 def test_get_detail(client):
     uc = _sync_and_get_one(client)
@@ -54,6 +58,7 @@ def test_get_detail(client):
     body = r.json()
     assert body["id"] == uc["id"]
     assert ("challenge" in body) or ("challenge_id" in body)
+
 
 # --- Patch unitaire (notes) ---
 def test_patch_updates_notes_only(client):
@@ -66,6 +71,7 @@ def test_patch_updates_notes_only(client):
     r2 = client.get(f"/my/challenges/{uc['id']}")
     assert r2.status_code == 200
     assert r2.json().get("notes") == "Première note 🤖"
+
 
 def test_patch_immutability(client):
     uc = _sync_and_get_one(client)
@@ -80,6 +86,7 @@ def test_patch_immutability(client):
     # soit challenge embarqué, soit ref immutable
     if "challenge_id" in body:
         assert body["challenge_id"] != "should-not-change"
+
 
 # --- Batch patch ---
 def test_batch_patch_notes_spec_shape(client):
@@ -106,9 +113,10 @@ def test_batch_patch_notes_spec_shape(client):
         assert detail.status_code == 200
         assert detail.json().get("notes") == f"Note batch {i}"
 
+
 # --- Robustesse entrées ---
 def test_not_found_and_validation_errors(client):
-    bad_id = "0"*24
+    bad_id = "0" * 24
     r = client.get(f"/my/challenges/{bad_id}")
     assert r.status_code in (400, 404)
 

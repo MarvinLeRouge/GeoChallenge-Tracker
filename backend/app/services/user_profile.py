@@ -2,14 +2,16 @@
 # Parse des coordonnées (formats DD/DM/DMS), conversion, lecture/écriture en base (GeoJSON Point).
 
 from __future__ import annotations
-from bson import ObjectId
+
 import re
-from datetime import datetime
-from math import floor
-from app.core.utils import *
+
+from bson import ObjectId
+
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
 # --- PARSEUR POSITION (DD / DM / DMS) --------------------------------------
+
 
 # Normalise les symboles (prime/second), espaces, décimales
 def _location_norm(s: str) -> str:
@@ -26,12 +28,13 @@ def _location_norm(s: str) -> str:
     """
     s = s.strip()
     # virgule décimale -> point
-    s = re.sub(r'(\d),(\d)', r'\1.\2', s)
+    s = re.sub(r"(\d),(\d)", r"\1.\2", s)
     # normaliser symboles unicode
     s = s.replace("′", "'").replace("”", '"').replace("″", '"')
     # compacter espaces multiples
-    s = re.sub(r'\s+', ' ', s)
+    s = re.sub(r"\s+", " ", s)
     return s
+
 
 # Un composant (lat OU lon) : [NSEW]? [+/-]? d [m [s]]
 # ° ' " optionnels; hémisphère possible en préfixe ou suffixe
@@ -51,6 +54,7 @@ _LOCATION_COMP = re.compile(
     """,
     re.VERBOSE,
 )
+
 
 def _location_to_degrees(d: float, m: float | None, s: float | None) -> float:
     """Convertir degrés/minutes/secondes en degrés décimaux.
@@ -77,6 +81,7 @@ def _location_to_degrees(d: float, m: float | None, s: float | None) -> float:
         val += float(s) / 3600.0
     return val
 
+
 def _location_component_to_deg(match: re.Match) -> tuple[float, str | None, int]:
     """Transformer un composant regex en (valeur, hémisphère, signe).
 
@@ -94,6 +99,7 @@ def _location_component_to_deg(match: re.Match) -> tuple[float, str | None, int]
     hem = (g.get("prefix_hem") or g.get("suffix_hem") or "").upper() or None
     raw_sign = -1 if g.get("sign") == "-" else 1
     return (val * raw_sign, hem, raw_sign)
+
 
 def _location_resolve_sign(value: float, hem: str | None, is_lat_guess: bool) -> float:
     """Appliquer la règle de signe en fonction de l’hémisphère.
@@ -124,6 +130,7 @@ def _location_resolve_sign(value: float, hem: str | None, is_lat_guess: bool) ->
     # pas de hem, pas de signe -> par défaut N/E donc positif
     return abs(value)
 
+
 def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
     """Parser une position libre vers (lon, lat).
 
@@ -145,7 +152,7 @@ def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
     matches = list(_LOCATION_COMP.finditer(txt))
     if len(matches) < 2:
         # Tentative: formats "dd, dd" simples (ex: "50.1, 5.2")
-        m = re.findall(r'[-+]?\d+(?:\.\d+)?', txt)
+        m = re.findall(r"[-+]?\d+(?:\.\d+)?", txt)
         if len(m) >= 2:
             lat = float(m[0])
             lon = float(m[1])
@@ -178,6 +185,7 @@ def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
         raise ValueError("coordinates out of range")
     return (lon, lat)
 
+
 def user_location_get(user_id: ObjectId):
     """Lire la localisation (GeoJSON) de l’utilisateur.
 
@@ -188,8 +196,9 @@ def user_location_get(user_id: ObjectId):
         dict | None: Champ `location` (GeoJSON Point) ou None.
     """
     doc = get_collection("users").find_one({"_id": user_id}, {"_id": 1, "location": 1})
-    
-    return (doc or {}).get("location")    
+
+    return (doc or {}).get("location")
+
 
 def user_location_set(user_id: ObjectId, lon: float, lat: float):
     """Écrire la localisation utilisateur (GeoJSON Point).
@@ -204,15 +213,19 @@ def user_location_set(user_id: ObjectId, lon: float, lat: float):
     """
     result = get_collection("users").update_one(
         {"_id": user_id},
-        {"$set": {
-            "location": {
-                "type": "Point",
-                "coordinates": [lon, lat],
-                "updated_at": utcnow()
+        {
+            "$set": {
+                "location": {
+                    "type": "Point",
+                    "coordinates": [lon, lat],
+                    "updated_at": utcnow(),
+                }
             }
-        }})
+        },
+    )
 
     return result
+
 
 def degrees_to_deg_min_mil(decimal_coord: float) -> str:
     """Convertir un degré décimal vers « degrés minutes.mmm ».
@@ -226,15 +239,16 @@ def degrees_to_deg_min_mil(decimal_coord: float) -> str:
     # Garder le signe
     sign = "-" if decimal_coord < 0 else "+"
     abs_coord = abs(decimal_coord)
-    
+
     # Partie entière = degrés
     degrees = int(abs_coord)
-    
+
     # Partie décimale * 60 = minutes
     minutes = (abs_coord - degrees) * 60
-    
+
     # Format: DD MM.mmm (3 décimales pour les minutes)
     return f"{sign}{degrees} {minutes:06.3f}"
+
 
 def coords_in_deg_min_mil(lat: float, lon: float) -> str:
     """Formatter `(lat, lon)` en « N/S DD MM.mmm  E/O DD MM.mmm ».

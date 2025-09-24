@@ -3,34 +3,33 @@
 
 from __future__ import annotations
 
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body, status
-from pydantic import BaseModel, Field
-from datetime import datetime
+from typing import Annotated
 
 from bson import ObjectId
-from app.core.security import get_current_user
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from pydantic import BaseModel, Field
+
 from app.core.bson_utils import PyObjectId
-
+from app.core.security import get_current_user, get_current_user_id
 from app.models.user_challenge_dto import (
-    ListResponse,
     DetailResponse,
-    PatchUCIn,
+    ListResponse,
     PatchResponse,
+    PatchUCIn,
 )
-
 from app.services.user_challenges import (
-    sync_user_challenges,
+    get_user_challenge_detail,
     list_user_challenges,
     patch_user_challenge,
-    get_user_challenge_detail,
+    sync_user_challenges,
 )
 
 router = APIRouter(
     prefix="/my/challenges",
     tags=["my-challenges"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_user)],
 )
+
 
 @router.post(
     "/sync",
@@ -42,23 +41,21 @@ router = APIRouter(
         "- Retourne des statistiques de synchronisation"
     ),
 )
-def sync(
-    current_user: dict = Depends(get_current_user),
-):
+def sync():
     """Synchroniser les UserChallenges.
 
     Description:
         Crée les UserChallenges manquants (status initial `pending`) en fonction des challenges disponibles.
 
     Args:
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         dict: Statistiques (créations, ignorés, etc.).
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     stats = sync_user_challenges(user_id)
     return stats
+
 
 @router.get(
     "",
@@ -71,14 +68,13 @@ def sync(
     ),
 )
 def list_uc(
-    status: Optional[str] = Query(
+    status: str | None = Query(
         default=None,
         enum=["pending", "accepted", "dismissed", "completed"],
         description="Filtrer par statut du UserChallenge.",
     ),
     page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
-    current_user: dict = Depends(get_current_user),
 ):
     """Lister mes UserChallenges (paginé).
 
@@ -89,25 +85,30 @@ def list_uc(
         status (str | None): Statut à filtrer.
         page (int): Numéro de page (≥1).
         limit (int): Taille de page (1–200).
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         ListResponse: Items et informations de pagination.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     return list_user_challenges(user_id, status, page, limit)
+
 
 # --- modèles locaux pour le batch ---
 class BatchPatchItem(BaseModel):
     uc_id: PyObjectId = Field(..., description="UserChallenge id")
-    status: Optional[str] = Field(default=None, description="Nouveau statut (pending|accepted|dismissed|completed)")
-    notes: Optional[str] = None
-    override_reason: Optional[str] = None
+    status: str | None = Field(
+        default=None,
+        description="Nouveau statut (pending|accepted|dismissed|completed)",
+    )
+    notes: str | None = None
+    override_reason: str | None = None
+
 
 class BatchPatchResultItem(BaseModel):
     uc_id: PyObjectId
     ok: bool
-    error: Optional[str] = None
+    error: str | None = None
+
 
 class BatchPatchResponse(BaseModel):
     updated_count: int
@@ -126,8 +127,13 @@ class BatchPatchResponse(BaseModel):
     ),
 )
 def patch_uc_batch(
-    items: list[BatchPatchItem] = Body(..., description="Tableau d’ordres de patch (uc_id, status?, notes?, override_reason?)."),
-    current_user: dict = Depends(get_current_user),
+    items: Annotated[
+        list[BatchPatchItem],
+        Body(
+            ...,
+            description="Tableau d’ordres de patch (uc_id, status?, notes?, override_reason?).",
+        ),
+    ],
 ):
     """Patch en lot de UserChallenges.
 
@@ -137,7 +143,6 @@ def patch_uc_batch(
 
     Args:
         items (list[BatchPatchItem]): Liste d’ordres de patch.
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         BatchPatchResponse: Résultats détaillés par item et nombre de mises à jour.
@@ -147,11 +152,12 @@ def patch_uc_batch(
 
     # garde-fou
     if len(items) > 200:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                            detail="Batch trop volumineux (max 200 items)")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Batch trop volumineux (max 200 items)",
+        )
 
-    user_id = ObjectId(str(current_user["_id"]))
-
+    user_id = get_current_user_id()
     results: list[BatchPatchResultItem] = []
     updated = 0
 
@@ -165,7 +171,9 @@ def patch_uc_batch(
                 override_reason=it.override_reason,
             )
             if not doc:
-                results.append(BatchPatchResultItem(uc_id=it.uc_id, ok=False, error="UserChallenge not found"))
+                results.append(
+                    BatchPatchResultItem(uc_id=it.uc_id, ok=False, error="UserChallenge not found")
+                )
                 continue
             updated += 1
             results.append(BatchPatchResultItem(uc_id=it.uc_id, ok=True))
@@ -177,6 +185,7 @@ def patch_uc_batch(
 
     return BatchPatchResponse(updated_count=updated, total=len(items), results=results)
 
+
 @router.get(
     "/{uc_id}",
     response_model=DetailResponse,
@@ -184,8 +193,7 @@ def patch_uc_batch(
     description="Retourne le détail d’un UserChallenge appartenant à l’utilisateur.",
 )
 def get_uc(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
 ):
     """Détail d’un UserChallenge.
 
@@ -194,16 +202,16 @@ def get_uc(
 
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         DetailResponse: Détail du UserChallenge.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     doc = get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return doc
+
 
 @router.patch(
     "/{uc_id}",
@@ -214,9 +222,11 @@ def get_uc(
     ),
 )
 def patch_uc(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    payload: PatchUCIn = Body(..., description="Champs modifiables : `status`, `notes`, `override_reason`."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    payload: Annotated[
+        PatchUCIn,
+        Body(..., description="Champs modifiables : `status`, `notes`, `override_reason`."),
+    ],
 ):
     """Patch d’un UserChallenge.
 
@@ -226,12 +236,11 @@ def patch_uc(
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
         payload (PatchUCIn): Données de mise à jour.
-        current_user (dict): Contexte utilisateur.
 
     Returns:
         PatchResponse: UserChallenge après mise à jour.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     doc = patch_user_challenge(
         user_id=user_id,
         uc_id=ObjectId(str(uc_id)),
@@ -242,4 +251,3 @@ def patch_uc(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return doc
-

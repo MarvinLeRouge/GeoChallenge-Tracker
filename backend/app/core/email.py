@@ -2,8 +2,11 @@
 # Utilitaires d’envoi d’email (SMTP async) pour la vérification de compte.
 
 from email.message import EmailMessage
+
 from aiosmtplib import send
+
 from app.core.settings import settings
+
 
 async def send_verification_email(to_email: str, username: str, code: str):
     """Envoie l’email de vérification de compte.
@@ -39,5 +42,5 @@ async def send_verification_email(to_email: str, username: str, code: str):
         port=settings.smtp_port,
         username=settings.smtp_username or None,
         password=settings.smtp_password or None,
-        start_tls=False  # pour Maildev ou local
+        start_tls=False,  # pour Maildev ou local
     )

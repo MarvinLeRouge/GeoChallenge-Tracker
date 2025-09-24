@@ -7,40 +7,49 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Body, Query, Request, status, BackgroundTasks
-from fastapi.security import OAuth2PasswordRequestForm
-from jose import jwt, JWTError
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Body,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+)
+from jose import JWTError, jwt
 from pydantic import BaseModel, Field
-from pymongo.collection import Collection
 from pymongo.collation import Collation
+from pymongo.collection import Collection
 
-from app.core.settings import settings
+from app.core.bson_utils import PyObjectId
+from app.core.email import send_verification_email
 from app.core.security import (
-    verify_password,
-    hash_password,
-    validate_password_strength,
     create_access_token,
     create_refresh_token,
+    hash_password,
+    validate_password_strength,
+    verify_password,
 )
-from app.core.email import send_verification_email
+from app.core.settings import settings
 from app.core.utils import now
-from app.core.bson_utils import PyObjectId
 from app.db.mongodb import get_collection
 from app.models.user import (
-    UserOut,
-    UserInRegister,
     RefreshTokenRequest,
     ResendVerificationRequest,
     TokenPair,
     TokenResponse,
+    UserInRegister,
+    UserOut,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Case-insensitive collation (case-insensitive, accent-sensitive)
 COLLATION_CI = Collation(locale="en", strength=2)
+
 
 def users_coll() -> Collection:
     """Retourne la collection MongoDB `users`."""
@@ -65,9 +74,12 @@ class MessageOut(BaseModel):
     ),
 )
 def register(
-    payload: UserInRegister = Body(..., description="Données d'inscription : username, email et mot de passe."),
-    users: Collection = Depends(users_coll),
-    background_tasks: BackgroundTasks = None,
+    payload: Annotated[
+        UserInRegister,
+        Body(..., description="Données d'inscription : username, email et mot de passe."),
+    ],
+    users: Annotated[Collection, Depends(users_coll)],
+    background_tasks: BackgroundTasks | None = None,
 ):
     """Inscription d’un utilisateur.
 
@@ -122,7 +134,13 @@ def register(
             code=verification_code,
         )
 
-    created = users.find_one({"_id": res.inserted_id}, {"_id": 1, "email": 1, "username": 1, "role": 1})
+    created = users.find_one(
+        {"_id": res.inserted_id}, {"_id": 1, "email": 1, "username": 1, "role": 1}
+    )
+
+    if created is None:
+        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
+
     return {
         "_id": created["_id"],
         "email": created["email"],
@@ -144,7 +162,7 @@ def register(
 )
 async def login(
     request: Request,
-    users: Collection = Depends(users_coll),
+    users: Annotated[Collection, Depends(users_coll)],
 ):
     """Connexion utilisateur.
 
@@ -166,8 +184,13 @@ async def login(
 
     if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
         form = await request.form()
-        ident = (form.get("username") or form.get("identifier") or "").strip()
-        password = form.get("password") or ""
+        # Extraction sécurisée avec vérification de type
+        raw_ident = form.get("username") or form.get("identifier") or ""
+        raw_password = form.get("password") or ""
+
+        # S'assurer qu'on a des strings, pas des UploadFile
+        ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
+        password = raw_password if isinstance(raw_password, str) else ""
     else:
         try:
             body = await request.json()
@@ -191,7 +214,11 @@ async def login(
     sub = str(user["_id"])
     access_token = create_access_token(data={"sub": sub})
     refresh_token = create_refresh_token(data={"sub": sub})
-    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
 
 
 @router.post(
@@ -206,8 +233,8 @@ async def login(
     ),
 )
 def refresh_token(
-    payload: RefreshTokenRequest = Body(..., description="Refresh token JWT valide."),
-    users: Collection = Depends(users_coll),
+    payload: Annotated[RefreshTokenRequest, Body(..., description="Refresh token JWT valide.")],
+    users: Annotated[Collection, Depends(users_coll)],
 ):
     """Rafraîchissement du token d’accès.
 
@@ -223,12 +250,16 @@ def refresh_token(
         TokenResponse: Nouveau jeton d’accès.
     """
     try:
-        data = jwt.decode(payload.refresh_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        data = jwt.decode(
+            payload.refresh_token,
+            settings.jwt_secret_key,
+            algorithms=[settings.jwt_algorithm],
+        )
         sub = data.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail="Invalid refresh token") from e
 
     user = users.find_one({"_id": PyObjectId(sub)}, {"_id": 1, "is_active": 1})
     if not user or not user.get("is_active", True):
@@ -245,6 +276,7 @@ class VerifyEmailBody(BaseModel):
 def create_verification_code() -> str:
     """Crée un code de vérification aléatoire et unique."""
     import secrets
+
     return secrets.token_urlsafe(24)
 
 
@@ -260,8 +292,10 @@ def create_verification_code() -> str:
     ),
 )
 def verify_email(
-    code: str = Query(..., description="Code de vérification reçu par email, valide 24h."),
-    users: Collection = Depends(users_coll),
+    code: Annotated[
+        str, Query(..., description="Code de vérification reçu par email, valide 24h.")
+    ],
+    users: Annotated[Collection, Depends(users_coll)],
 ):
     """Vérification email.
 
@@ -286,7 +320,10 @@ def verify_email(
 
     users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"is_verified": True, "updated_at": now()}, "$unset": {"verification_code": "", "verification_expires_at": ""}}
+        {
+            "$set": {"is_verified": True, "updated_at": now()},
+            "$unset": {"verification_code": "", "verification_expires_at": ""},
+        },
     )
     return {"message": "Email verified"}
 
@@ -298,8 +335,10 @@ def verify_email(
     description="Alternative POST pour transmettre le code de vérification dans le corps JSON.",
 )
 def verify_email_post(
-    body: VerifyEmailBody = Body(..., description="Objet contenant le code de vérification."),
-    users: Collection = Depends(users_coll),
+    body: Annotated[
+        VerifyEmailBody, Body(..., description="Objet contenant le code de vérification.")
+    ],
+    users: Annotated[Collection, Depends(users_coll)],
 ):
     """Vérification email (POST).
 
@@ -327,9 +366,12 @@ def verify_email_post(
     ),
 )
 def resend_verification(
-    body: ResendVerificationRequest = Body(..., description="Identifiant (username ou email) de l’utilisateur."),
-    users: Collection = Depends(users_coll),
-    background_tasks: BackgroundTasks = None,
+    body: Annotated[
+        ResendVerificationRequest,
+        Body(..., description="Identifiant (username ou email) de l’utilisateur."),
+    ],
+    users: Annotated[Collection, Depends(users_coll)],
+    background_tasks: BackgroundTasks | None = None,
 ):
     """Renvoi d’email de vérification.
 
@@ -354,7 +396,13 @@ def resend_verification(
         code = create_verification_code()
         users.update_one(
             {"_id": user["_id"]},
-            {"$set": {"verification_code": code, "verification_expires_at": now() + dt.timedelta(hours=24), "updated_at": now()}}
+            {
+                "$set": {
+                    "verification_code": code,
+                    "verification_expires_at": now() + dt.timedelta(hours=24),
+                    "updated_at": now(),
+                }
+            },
         )
         if background_tasks:
             background_tasks.add_task(
@@ -363,5 +411,5 @@ def resend_verification(
                 username=user.get("username", ""),
                 code=code,
             )
-            
+
     return {"message": "If the account exists and is not verified, a new email was sent."}

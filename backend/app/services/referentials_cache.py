@@ -2,22 +2,25 @@
 # Maintient en mémoire des index {code|name|numeric_id -> ObjectId} pour accélérer les validations/résolutions.
 
 from __future__ import annotations
-from typing import Any, Dict, Optional, Tuple
-from bson import ObjectId
-from app.db.mongodb import get_collection
 
 from threading import RLock
+from typing import Any
 
-collections_mapping: Dict[str, Dict[str, Any]] = {}
+from bson import ObjectId
+
+from app.db.mongodb import get_collection
+
+collections_mapping: dict[str, dict[str, Any]] = {}
 _collections_lock = RLock()
 _mapping_ready = False
+
 
 def _map_collection(
     collection_name: str,
     *,
-    code_field: Optional[str] = None,
-    name_field: Optional[str] = None,
-    extra_numeric_id_field: Optional[str] = None,
+    code_field: str | None = None,
+    name_field: str | None = None,
+    extra_numeric_id_field: str | None = None,
 ) -> None:
     """Indexer une collection référentielle en mémoire.
 
@@ -41,7 +44,7 @@ def _map_collection(
     coll = get_collection(collection_name)
 
     # Construire la projection dynamiquement pour éviter les clés None
-    projection: Dict[str, int] = {"_id": 1}
+    projection: dict[str, int] = {"_id": 1}
     if code_field:
         projection[code_field] = 1
     if name_field:
@@ -52,10 +55,10 @@ def _map_collection(
     docs = list(coll.find({}, projection))
 
     ids: set[ObjectId] = set()
-    code_map: Dict[str, ObjectId] = {}
-    name_map: Dict[str, ObjectId] = {}
+    code_map: dict[str, ObjectId] = {}
+    name_map: dict[str, ObjectId] = {}
     numeric_ids: set[int] = set()
-    doc_by_id: Dict[ObjectId, Dict[str, Any]] = {}
+    doc_by_id: dict[ObjectId, dict[str, Any]] = {}
 
     for d in docs:
         oid = d["_id"]
@@ -71,7 +74,7 @@ def _map_collection(
             except Exception:
                 pass
 
-    out: Dict[str, Any] = {"ids": ids, "doc_by_id": doc_by_id}
+    out: dict[str, Any] = {"ids": ids, "doc_by_id": doc_by_id}
     if code_field:
         out["code"] = code_map
     if name_field:
@@ -100,7 +103,7 @@ def _map_collection_states() -> None:
     docs = list(coll.find({}, {"_id": 1, "country_id": 1, "name": 1}))
 
     ids: set[ObjectId] = set()
-    by_country: Dict[str, Dict[str, ObjectId]] = {}
+    by_country: dict[str, dict[str, ObjectId]] = {}
 
     for d in docs:
         sid = d["_id"]
@@ -129,11 +132,15 @@ def _populate_mapping() -> None:
         None
     """
     collections_mapping.clear()
-    _map_collection("cache_attributes", code_field="code", name_field="txt",
-                    extra_numeric_id_field="cache_attribute_id")
-    _map_collection("cache_types",    code_field="code")
-    _map_collection("cache_sizes",    code_field="code", name_field="name")  # si "name" existe
-    _map_collection("countries",      name_field="name")
+    _map_collection(
+        "cache_attributes",
+        code_field="code",
+        name_field="txt",
+        extra_numeric_id_field="cache_attribute_id",
+    )
+    _map_collection("cache_types", code_field="code")
+    _map_collection("cache_sizes", code_field="code", name_field="name")  # si "name" existe
+    _map_collection("countries", name_field="name")
     _map_collection_states()
 
 
@@ -160,6 +167,7 @@ if not _mapping_ready:
 # Existence checks via cache
 # --------------------------------------------------------------------------------------
 
+
 def exists_id(coll_name: str, oid: ObjectId) -> bool:
     """Tester l’existence d’un ObjectId dans un référentiel.
 
@@ -177,6 +185,7 @@ def exists_id(coll_name: str, oid: ObjectId) -> bool:
     entry = collections_mapping.get(coll_name) or {}
     return oid in entry.get("ids", set())
 
+
 def exists_attribute_id(attr_id: int) -> bool:
     """Vérifier l’existence d’un identifiant numérique d’attribut.
 
@@ -192,11 +201,13 @@ def exists_attribute_id(attr_id: int) -> bool:
     except Exception:
         return False
 
+
 # --------------------------------------------------------------------------------------
 # Resolve code/name → document id (via cache)
 # --------------------------------------------------------------------------------------
 
-def _resolve_code_to_id(collection: str, field: str, value: str) -> Optional[ObjectId]:
+
+def _resolve_code_to_id(collection: str, field: str, value: str) -> ObjectId | None:
     """Résoudre un code/nom vers un ObjectId via le cache.
 
     Args:
@@ -211,7 +222,8 @@ def _resolve_code_to_id(collection: str, field: str, value: str) -> Optional[Obj
     m = entry.get(field) or {}
     return m.get(str(value).lower())
 
-def resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]]]:
+
+def resolve_attribute_code(code: str) -> tuple[ObjectId, int | None] | None:
     """Résoudre un attribut par code/texte.
 
     Description:
@@ -234,7 +246,8 @@ def resolve_attribute_code(code: str) -> Optional[Tuple[ObjectId, Optional[int]]
     num = int(doc["cache_attribute_id"]) if doc.get("cache_attribute_id") is not None else None
     return oid, num
 
-def resolve_type_code(code: str) -> Optional[ObjectId]:
+
+def resolve_type_code(code: str) -> ObjectId | None:
     """Résoudre un type de cache par code.
 
     Args:
@@ -245,7 +258,8 @@ def resolve_type_code(code: str) -> Optional[ObjectId]:
     """
     return _resolve_code_to_id("cache_types", "code", code)
 
-def resolve_size_code(code: str) -> Optional[ObjectId]:
+
+def resolve_size_code(code: str) -> ObjectId | None:
     """Résoudre une taille de cache par code.
 
     Args:
@@ -256,7 +270,8 @@ def resolve_size_code(code: str) -> Optional[ObjectId]:
     """
     return _resolve_code_to_id("cache_sizes", "code", code)
 
-def resolve_size_name(name: str) -> Optional[ObjectId]:
+
+def resolve_size_name(name: str) -> ObjectId | None:
     """Résoudre une taille de cache par nom.
 
     Args:
@@ -267,7 +282,8 @@ def resolve_size_name(name: str) -> Optional[ObjectId]:
     """
     return _resolve_code_to_id("cache_sizes", "name", name)
 
-def resolve_country_name(name: str) -> Optional[ObjectId]:
+
+def resolve_country_name(name: str) -> ObjectId | None:
     """Résoudre un pays par nom.
 
     Args:
@@ -278,7 +294,10 @@ def resolve_country_name(name: str) -> Optional[ObjectId]:
     """
     return _resolve_code_to_id("countries", "name", name)
 
-def resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None) -> Tuple[Optional[ObjectId], Optional[str]]:
+
+def resolve_state_name(
+    state_name: str, *, country_id: ObjectId | None = None
+) -> tuple[ObjectId | None, str | None]:
     """Résoudre un État/région par nom (optionnellement borné à un pays).
 
     Description:
@@ -304,7 +323,7 @@ def resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None
 
     # pas de pays fourni → ambiguïtés possibles
     hits = []
-    for cid, states in by_country.items():
+    for _cid, states in by_country.items():
         if target in states:
             hits.append(states[target])
     if not hits:
@@ -312,5 +331,3 @@ def resolve_state_name(state_name: str, *, country_id: Optional[ObjectId] = None
     if len(hits) > 1:
         return None, f"state name ambiguous without country '{state_name}'"
     return hits[0], None
-
-

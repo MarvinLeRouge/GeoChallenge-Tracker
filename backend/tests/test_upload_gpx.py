@@ -1,18 +1,19 @@
 # backend/tests/test_upload_gpx.py
-import io
 import datetime as dt
-import pytest
-from fastapi.testclient import TestClient
-from bson import ObjectId
 from pathlib import Path
 
-from app.main import app
-from app.db.mongodb import get_collection
+import pytest
+from bson import ObjectId
+from fastapi.testclient import TestClient
+
 from app.core.security import get_current_user
+from app.db.mongodb import get_collection
+from app.main import app
 
 GPX_FOLDER = Path(__file__).resolve().parents[1] / "data" / "samples" / "gpx"
 
 # ---------- Fixtures ----------
+
 
 @pytest.fixture(autouse=True)
 def clean_db():
@@ -27,6 +28,7 @@ def clean_db():
     get_collection("countries").delete_many({})
     get_collection("states").delete_many({})
 
+
 @pytest.fixture
 def client():
     fake_user = {"_id": ObjectId()}
@@ -35,13 +37,14 @@ def client():
     yield c
     app.dependency_overrides.clear()
 
+
 @pytest.fixture
 def sample_gpx_path():
     return f"{GPX_FOLDER}/test-export.gpx"
 
 
-
 # ---------- Tests ----------
+
 
 def test_upload_gpx_without_found(client, sample_gpx_path):
     before_caches = get_collection("caches").count_documents({})
@@ -64,6 +67,7 @@ def test_upload_gpx_without_found(client, sample_gpx_path):
     after_found = get_collection("found_caches").count_documents({})
     assert after_caches >= before_caches
     assert after_found == before_found
+
 
 def test_upload_gpx_with_found(client, sample_gpx_path):
     with open(sample_gpx_path, "rb") as fh:

@@ -1,11 +1,14 @@
 # backend/app/services/parsers/GPXCacheParser.py
 # Parse un fichier GPX (ouvert depuis un chemin) pour extraire des géocaches structurées (métadonnées, attributs).
 
-from lxml import etree
-from pathlib import Path
-from typing import List, Dict
 import html
+from pathlib import Path
+from typing import Any
+
+from lxml import etree
+
 from app.services.parsers.HTMLSanitizer import HTMLSanitizer
+
 
 class GPXCacheParser:
     """Parseur GPX de géocaches.
@@ -22,7 +25,7 @@ class GPXCacheParser:
         caches (list[dict]): Résultats accumulés après `parse()`.
         sanitizer (HTMLSanitizer): Sanitizeur HTML pour la description longue.
     """
-    
+
     def __init__(self, gpx_file: Path):
         """Initialiser le parseur GPX.
 
@@ -42,9 +45,9 @@ class GPXCacheParser:
             "groundspeak": "http://www.groundspeak.com/cache/1/0/1",
             "gsak": "http://www.gsak.net/xmlv1/6",
         }
-        self.caches: List[Dict] = []
+        self.caches: list[dict] = []
         self.sanitizer = HTMLSanitizer()
-    
+
     def test(self):
         """Lister tous les tags XML (debug).
 
@@ -62,7 +65,7 @@ class GPXCacheParser:
         for elem in tree.getroot().iter():
             print(elem.tag)
 
-    def parse(self) -> List[Dict]:
+    def parse(self) -> list[dict]:
         """Analyser le GPX et remplir `self.caches`.
 
         Description:
@@ -79,7 +82,11 @@ class GPXCacheParser:
             list[dict]: Liste de caches structurées prêtes à l’import.
         """
         tree = etree.parse(str(self.gpx_file))
-        for wpt in tree.xpath("//gpx:wpt", namespaces=self.namespaces):
+        nodes: Any = tree.xpath("//gpx:wpt", namespaces=self.namespaces)
+        if not isinstance(nodes, list):
+            raise ValueError("XPath did not return nodes")
+
+        for wpt in nodes:
             cache_elem = wpt.find("groundspeak:cache", namespaces=self.namespaces)
             if cache_elem is None:
                 continue
@@ -98,19 +105,20 @@ class GPXCacheParser:
                     "terrain": self.find_text_deep(wpt, "groundspeak:terrain"),
                     "country": self.find_text_deep(wpt, "groundspeak:country"),
                     "state": self.find_text_deep(wpt, "groundspeak:state"),
-                    "description_html": self.sanitizer.clean_description_html(self.find_text_deep(wpt, "groundspeak:long_description")),
+                    "description_html": self.sanitizer.clean_description_html(
+                        self.find_text_deep(wpt, "groundspeak:long_description")
+                    ),
                     "favorites": int(self.find_text_deep(wpt, "gsak:FavPoints") or 0),
                     "notes": self.find_text_deep(wpt, "gsak:GcNote"),
                     "placed_date": self.find_text_deep(wpt, "gpx:time"),
                     "found_date": self.find_text_deep(wpt, "gsak:UserFound"),
-                    "attributes": self._parse_attributes(cache_elem)
+                    "attributes": self._parse_attributes(cache_elem),
                 }
                 self.caches.append(cache)
 
         return self.caches
 
-
-    def _parse_attributes(self, cache_elem) -> List[Dict]:
+    def _parse_attributes(self, cache_elem) -> list[dict]:
         """Extraire la liste des attributs depuis `<groundspeak:attributes>`.
 
         Description:
@@ -124,12 +132,16 @@ class GPXCacheParser:
             list[dict]: Attributs normalisés (id / inc / libellé).
         """
         attrs = []
-        for attr in cache_elem.xpath("groundspeak:attributes/groundspeak:attribute", namespaces=self.namespaces):
-            attrs.append({
-                "id": int(attr.get("id")),
-                "is_positive": attr.get("inc") == "1",
-                "name": attr.text.strip() if attr.text else ""
-            })
+        for attr in cache_elem.xpath(
+            "groundspeak:attributes/groundspeak:attribute", namespaces=self.namespaces
+        ):
+            attrs.append(
+                {
+                    "id": int(attr.get("id")),
+                    "is_positive": attr.get("inc") == "1",
+                    "name": attr.text.strip() if attr.text else "",
+                }
+            )
 
         return attrs
 
@@ -149,7 +161,7 @@ class GPXCacheParser:
         gsak_infos = wpt_elem.find("gsak:wptExtension", None)
         if gsak_infos is not None:
             print(gsak_infos)
-        #return wpt_elem.find("gsak:corrected", namespaces=self.namespaces) is not None
+        return wpt_elem.find("gsak:corrected", namespaces=self.namespaces) is not None
 
     def _has_found_log(self, cache_elem) -> bool:
         """Vérifier la présence d’un log « Found it ».
@@ -226,7 +238,7 @@ class GPXCacheParser:
         """
         return html.unescape(element.text.strip()) if element is not None and element.text else ""
 
-    def get_caches(self) -> List[Dict]:
+    def get_caches(self) -> list[dict]:
         """Récupérer la liste des caches déjà extraites.
 
         Args:

@@ -1,15 +1,17 @@
-from datetime import datetime
-from typing import Dict, Any, List
 import json
+from collections.abc import Mapping
+from typing import Any
+
 import pytest
 from bson import ObjectId
 from rich import print as rprint
 
-from app.core.utils import *
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_only
 
 ADMIN_ROLE = "admin"
+
 
 def _name_for(coll: str, _id: ObjectId) -> str:
     doc = get_collection(coll).find_one({"_id": _id}, {"name": 1, "code": 1})
@@ -17,14 +19,18 @@ def _name_for(coll: str, _id: ObjectId) -> str:
         return str(_id)
     return doc.get("name") or doc.get("code") or str(_id)
 
+
 def _attr_name(caid: int) -> str:
-    doc = get_collection("cache_attributes").find_one({"cache_attribute_id": caid}, {"name": 1, "name_reverse": 1, "code": 1})
+    doc = get_collection("cache_attributes").find_one(
+        {"cache_attribute_id": caid}, {"name": 1, "name_reverse": 1, "code": 1}
+    )
     if not doc:
         return f"attr:{caid}"
     return doc.get("name") or doc.get("name_reverse") or doc.get("code") or f"attr:{caid}"
 
-def _render_expression_human(expr: Dict[str, Any]) -> str:
-    if not isinstance(expr, dict):
+
+def _render_expression_human(expr: Mapping[str, Any] | None) -> str:
+    if not isinstance(expr, Mapping):
         return json.dumps(expr, default=str, indent=2)
 
     kind = expr.get("kind")
@@ -38,23 +44,25 @@ def _render_expression_human(expr: Dict[str, Any]) -> str:
         return "NOT (" + _render_expression_human(expr.get("node")) + ")"
 
     if kind == "type_in":
-        ids = [ _name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", []) ]
+        ids = [_name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", [])]
         return f"type in [{', '.join(ids)}]"
     if kind == "size_in":
-        ids = [ _name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", []) ]
+        ids = [_name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", [])]
         return f"size in [{', '.join(ids)}]"
     if kind == "country_is":
         cid = expr.get("country_id")
         name = _name_for("countries", ObjectId(str(cid))) if cid else "?"
         return f"country is {name}"
     if kind == "state_in":
-        ids = [ _name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", []) ]
+        ids = [_name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", [])]
         return f"state in [{', '.join(ids)}]"
     if kind == "difficulty_between":
-        a = expr.get("min"); b = expr.get("max")
+        a = expr.get("min")
+        b = expr.get("max")
         return f"difficulty {a}–{b}"
     if kind == "terrain_between":
-        a = expr.get("min"); b = expr.get("max")
+        a = expr.get("min")
+        b = expr.get("max")
         return f"terrain {a}–{b}"
     if kind == "placed_year":
         return f"placed in {expr.get('year')}"
@@ -71,13 +79,19 @@ def _render_expression_human(expr: Dict[str, Any]) -> str:
 
     return json.dumps(expr, default=str, indent=2)
 
+
 @pytest.fixture(scope="module")
 def admin_user_id():
-    user = get_collection("users").find_one({"role": ADMIN_ROLE}, {"_id": 1, "username": 1, "email": 1})
+    user = get_collection("users").find_one(
+        {"role": ADMIN_ROLE}, {"_id": 1, "username": 1, "email": 1}
+    )
     if not user:
         pytest.skip("No admin user found in DB.")
-    rprint(f"[setup] Admin: _id={user['_id']} username={user.get('username')} email={user.get('email')}")
+    rprint(
+        f"[setup] Admin: _id={user['_id']} username={user.get('username')} email={user.get('email')}"
+    )
     return user["_id"]
+
 
 @pytest.fixture()
 def uc_ctx(admin_user_id):
@@ -115,19 +129,37 @@ def uc_ctx(admin_user_id):
     get_collection("challenges").delete_one({"_id": ch_doc["_id"]})
     rprint(f"[teardown] Cleaned user_challenge {uc_doc['_id']} and challenge {ch_doc['_id']}")
 
+
 def _sample_referentials():
-    ct_tradi = get_collection("cache_types").find_one({"code": "traditional"}, {"_id": 1, "name": 1, "code": 1})
-    attr_picnic = get_collection("cache_attributes").find_one({"code": "picnic"}, {"cache_attribute_id": 1, "name": 1, "code": 1})
+    ct_tradi = get_collection("cache_types").find_one(
+        {"code": "traditional"}, {"_id": 1, "name": 1, "code": 1}
+    )
+    attr_picnic = get_collection("cache_attributes").find_one(
+        {"code": "picnic"}, {"cache_attribute_id": 1, "name": 1, "code": 1}
+    )
     france = get_collection("countries").find_one({"name": "France"}, {"_id": 1, "name": 1})
-    states_fr = list(get_collection("states").find({"country_id": france["_id"]}, {"_id": 1, "name": 1}).limit(2)) if france else []
+    states_fr = (
+        list(
+            get_collection("states")
+            .find({"country_id": france["_id"]}, {"_id": 1, "name": 1})
+            .limit(2)
+        )
+        if france
+        else []
+    )
     sizes = list(get_collection("cache_sizes").find({}, {"_id": 1, "name": 1}).limit(2))
 
     missing = []
-    if not ct_tradi: missing.append("cache_types.code=traditional")
-    if not attr_picnic: missing.append("cache_attributes.code=picnic")
-    if not france: missing.append("countries.name=France")
-    if len(states_fr) < 1: missing.append("states(country=France)")
-    if len(sizes) < 1: missing.append("cache_sizes")
+    if not ct_tradi:
+        missing.append("cache_types.code=traditional")
+    if not attr_picnic:
+        missing.append("cache_attributes.code=picnic")
+    if not france:
+        missing.append("countries.name=France")
+    if len(states_fr) < 1:
+        missing.append("states(country=France)")
+    if len(sizes) < 1:
+        missing.append("cache_sizes")
     if missing:
         raise AssertionError("Missing referentials: " + ", ".join(missing))
 
@@ -142,9 +174,13 @@ def _sample_referentials():
             "attribute": attr_picnic.get("name") or attr_picnic.get("code") or "picnic",
             "country": france.get("name", "France"),
             "states": [s.get("name") for s in states_fr],
-            "sizes": [get_collection("cache_sizes").find_one({"_id": sid}, {"name": 1}).get("name") for sid in [s["_id"] for s in sizes]],
-        }
+            "sizes": [
+                get_collection("cache_sizes").find_one({"_id": sid}, {"name": 1}).get("name")
+                for sid in [s["_id"] for s in sizes]
+            ],
+        },
     }
+
 
 def _baseline_tasks(refs):
     return [
@@ -153,11 +189,19 @@ def _baseline_tasks(refs):
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "type_in", "type_ids": [str(x) for x in refs["type_ids"]]},
-                    { "kind": "attributes", "attributes": [ { "cache_attribute_id": refs["cache_attribute_id"], "is_positive": True } ] }
-                ]
+                    {"kind": "type_in", "type_ids": [str(x) for x in refs["type_ids"]]},
+                    {
+                        "kind": "attributes",
+                        "attributes": [
+                            {
+                                "cache_attribute_id": refs["cache_attribute_id"],
+                                "is_positive": True,
+                            }
+                        ],
+                    },
+                ],
             },
-            "constraints": { "min_count": 3 },
+            "constraints": {"min_count": 3},
             "status": "todo",
         },
         {
@@ -165,12 +209,12 @@ def _baseline_tasks(refs):
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "size_in", "size_ids": [str(x) for x in refs["size_ids"]] },
-                    { "kind": "country_is", "country_id": str(refs["country_id"]) },
-                    { "kind": "placed_before", "date": "2010-01-01" }
-                ]
+                    {"kind": "size_in", "size_ids": [str(x) for x in refs["size_ids"]]},
+                    {"kind": "country_is", "country_id": str(refs["country_id"])},
+                    {"kind": "placed_before", "date": "2010-01-01"},
+                ],
             },
-            "constraints": { "min_count": 2 },
+            "constraints": {"min_count": 2},
             "status": "in_progress",
         },
         {
@@ -178,15 +222,19 @@ def _baseline_tasks(refs):
             "expression": {
                 "kind": "and",
                 "nodes": [
-                    { "kind": "state_in", "state_ids": [str(x) for x in refs["state_ids"]]},
-                    { "kind": "difficulty_between", "min": 1.5, "max": 3.0 },
-                    { "kind": "terrain_between", "min": 1.5, "max": 3.0 }
-                ]
+                    {
+                        "kind": "state_in",
+                        "state_ids": [str(x) for x in refs["state_ids"]],
+                    },
+                    {"kind": "difficulty_between", "min": 1.5, "max": 3.0},
+                    {"kind": "terrain_between", "min": 1.5, "max": 3.0},
+                ],
             },
-            "constraints": { "min_count": 1 },
+            "constraints": {"min_count": 1},
             "status": "done",
         },
     ]
+
 
 def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
     refs = _sample_referentials()
@@ -219,7 +267,10 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
     assert [i["order"] for i in res_list] == list(range(len(tasks_payload)))
 
     done = next((i for i in res_list if i["status"] == "done"), None)
-    assert done is not None and done.get("progress", {}).get("percent") == 100, "Done task did not get 100% progress"
+    assert (
+        done is not None and done.get("progress", {}).get("percent") == 100
+    ), "Done task did not get 100% progress"
+
 
 def test_reorder_and_idempotence(admin_user_id, uc_ctx):
     refs = _sample_referentials()
@@ -234,21 +285,24 @@ def test_reorder_and_idempotence(admin_user_id, uc_ctx):
     reordered = list(reversed(created))
     new_payload = []
     for item in reordered:
-        new_payload.append({
-            "id": item["id"],
-            "title": item["title"],
-            "expression": item["expression"],
-            "constraints": item["constraints"],
-            "status": item["status"],
-        })
+        new_payload.append(
+            {
+                "id": item["id"],
+                "title": item["title"],
+                "expression": item["expression"],
+                "constraints": item["constraints"],
+                "status": item["status"],
+            }
+        )
     updated = put_tasks(admin_user_id, uc_id, new_payload)
     rprint("[reorder] after reversing order:", [i["order"] for i in updated])
-    assert [i["order"] for i in updated] == [0,1,2]
+    assert [i["order"] for i in updated] == [0, 1, 2]
     assert updated[0]["id"] == created[-1]["id"]
 
     again = put_tasks(admin_user_id, uc_id, new_payload)
     rprint("[reorder] idempotent put:", [i["id"] for i in again])
     assert [i["id"] for i in again] == [i["id"] for i in updated]
+
 
 def test_delete_implicit(admin_user_id, uc_ctx):
     refs = _sample_referentials()
@@ -282,19 +336,23 @@ def test_delete_implicit(admin_user_id, uc_ctx):
     titles = [i["title"] for i in updated]
     assert created[1]["title"] not in titles
 
+
 def test_invalid_referentials_validate_only(admin_user_id, uc_ctx):
     uc_id = uc_ctx["user_challenge_id"]
 
     payload = [
         {
             "title": "Bad type id",
-            "expression": {"kind":"type_in","type_ids":[str(ObjectId())]},
+            "expression": {"kind": "type_in", "type_ids": [str(ObjectId())]},
             "constraints": {"min_count": 1},
             "status": "todo",
         },
         {
             "title": "Bad attribute id",
-            "expression": {"kind":"attributes","attributes":[{"cache_attribute_id": 999999, "is_positive": True}]},
+            "expression": {
+                "kind": "attributes",
+                "attributes": [{"cache_attribute_id": 999999, "is_positive": True}],
+            },
             "constraints": {"min_count": 1},
             "status": "todo",
         },
@@ -302,8 +360,12 @@ def test_invalid_referentials_validate_only(admin_user_id, uc_ctx):
     res = validate_only(admin_user_id, uc_id, payload)
     rprint("\n[invalid refs] validate_only:", res)
     assert res["ok"] is False
-    assert any("type_in" in e.get("message","") or "cache_type" in e.get("message","") for e in res["errors"])
-    assert any("attributes" in e.get("message","") for e in res["errors"])
+    assert any(
+        "type_in" in e.get("message", "") or "cache_type" in e.get("message", "")
+        for e in res["errors"]
+    )
+    assert any("attributes" in e.get("message", "") for e in res["errors"])
+
 
 def test_ast_grammar_error(admin_user_id, uc_ctx):
     refs = _sample_referentials()
@@ -312,19 +374,22 @@ def test_ast_grammar_error(admin_user_id, uc_ctx):
     bad_payload = [
         {
             "title": "Missing size_ids field",
-            "expression": {"kind":"size_in","type_ids":[str(x) for x in refs["size_ids"]]},
+            "expression": {
+                "kind": "size_in",
+                "type_ids": [str(x) for x in refs["size_ids"]],
+            },
             "constraints": {"min_count": 1},
             "status": "todo",
         },
         {
             "title": "Unknown kind",
-            "expression": {"kind":"gloubiboulga","foo": "bar"},
+            "expression": {"kind": "gloubiboulga", "foo": "bar"},
             "constraints": {"min_count": 1},
             "status": "todo",
         },
         {
             "title": "Malformed and (no nodes)",
-            "expression": {"kind":"and","nodes":[]},
+            "expression": {"kind": "and", "nodes": []},
             "constraints": {"min_count": 1},
             "status": "todo",
         },
@@ -335,6 +400,7 @@ def test_ast_grammar_error(admin_user_id, uc_ctx):
     # At least one error present
     assert len([e for e in res["errors"] if e.get("code") != "ok"]) >= 1
 
+
 def test_or_and_not_acceptance(admin_user_id, uc_ctx):
     refs = _sample_referentials()
     uc_id = uc_ctx["user_challenge_id"]
@@ -342,16 +408,30 @@ def test_or_and_not_acceptance(admin_user_id, uc_ctx):
     payload = [
         {
             "title": "OR over types (traditional or traditional)",
-            "expression": {"kind":"or","nodes":[
-                {"kind":"type_in","type_ids":[str(x) for x in refs["type_ids"]]},
-                {"kind":"type_in","type_ids":[str(x) for x in refs["type_ids"]]},
-            ]},
+            "expression": {
+                "kind": "or",
+                "nodes": [
+                    {"kind": "type_in", "type_ids": [str(x) for x in refs["type_ids"]]},
+                    {"kind": "type_in", "type_ids": [str(x) for x in refs["type_ids"]]},
+                ],
+            },
             "constraints": {"min_count": 1},
             "status": "todo",
         },
         {
             "title": "NOT picnic",
-            "expression": {"kind":"not","node": {"kind":"attributes","attributes":[{"cache_attribute_id": refs["cache_attribute_id"], "is_positive": True}]}},
+            "expression": {
+                "kind": "not",
+                "node": {
+                    "kind": "attributes",
+                    "attributes": [
+                        {
+                            "cache_attribute_id": refs["cache_attribute_id"],
+                            "is_positive": True,
+                        }
+                    ],
+                },
+            },
             "constraints": {"min_count": 1},
             "status": "todo",
         },

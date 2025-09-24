@@ -1,9 +1,13 @@
+from collections.abc import Sequence
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
 from app.core.settings import settings
 
+
 class MaxBodySizeMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, max_body_size: int, exclude_paths: tuple[str, ...] = ()):
+    def __init__(self, app, max_body_size: int, exclude_paths: Sequence[str] = ()):
         super().__init__(app)
         self.max_body_size = max_body_size
         self.exclude_paths = exclude_paths
@@ -19,7 +23,9 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
             try:
                 if int(cl) > self.max_body_size:
                     return JSONResponse(
-                        {"detail": f"Fichier trop volumineux (>{self.max_body_size // settings.one_mb} Mo)."},
+                        {
+                            "detail": f"Fichier trop volumineux (>{self.max_body_size // settings.one_mb} Mo)."
+                        },
                         status_code=413,
                     )
             except ValueError:

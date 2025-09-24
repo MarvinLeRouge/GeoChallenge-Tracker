@@ -2,16 +2,16 @@
 # Interface d’appel asynchrone pour récupérer les altitudes via un provider (OpenTopoData par défaut).
 
 from __future__ import annotations
-from typing import List, Optional, Tuple
-import os
+
+from app.core.settings import settings
 
 # Provider registry (can be extended later)
 from app.services.providers.elevation_opentopo import fetch as fetch_opentopo
-from app.core.settings import settings
 
 DEFAULT_PROVIDER = settings.elevation_provider
 
-async def fetch(points: List[Tuple[float, float]]) -> List[Optional[int]]:
+
+async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
     """Récupérer les altitudes pour une liste de points.
 
     Description:
@@ -23,7 +23,7 @@ async def fetch(points: List[Tuple[float, float]]) -> List[Optional[int]]:
         points (list[tuple[float, float]]): Liste de coordonnées (latitude, longitude).
 
     Returns:
-        list[Optional[int]]: Altitudes en mètres (ou `None` en cas d’indisponibilité/échec), alignées sur `points`.
+        list[int | None]: Altitudes en mètres (ou `None` en cas d’indisponibilité/échec), alignées sur `points`.
     """
     provider = DEFAULT_PROVIDER.lower()
     if provider in ("opentopo", "opentopodata"):
