@@ -3,15 +3,15 @@
 # respect du quota quotidien via la collection `api_quotas`, et rate limiting côté client.
 
 from __future__ import annotations
-from typing import List, Optional, Tuple
-import os
+
 import asyncio
-import datetime as dt
+import os
+
 import httpx
 
-from app.db.mongodb import get_collection
 from app.core.settings import settings
-from app.core.utils import *
+from app.core.utils import utcnow
+from app.db.mongodb import get_collection
 
 # Config
 ENDPOINT = settings.elevation_provider_endpoint
@@ -22,6 +22,7 @@ ENABLED = settings.elevation_enabled
 
 # Quota
 PROVIDER_KEY = "opentopodata_mapzen"
+
 
 def _quota_key_for_today() -> str:
     """Clé de quota journalière pour le provider.
@@ -40,6 +41,7 @@ def _quota_key_for_today() -> str:
     today = utcnow().date().isoformat()
     return f"{PROVIDER_KEY}:{today}"
 
+
 def _read_quota() -> int:
     """Lire le compteur de requêtes du jour.
 
@@ -56,6 +58,7 @@ def _read_quota() -> int:
     """
     doc = get_collection("api_quotas").find_one({"_id": _quota_key_for_today()})
     return int(doc["count"]) if doc and "count" in doc else 0
+
 
 def _inc_quota(n: int) -> None:
     """Incrémenter le compteur de quota du jour.
@@ -76,7 +79,8 @@ def _inc_quota(n: int) -> None:
         upsert=True,
     )
 
-def _build_param(points: List[tuple[float, float]]) -> str:
+
+def _build_param(points: list[tuple[float, float]]) -> str:
     """Construire le paramètre `locations` de l’API.
 
     Description:
@@ -91,14 +95,15 @@ def _build_param(points: List[tuple[float, float]]) -> str:
     """
     return "|".join(f"{lat},{lon}" for (lat, lon) in points)
 
-def _split_params_by_url_and_count(all_param: str) -> List[str]:
+
+def _split_params_by_url_and_count(all_param: str) -> list[str]:
     """Découper `locations` en fragments compatibles URL et quota par requête.
 
     Description:
         Divise la grande chaîne `locations` en **morceaux** respectant :
         - la longueur maximale d’URL (~`URL_MAXLEN`) en tenant compte du préfixe `?locations=`
         - la limite `MAX_POINTS_PER_REQ` (nombre de points par appel)
-        
+
         Heuristique :
         - coupe par la dernière barre verticale `|` pour ne pas séparer un couple lat/lon ;
         - si un fragment dépasse la limite de points, tronque au **nombre permis** et
@@ -113,7 +118,7 @@ def _split_params_by_url_and_count(all_param: str) -> List[str]:
     prefix_len = len(f"{ENDPOINT}?locations=")
     max_param_len = max(1, URL_MAXLEN - prefix_len)
 
-    chunks: List[str] = []
+    chunks: list[str] = []
     remaining = all_param
     while remaining:
         # take max slice by URL size
@@ -127,10 +132,10 @@ def _split_params_by_url_and_count(all_param: str) -> List[str]:
             if cut == -1:
                 # no '|' found -> single coordinate longer than max? take it anyway
                 chunk = take
-                remaining = remaining[len(take):]
+                remaining = remaining[len(take) :]
             else:
                 chunk = take[:cut]
-                remaining = remaining[cut+1:]  # drop the '|'
+                remaining = remaining[cut + 1 :]  # drop the '|'
 
         # enforce MAX_POINTS_PER_REQ
         # number of points = number of pipes + 1 (unless chunk empty)
@@ -149,7 +154,7 @@ def _split_params_by_url_and_count(all_param: str) -> List[str]:
                             idx = i
                             break
                 if idx != -1:
-                    extra = chunk[idx+1:]
+                    extra = chunk[idx + 1 :]
                     chunk = chunk[:idx]
                     # prepend overflow back to remaining (with a '|' if needed)
                     remaining = (extra + ("|" + remaining if remaining else "")).lstrip("|")
@@ -157,7 +162,8 @@ def _split_params_by_url_and_count(all_param: str) -> List[str]:
         chunks.append(chunk)
     return [c for c in chunks if c]
 
-async def fetch(points: List[tuple[float, float]]) -> List[Optional[int]]:
+
+async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
     """Récupérer les altitudes pour une liste de points (alignées sur l’entrée).
 
     Description:
@@ -182,7 +188,7 @@ async def fetch(points: List[tuple[float, float]]) -> List[Optional[int]]:
         points (list[tuple[float, float]]): Liste `(lat, lon)` pour lesquelles obtenir l’altitude.
 
     Returns:
-        list[Optional[int]]: Liste des altitudes en mètres (ou `None` sur échec), **alignée** sur `points`.
+        list[int | None]: Liste des altitudes en mètres (ou `None` sur échec), **alignée** sur `points`.
     """
     if not ENABLED or not points:
         return [None] * len(points)
@@ -198,7 +204,7 @@ async def fetch(points: List[tuple[float, float]]) -> List[Optional[int]]:
     param_all = _build_param(points)
     param_chunks = _split_params_by_url_and_count(param_all)
 
-    results: List[Optional[int]] = [None] * len(points)
+    results: list[int | None] = [None] * len(points)
     # We need to also split the original points list in the same way to keep indices aligned.
     # We'll reconstruct chunk-wise indices by counting commas/pipes.
     idx_start = 0
@@ -206,7 +212,6 @@ async def fetch(points: List[tuple[float, float]]) -> List[Optional[int]]:
         for i, param in enumerate(param_chunks):
             # Determine how many points are in this chunk
             n_pts = 1 if param and "|" not in param else (param.count("|") + 1 if param else 0)
-            pts_slice = points[idx_start: idx_start + n_pts]
 
             # Quota guard: stop if next request would exceed
             if daily_count >= DAILY_LIMIT:

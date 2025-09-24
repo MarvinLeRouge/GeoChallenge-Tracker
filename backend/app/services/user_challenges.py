@@ -3,16 +3,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Literal
-from datetime import datetime
-from bson import ObjectId
-from pymongo import UpdateOne, ReturnDocument
+from typing import Any, Literal
 
+from bson import ObjectId
+from pymongo import ReturnDocument, UpdateOne
+
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
-from app.core.utils import *
 
-def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
+def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
     """Créer les UserChallenges manquants (status=pending).
 
     Description:
@@ -38,7 +38,7 @@ def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
     known = set(ucs.distinct("challenge_id", {"user_id": user_id}))
     missing = [cid for cid in challenge_ids if cid not in known]
 
-    ops: List[UpdateOne] = []
+    ops: list[UpdateOne] = []
     for cid in missing:
         ops.append(
             UpdateOne(
@@ -67,15 +67,20 @@ def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
         # Map cache_id -> (challenge_id)
         cache_to_challenge = {
             doc["cache_id"]: doc["_id"]
-            for doc in challenges.find({"cache_id": {"$in": list(found_cache_ids)}}, {"_id": 1, "cache_id": 1})
+            for doc in challenges.find(
+                {"cache_id": {"$in": list(found_cache_ids)}}, {"_id": 1, "cache_id": 1}
+            )
         }
         if cache_to_challenge:
             # Pour associer la bonne date à chaque UC, on lit found_caches (user_id, cache_id, found_date)
             cur = found.find(
-                {"user_id": user_id, "cache_id": {"$in": list(cache_to_challenge.keys())}},
+                {
+                    "user_id": user_id,
+                    "cache_id": {"$in": list(cache_to_challenge.keys())},
+                },
                 {"cache_id": 1, "found_date": 1, "_id": 0},
             )
-            updates: List[UpdateOne] = []
+            updates: list[UpdateOne] = []
             now = utcnow()
             for fc in cur:
                 ch_id = cache_to_challenge.get(fc["cache_id"])
@@ -110,12 +115,13 @@ def sync_user_challenges(user_id: ObjectId) -> Dict[str, int]:
     existing = total - created
     return {"created": created, "existing": existing, "total_user_challenges": total}
 
+
 def list_user_challenges(
     user_id: ObjectId,
-    status: Optional[str],
+    status: str | None,
     page: int,
     limit: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Lister les UserChallenges (paginé + filtre effectif).
 
     Description:
@@ -131,81 +137,102 @@ def list_user_challenges(
         dict: `{items, page, limit, total}`.
     """
     ucs = get_collection("user_challenges")
-    pipeline: List[Dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
     ]
     if status:
         if status == "completed":
             # Effectif: completed si statut manuel OU calculé
-            pipeline.append({
-                "$match": {
-                    "$or": [
-                        {"status": "completed"},
-                        {"computed_status": "completed"},
-                    ]
+            pipeline.append(
+                {
+                    "$match": {
+                        "$or": [
+                            {"status": "completed"},
+                            {"computed_status": "completed"},
+                        ]
+                    }
                 }
-            })
+            )
         elif status == "dismissed":
             # dismissed effectif = statut utilisateur (hors completed)
-            pipeline.append({
-                "$match": {
-                    "status": "dismissed",
-                    "computed_status": {"$ne": "completed"},
+            pipeline.append(
+                {
+                    "$match": {
+                        "status": "dismissed",
+                        "computed_status": {"$ne": "completed"},
+                    }
                 }
-            })
+            )
         elif status == "accepted":
             # accepted effectif = statut utilisateur (hors completed)
-            pipeline.append({
-                "$match": {
-                    "status": "accepted",
-                    "computed_status": {"$ne": "completed"},
+            pipeline.append(
+                {
+                    "$match": {
+                        "status": "accepted",
+                        "computed_status": {"$ne": "completed"},
+                    }
                 }
-            })
+            )
         elif status == "pending":
             # pending effectif = ni accepted, ni dismissed, ni completed (manuel ou calculé)
-            pipeline.append({
-                "$match": {
-                    "status": {"$nin": ["accepted", "dismissed", "completed"]},
-                    "computed_status": {"$ne": "completed"},
+            pipeline.append(
+                {
+                    "$match": {
+                        "status": {"$nin": ["accepted", "dismissed", "completed"]},
+                        "computed_status": {"$ne": "completed"},
+                    }
                 }
-            })
+            )
     pipeline += [
-        {"$lookup": {
-            "from": "challenges",
-            "localField": "challenge_id",
-            "foreignField": "_id",
-            "as": "challenge"
-        }},
+        {
+            "$lookup": {
+                "from": "challenges",
+                "localField": "challenge_id",
+                "foreignField": "_id",
+                "as": "challenge",
+            }
+        },
         {"$unwind": "$challenge"},
-        {"$lookup": {
-            "from": "caches",
-            "localField": "challenge.cache_id",
-            "foreignField": "_id",
-            "as": "cache"
-        }},
+        {
+            "$lookup": {
+                "from": "caches",
+                "localField": "challenge.cache_id",
+                "foreignField": "_id",
+                "as": "cache",
+            }
+        },
         {"$unwind": "$cache"},
         {"$sort": {"updated_at": -1, "_id": 1}},
-        {"$facet": {
-            "items": [
-                {"$skip": max(0, (page - 1) * limit)},
-                {"$limit": limit},
-                {"$project": {
-                    "_id": 1,
-                    "status": 1,
-                    "computed_status": 1,
-                    "manual_override": 1,
-                    "progress": 1,
-                    "updated_at": 1,
-                    "challenge": {"id": "$challenge._id", "name": "$challenge.name"},
-                    "cache": {"id": "$cache._id", "GC": "$cache.GC"}
-                }},
-            ],
-            "total": [{"$count": "value"}],
-        }},
-        {"$project": {
-            "items": 1,
-            "total": {"$ifNull": [{"$arrayElemAt": ["$total.value", 0]}, 0]}
-        }}
+        {
+            "$facet": {
+                "items": [
+                    {"$skip": max(0, (page - 1) * limit)},
+                    {"$limit": limit},
+                    {
+                        "$project": {
+                            "_id": 1,
+                            "status": 1,
+                            "computed_status": 1,
+                            "manual_override": 1,
+                            "progress": 1,
+                            "updated_at": 1,
+                            "challenge": {
+                                "id": "$challenge._id",
+                                "name": "$challenge.name",
+                            },
+                            "cache": {"id": "$cache._id", "GC": "$cache.GC"},
+                        }
+                    },
+                ],
+                "total": [{"$count": "value"}],
+            }
+        },
+        {
+            "$project": {
+                "items": 1,
+                "total": {"$ifNull": [{"$arrayElemAt": ["$total.value", 0]}, 0]},
+            }
+        },
     ]
 
     out = list(ucs.aggregate(pipeline))
@@ -215,11 +242,13 @@ def list_user_challenges(
     result = out[0]
     items = result["items"]
 
-    def effective_status(it: Dict[str, Any]) -> str:
+    def effective_status(it: dict[str, Any]) -> str:
         cs = it.get("computed_status")
         st = it.get("status")
         if st == "completed" or cs == "completed":
             return "completed"
+
+        st = str(st)
         return st
 
     for it in items:
@@ -230,7 +259,8 @@ def list_user_challenges(
 
     return {"items": items, "page": page, "limit": limit, "total": result["total"]}
 
-def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Dict[str, Any]]:
+
+def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any] | None:
     """Obtenir le détail d’un UserChallenge.
 
     Args:
@@ -241,43 +271,49 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Di
         dict | None: Détail enrichi (challenge + cache), ou None si introuvable.
     """
     ucs = get_collection("user_challenges")
-    pipeline: List[Dict[str, Any]] = [
+    pipeline: list[dict[str, Any]] = [
         {"$match": {"_id": uc_id, "user_id": user_id}},
-        {"$lookup": {
-            "from": "challenges",
-            "localField": "challenge_id",
-            "foreignField": "_id",
-            "as": "challenge"
-        }},
-        {"$unwind": "$challenge"},
-        { "$lookup": {
-            "from": "caches",
-            "localField": "challenge.cache_id",
-            "foreignField": "_id",
-            "as": "cache"
-        }},
-        { "$unwind": { "path": "$cache", "preserveNullAndEmptyArrays": True } },
-        {"$project": {
-            "_id": 1,
-            "status": 1,
-            "computed_status": 1,
-            "manual_override": 1,
-            "override_reason": 1,
-            "overridden_at": 1,
-            "notes": 1,
-            "progress": 1,
-            "updated_at": 1,
-            "created_at": 1,
-            "challenge": {
-                "id": "$challenge._id",
-                "name": "$challenge.name",
-                "description": "$challenge.description",
-            },
-            "cache": {
-                "id": "$cache._id",
-                "GC": "$cache.GC",  # exposé en minuscule côté API
+        {
+            "$lookup": {
+                "from": "challenges",
+                "localField": "challenge_id",
+                "foreignField": "_id",
+                "as": "challenge",
             }
-        }},
+        },
+        {"$unwind": "$challenge"},
+        {
+            "$lookup": {
+                "from": "caches",
+                "localField": "challenge.cache_id",
+                "foreignField": "_id",
+                "as": "cache",
+            }
+        },
+        {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
+        {
+            "$project": {
+                "_id": 1,
+                "status": 1,
+                "computed_status": 1,
+                "manual_override": 1,
+                "override_reason": 1,
+                "overridden_at": 1,
+                "notes": 1,
+                "progress": 1,
+                "updated_at": 1,
+                "created_at": 1,
+                "challenge": {
+                    "id": "$challenge._id",
+                    "name": "$challenge.name",
+                    "description": "$challenge.description",
+                },
+                "cache": {
+                    "id": "$cache._id",
+                    "GC": "$cache.GC",  # exposé en minuscule côté API
+                },
+            }
+        },
     ]
 
     rows = list(ucs.aggregate(pipeline, allowDiskUse=False))
@@ -299,14 +335,15 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> Optional[Di
 
     return doc
 
+
 def patch_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     *,
-    status: Optional[str],
-    notes: Optional[str],
-    override_reason: Optional[str],
-) -> Optional[Dict[str, Any]]:
+    status: str | None,
+    notes: str | None,
+    override_reason: str | None,
+) -> dict[str, Any] | None:
     """Modifier le statut/notes d’un UserChallenge.
 
     Description:
@@ -326,8 +363,8 @@ def patch_user_challenge(
     """
     ucs = get_collection("user_challenges")
 
-    update: Dict[str, Any] = {"updated_at": utcnow()}
-    unset: Dict[str, Literal[""]] = {}
+    update: dict[str, Any] = {"updated_at": utcnow()}
+    unset: dict[str, Literal[""]] = {}
 
     if status is not None:
         update["status"] = status
@@ -337,7 +374,12 @@ def patch_user_challenge(
             if override_reason is not None:
                 update["override_reason"] = override_reason
             # Progression instantanée à 100% lors d'un override manuel
-            update["progress"] = {"percent": 100, "tasks_done": None, "tasks_total": None, "checked_at": utcnow()}
+            update["progress"] = {
+                "percent": 100,
+                "tasks_done": None,
+                "tasks_total": None,
+                "checked_at": utcnow(),
+            }
         else:
             update["manual_override"] = False
             unset["override_reason"] = ""
@@ -346,7 +388,7 @@ def patch_user_challenge(
     if notes is not None:
         update["notes"] = notes
 
-    update_doc: Dict[str, Any] = {"$set": update}
+    update_doc: dict[str, Any] = {"$set": update}
     if unset:
         update_doc["$unset"] = unset
 
@@ -358,13 +400,15 @@ def patch_user_challenge(
     if not res:
         return None
 
-
     # Trigger progress evaluation when status switches to 'accepted'
     try:
         if status == "accepted":
             from app.services.progress import evaluate_progress
+
             progress_coll = get_collection("progress")
-            has_snapshot = progress_coll.find_one({"user_challenge_id": uc_id}, {"_id": 1}) is not None
+            has_snapshot = (
+                progress_coll.find_one({"user_challenge_id": uc_id}, {"_id": 1}) is not None
+            )
             if not has_snapshot:
                 evaluate_progress(user_id, uc_id)
     except Exception:

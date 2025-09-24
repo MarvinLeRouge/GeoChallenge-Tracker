@@ -2,10 +2,13 @@
 # Initialise le client MongoDB à partir des settings et expose des helpers simples d’accès aux collections.
 
 from pymongo import MongoClient
+from pymongo.database import Database
+
 from app.core.settings import settings
 
-client = MongoClient(settings.mongodb_uri)
-db = client[settings.mongodb_db]
+client: MongoClient[dict] = MongoClient(settings.mongodb_uri)
+db: Database[dict] = client[settings.mongodb_db]
+
 
 def get_collection(name: str):
     """Retourne une collection MongoDB par son nom.
@@ -22,6 +25,7 @@ def get_collection(name: str):
     """
     return db[name]
 
+
 def get_column(collection_name: str, column_name: str) -> list:
     """Extrait toutes les valeurs d’un champ dans une collection.
 
@@ -36,6 +40,8 @@ def get_column(collection_name: str, column_name: str) -> list:
     Returns:
         list: Liste des valeurs trouvées pour ce champ (peut contenir des `None` et des doublons).
     """
-    result = [item[column_name] for item in db[collection_name].find({}, {column_name: 1, "_id": 0})]
+    result = [
+        item[column_name] for item in db[collection_name].find({}, {column_name: 1, "_id": 0})
+    ]
 
     return result

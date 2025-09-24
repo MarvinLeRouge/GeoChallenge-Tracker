@@ -2,11 +2,14 @@
 # Schémas utilisateur : document Mongo, payloads d’inscription/login, sorties publiques et tokens.
 
 from __future__ import annotations
-from typing import Optional, List
+
 import datetime as dt
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from app.core.utils import *
-from app.core.bson_utils import *
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from app.core.bson_utils import MongoBaseModel, PyObjectId
+from app.core.utils import now, utcnow
+
 
 class UserLocation(BaseModel):
     """Localisation utilisateur.
@@ -16,9 +19,11 @@ class UserLocation(BaseModel):
         lat (float): Latitude.
         updated_at (datetime): Horodatage de mise à jour (UTC).
     """
+
     lon: float
     lat: float
     updated_at: dt.datetime = Field(default_factory=lambda: utcnow())
+
 
 class Preferences(BaseModel):
     """Préférences utilisateur.
@@ -27,8 +32,10 @@ class Preferences(BaseModel):
         language (str | None): Langue (ex. 'fr').
         dark_mode (bool | None): Thème sombre.
     """
-    language: Optional[str] = "fr"
-    dark_mode: Optional[bool] = False
+
+    language: str | None = "fr"
+    dark_mode: bool | None = False
+
 
 class UserBase(BaseModel):
     """Champs communs utilisateur.
@@ -41,12 +48,14 @@ class UserBase(BaseModel):
         is_verified (bool): Email vérifié.
         preferences (Preferences | None): Préférences UI.
     """
+
     username: str
     email: EmailStr
     role: str = "user"
     is_active: bool = True
     is_verified: bool = False
-    preferences: Optional[Preferences] = Field(default_factory=Preferences)
+    preferences: Preferences | None = Field(default_factory=Preferences)
+
 
 class UserCreate(UserBase):
     """Payload de création (inscription).
@@ -54,7 +63,9 @@ class UserCreate(UserBase):
     Attributes:
         password (str): Mot de passe en clair reçu côté client.
     """
+
     password: str  # plain password received from client
+
 
 class UserUpdate(BaseModel):
     """Payload de mise à jour utilisateur.
@@ -64,9 +75,11 @@ class UserUpdate(BaseModel):
         password (str | None): Nouveau mot de passe (en clair).
         preferences (Preferences | None): Nouvelles préférences.
     """
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-    preferences: Optional[Preferences] = None
+
+    email: EmailStr | None = None
+    password: str | None = None
+    preferences: Preferences | None = None
+
 
 class User(MongoBaseModel, UserBase):
     """Document Mongo utilisateur.
@@ -79,15 +92,18 @@ class User(MongoBaseModel, UserBase):
         created_at (datetime): Création (local).
         updated_at (datetime | None): MAJ.
     """
-    challenges: List[PyObjectId] = Field(default_factory=list)
-    verification_code: Optional[str] = None
-    verification_expires_at: Optional[dt.datetime] = None
-    location: Optional[UserLocation] = None
-    
+
+    challenges: list[PyObjectId] = Field(default_factory=list)
+    verification_code: str | None = None
+    verification_expires_at: dt.datetime | None = None
+    location: UserLocation | None = None
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None
+
 
 # Input/Output DTOs
+
 
 class UserInRegister(BaseModel):
     """Entrée d’inscription.
@@ -97,9 +113,11 @@ class UserInRegister(BaseModel):
         email (EmailStr): Email valide.
         password (str): ≥ 8 caractères.
     """
+
     username: str = Field(min_length=3, max_length=30)
     email: EmailStr
     password: str = Field(min_length=8)
+
 
 class UserInLogin(BaseModel):
     """Entrée de login.
@@ -108,8 +126,10 @@ class UserInLogin(BaseModel):
         identifier (str): Email ou username.
         password (str): Mot de passe.
     """
+
     identifier: str  # email ou username
     password: str
+
 
 class UserOut(BaseModel):
     """Sortie publique utilisateur.
@@ -120,16 +140,18 @@ class UserOut(BaseModel):
         username (str): Pseudo.
         role (str | None): Rôle.
     """
+
     id: PyObjectId = Field(alias="_id")
     email: EmailStr
     username: str
-    role: Optional[str] = "user"
+    role: str | None = "user"
 
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={PyObjectId: str},
     )
+
 
 class TokenPair(BaseModel):
     """Couple de jetons JWT.
@@ -139,9 +161,11 @@ class TokenPair(BaseModel):
         refresh_token (str): Jeton de refresh.
         token_type (str): 'bearer'.
     """
+
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
 
 class TokenResponse(BaseModel):
     """Réponse avec jeton d’accès.
@@ -150,8 +174,10 @@ class TokenResponse(BaseModel):
         access_token (str): Jeton d’accès.
         token_type (str): 'bearer'.
     """
+
     access_token: str
     token_type: str = "bearer"
+
 
 class RefreshTokenRequest(BaseModel):
     """Entrée de refresh token.
@@ -159,7 +185,9 @@ class RefreshTokenRequest(BaseModel):
     Attributes:
         refresh_token (str): Jeton de refresh JWT.
     """
+
     refresh_token: str
+
 
 class ResendVerificationRequest(BaseModel):
     """Entrée de renvoi de vérification email.
@@ -167,4 +195,5 @@ class ResendVerificationRequest(BaseModel):
     Attributes:
         identifier (str): Email ou username.
     """
+
     identifier: str  # email ou username

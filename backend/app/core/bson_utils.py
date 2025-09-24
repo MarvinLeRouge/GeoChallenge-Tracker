@@ -2,11 +2,12 @@
 # Helpers Pydantic v2 pour ObjectId + base model Mongo, avec JSON Schema propre pour OpenAPI.
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
+
 from bson import ObjectId
-from pydantic import BaseModel, Field, ConfigDict, GetCoreSchemaHandler
+from pydantic import BaseModel, ConfigDict, Field, GetCoreSchemaHandler
+from pydantic.json_schema import GetJsonSchemaHandler, JsonSchemaValue
 from pydantic_core import core_schema
-from pydantic.json_schema import JsonSchemaValue, GetJsonSchemaHandler
 
 
 class PyObjectId(ObjectId):
@@ -21,7 +22,9 @@ class PyObjectId(ObjectId):
     """
 
     @classmethod
-    def __get_pydantic_core_schema__(cls, source_type: Any, handler: GetCoreSchemaHandler) -> core_schema.CoreSchema:
+    def __get_pydantic_core_schema__(
+        cls, source_type: Any, handler: GetCoreSchemaHandler
+    ) -> core_schema.CoreSchema:
         """Hook Pydantic v2: schéma de validation/serialization côté core.
 
         Description:
@@ -41,7 +44,9 @@ class PyObjectId(ObjectId):
         )
 
     @classmethod
-    def __get_pydantic_json_schema__(cls, core_schema_obj: core_schema.CoreSchema, handler: GetJsonSchemaHandler) -> JsonSchemaValue:
+    def __get_pydantic_json_schema__(
+        cls, core_schema_obj: core_schema.CoreSchema, handler: GetJsonSchemaHandler
+    ) -> JsonSchemaValue:
         """Hook Pydantic v2: schéma JSON pour OpenAPI.
 
         Description:
@@ -57,12 +62,14 @@ class PyObjectId(ObjectId):
         """
         json_schema = handler(core_schema_obj)
         # Keep it simple and explicit for Swagger UI
-        json_schema.update({
-            "type": "string",
-            "format": "objectid",
-            "pattern": "^[a-fA-F0-9]{24}$",
-            "examples": ["507f1f77bcf86cd799439011"]
-        })
+        json_schema.update(
+            {
+                "type": "string",
+                "format": "objectid",
+                "pattern": "^[a-fA-F0-9]{24}$",
+                "examples": ["507f1f77bcf86cd799439011"],
+            }
+        )
         return json_schema
 
     @classmethod
@@ -96,13 +103,15 @@ class MongoBaseModel(BaseModel):
         - Champ `_id` exposé via l’alias `id` (type `PyObjectId`)
         - Encoders/Config adaptés à Mongo (aliases, `arbitrary_types_allowed`, encodage ObjectId->str)
     """
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+
+    id: PyObjectId | None = Field(default=None, alias="_id")
 
     model_config = ConfigDict(
         populate_by_name=True,
         arbitrary_types_allowed=True,
         json_encoders={PyObjectId: str},
     )
+
 
 # Convenience helpers
 def dump_mongo(model: BaseModel, *, exclude_none: bool = True) -> dict:
@@ -120,6 +129,7 @@ def dump_mongo(model: BaseModel, *, exclude_none: bool = True) -> dict:
         dict: Document sérialisé prêt à insérer/mettre à jour.
     """
     return model.model_dump(by_alias=True, exclude_none=exclude_none)
+
 
 def dump_mongo_json(model: BaseModel, *, exclude_none: bool = True) -> str:
     """Dump d’un modèle pour Mongo (JSON string).

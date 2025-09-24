@@ -2,26 +2,29 @@
 # Routes "mon avancée" : lecture du dernier snapshot + historique, et évaluation (immédiate ou initiale) du progrès sur un UserChallenge.
 
 from __future__ import annotations
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, Path, Body, status
-from bson import ObjectId
 
-from app.core.security import get_current_user
+from datetime import datetime
+from typing import Annotated
+
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from pydantic import BaseModel
+
 from app.core.bson_utils import PyObjectId
-from app.models.progress_dto import (
-    ProgressGetResponse, ProgressEvaluateResponse
-)
+from app.core.security import get_current_user, get_current_user_id
+from app.models.progress_dto import ProgressEvaluateResponse, ProgressGetResponse
 from app.services.progress import (
-    get_latest_and_history, evaluate_progress, evaluate_new_progress
+    evaluate_new_progress,
+    evaluate_progress,
+    get_latest_and_history,
 )
 
 router = APIRouter(
     prefix="/my/challenges",
     tags=["my-challenge-progress"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_user)],
 )
+
 
 @router.get(
     "/{uc_id}/progress",
@@ -34,10 +37,14 @@ router = APIRouter(
     ),
 )
 def get_progress_route(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    limit: int = Query(10, ge=1, le=50, description="Nombre d’entrées d’historique à renvoyer (1–50)."),
-    before: Optional[datetime] = Query(None, description="Ne renvoyer que l’historique **antérieur** à ce timestamp."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    limit: Annotated[
+        int, Query(10, ge=1, le=50, description="Nombre d’entrées d’historique à renvoyer (1–50).")
+    ],
+    before: Annotated[
+        datetime | None,
+        Query(None, description="Ne renvoyer que l’historique **antérieur** à ce timestamp."),
+    ],
 ):
     """Récupérer le dernier snapshot et l’historique court.
 
@@ -49,16 +56,16 @@ def get_progress_route(
         uc_id (PyObjectId): Identifiant du UserChallenge.
         limit (int): Nombre maximal d’entrées d’historique (1–50).
         before (datetime | None): Curseur temporel pour lister l’historique antérieur.
-        current_user (dict): Contexte utilisateur (sécurité/filtrage par propriétaire).
 
     Returns:
         ProgressGetResponse: Dernier snapshot et mini-historique.
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
     out = get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
     if out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return out
+
 
 @router.post(
     "/{uc_id}/progress/evaluate",
@@ -71,9 +78,11 @@ def get_progress_route(
     ),
 )
 def evaluate_progress_route(
-    uc_id: PyObjectId = Path(..., description="Identifiant du UserChallenge."),
-    force: bool = Query(False, description="Forcer le recalcul même si aucun changement détecté (admin-only)."),
-    current_user: dict = Depends(get_current_user),
+    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    force: bool = Query(
+        False,
+        description="Forcer le recalcul même si aucun changement détecté (admin-only).",
+    ),
 ):
     """Évaluer et insérer un snapshot immédiat.
 
@@ -84,25 +93,26 @@ def evaluate_progress_route(
     Args:
         uc_id (PyObjectId): Identifiant du UserChallenge.
         force (bool): Forcer le recalcul même sans changement détecté (admin-only).
-        current_user (dict): Contexte utilisateur authentifié.
 
     Returns:
         ProgressEvaluateResponse: Snapshot évalué et persisté.
     """
-    user_id = ObjectId(str(current_user["_id"]))
-    if force and current_user.get("role") != "admin":
+    current_user = get_current_user()
+    if force and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seuls les administrateurs peuvent utiliser le paramètre 'force'"
+            detail="Seuls les administrateurs peuvent utiliser le paramètre 'force'",
         )
-
-    doc = evaluate_progress(user_id = user_id, uc_id = ObjectId(str(uc_id)), force = force)
+    user_id = get_current_user_id()
+    doc = evaluate_progress(user_id=user_id, uc_id=ObjectId(str(uc_id)), force=force)
     return doc
+
 
 class EvaluateNewPayload(BaseModel):
     include_pending: bool = False
     limit: int = 50
-    since: Optional[datetime] = None
+    since: datetime | None = None
+
 
 @router.post(
     "/new/progress",
@@ -114,11 +124,12 @@ class EvaluateNewPayload(BaseModel):
     ),
 )
 def evaluate_new_progress_route(
-    payload: EvaluateNewPayload = Body(
-        default=EvaluateNewPayload(),
-        description="Options d’évaluation initiale : `include_pending`, `limit`, `since`.",
-    ),
-    current_user: dict = Depends(get_current_user),
+    payload: Annotated[
+        EvaluateNewPayload | None,
+        Body(
+            description="Options d’évaluation initiale : `include_pending`, `limit`, `since`.",
+        ),
+    ],
 ):
     """Évaluer le premier snapshot pour les challenges sans progression.
 
@@ -128,12 +139,13 @@ def evaluate_new_progress_route(
 
     Args:
         payload (EvaluateNewPayload): Options d’initialisation.
-        current_user (dict): Contexte utilisateur authentifié.
 
     Returns:
         dict: Statistiques et compte-rendu (créés/ignorés, etc.).
     """
-    user_id = ObjectId(str(current_user["_id"]))
+    if payload is None:
+        payload = EvaluateNewPayload()
+    user_id = get_current_user_id()
     res = evaluate_new_progress(
         user_id,
         include_pending=payload.include_pending,

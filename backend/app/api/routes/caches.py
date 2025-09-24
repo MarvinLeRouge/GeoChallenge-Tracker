@@ -7,33 +7,39 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Optional, List, Literal, Dict, Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, Query, Body, Path
+from bson import ObjectId
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    HTTPException,
+    Path,
+    Query,
+    UploadFile,
+)
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
-from bson import ObjectId
-from pymongo import DESCENDING, ASCENDING
-from pymongo.collation import Collation
+from pymongo import ASCENDING, DESCENDING
 
-from app.core.settings import settings
-from app.core.security import get_current_user
-from app.db.mongodb import get_collection
 from app.core.bson_utils import PyObjectId
-from app.services.gpx_importer import import_gpx_payload
+from app.core.security import get_current_user
+from app.core.settings import settings
+from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
+from app.services.gpx_importer import import_gpx_payload
 
-router = APIRouter(
-    prefix="/caches", 
-    tags=["caches"],
-    dependencies=[Depends(get_current_user)]
-)
+router = APIRouter(prefix="/caches", tags=["caches"], dependencies=[Depends(get_current_user)])
 
 # ------------------------- helpers -------------------------
 
-def _doc(d: Dict[str, Any]) -> Dict[str, Any]:
+
+def _doc(d: dict[str, Any]) -> dict[str, Any]:
     """Encode un document MongoDB (ObjectId -> str)."""
     return jsonable_encoder(d, custom_encoder={ObjectId: str})
+
 
 def _oid(v: str | ObjectId | None) -> ObjectId | None:
     """Convertit une valeur en ObjectId MongoDB ou lève HTTP 400 si invalide."""
@@ -43,8 +49,9 @@ def _oid(v: str | ObjectId | None) -> ObjectId | None:
         return v
     try:
         return ObjectId(v)
-    except Exception:
-        raise HTTPException(status_code=400, detail=f"Invalid ObjectId: {v}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid ObjectId: {v}") from e
+
 
 # ------------------------- compact helpers -------------------------
 
@@ -69,41 +76,71 @@ COMPACT_FIELDS = {
     "lon": 1,
 }
 
+
 def _compact_lookups_and_project():
     """Stades $lookup/$project pour enrichir type/size (label+code) et projeter les champs compacts."""
     return [
-        {"$lookup": {
-            "from": TYPE_COLLECTION,
-            "localField": "type_id",
-            "foreignField": "_id",
-            "as": "_type"
-        }},
-        {"$lookup": {
-            "from": SIZE_COLLECTION,
-            "localField": "size_id",
-            "foreignField": "_id",
-            "as": "_size"
-        }},
+        {
+            "$lookup": {
+                "from": TYPE_COLLECTION,
+                "localField": "type_id",
+                "foreignField": "_id",
+                "as": "_type",
+            }
+        },
+        {
+            "$lookup": {
+                "from": SIZE_COLLECTION,
+                "localField": "size_id",
+                "foreignField": "_id",
+                "as": "_size",
+            }
+        },
         # on prend les 1ers éléments et on fabrique des objets {label, code}
-        {"$addFields": {
-            "type": {
-                "label": {"$ifNull": [{"$arrayElemAt": [f"$_type.{TYPE_LABEL_FIELD}", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": [f"$_type.{TYPE_CODE_FIELD}", 0]}, None]},
-            },
-            "size": {
-                "label": {"$ifNull": [{"$arrayElemAt": [f"$_size.{SIZE_LABEL_FIELD}", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": [f"$_size.{SIZE_CODE_FIELD}", 0]}, None]},
-            },
-        }},
+        {
+            "$addFields": {
+                "type": {
+                    "label": {
+                        "$ifNull": [
+                            {"$arrayElemAt": [f"$_type.{TYPE_LABEL_FIELD}", 0]},
+                            None,
+                        ]
+                    },
+                    "code": {
+                        "$ifNull": [
+                            {"$arrayElemAt": [f"$_type.{TYPE_CODE_FIELD}", 0]},
+                            None,
+                        ]
+                    },
+                },
+                "size": {
+                    "label": {
+                        "$ifNull": [
+                            {"$arrayElemAt": [f"$_size.{SIZE_LABEL_FIELD}", 0]},
+                            None,
+                        ]
+                    },
+                    "code": {
+                        "$ifNull": [
+                            {"$arrayElemAt": [f"$_size.{SIZE_CODE_FIELD}", 0]},
+                            None,
+                        ]
+                    },
+                },
+            }
+        },
         # on retire les tableaux temporaires
         {"$project": {**COMPACT_FIELDS, "type": 1, "size": 1}},
     ]
 
+
 # ------------------------- schemas -------------------------
 
+
 class Range(BaseModel):
-    min: Optional[float] = None
-    max: Optional[float] = None
+    min: float | None = None
+    max: float | None = None
+
 
 class BBox(BaseModel):
     min_lat: float
@@ -111,25 +148,30 @@ class BBox(BaseModel):
     max_lat: float
     max_lon: float
 
+
 class CacheFilterIn(BaseModel):
-    q: Optional[str] = None
-    type_id: Optional[PyObjectId] = None
-    size_id: Optional[PyObjectId] = None
-    country_id: Optional[PyObjectId] = None
-    state_id: Optional[PyObjectId] = None
-    difficulty: Optional[Range] = None
-    terrain: Optional[Range] = None
-    placed_after: Optional[dt.datetime] = None
-    placed_before: Optional[dt.datetime] = None
-    attr_pos: Optional[List[PyObjectId]] = None
-    attr_neg: Optional[List[PyObjectId]] = None
-    bbox: Optional[BBox] = None
-    sort: Optional[str] = Field(default="-placed_at", description="e.g. -placed_at, -favorites, difficulty, terrain")
+    q: str | None = None
+    type_id: PyObjectId | None = None
+    size_id: PyObjectId | None = None
+    country_id: PyObjectId | None = None
+    state_id: PyObjectId | None = None
+    difficulty: Range | None = None
+    terrain: Range | None = None
+    placed_after: dt.datetime | None = None
+    placed_before: dt.datetime | None = None
+    attr_pos: list[PyObjectId] | None = None
+    attr_neg: list[PyObjectId] | None = None
+    bbox: BBox | None = None
+    sort: str | None = Field(
+        default="-placed_at",
+        description="e.g. -placed_at, -favorites, difficulty, terrain",
+    )
     page: int = 1
     page_size: int = 50
 
 
 # ------------------------- routes -------------------------
+
 
 @router.post(
     "/upload-gpx",
@@ -147,9 +189,13 @@ class CacheFilterIn(BaseModel):
     },
 )
 async def upload_gpx(
-    file: UploadFile = File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX)."),
-    found: bool = Query(False, description="Si vrai, crée également des `found_caches` avec date de trouvaille."),
-    current_user: dict = Depends(get_current_user),
+    file: Annotated[
+        UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
+    ],
+    found: bool = Query(
+        False,
+        description="Si vrai, crée également des `found_caches` avec date de trouvaille.",
+    ),
 ):
     """Importe un fichier GPX/ZIP et déclenche la création de challenges.
 
@@ -160,7 +206,6 @@ async def upload_gpx(
     Args:
         file (UploadFile): Fichier GPX ou ZIP à traiter.
         found (bool): Active la création de `found_caches` associées aux entrées importées.
-        current_user (dict): Utilisateur authentifié déclenchant l’import.
 
     Returns:
         dict: Objet contenant le récapitulatif d’import (`summary`) et des statistiques liées aux challenges (`challenges_stats`).
@@ -191,13 +236,13 @@ async def upload_gpx(
         result["summary"] = await import_gpx_payload(
             payload=payload,
             filename=file.filename or "upload.gpx",
-            user=current_user,
             found=found,
+            user=get_current_user(),
         )
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}") from e
 
     try:
         # Variante simple (scan global optimisé: ne traite que les nouvelles caches challenge)
@@ -224,20 +269,26 @@ async def upload_gpx(
     ),
 )
 def by_filter(
-    payload: CacheFilterIn = Body(
-        ...,
-        description=(
-            "Objet de filtrage et de pagination :\n"
-            "- `q`: recherche plein texte\n"
-            "- `type_id`, `size_id`, `country_id`, `state_id`\n"
-            "- `difficulty`, `terrain`: objets `Range {min,max}`\n"
-            "- `placed_after`, `placed_before`: bornes temporelles\n"
-            "- `attr_pos`, `attr_neg`: listes d’attributs (ObjectId)\n"
-            "- `bbox`: `{min_lat,min_lon,max_lat,max_lon}`\n"
-            "- `sort`, `page`, `page_size`"
+    payload: Annotated[
+        CacheFilterIn,
+        Body(
+            ...,
+            description=(
+                "Objet de filtrage et de pagination :\n"
+                "- `q`: recherche plein texte\n"
+                "- `type_id`, `size_id`, `country_id`, `state_id`\n"
+                "- `difficulty`, `terrain`: objets `Range {min,max}`\n"
+                "- `placed_after`, `placed_before`: bornes temporelles\n"
+                "- `attr_pos`, `attr_neg`: listes d’attributs (ObjectId)\n"
+                "- `bbox`: `{min_lat,min_lon,max_lat,max_lon}`\n"
+                "- `sort`, `page`, `page_size`"
+            ),
         ),
+    ],
+    compact: bool = Query(
+        True,
+        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
     ),
-    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
 ):
     """Recherche multi-critères de géocaches.
 
@@ -251,7 +302,7 @@ def by_filter(
         dict: Résultats paginés `{items, total, page, page_size}`.
     """
     coll = get_collection("caches")
-    q: Dict[str, Any] = {}
+    q: dict[str, Any] = {}
 
     if payload.q:
         q["$text"] = {"$search": payload.q}
@@ -287,9 +338,27 @@ def by_filter(
             rng_dt["$lte"] = payload.placed_before
         q["placed_at"] = rng_dt
     if payload.attr_pos:
-        q.setdefault("$and", []).append({"attributes": {"$elemMatch": {"attribute_doc_id": {"$in": payload.attr_pos}, "is_positive": True}}})
+        q.setdefault("$and", []).append(
+            {
+                "attributes": {
+                    "$elemMatch": {
+                        "attribute_doc_id": {"$in": payload.attr_pos},
+                        "is_positive": True,
+                    }
+                }
+            }
+        )
     if payload.attr_neg:
-        q.setdefault("$and", []).append({"attributes": {"$elemMatch": {"attribute_doc_id": {"$in": payload.attr_neg}, "is_positive": False}}})
+        q.setdefault("$and", []).append(
+            {
+                "attributes": {
+                    "$elemMatch": {
+                        "attribute_doc_id": {"$in": payload.attr_neg},
+                        "is_positive": False,
+                    }
+                }
+            }
+        )
     if payload.bbox:
         bb = payload.bbox
         q["lat"] = {"$gte": bb.min_lat, "$lte": bb.max_lat}
@@ -341,15 +410,22 @@ def within_bbox(
     min_lon: float = Query(..., description="Longitude minimale de la BBox."),
     max_lat: float = Query(..., description="Latitude maximale de la BBox."),
     max_lon: float = Query(..., description="Longitude maximale de la BBox."),
-    type_id: Optional[str] = Query(None, description="Filtre optionnel: identifiant de type (ObjectId)."),
-    size_id: Optional[str] = Query(None, description="Filtre optionnel: identifiant de taille (ObjectId)."),
+    type_id: str | None = Query(
+        None, description="Filtre optionnel: identifiant de type (ObjectId)."
+    ),
+    size_id: str | None = Query(
+        None, description="Filtre optionnel: identifiant de taille (ObjectId)."
+    ),
     page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
     page_size: int = Query(100, ge=1, le=200, description="Taille de page (1–200)."),
     sort: Literal["-placed_at", "-favorites", "difficulty", "terrain"] = Query(
         "-placed_at",
         description="Clé de tri: '-placed_at' (défaut), '-favorites', 'difficulty', 'terrain'.",
     ),
-    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
+    compact: bool = Query(
+        True,
+        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+    ),
 ):
     """Liste les caches d’une BBox.
 
@@ -372,7 +448,7 @@ def within_bbox(
         dict: Résultats paginés `{items, total, page, page_size}`.
     """
     coll = get_collection("caches")
-    q: Dict[str, Any] = {
+    q: dict[str, Any] = {
         "lat": {"$gte": min_lat, "$lte": max_lat},
         "lon": {"$gte": min_lon, "$lte": max_lon},
     }
@@ -424,12 +500,24 @@ def within_bbox(
 def within_radius(
     lat: float = Query(..., description="Latitude du centre."),
     lon: float = Query(..., description="Longitude du centre."),
-    radius_km: float = Query(10.0, ge=0.1, le=100.0, description="Rayon de recherche en kilomètres (0.1–100)."),
-    type_id: Optional[str] = Query(None, description="Filtre optionnel: identifiant de type (ObjectId)."),
-    size_id: Optional[str] = Query(None, description="Filtre optionnel: identifiant de taille (ObjectId)."),
+    radius_km: float = Query(
+        10.0,
+        ge=0.1,
+        le=100.0,
+        description="Rayon de recherche en kilomètres (0.1–100).",
+    ),
+    type_id: str | None = Query(
+        None, description="Filtre optionnel: identifiant de type (ObjectId)."
+    ),
+    size_id: str | None = Query(
+        None, description="Filtre optionnel: identifiant de taille (ObjectId)."
+    ),
     page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
     page_size: int = Query(100, ge=1, le=200, description="Taille de page (1–200)."),
-    compact: bool = Query(True, description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain)."),
+    compact: bool = Query(
+        True,
+        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+    ),
 ):
     """Recherche par rayon autour d’un point.
 
@@ -454,7 +542,7 @@ def within_radius(
     """
     coll = get_collection("caches")
     geo = {"type": "Point", "coordinates": [lon, lat]}
-    q: Dict[str, Any] = {}
+    q: dict[str, Any] = {}
     if type_id:
         q["type_id"] = _oid(type_id)
     if size_id:
@@ -480,19 +568,22 @@ def within_radius(
     try:
         cur = coll.aggregate(pipeline)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"2dsphere index required on caches.loc: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"2dsphere index required on caches.loc: {e}"
+        ) from e
     docs = [_doc(d) for d in cur]
     # count with same query (rough, not exact geo count but OK for paging UI)
     radius_radians = radius_km / 6378.1  # rayon de la Terre en km
-    total = coll.count_documents({
-        "loc": {
-            "$geoWithin": {
-                "$centerSphere": [[lon, lat], radius_radians]
-            }
-        },
-        **q
-    })
-    return {"items": docs, "total": total, "page": page, "page_size": min(page_size, 200)}
+    total = coll.count_documents(
+        {"loc": {"$geoWithin": {"$centerSphere": [[lon, lat], radius_radians]}}, **q}
+    )
+    return {
+        "items": docs,
+        "total": total,
+        "page": page,
+        "page_size": min(page_size, 200),
+    }
+
 
 @router.get(
     "/{gc}",
@@ -515,32 +606,40 @@ def get_by_gc(
     """
 
     coll = get_collection("caches")
-    cur = coll.aggregate([
-        {"$match": {"GC": gc}},
-        {"$lookup": {
-            "from": "cache_types",
-            "localField": "type_id",
-            "foreignField": "_id",
-            "as": "_type",
-        }},
-        {"$lookup": {
-            "from": "cache_sizes",
-            "localField": "size_id",
-            "foreignField": "_id",
-            "as": "_size",
-        }},
-        {"$addFields": {
-            "type": {
-                "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+    cur = coll.aggregate(
+        [
+            {"$match": {"GC": gc}},
+            {
+                "$lookup": {
+                    "from": "cache_types",
+                    "localField": "type_id",
+                    "foreignField": "_id",
+                    "as": "_type",
+                }
             },
-            "size": {
-                "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+            {
+                "$lookup": {
+                    "from": "cache_sizes",
+                    "localField": "size_id",
+                    "foreignField": "_id",
+                    "as": "_size",
+                }
             },
-        }},
-        {"$limit": 1},
-    ])
+            {
+                "$addFields": {
+                    "type": {
+                        "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
+                        "code": {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+                    },
+                    "size": {
+                        "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
+                        "code": {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+                    },
+                }
+            },
+            {"$limit": 1},
+        ]
+    )
     doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
@@ -553,7 +652,9 @@ def get_by_gc(
     description="Retourne une cache unique à partir de son ObjectId (format chaîne).",
 )
 def get_by_id(
-    id: str = Path(..., description="Identifiant MongoDB (ObjectId) de la cache, au format chaîne."),
+    id: str = Path(
+        ..., description="Identifiant MongoDB (ObjectId) de la cache, au format chaîne."
+    ),
 ):
     """Lecture d’une cache (ObjectId).
 
@@ -569,34 +670,41 @@ def get_by_id(
     """
     coll = get_collection("caches")
     oid = _oid(id)
-    cur = coll.aggregate([
-        {"$match": {"_id": oid}},
-        {"$lookup": {
-            "from": "cache_types",
-            "localField": "type_id",
-            "foreignField": "_id",
-            "as": "_type",
-        }},
-        {"$lookup": {
-            "from": "cache_sizes",
-            "localField": "size_id",
-            "foreignField": "_id",
-            "as": "_size",
-        }},
-        {"$addFields": {
-            "type": {
-                "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+    cur = coll.aggregate(
+        [
+            {"$match": {"_id": oid}},
+            {
+                "$lookup": {
+                    "from": "cache_types",
+                    "localField": "type_id",
+                    "foreignField": "_id",
+                    "as": "_type",
+                }
             },
-            "size": {
-                "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
-                "code":  {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+            {
+                "$lookup": {
+                    "from": "cache_sizes",
+                    "localField": "size_id",
+                    "foreignField": "_id",
+                    "as": "_size",
+                }
             },
-        }},
-        {"$limit": 1},
-    ])
+            {
+                "$addFields": {
+                    "type": {
+                        "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
+                        "code": {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+                    },
+                    "size": {
+                        "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
+                        "code": {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+                    },
+                }
+            },
+            {"$limit": 1},
+        ]
+    )
     doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
     return _doc(doc)
-

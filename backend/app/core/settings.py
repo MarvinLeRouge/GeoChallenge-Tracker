@@ -4,6 +4,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich import print
 
+
 class Settings(BaseSettings):
     """Paramètres de l’application (Pydantic Settings).
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
         lorsque pertinent (ex. `jwt_algorithm`, `jwt_expiration_minutes`).
 
     """
+
     # === App settings ===
     app_name: str = "GeoChallenge"
     environment: str = "development"  # or "production"
@@ -53,7 +55,7 @@ class Settings(BaseSettings):
 
     # === TEST ===
     test: str
-    
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
@@ -67,14 +69,16 @@ class Settings(BaseSettings):
         Returns:
             str: URI MongoDB complète.
         """
-        return self.mongodb_uri_tpl.replace("[[MONGODB_USER]]", self.mongodb_user)\
-                                   .replace("[[MONGODB_PASSWORD]]", self.mongodb_password)
+        return self.mongodb_uri_tpl.replace("[[MONGODB_USER]]", self.mongodb_user).replace(
+            "[[MONGODB_PASSWORD]]", self.mongodb_password
+        )
 
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * self.one_mb
 
+
 # Instance globale
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]
 
 print("--- Settings loaded ---")

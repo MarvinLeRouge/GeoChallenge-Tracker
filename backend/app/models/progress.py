@@ -2,11 +2,14 @@
 # Modèles de snapshot de progression (global + par tâche) pour un UserChallenge, horodatés.
 
 from __future__ import annotations
-from typing import Optional, List, Dict, Any, Literal
+
 import datetime as dt
-from pydantic import BaseModel, Field, ConfigDict
-from app.core.utils import *
-from app.core.bson_utils import *
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.bson_utils import MongoBaseModel, PyObjectId
+from app.core.utils import now
 from app.models._shared import ProgressSnapshot  # shared snapshot structure
 
 """
@@ -20,6 +23,7 @@ Progress data model - clarification
 - To draw time-series charts, query all Progress docs for a `user_challenge_id`,
   sort by `checked_at`, and read `aggregate` or each `tasks[i].progress`.
 """
+
 
 class TaskProgressItem(BaseModel):
     """Snapshot par tâche à l’instant t.
@@ -36,12 +40,13 @@ class TaskProgressItem(BaseModel):
         constraints (dict[str, Any] | None): Contraintes copiées à des fins d’audit.
         aggregate (AggregateProgress | None): Agrégat dédié (ex. unités spécifiques).
     """
+
     task_id: PyObjectId
     status: Literal["todo", "in_progress", "done"] = "todo"
     progress: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
-    metrics: Dict[str, Any] = Field(default_factory=dict)   # e.g. {"current_count": 17}
-    constraints: Optional[Dict[str, Any]] = None            # optional copy, for audit/explanations
-    aggregate: Optional[AggregateProgress] = None
+    metrics: dict[str, Any] = Field(default_factory=dict)  # e.g. {"current_count": 17}
+    constraints: dict[str, Any] | None = None  # optional copy, for audit/explanations
+    aggregate: AggregateProgress | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -66,6 +71,7 @@ class Progress(MongoBaseModel):
         engine_version (str | None): Version du moteur d’évaluation.
         created_at (datetime): Date de création (append-only).
     """
+
     user_challenge_id: PyObjectId
 
     # Time axis for charts & projections
@@ -75,14 +81,15 @@ class Progress(MongoBaseModel):
     aggregate: ProgressSnapshot = Field(default_factory=ProgressSnapshot)
 
     # Per-task snapshots at this instant (one item per task belonging to the user_challenge)
-    tasks: List[TaskProgressItem] = Field(default_factory=list)
+    tasks: list[TaskProgressItem] = Field(default_factory=list)
 
     # Optional annotations
-    message: Optional[str] = None
-    engine_version: Optional[str] = None
+    message: str | None = None
+    engine_version: str | None = None
 
     # For auditing (append-only — no updated_at)
     created_at: dt.datetime = Field(default_factory=lambda: now())
+
 
 class AggregateProgress(BaseModel):
     """Agrégat simple (valeur/objectif/unité).
@@ -92,6 +99,7 @@ class AggregateProgress(BaseModel):
         target (float): Objectif attendu.
         unit (str): Unité (ex. "points", "meters").
     """
+
     total: float = 0.0
     target: float = 0.0
     unit: str = "points"  # ou "meters" pour altitude

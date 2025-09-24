@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+
 from app.core.bson_utils import PyObjectId
+
 
 class PatchUCIn(BaseModel):
     """Entrée de patch d’un UserChallenge.
@@ -16,9 +19,13 @@ class PatchUCIn(BaseModel):
         notes (str | None): Notes.
         override_reason (str | None): Raison d’override (si `status=completed` manuel).
     """
-    status: Optional[str] = Field(default=None, description="pending|accepted|dismissed|completed")
-    notes: Optional[str] = None
-    override_reason: Optional[str] = Field(default=None, description="Optionnel si status=completed (override manuel)")
+
+    status: str | None = Field(default=None, description="pending|accepted|dismissed|completed")
+    notes: str | None = None
+    override_reason: str | None = Field(
+        default=None, description="Optionnel si status=completed (override manuel)"
+    )
+
 
 class ChallengeMini(BaseModel):
     """Mini-référence challenge.
@@ -27,8 +34,10 @@ class ChallengeMini(BaseModel):
         id (PyObjectId): Id du challenge.
         name (str): Nom du challenge.
     """
+
     id: PyObjectId
     name: str
+
 
 class ListItem(BaseModel):
     """Élément de liste UC.
@@ -43,14 +52,16 @@ class ListItem(BaseModel):
         challenge (ChallengeMini): Réf. challenge.
         cache (CacheDetail): Réf. cache liée.
     """
+
     id: PyObjectId
     status: str
-    computed_status: Optional[str] = None
+    computed_status: str | None = None
     effective_status: str
-    progress: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = None
+    progress: dict[str, Any] | None = None
+    updated_at: datetime | None = None
     challenge: ChallengeMini
     cache: CacheDetail
+
 
 class ListResponse(BaseModel):
     """Réponse de liste paginée UC.
@@ -61,10 +72,12 @@ class ListResponse(BaseModel):
         limit (int): Taille de page.
         total (int): Total.
     """
-    items: List[ListItem]
+
+    items: list[ListItem]
     page: int
     limit: int
     total: int
+
 
 class CacheDetail(BaseModel):
     """Détail minimal cache.
@@ -73,8 +86,10 @@ class CacheDetail(BaseModel):
         id (PyObjectId): Id cache.
         GC (str): Code GC.
     """
+
     id: PyObjectId
     GC: str
+
 
 class ChallengeDetail(BaseModel):
     """Détail minimal challenge.
@@ -84,9 +99,11 @@ class ChallengeDetail(BaseModel):
         name (str): Nom.
         description (str | None): Description.
     """
+
     id: PyObjectId
     name: str
-    description: Optional[str] = None
+    description: str | None = None
+
 
 class DetailResponse(BaseModel):
     """Réponse détail UC.
@@ -106,17 +123,18 @@ class DetailResponse(BaseModel):
         challenge (ChallengeDetail): Détail challenge.
         cache (CacheDetail): Détail cache.
     """
+
     id: PyObjectId
     status: str
-    computed_status: Optional[str] = None
+    computed_status: str | None = None
     effective_status: str
-    progress: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    manual_override: Optional[bool] = None
-    override_reason: Optional[str] = None
-    overridden_at: Optional[datetime] = None
-    notes: Optional[str] = None
+    progress: dict[str, Any] | None = None
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+    manual_override: bool | None = None
+    override_reason: str | None = None
+    overridden_at: datetime | None = None
+    notes: str | None = None
     challenge: ChallengeDetail
     cache: CacheDetail
 
@@ -135,12 +153,13 @@ class PatchResponse(BaseModel):
         notes (str | None): Notes.
         updated_at (datetime | None): MAJ.
     """
+
     id: PyObjectId
     status: str
-    computed_status: Optional[str] = None
+    computed_status: str | None = None
     effective_status: str
-    manual_override: Optional[bool] = None
-    override_reason: Optional[str] = None
-    overridden_at: Optional[datetime] = None
-    notes: Optional[str] = None
-    updated_at: Optional[datetime] = None
+    manual_override: bool | None = None
+    override_reason: str | None = None
+    overridden_at: datetime | None = None
+    notes: str | None = None
+    updated_at: datetime | None = None

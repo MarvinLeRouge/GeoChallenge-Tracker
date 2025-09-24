@@ -5,20 +5,23 @@ ENV_PATH = ".env"
 SECRET_KEY_NAME = "JWT_SECRET_KEY"
 ANCHOR_COMMENT = "# Auth"
 
+
 def generate_secret_key(bits: int = 512) -> str:
     return secrets.token_hex(bits // 8)
+
 
 def env_key_exists(path: str, key: str) -> bool:
     if not os.path.exists(path):
         return False
-    with open(path, "r") as f:
+    with open(path) as f:
         return any(line.strip().startswith(f"{key}=") for line in f)
+
 
 def insert_key_after_anchor(path: str, key: str, value: str, anchor: str) -> bool:
     if not os.path.exists(path):
         return False
 
-    with open(path, "r") as f:
+    with open(path) as f:
         lines = f.readlines()
 
     inserted = False
@@ -38,6 +41,7 @@ def insert_key_after_anchor(path: str, key: str, value: str, anchor: str) -> boo
 
     return inserted
 
+
 if __name__ == "__main__":
     if env_key_exists(ENV_PATH, SECRET_KEY_NAME):
         print(f"🔐 Clé {SECRET_KEY_NAME} déjà définie dans {ENV_PATH}. Aucune modification.")
@@ -47,4 +51,6 @@ if __name__ == "__main__":
         if inserted:
             print(f"✅ Clé {SECRET_KEY_NAME} ajoutée après '{ANCHOR_COMMENT}' dans {ENV_PATH}.")
         else:
-            print(f"⚠️ Aucun marqueur '{ANCHOR_COMMENT}' trouvé. Clé ajoutée à la fin de {ENV_PATH}.")
+            print(
+                f"⚠️ Aucun marqueur '{ANCHOR_COMMENT}' trouvé. Clé ajoutée à la fin de {ENV_PATH}."
+            )

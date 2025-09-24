@@ -16,14 +16,14 @@ Idempotent: un challenge est unique par `cache_id` (index unique requis sur `cha
 
 from __future__ import annotations
 
-from typing import Iterable, List, Optional, Dict, Any
-from datetime import datetime
-from pymongo import UpdateOne
+from collections.abc import Iterable
+from typing import Any
+
 from bson import ObjectId
+from pymongo import UpdateOne
 
+from app.core.utils import utcnow
 from app.db.mongodb import get_collection
-
-from app.core.utils import *
 
 # Constante métier: attribut "Challenge cache" (geocaching.com)
 CHALLENGE_ATTRIBUTE_ID = 71
@@ -45,14 +45,14 @@ def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectI
     Raises:
         RuntimeError: Si aucun attribut correspondant n’est trouvé (référentiels non seedés).
     """
-    attr_coll = get_collection('cache_attributes')
-    doc = attr_coll.find_one({'cache_attribute_id': attribute_id}, {'_id': 1})
+    attr_coll = get_collection("cache_attributes")
+    doc = attr_coll.find_one({"cache_attribute_id": attribute_id}, {"_id": 1})
     if not doc:
         raise RuntimeError(
             f"cache_attributes: aucun document avec cache_attribute_id={attribute_id}. "
             "Vérifie que le référentiel des attributs est seedé."
         )
-    return doc['_id']
+    return doc["_id"]
 
 
 def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
@@ -70,37 +70,28 @@ def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
     Returns:
         Iterable[dict]: Curseur d’agrégation sur les caches candidates.
     """
-    caches = get_collection('caches')
+    caches = get_collection("caches")
     pipeline = [
         {
-            '$match': {
-                'attributes': {
-                    '$elemMatch': {
-                        'attribute_doc_id': attribute_doc_id,
-                        'is_positive': True,
+            "$match": {
+                "attributes": {
+                    "$elemMatch": {
+                        "attribute_doc_id": attribute_doc_id,
+                        "is_positive": True,
                     }
                 }
             }
         },
         {
-            '$lookup': {
-                'from': 'challenges',
-                'localField': '_id',
-                'foreignField': 'cache_id',
-                'as': 'existing'
+            "$lookup": {
+                "from": "challenges",
+                "localField": "_id",
+                "foreignField": "cache_id",
+                "as": "existing",
             }
         },
-        {
-            '$match': {
-                '$expr': {'$eq': [{'$size': '$existing'}, 0]}
-            }
-        },
-        {
-            '$project': {
-                'title': 1,
-                'description_html': 1
-            }
-        }
+        {"$match": {"$expr": {"$eq": [{"$size": "$existing"}, 0]}}},
+        {"$project": {"title": 1, "description_html": 1}},
     ]
     return caches.aggregate(pipeline, allowDiskUse=True)
 
@@ -119,30 +110,30 @@ def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Ite
     Returns:
         Iterable[dict]: Curseur de recherche sur les caches candidates (projection légère).
     """
-    caches = get_collection('caches')
-    challenges = get_collection('challenges')
+    caches = get_collection("caches")
+    challenges = get_collection("challenges")
 
     cache_ids = list(cache_ids)
     if not cache_ids:
         return iter(())
 
     # Déjà connus (uniquement dans ce sous-ensemble)
-    known_ids = set(challenges.distinct('cache_id', {'cache_id': {'$in': cache_ids}}))
+    known_ids = set(challenges.distinct("cache_id", {"cache_id": {"$in": cache_ids}}))
 
-    base_filter: Dict[str, Any] = {
-        '_id': {'$in': [cid for cid in cache_ids if cid not in known_ids]},
-        'attributes': {
-            '$elemMatch': {
-                'attribute_doc_id': attribute_doc_id,
-                'is_positive': True,
+    base_filter: dict[str, Any] = {
+        "_id": {"$in": [cid for cid in cache_ids if cid not in known_ids]},
+        "attributes": {
+            "$elemMatch": {
+                "attribute_doc_id": attribute_doc_id,
+                "is_positive": True,
             }
-        }
+        },
     }
-    projection = {'title': 1, 'description_html': 1}
+    projection = {"title": 1, "description_html": 1}
     return caches.find(base_filter, projection)
 
 
-def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = None) -> Dict[str, Any]:
+def create_challenges_from_caches(*, cache_ids: Iterable[ObjectId] | None = None) -> dict[str, Any]:
     """Créer (upsert) les challenges à partir des caches « challenge ».
 
     Description:
@@ -164,28 +155,28 @@ def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = N
     else:
         cursor = _iter_new_challenge_caches_subset(attr_doc_id, cache_ids)
 
-    challenges = get_collection('challenges')
+    challenges = get_collection("challenges")
 
-    ops: List[UpdateOne] = []
+    ops: list[UpdateOne] = []
     matched = 0
     for cache in cursor:
         matched += 1
-        cache_id = cache['_id']
-        title = cache.get('title') or 'Challenge'
-        description = cache.get('description_html') or ''
+        cache_id = cache["_id"]
+        title = cache.get("title") or "Challenge"
+        description = cache.get("description_html") or ""
 
         ops.append(
             UpdateOne(
-                {'cache_id': cache_id},
+                {"cache_id": cache_id},
                 {
-                    '$setOnInsert': {
-                        'cache_id': cache_id,
-                        'name': title,
-                        'description': description,
-                        'created_at': utcnow(),
+                    "$setOnInsert": {
+                        "cache_id": cache_id,
+                        "name": title,
+                        "description": description,
+                        "created_at": utcnow(),
                     },
-                    '$set': {
-                        'updated_at': utcnow(),
+                    "$set": {
+                        "updated_at": utcnow(),
                     },
                 },
                 upsert=True,
@@ -195,12 +186,19 @@ def create_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = N
     created = 0
     if ops:
         res = challenges.bulk_write(ops, ordered=False)
-        created = len(res.upserted_ids) if getattr(res, 'upserted_ids', None) else 0
+        created = len(res.upserted_ids) if getattr(res, "upserted_ids", None) else 0
 
     skipped_existing = matched - created
-    return {'matched': matched, 'created': created, 'skipped_existing': skipped_existing}
+    return {
+        "matched": matched,
+        "created": created,
+        "skipped_existing": skipped_existing,
+    }
 
-def create_new_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]] = None) -> Dict[str, Any]:
+
+def create_new_challenges_from_caches(
+    *, cache_ids: Iterable[ObjectId] | None = None
+) -> dict[str, Any]:
     """Wrapper : déterminer explicitement les nouveaux `_id` avant création.
 
     Description:
@@ -215,27 +213,28 @@ def create_new_challenges_from_caches(*, cache_ids: Optional[Iterable[ObjectId]]
         dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}` (zéro si rien à créer).
     """
     attr_doc_id = _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
-    caches = get_collection('caches')
-    challenges = get_collection('challenges')
+    caches = get_collection("caches")
+    challenges = get_collection("challenges")
 
     if cache_ids is not None:
         subset = list(cache_ids)
         if not subset:
-            return {'matched': 0, 'created': 0, 'skipped_existing': 0}
-        known = set(challenges.distinct('cache_id', {'cache_id': {'$in': subset}}))
+            return {"matched": 0, "created": 0, "skipped_existing": 0}
+        known = set(challenges.distinct("cache_id", {"cache_id": {"$in": subset}}))
         new_ids = [cid for cid in subset if cid not in known]
         if not new_ids:
-            return {'matched': 0, 'created': 0, 'skipped_existing': 0}
+            return {"matched": 0, "created": 0, "skipped_existing": 0}
         return create_challenges_from_caches(cache_ids=new_ids)
 
-    candidate_ids = caches.distinct('_id', {
-        'attributes': {'$elemMatch': {'attribute_doc_id': attr_doc_id, 'is_positive': True}}
-    })
+    candidate_ids = caches.distinct(
+        "_id",
+        {"attributes": {"$elemMatch": {"attribute_doc_id": attr_doc_id, "is_positive": True}}},
+    )
     if not candidate_ids:
-        return {'matched': 0, 'created': 0, 'skipped_existing': 0}
+        return {"matched": 0, "created": 0, "skipped_existing": 0}
 
-    known = set(challenges.distinct('cache_id', {'cache_id': {'$in': candidate_ids}}))
+    known = set(challenges.distinct("cache_id", {"cache_id": {"$in": candidate_ids}}))
     new_ids = [cid for cid in candidate_ids if cid not in known]
     if not new_ids:
-        return {'matched': 0, 'created': 0, 'skipped_existing': 0}
+        return {"matched": 0, "created": 0, "skipped_existing": 0}
     return create_challenges_from_caches(cache_ids=new_ids)

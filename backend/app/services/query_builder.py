@@ -2,17 +2,24 @@
 # Transforme une expression canonique (AND-only) en conditions MongoDB pour la collection `caches`.
 
 from __future__ import annotations
-from typing import Any, Dict, List, Tuple, Optional
+
+from datetime import date, datetime
+from typing import Any
+
 from bson import ObjectId
-from datetime import datetime, date
-from app.db.mongodb import get_collection
+
 from app.services.referentials_cache import (
-    resolve_type_code, resolve_size_code, resolve_size_name,
-    resolve_attribute_code, resolve_country_name, resolve_state_name,
+    resolve_attribute_code,
+    resolve_country_name,
+    resolve_size_code,
+    resolve_size_name,
+    resolve_state_name,
+    resolve_type_code,
 )
 
 # NOTE: on ne dépend pas des modèles Pydantic ici : on reçoit un dict "expression" déjà canonisé
 # (cf. services/user_challenge_tasks.put_tasks qui stocke l'expression canonicalisée). :contentReference[oaicite:1]{index=1}
+
 
 def _mk_date(dt_or_str: Any) -> datetime:
     """Normaliser divers formats de date vers `datetime`.
@@ -37,7 +44,8 @@ def _mk_date(dt_or_str: Any) -> datetime:
         return datetime.fromisoformat(dt_or_str)
     raise ValueError(f"Invalid date: {dt_or_str!r}")
 
-def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+
+def _flatten_and_nodes(expr: dict[str, Any]) -> list[dict[str, Any]] | None:
     """Aplatir récursivement les nœuds `AND` en une liste de feuilles.
 
     Description:
@@ -51,8 +59,8 @@ def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
     """
     kind = expr.get("kind")
     if kind == "and":
-        out: List[Dict[str, Any]] = []
-        for n in (expr.get("nodes") or []):
+        out: list[dict[str, Any]] = []
+        for n in expr.get("nodes") or []:
             sub = _flatten_and_nodes(n) if isinstance(n, dict) else [n]
             if sub is None:
                 return None
@@ -62,7 +70,10 @@ def _flatten_and_nodes(expr: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
         return None
     return [expr]  # leaf
 
-def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict[str, Any]], List[Dict[str, Any]]]:
+
+def _extract_aggregate_spec(
+    leaves: list[dict[str, Any]]
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Extraire la spécification d’agrégat et les feuilles « cache.* ».
 
     Description:
@@ -80,7 +91,7 @@ def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict
         tuple[dict | None, list[dict]]: Spéc d’agrégat (ou None) et feuilles restantes.
     """
     agg = None
-    cache_leaves: List[Dict[str, Any]] = []
+    cache_leaves: list[dict[str, Any]] = []
     for lf in leaves:
         k = lf.get("kind")
         if k in (
@@ -103,7 +114,8 @@ def _extract_aggregate_spec(leaves: List[Dict[str, Any]]) -> Tuple[Optional[Dict
             cache_leaves.append(lf)
     return agg, cache_leaves
 
-def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
+
+def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     """Compiler une feuille AST en `(champ, condition)` sur `caches`.
 
     Description:
@@ -121,13 +133,12 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
         list[tuple[str, Any]]: Paires `(champ, condition)` à fusionner en AND.
     """
     k = leaf.get("kind")
-    out: List[Tuple[str, Any]] = []
+    out: list[tuple[str, Any]] = []
 
+    oids: list[ObjectId] = []
     if k == "type_in":
-        oids: List[ObjectId] = []
-
         # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code}]
-        for t in (leaf.get("types") or []):
+        for t in leaf.get("types") or []:
             oid = t.get("cache_type_doc_id")
             if not oid and t.get("cache_type_id") is not None:
                 # numeric id non supporté nativement par le cache -> on ignore, ou ajoute si tu l’as dans cache
@@ -138,13 +149,13 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
                 oids.append(oid)
 
         # 2) legacy: codes: ["wherigo", ...]
-        for code in (leaf.get("codes") or []):
+        for code in leaf.get("codes") or []:
             oid = resolve_type_code(code)
             if oid:
                 oids.append(oid)
 
         # 3) legacy: type_ids: [<oid>, ...]
-        for tid in (leaf.get("type_ids") or []):
+        for tid in leaf.get("type_ids") or []:
             try:
                 oids.append(ObjectId(str(tid)))
             except Exception:
@@ -155,10 +166,8 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
         return out
 
     if k == "size_in":
-        oids: List[ObjectId] = []
-
         # 1) canonique: sizes: [{cache_size_doc_id | cache_size_id | code | name}]
-        for s in (leaf.get("sizes") or []):
+        for s in leaf.get("sizes") or []:
             oid = s.get("cache_size_doc_id")
             if not oid and s.get("code"):
                 oid = resolve_size_code(s["code"])
@@ -168,19 +177,19 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
                 oids.append(ObjectId(str(oid)))
 
         # 2) legacy: codes: ["micro", ...]
-        for code in (leaf.get("codes") or []):
+        for code in leaf.get("codes") or []:
             oid = resolve_size_code(code)
             if oid:
                 oids.append(ObjectId(str(oid)))
 
         # 3) legacy: names: ["micro", ...]
-        for nm in (leaf.get("names") or []):
+        for nm in leaf.get("names") or []:
             oid = resolve_size_name(nm)
             if oid:
                 oids.append(ObjectId(str(oid)))
 
         # 3) legacy: size_ids: [<oid>, ...]
-        for sid in (leaf.get("size_ids") or []):
+        for sid in leaf.get("size_ids") or []:
             try:
                 oids.append(ObjectId(str(sid)))
             except Exception:
@@ -211,9 +220,9 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
 
     if k == "state_in":
         # Accepte state_ids OU states[{name}] (avec country diffusable via sibling)
-        ids: List[ObjectId] = list(leaf.get("state_ids") or [])
+        ids: list[ObjectId] = list(leaf.get("state_ids") or [])
 
-        for s in (leaf.get("states") or []):
+        for s in leaf.get("states") or []:
             sid = s.get("state_id")
             if not sid and s.get("name"):
                 # on passe le country_id du leaf s’il est déjà là
@@ -232,8 +241,9 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
         return out
 
     if k == "placed_year":
-        y = int(leaf.get("year"))
-        start = datetime(y, 1, 1); end = datetime(y + 1, 1, 1)
+        y = int(leaf.get("year", 0))
+        start = datetime(y, 1, 1)
+        end = datetime(y + 1, 1, 1)
         out.append(("placed_at", {"$gte": start, "$lt": end}))
         return out
 
@@ -268,21 +278,35 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
                 attr_oid = res[0] if res else None
 
             if attr_oid:
-                out.append(("attributes", {"$elemMatch": {
-                    "attribute_doc_id": ObjectId(str(attr_oid)),
-                    "is_positive": is_pos,
-                }}))
+                out.append(
+                    (
+                        "attributes",
+                        {
+                            "$elemMatch": {
+                                "attribute_doc_id": ObjectId(str(attr_oid)),
+                                "is_positive": is_pos,
+                            }
+                        },
+                    )
+                )
             else:
                 out.append(("_id", ObjectId()))  # clause impossible
 
         # legacy: "codes": ["picnic", "challenge"] (positifs)
-        for code in (leaf.get("codes") or []):
+        for code in leaf.get("codes") or []:
             res = resolve_attribute_code(code)
             if res and res[0]:
-                out.append(("attributes", {"$elemMatch": {
-                    "attribute_doc_id": ObjectId(str(res[0])),
-                    "is_positive": True,
-                }}))
+                out.append(
+                    (
+                        "attributes",
+                        {
+                            "$elemMatch": {
+                                "attribute_doc_id": ObjectId(str(res[0])),
+                                "is_positive": True,
+                            }
+                        },
+                    )
+                )
             else:
                 out.append(("_id", ObjectId()))
 
@@ -290,7 +314,10 @@ def _compile_leaf_to_cache_pairs(leaf: Dict[str, Any]) -> List[Tuple[str, Any]]:
 
     return out
 
-def compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, List[str], Optional[Dict[str, Any]]]:
+
+def compile_and_only(
+    expr: dict[str, Any]
+) -> tuple[str, dict[str, Any], bool, list[str], dict[str, Any] | None]:
     """Compiler une expression AND en filtres Mongo « caches.* ».
 
     Description:
@@ -315,12 +342,12 @@ def compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, L
         return ("unsupported:or-not", {}, False, ["or/not unsupported in MVP"], None)
 
     agg_spec, cache_leaves = _extract_aggregate_spec(leaves)
-    parts: List[Tuple[str, Any]] = []
+    parts: list[tuple[str, Any]] = []
     for lf in cache_leaves:
         parts.extend(_compile_leaf_to_cache_pairs(lf))
 
     # fusion (AND): grouper par champ; si plusieurs conds pour un même champ -> liste ET-ée
-    match: Dict[str, Any] = {}
+    match: dict[str, Any] = {}
     for field, cond in parts:
         if field in match:
             if not isinstance(match[field], list):
@@ -331,6 +358,7 @@ def compile_and_only(expr: Dict[str, Any]) -> Tuple[str, Dict[str, Any], bool, L
 
     try:
         import json
+
         signature = "and:" + json.dumps({"leaves": cache_leaves}, default=str, sort_keys=True)
     except Exception:
         signature = "and:compiled"

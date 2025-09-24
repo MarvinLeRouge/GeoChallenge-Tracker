@@ -1,15 +1,17 @@
 # backend/app/tests.test_emailverification.py
 
-import pytest
 import datetime as dt
+
 from bson import ObjectId
-from app.core.utils import *
-from app.core.security import hash_password
-from app.db.mongodb import get_collection
 from fastapi.testclient import TestClient
+
+from app.core.security import hash_password
+from app.core.utils import now
+from app.db.mongodb import get_collection
 from app.main import app
 
 client = TestClient(app)
+
 
 def insert_temp_user(code="testcode123", expires_in_minutes=5, verified=False):
     users_collection = get_collection("users")
@@ -22,10 +24,11 @@ def insert_temp_user(code="testcode123", expires_in_minutes=5, verified=False):
         "created_at": now(),
         "verification_code": code,
         "verification_expires_at": now() + dt.timedelta(minutes=expires_in_minutes),
-        "is_verified": verified
+        "is_verified": verified,
     }
     users_collection.insert_one(user)
     return str(user_id), code
+
 
 def delete_temp_user():
     get_collection("users").delete_many({"email": "verify@example.com"})
@@ -77,10 +80,9 @@ def ___test_login_unverified_user():
     delete_temp_user()
     _, code = insert_temp_user(verified=False)
 
-    response = client.post("/auth/login", json={
-        "identifier": "verifiable_user",
-        "password": "Secure123!"
-    })
+    response = client.post(
+        "/auth/login", json={"identifier": "verifiable_user", "password": "Secure123!"}
+    )
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Unverified user"

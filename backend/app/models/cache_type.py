@@ -2,11 +2,14 @@
 # Référentiel listant les types (Traditional, Mystery, Event, …) et leurs alias.
 
 from __future__ import annotations
-from typing import Optional, List
+
 import datetime as dt
+
 from pydantic import BaseModel, Field
-from app.core.utils import *
-from app.core.bson_utils import *
+
+from app.core.bson_utils import MongoBaseModel
+from app.core.utils import now
+
 
 class CacheTypeBase(BaseModel):
     """Type de cache (référentiel).
@@ -19,9 +22,11 @@ class CacheTypeBase(BaseModel):
         code (str | None): Abréviation (ex. "TR").
         aliases (list[str]): Alias reconnus pour ce type.
     """
-    name: str                     # ex: "Traditional", "Mystery", etc.
-    code: Optional[str] = None    # abréviation, ex: "TR", "MY", "EV"
-    aliases: List[str] = Field(default_factory=list)
+
+    name: str  # ex: "Traditional", "Mystery", etc.
+    code: str | None = None  # abréviation, ex: "TR", "MY", "EV"
+    aliases: list[str] = Field(default_factory=list)
+
 
 class CacheTypeCreate(CacheTypeBase):
     """Payload de création d’un type de cache.
@@ -29,7 +34,9 @@ class CacheTypeCreate(CacheTypeBase):
     Description:
         Identique à `CacheTypeBase` pour insertion dans le référentiel.
     """
+
     pass
+
 
 class CacheTypeUpdate(BaseModel):
     """Payload de mise à jour d’un type de cache.
@@ -42,9 +49,11 @@ class CacheTypeUpdate(BaseModel):
         code (str | None): Nouvelle abréviation.
         aliases (list[str] | None): Nouveaux alias.
     """
-    name: Optional[str] = None
-    code: Optional[str] = None
-    aliases: Optional[List[str]] = None
+
+    name: str | None = None
+    code: str | None = None
+    aliases: list[str] | None = None
+
 
 class CacheType(MongoBaseModel, CacheTypeBase):
     """Document Mongo d’un type de cache (référentiel).
@@ -52,5 +61,6 @@ class CacheType(MongoBaseModel, CacheTypeBase):
     Description:
         Étend `CacheTypeBase` avec _id, created_at, updated_at.
     """
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None

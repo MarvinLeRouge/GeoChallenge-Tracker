@@ -2,12 +2,16 @@
 # Schémas d’entrée/sortie pour gérer/valider les tâches d’un UserChallenge.
 
 from __future__ import annotations
+
 import datetime as dt
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, conlist
 from datetime import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
+
 from app.core.bson_utils import PyObjectId
 from app.models.challenge_ast import TaskExpression
+
 
 class TaskIn(BaseModel):
     """Entrée pour une tâche.
@@ -19,11 +23,16 @@ class TaskIn(BaseModel):
         constraints (dict[str, Any]): Contraintes (ex. {'min_count': 4}).
         status (str | None): 'todo' | 'in_progress' | 'done' (optionnel).
     """
-    id: Optional[PyObjectId] = Field(default=None, description="Task id if updating")
-    title: Optional[str] = Field(default=None, max_length=200)
+
+    id: PyObjectId | None = Field(default=None, description="Task id if updating")
+    title: str | None = Field(default=None, max_length=200)
     expression: TaskExpression = Field(..., description="AST expression for this task")
-    constraints: Dict[str, Any] = Field(..., description="Ex: {'min_count': 4}")
-    status: Optional[str] = Field(default=None, description="Optional manual status: 'todo' | 'in_progress' | 'done'")
+    constraints: dict[str, Any] = Field(..., description="Ex: {'min_count': 4}")
+    status: str | None = Field(
+        default=None,
+        description="Optional manual status: 'todo' | 'in_progress' | 'done'",
+    )
+
 
 class TasksPutIn(BaseModel):
     """Entrée PUT pour remplacer la liste complète de tâches.
@@ -31,7 +40,9 @@ class TasksPutIn(BaseModel):
     Attributes:
         tasks (conlist[TaskIn]): Liste de 0 à 50 tâches.
     """
-    tasks: conlist(TaskIn, min_length=0, max_length=50)
+
+    tasks: list[TaskIn] = Field(min_length=0, max_length=50, default_factory=list)
+
 
 class TasksValidateIn(BaseModel):
     """Entrée POST de validation de tâches (sans persistance).
@@ -39,7 +50,9 @@ class TasksValidateIn(BaseModel):
     Attributes:
         tasks (conlist[TaskIn]): Liste de 0 à 50 tâches à valider.
     """
-    tasks: conlist(TaskIn, min_length=0, max_length=50)
+
+    tasks: list[TaskIn] = Field(min_length=0, max_length=50, default_factory=list)
+
 
 class TaskOut(BaseModel):
     """Sortie d’une tâche.
@@ -57,20 +70,22 @@ class TaskOut(BaseModel):
         updated_at (datetime | None): MAJ.
         created_at (datetime | None): Création.
     """
+
     id: PyObjectId
     order: int
     title: str
     expression: TaskExpression
-    constraints: Dict[str, Any]
-    status: Optional[str] = None
-    metrics: Optional[Dict[str, Any]] = None
-    progress: Optional[Dict[str, Any]] = None
-    start_found_at: Optional[dt.datetime] = None
-    completed_at: Optional[dt.datetime] = None
+    constraints: dict[str, Any]
+    status: str | None = None
+    metrics: dict[str, Any] | None = None
+    progress: dict[str, Any] | None = None
+    start_found_at: dt.datetime | None = None
+    completed_at: dt.datetime | None = None
 
-    last_evaluated_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
+    last_evaluated_at: datetime | None = None
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
 
 class TasksListResponse(BaseModel):
     """Réponse: liste de tâches.
@@ -78,7 +93,9 @@ class TasksListResponse(BaseModel):
     Attributes:
         tasks (list[TaskOut]): Tâches ordonnées.
     """
-    tasks: List[TaskOut]
+
+    tasks: list[TaskOut]
+
 
 class ValidationErrorItem(BaseModel):
     """Erreur de validation (itemisée).
@@ -89,10 +106,12 @@ class ValidationErrorItem(BaseModel):
         code (str): Code d’erreur.
         message (str): Message lisible.
     """
+
     index: int
     field: str
     code: str
     message: str
+
 
 class TasksValidateResponse(BaseModel):
     """Résultat de validation.
@@ -101,8 +120,10 @@ class TasksValidateResponse(BaseModel):
         ok (bool): True si aucune erreur.
         errors (list[ValidationErrorItem]): Erreurs détaillées.
     """
+
     ok: bool
-    errors: List[ValidationErrorItem] = []
+    errors: list[ValidationErrorItem] = []
+
 
 # --- Rebuild Pydantic models to resolve forward/circular refs (Pydantic v2) ---
 TaskOut.model_rebuild()

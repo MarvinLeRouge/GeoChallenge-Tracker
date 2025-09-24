@@ -1,21 +1,26 @@
 # backend/app/api/routes/my_profile.py
 # Routes "mon profil" : lecture/écriture de la localisation utilisateur (coordonnées ou expression textuelle).
 
-from fastapi import APIRouter, Depends, HTTPException, Body, status
-from bson import ObjectId
+from typing import Annotated
 
-from app.core.security import get_current_user
-from app.core.utils import *
+from bson import ObjectId
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+
+from app.core.security import get_current_user, get_current_user_id
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
-from app.services.user_profile import *
+from app.services.user_profile import (
+    coords_in_deg_min_mil,
+    location_parse_to_lon_lat,
+    user_location_get,
+    user_location_set,
+)
 
 router = APIRouter(
-    prefix="/my/profile", 
-    tags=["my_profile"],
-    dependencies=[Depends(get_current_user)]
+    prefix="/my/profile", tags=["my_profile"], dependencies=[Depends(get_current_user)]
 )
 
 # --- ROUTES ---------------------------------------------------------------
+
 
 @router.put(
     "/location",
@@ -29,8 +34,10 @@ router = APIRouter(
     ),
 )
 def put_my_location(
-    payload: UserLocationIn = Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
-    current_user=Depends(get_current_user),
+    payload: Annotated[
+        UserLocationIn,
+        Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
+    ],
 ):
     """Enregistrer ou mettre à jour la localisation.
 
@@ -40,31 +47,29 @@ def put_my_location(
 
     Args:
         payload (UserLocationIn): Position textuelle ou coordonnées numériques.
-        current_user: Contexte utilisateur.
 
     Returns:
         dict: Message d’état (modifiée ou non).
     """
-    user_id = current_user["_id"] if isinstance(current_user.get("_id"), ObjectId) else ObjectId(str(current_user["_id"]))
+    user_id = get_current_user_id()
 
     # Choix de la source : position string > lat/lon
     if payload.position:
         try:
             lon, lat = location_parse_to_lon_lat(payload.position)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise HTTPException(status_code=422, detail=str(e)) from e
     else:
         if payload.lat is None or payload.lon is None:
-            raise HTTPException(status_code=422, detail="Provide either 'position' or both 'lat' and 'lon'.")
+            raise HTTPException(
+                status_code=422,
+                detail="Provide either 'position' or both 'lat' and 'lon'.",
+            )
         lat, lon = float(payload.lat), float(payload.lon)
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             raise HTTPException(status_code=422, detail="Coordinates out of range.")
 
-    result = user_location_set(
-        user_id=user_id,
-        lon=lon,
-        lat=lat
-    )
+    result = user_location_set(user_id=user_id, lon=lon, lat=lat)
     if result.modified_count > 0:
         return {"message": "Location updated successfully"}
     else:
@@ -77,25 +82,31 @@ def put_my_location(
     summary="Obtenir ma dernière localisation",
     description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
 )
-def get_my_location(
-    current_user=Depends(get_current_user),
-):
+def get_my_location():
     """Obtenir ma dernière localisation.
 
     Description:
         Récupère la dernière localisation sauvegardée pour l’utilisateur courant. Renvoie 404 si aucune n’existe.
 
     Args:
-        current_user: Contexte utilisateur.
 
     Returns:
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
-    user_id = current_user["_id"] if isinstance(current_user.get("_id"), ObjectId) else ObjectId(str(current_user["_id"]))
+
+    current_user = get_current_user()
+    user_id = (
+        current_user["_id"]
+        if isinstance(current_user.get("_id"), ObjectId)
+        else ObjectId(str(current_user["_id"]))
+    )
     loc = user_location_get(user_id)
     if not loc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No location saved for this user.")
-    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No location saved for this user.",
+        )
+
     lat = loc["coordinates"][1]
     lon = loc["coordinates"][0]
     return UserLocationOut(

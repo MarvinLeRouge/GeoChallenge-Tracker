@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Literal, Dict, Any
 import datetime as dt
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Literal
 
-from app.core.utils import *
-from app.core.bson_utils import *
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.core.bson_utils import MongoBaseModel, PyObjectId
+from app.core.utils import now
 
 
 class CacheAttributeRef(BaseModel):
@@ -21,8 +22,9 @@ class CacheAttributeRef(BaseModel):
         attribute_doc_id (PyObjectId): Référence à `cache_attributes._id`.
         is_positive (bool): True si l’attribut est affirmatif, False s’il est négatif.
     """
-    attribute_doc_id: PyObjectId   # référence à cache_attributes._id
-    is_positive: bool              # attribut positif (True) ou négatif (False)
+
+    attribute_doc_id: PyObjectId  # référence à cache_attributes._id
+    is_positive: bool  # attribut positif (True) ou négatif (False)
 
     # Sous-modèle: ajouter model_config pour gérer PyObjectId partout (nested)
     model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
@@ -57,35 +59,36 @@ class CacheBase(BaseModel):
         favorites (int | None): Compteur de favoris.
         status (Literal['active','disabled','archived'] | None): Statut.
     """
+
     GC: str
     title: str
-    description_html: Optional[str] = None
-    url: Optional[str] = None
+    description_html: str | None = None
+    url: str | None = None
 
     # Typage / classement
-    type_id: Optional[PyObjectId] = None      # ref -> CacheType
-    size_id: Optional[PyObjectId] = None      # ref -> CacheSize
+    type_id: PyObjectId | None = None  # ref -> CacheType
+    size_id: PyObjectId | None = None  # ref -> CacheSize
 
     # Localisation
-    country_id: Optional[PyObjectId] = None   # ref -> Country
-    state_id: Optional[PyObjectId] = None     # ref -> State
-    lat: Optional[float] = None
-    lon: Optional[float] = None
+    country_id: PyObjectId | None = None  # ref -> Country
+    state_id: PyObjectId | None = None  # ref -> State
+    lat: float | None = None
+    lon: float | None = None
     # GeoJSON pour index 2dsphere (coordonnées [lon, lat])
-    loc: Optional[Dict[str, Any]] = None
-    elevation: Optional[int] = None           # en mètres (optionnel)
-    location_more: Optional[Dict[str, Any]] = None  # infos libres (ville, département...)
+    loc: dict[str, Any] | None = None
+    elevation: int | None = None  # en mètres (optionnel)
+    location_more: dict[str, Any] | None = None  # infos libres (ville, département...)
 
     # Caractéristiques
-    difficulty: Optional[float] = None        # 1.0 .. 5.0
-    terrain: Optional[float] = None           # 1.0 .. 5.0
-    attributes: List[CacheAttributeRef] = Field(default_factory=list)
+    difficulty: float | None = None  # 1.0 .. 5.0
+    terrain: float | None = None  # 1.0 .. 5.0
+    attributes: list[CacheAttributeRef] = Field(default_factory=list)
 
     # Dates & stats
-    placed_at: Optional[dt.datetime] = None
-    owner: Optional[str] = None
-    favorites: Optional[int] = None
-    status: Optional[Literal["active", "disabled", "archived"]] = None
+    placed_at: dt.datetime | None = None
+    owner: str | None = None
+    favorites: int | None = None
+    status: Literal["active", "disabled", "archived"] | None = None
 
 
 class CacheCreate(CacheBase):
@@ -94,6 +97,7 @@ class CacheCreate(CacheBase):
     Description:
         Identique à `CacheBase` ; sert d’entrée pour l’API de création/import.
     """
+
     pass
 
 
@@ -113,14 +117,15 @@ class CacheUpdate(BaseModel):
         attributes (list[CacheAttributeRef] | None): Nouvelle liste d’attributs.
         status (Literal['active','disabled','archived'] | None): Nouveau statut.
     """
-    title: Optional[str] = None
-    description_html: Optional[str] = None
-    url: Optional[str] = None
-    elevation: Optional[int] = None
-    state_id: Optional[PyObjectId] = None
-    location_more: Optional[Dict[str, Any]] = None
-    attributes: Optional[List[CacheAttributeRef]] = None
-    status: Optional[Literal["active", "disabled", "archived"]] = None
+
+    title: str | None = None
+    description_html: str | None = None
+    url: str | None = None
+    elevation: int | None = None
+    state_id: PyObjectId | None = None
+    location_more: dict[str, Any] | None = None
+    attributes: list[CacheAttributeRef] | None = None
+    status: Literal["active", "disabled", "archived"] | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True, json_encoders={PyObjectId: str})
 
@@ -131,5 +136,6 @@ class Cache(MongoBaseModel, CacheBase):
     Description:
         Étend `CacheBase` avec les champs de traçabilité (_id, created_at, updated_at).
     """
+
     created_at: dt.datetime = Field(default_factory=lambda: now())
-    updated_at: Optional[dt.datetime] = None
+    updated_at: dt.datetime | None = None

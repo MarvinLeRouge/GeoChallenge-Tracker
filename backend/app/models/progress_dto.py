@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
-from typing import Optional, List
 import datetime as dt
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from app.core.bson_utils import PyObjectId
-from app.models._shared import ProgressSnapshot as AggregateProgress  # percent, tasks_done, tasks_total, checked_at
+from app.models._shared import (
+    ProgressSnapshot as AggregateProgress,
+)  # percent, tasks_done, tasks_total, checked_at
 
 
 def _round_it(v: float, decimals: int = 0) -> float | None:
@@ -27,6 +30,7 @@ def _round_it(v: float, decimals: int = 0) -> float | None:
         return v
     return round(float(v), decimals)
 
+
 class AggregateProgressOut(BaseModel):
     """Agrégat global renvoyé par l’API.
 
@@ -35,9 +39,11 @@ class AggregateProgressOut(BaseModel):
         target (float): Objectif.
         unit (str): Unité.
     """
+
     total: float
     target: float
     unit: str
+
 
 class TaskProgressItemOut(BaseModel):
     """Snapshot par tâche renvoyé par l’API.
@@ -62,12 +68,16 @@ class TaskProgressItemOut(BaseModel):
         updated_at (datetime | None): MAJ serveur.
         created_at (datetime | None): Création.
     """
+
     task_id: PyObjectId = Field(..., description="Id of the task")
     order: int = Field(..., ge=0, description="Task order within the challenge")
-    title: Optional[str] = Field(default=None, max_length=200)
+    title: str | None = Field(default=None, max_length=200)
     supported_for_progress: bool = Field(default=True)
-    compiled_signature: str = Field(..., description="Stable signature of compiled AND subtree, or a tag like 'override:done' / 'unsupported:or-not'")
-    aggregate: Optional[AggregateProgressOut] = None
+    compiled_signature: str = Field(
+        ...,
+        description="Stable signature of compiled AND subtree, or a tag like 'override:done' / 'unsupported:or-not'",
+    )
+    aggregate: AggregateProgressOut | None = None
 
     # constraints & evaluation
     min_count: int = Field(..., ge=0)
@@ -75,18 +85,18 @@ class TaskProgressItemOut(BaseModel):
     percent: float = Field(..., ge=0.0, le=100.0)
 
     # diagnostics
-    notes: List[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
     evaluated_in_ms: int = Field(default=0, ge=0)
 
     # projection
-    start_found_at: Optional[dt.datetime] = None
-    completed_at: Optional[dt.datetime] = None
-    estimated_completion_at: Optional[dt.datetime] = None
-    
+    start_found_at: dt.datetime | None = None
+    completed_at: dt.datetime | None = None
+    estimated_completion_at: dt.datetime | None = None
+
     # server bookkeeping (optional)
-    last_evaluated_at: Optional[dt.datetime] = None
-    updated_at: Optional[dt.datetime] = None
-    created_at: Optional[dt.datetime] = None
+    last_evaluated_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
+    created_at: dt.datetime | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,6 +105,7 @@ class TaskProgressItemOut(BaseModel):
     )
 
     _round_percent = field_validator("percent", mode="before")(lambda v: _round_it(v, 1))
+
 
 class ProgressOut(BaseModel):
     """Snapshot complet renvoyé par l’API.
@@ -108,7 +119,8 @@ class ProgressOut(BaseModel):
         message (str | None): Annotation éventuelle.
         created_at (datetime | None): Traçabilité serveur.
     """
-    id: Optional[PyObjectId] = Field(default=None, alias="_id")
+
+    id: PyObjectId | None = Field(default=None, alias="_id")
     user_challenge_id: PyObjectId
 
     # Time axis
@@ -118,16 +130,16 @@ class ProgressOut(BaseModel):
     aggregate: AggregateProgress
 
     # Per-task progress at this time
-    tasks: List[TaskProgressItemOut] = Field(default_factory=list)
+    tasks: list[TaskProgressItemOut] = Field(default_factory=list)
 
     # Optional annotations
-    message: Optional[str] = None
+    message: str | None = None
 
     # Projection
-    estimated_completion_at: Optional[dt.datetime] = None
+    estimated_completion_at: dt.datetime | None = None
 
     # Auditing
-    created_at: Optional[dt.datetime] = None
+    created_at: dt.datetime | None = None
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -143,6 +155,7 @@ class ProgressHistoryItemOut(BaseModel):
         checked_at (datetime): Timestamp de l’entrée.
         aggregate (AggregateProgress): Agrégat à cet instant.
     """
+
     checked_at: dt.datetime
     aggregate: AggregateProgress
 
@@ -160,8 +173,9 @@ class ProgressGetResponse(BaseModel):
         latest (ProgressOut | None): Dernier snapshot disponible.
         history (list[ProgressHistoryItemOut]): Historique court.
     """
-    latest: Optional[ProgressOut] = None
-    history: List[ProgressHistoryItemOut] = Field(default_factory=list)
+
+    latest: ProgressOut | None = None
+    history: list[ProgressHistoryItemOut] = Field(default_factory=list)
 
 
 class ProgressEvaluateResponse(ProgressOut):
@@ -170,4 +184,5 @@ class ProgressEvaluateResponse(ProgressOut):
     Description:
         Hérite de `ProgressOut` (snapshot complet).
     """
+
     pass

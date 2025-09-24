@@ -1,23 +1,25 @@
 # backend/app/core/security.py
 # Hash de mot de passe (bcrypt), génération/validation JWT, dépendance FastAPI `get_current_user`.
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from passlib.context import CryptContext
-from jose import jwt, JWTError
 import datetime as dt
-from bson import ObjectId
 import re
 from uuid import uuid4
-from app.core.utils import *
+
+from bson import ObjectId
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+
+from app.core.bson_utils import PyObjectId
 from app.core.settings import settings
+from app.core.utils import now
 from app.db.mongodb import get_collection
+from app.models.user import User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login", 
-    scopes={}
-)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
+
 
 def hash_password(password: str) -> str:
     """Hash de mot de passe (bcrypt via Passlib).
@@ -35,6 +37,7 @@ def hash_password(password: str) -> str:
 
     return result
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Vérifie un mot de passe contre son hash.
 
@@ -49,6 +52,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: True si correspondance, sinon False.
     """
     return pwd_context.verify(plain_password, hashed_password)
+
 
 def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
     """Crée un access token JWT.
@@ -68,8 +72,9 @@ def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
     expire = now() + (expires_delta or dt.timedelta(minutes=15))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
-    
+
     return encoded_jwt
+
 
 def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) -> str:
     """Crée un refresh token JWT.
@@ -88,10 +93,11 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
     expire = now() + (expires_delta or dt.timedelta(days=7))  # refresh token plus long
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm="HS256")
-    
+
     return encoded_jwt
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """Dépendance FastAPI: charge l’utilisateur courant depuis le JWT.
 
     Description:
@@ -117,22 +123,37 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_raw = payload.get("sub")
+        if user_id_raw is None or not isinstance(user_id_raw, str):
             raise credentials_exception
-    except JWTError:
+        user_id: str = user_id_raw
+    except JWTError as e:
+        raise credentials_exception from e
+
+    raw_user = users_collection.find_one({"_id": ObjectId(user_id)})
+    if raw_user is None:
         raise credentials_exception
 
-    user = users_collection.find_one({"_id": ObjectId(user_id)})
-    if user is None:
-        raise credentials_exception
+    return User(**raw_user)
 
-    return user
 
-def require_admin(user=Depends(get_current_user)):
+def get_current_user_id() -> PyObjectId:
+    # MongoBaseModel expose généralement `id` alias de `_id`
+    user = get_current_user()
+    if user.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid user without id",
+        )
+    return user.id
+
+
+def require_admin():
+    user = get_current_user()
     if not user.get("role") == "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
     return user
+
 
 def validate_password_strength(password: str) -> bool:
     """Valide la complexité du mot de passe.
@@ -150,18 +171,21 @@ def validate_password_strength(password: str) -> bool:
     Raises:
         HTTPException: 400 si la politique de complexité n’est pas respectée.
     """
-    if len(password) < 8 \
-        or not re.search(r"[A-Z]", password) \
-        or not re.search(r"[a-z]", password) \
-        or not re.search(r"[0-9]", password) \
-        or not re.search(r"[\W_]", password):  # caractère spécial
+    if (
+        len(password) < 8
+        or not re.search(r"[A-Z]", password)
+        or not re.search(r"[a-z]", password)
+        or not re.search(r"[0-9]", password)
+        or not re.search(r"[\W_]", password)
+    ):  # caractère spécial
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+            detail="Password must be at least 8 characters and include uppercase, lowercase, number, and special character.",
         )
-    
+
     return True
+
 
 def generate_verification_code():
     """Génère un code de vérification.

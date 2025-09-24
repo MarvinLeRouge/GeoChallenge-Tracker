@@ -1,28 +1,33 @@
 # backend/app/services/gpx_importer.py
 # Importe des caches depuis un fichier GPX (ou un ZIP de GPX), mappe référentiels, enrichit (altitude), et upsert found_caches.
 
-import os, math
-import io
-import zipfile
 import datetime as dt
-from pathlib import Path
-from typing import Optional, List, Dict, Tuple
-from xml.etree import ElementTree as ET
-from fastapi import HTTPException
-from bson import ObjectId
+import io
+import math
+import os
 import uuid
+import zipfile
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from bson import ObjectId
+from fastapi import HTTPException
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
-from app.core.utils import *
+from app.core.utils import now
 from app.db.mongodb import get_collection, get_column
-from app.services.parsers.GPXCacheParser import GPXCacheParser  # ton parser: __init__(gpx_file: Path), parse()
+from app.models.user import User
 from app.services.elevation_retrieval import fetch as fetch_elevations
+from app.services.parsers.GPXCacheParser import (
+    GPXCacheParser,
+)  # ton parser: __init__(gpx_file: Path), parse()
 
 # --------- Constantes & FS helpers ---------
 
 UPLOADS_DIR = Path("../uploads/gpx").resolve()
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
 
 def _is_zip(buf: bytes) -> bool:
     """Détecter un ZIP via signature magique.
@@ -37,6 +42,7 @@ def _is_zip(buf: bytes) -> bool:
         bool: True si ZIP, sinon False.
     """
     return buf[:4] == b"PK\x03\x04"
+
 
 def _safe_join(base: Path, *paths: str) -> Path:
     """Joindre des chemins en empêchant le path traversal.
@@ -59,6 +65,7 @@ def _safe_join(base: Path, *paths: str) -> Path:
         raise HTTPException(status_code=400, detail="Unsafe path in ZIP")
     return candidate
 
+
 def _validate_gpx_minimal_bytes(data: bytes) -> None:
     """Valider grossièrement un GPX (buffer en mémoire).
 
@@ -77,9 +84,10 @@ def _validate_gpx_minimal_bytes(data: bytes) -> None:
     try:
         root = ET.fromstring(data)
     except ET.ParseError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX XML: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid GPX XML: {e}") from e
     if "gpx" not in root.tag.lower():
         raise HTTPException(status_code=400, detail="Root element is not <gpx>")
+
 
 def _validate_gpx_minimal_path(path: Path) -> None:
     """Valider grossièrement un GPX (depuis un fichier sur disque).
@@ -100,11 +108,12 @@ def _validate_gpx_minimal_path(path: Path) -> None:
         tree = ET.parse(path)
         root = tree.getroot()
     except ET.ParseError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX XML in {path.name}: {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid GPX XML in {path.name}: {e}") from e
     if "gpx" not in root.tag.lower():
         raise HTTPException(status_code=400, detail=f"{path.name} is not a <gpx> file")
 
-def _write_single_gpx(payload: bytes, filename: Optional[str]) -> Path:
+
+def _write_single_gpx(payload: bytes, filename: str | None) -> Path:
     """Écrire un GPX unique dans le répertoire d’uploads.
 
     Description:
@@ -125,7 +134,8 @@ def _write_single_gpx(payload: bytes, filename: Optional[str]) -> Path:
     _validate_gpx_minimal_path(out_path)
     return out_path
 
-def _extract_zip_to_paths(payload: bytes) -> List[Path]:
+
+def _extract_zip_to_paths(payload: bytes) -> list[Path]:
     """Extraire les .gpx d’un ZIP vers le répertoire d’uploads.
 
     Description:
@@ -141,7 +151,7 @@ def _extract_zip_to_paths(payload: bytes) -> List[Path]:
     Raises:
         fastapi.HTTPException: 400 si archive invalide ou si aucun GPX valide n’est présent.
     """
-    paths: List[Path] = []
+    paths: list[Path] = []
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as z:
             for info in z.infolist():
@@ -157,13 +167,14 @@ def _extract_zip_to_paths(payload: bytes) -> List[Path]:
                     dst.write(src.read())
                 _validate_gpx_minimal_path(dest)
                 paths.append(dest)
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Provided file is not a valid ZIP")
+    except zipfile.BadZipFile as e:
+        raise HTTPException(status_code=400, detail="Provided file is not a valid ZIP") from e
     if not paths:
         raise HTTPException(status_code=400, detail="ZIP contains no valid .gpx files")
     return paths
 
-def _materialize_to_paths(payload: bytes, filename: Optional[str]) -> List[Path]:
+
+def _materialize_to_paths(payload: bytes, filename: str | None) -> list[Path]:
     """Matérialiser un upload (ZIP→multi ou GPX→unique) en fichiers sur disque.
 
     Description:
@@ -183,9 +194,11 @@ def _materialize_to_paths(payload: bytes, filename: Optional[str]) -> List[Path]
     _validate_gpx_minimal_bytes(payload)
     return [_write_single_gpx(payload, filename)]
 
+
 # --------- Mapping helpers (IDEM) ---------
 
-def _normalize_name(name: Optional[str]) -> str:
+
+def _normalize_name(name: str | None) -> str:
     """Normaliser un libellé pour matching référentiel.
 
     Description:
@@ -199,7 +212,8 @@ def _normalize_name(name: Optional[str]) -> str:
     """
     return (name or "").strip().casefold()
 
-def _get_all_countries_by_name() -> Dict[str, ObjectId]:
+
+def _get_all_countries_by_name() -> dict[str, ObjectId]:
     """Indexer les pays par nom normalisé.
 
     Description:
@@ -208,13 +222,14 @@ def _get_all_countries_by_name() -> Dict[str, ObjectId]:
     Returns:
         dict[str, ObjectId]: Index des pays.
     """
-    result: Dict[str, ObjectId] = {}
+    result: dict[str, ObjectId] = {}
     cursor = get_collection("countries").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]):item["_id"] for item in cursor}
+    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
 
     return result
 
-def _get_all_states_by_countryid_and_name() -> Dict[ObjectId, Dict[str, ObjectId]]:
+
+def _get_all_states_by_countryid_and_name() -> dict[ObjectId, dict[str, ObjectId]]:
     """Indexer les états par (country_id, nom).
 
     Description:
@@ -223,54 +238,61 @@ def _get_all_states_by_countryid_and_name() -> Dict[ObjectId, Dict[str, ObjectId
     Returns:
         dict[ObjectId, dict[str, ObjectId]]: Index imbriqué pays→états.
     """
-    result: Dict[ObjectId, Dict[str, ObjectId]] = {}
+    result: dict[ObjectId, dict[str, ObjectId]] = {}
     cursor = get_collection("states").find({}, {"name": 1, "country_id": 1})
     for item in cursor:
         result[item["country_id"]] = result.get(item["country_id"], {})
-        result[item["country_id"]][ _normalize_name(item["name"])] = item["_id"]
+        result[item["country_id"]][_normalize_name(item["name"])] = item["_id"]
 
     return result
 
-def _get_all_types_by_name() -> Dict[str, ObjectId]:
+
+def _get_all_types_by_name() -> dict[str, ObjectId]:
     """Indexer les types par nom normalisé.
 
     Returns:
         dict[str, ObjectId]: `{type_name: _id}` depuis `cache_types`.
     """
-    result: Dict[str, ObjectId] = {}
+    result: dict[str, ObjectId] = {}
     cursor = get_collection("cache_types").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]):item["_id"] for item in cursor}
+    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
 
     return result
 
-def _get_all_sizes_by_name() -> Dict[str, ObjectId]:
+
+def _get_all_sizes_by_name() -> dict[str, ObjectId]:
     """Indexer les tailles par nom normalisé.
 
     Returns:
         dict[str, ObjectId]: `{size_name: _id}` depuis `cache_sizes`.
     """
-    result: Dict[str, ObjectId] = {}
+    result: dict[str, ObjectId] = {}
     cursor = get_collection("cache_sizes").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]):item["_id"] for item in cursor}
+    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
 
     return result
 
-def _get_all_attributes_by_id() -> Dict[int, ObjectId]:
+
+def _get_all_attributes_by_id() -> dict[int, ObjectId]:
     """Indexer les attributs par identifiant numérique global.
 
     Returns:
         dict[int, ObjectId]: `{cache_attribute_id: _id}` depuis `cache_attributes`.
     """
-    result = {item["cache_attribute_id"]:item["_id"] for item in get_collection("cache_attributes").find({}, {"cache_attribute_id": 1})}
+    result = {
+        item["cache_attribute_id"]: item["_id"]
+        for item in get_collection("cache_attributes").find({}, {"cache_attribute_id": 1})
+    }
 
     return result
 
+
 def _ensure_country_state(
-    country_name: Optional[str],
-    state_name: Optional[str],
-    all_countries_by_name: Optional[Dict[str, ObjectId]] = None,
-    all_states_by_countryid_and_name: Optional[Dict[ObjectId, Dict[str, ObjectId]]] = None,
-) -> Tuple[Optional[ObjectId], Optional[ObjectId]]:
+    country_name: str | None,
+    state_name: str | None,
+    all_countries_by_name: dict[str, ObjectId] | None = None,
+    all_states_by_countryid_and_name: dict[ObjectId, dict[str, ObjectId]] | None = None,
+) -> tuple[ObjectId | None, ObjectId | None]:
     """Garantir l’existence (et récupérer les _id) d’un pays/état.
 
     Description:
@@ -311,16 +333,21 @@ def _ensure_country_state(
         states_for_country = all_states_by_countryid_and_name.get(country_id, {})
         state_id = states_for_country.get(_normalize_name(state_name))
         if state_id is None:
-            state_id = get_collection("states").insert_one({
-                "name": state_name,
-                "country_id": country_id
-            }).inserted_id
+            state_id = (
+                get_collection("states")
+                .insert_one({"name": state_name, "country_id": country_id})
+                .inserted_id
+            )
             states_for_country[_normalize_name(state_name)] = state_id
             all_states_by_countryid_and_name[country_id] = states_for_country
 
     return country_id, state_id
 
-def get_type_by_name(cache_type_name: Optional[str], all_types_by_name: Optional[Dict[str, ObjectId]] = None):
+
+def get_type_by_name(
+    cache_type_name: str | None,
+    all_types_by_name: dict[str, ObjectId] | None = None,
+):
     """Résoudre le type par nom (avec synonymes).
 
     Description:
@@ -335,29 +362,37 @@ def get_type_by_name(cache_type_name: Optional[str], all_types_by_name: Optional
         ObjectId | None: Référence du type si résolue.
     """
     synonymes = {
-        "unknown" : "mystery",
+        "unknown": "mystery",
     }
 
     cache_type_name = _normalize_name(cache_type_name)
-    type_id = all_types_by_name.get(cache_type_name, None)
+    type_id: ObjectId | None = None
+    if isinstance(all_types_by_name, dict):
+        type_id = all_types_by_name.get(cache_type_name, None)
     if type_id is None:
-        for db_name, db_id in all_types_by_name.items():
-            if db_name in cache_type_name or cache_type_name in db_name:
-                type_id = db_id
-                break
+        if isinstance(all_types_by_name, dict):
+            for db_name, db_id in all_types_by_name.items():
+                if db_name in cache_type_name or cache_type_name in db_name:
+                    type_id = db_id
+                    break
     if type_id is None:
         for key, label in synonymes.items():
             if key in cache_type_name:
-                for db_name, db_id in all_types_by_name.items():
-                    if label in db_name:
-                        type_id = db_id
-                        break
+                if isinstance(all_types_by_name, dict):
+                    for db_name, db_id in all_types_by_name.items():
+                        if label in db_name:
+                            type_id = db_id
+                            break
                 if type_id is not None:
                     break
 
     return type_id
 
-def get_size_by_name(cache_size_name: Optional[str], all_sizes_by_name: Optional[Dict[str, ObjectId]] = None):
+
+def get_size_by_name(
+    cache_size_name: str | None,
+    all_sizes_by_name: dict[str, ObjectId] | None = None,
+):
     """Résoudre la taille par nom.
 
     Description:
@@ -371,23 +406,27 @@ def get_size_by_name(cache_size_name: Optional[str], all_sizes_by_name: Optional
         ObjectId | None: Référence de la taille si résolue.
     """
     cache_size_name = _normalize_name(cache_size_name)
-    size_id = all_sizes_by_name.get(cache_size_name, None)
+    size_id: ObjectId | None = None
+    if isinstance(all_sizes_by_name, dict):
+        size_id = all_sizes_by_name.get(cache_size_name, None)
     if size_id is None:
-        for db_name, db_id in all_sizes_by_name.items():
-            if db_name in cache_size_name or cache_size_name in db_name:
-                size_id = db_id
-                break
+        if isinstance(all_sizes_by_name, dict):
+            for db_name, db_id in all_sizes_by_name.items():
+                if db_name in cache_size_name or cache_size_name in db_name:
+                    size_id = db_id
+                    break
 
     return size_id
 
+
 def _map_type_size_attrs(
-    cache_type_name: Optional[str],
-    cache_size_name: Optional[str],
-    cache_attributes: Optional[List] = None,
-    all_types_by_name: Optional[Dict[str, ObjectId]] = None,
-    all_sizes_by_name: Optional[Dict[str, ObjectId]] = None,
-    all_attributes_by_id: Optional[Dict[int, ObjectId]] = None,
-) -> tuple[Optional[ObjectId], Optional[ObjectId], list]:
+    cache_type_name: str | None,
+    cache_size_name: str | None,
+    cache_attributes: list | None = None,
+    all_types_by_name: dict[str, ObjectId] | None = None,
+    all_sizes_by_name: dict[str, ObjectId] | None = None,
+    all_attributes_by_id: dict[int, ObjectId] | None = None,
+) -> tuple[ObjectId | None, ObjectId | None, list]:
     """Mapper type/size/attributes vers des références Mongo.
 
     Description:
@@ -423,11 +462,14 @@ def _map_type_size_attrs(
         if attribute_object_id is None:
             continue
         is_positive = cache_attribute.get("is_positive", True)
-        attr_refs.append({"attribute_doc_id": attribute_object_id, "is_positive": bool(is_positive)})
+        attr_refs.append(
+            {"attribute_doc_id": attribute_object_id, "is_positive": bool(is_positive)}
+        )
 
     return type_id, size_id, attr_refs
 
-def _parse_dt_iso8601(s: Optional[str]) -> Optional[dt.datetime]:
+
+def _parse_dt_iso8601(s: str | None) -> dt.datetime | None:
     """Parser ISO 8601 (support 'Z') vers `datetime`.
 
     Args:
@@ -445,9 +487,11 @@ def _parse_dt_iso8601(s: Optional[str]) -> Optional[dt.datetime]:
     except Exception:
         return None
 
+
 # --------- Import principal ---------
 
-async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: bool) -> dict:
+
+async def import_gpx_payload(payload: bytes, filename: str, found: bool, user: User) -> dict:
     """Importer des caches depuis un upload GPX/ZIP (avec enrichissements).
 
     Description:
@@ -484,7 +528,10 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
     all_attributes_by_id = _get_all_attributes_by_id()
 
     nb_countries_before = len(all_countries_by_name)
-    nb_states_before = sum(len(states_country) for country_id, states_country in all_states_by_countryid_and_name.items())
+    nb_states_before = sum(
+        len(states_country)
+        for country_id, states_country in all_states_by_countryid_and_name.items()
+    )
 
     def _as_float(x, default=0.0):
         try:
@@ -513,16 +560,25 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
 
         lat = _as_float(item.get("latitude"))
         lon = _as_float(item.get("longitude"))
-        loc = {"type": "Point", "coordinates": [lon, lat]} if lat is not None and lon is not None else None
+        loc = (
+            {"type": "Point", "coordinates": [lon, lat]}
+            if lat is not None and lon is not None
+            else None
+        )
 
-        country_id, state_id = _ensure_country_state(item.get("country"), item.get("state"), all_countries_by_name, all_states_by_countryid_and_name)
+        country_id, state_id = _ensure_country_state(
+            item.get("country"),
+            item.get("state"),
+            all_countries_by_name,
+            all_states_by_countryid_and_name,
+        )
         type_id, size_id, attr_refs = _map_type_size_attrs(
             item.get("cache_type"),
             item.get("cache_size"),
             item.get("attributes"),
             all_types_by_name,
             all_sizes_by_name,
-            all_attributes_by_id
+            all_attributes_by_id,
         )
         placed_dt = _parse_dt_iso8601(item.get("placed_date")) or None
         item_to_db = {
@@ -567,22 +623,24 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
 
     # Appel au service (gère batching, 100 pts max, URL max, 1 req/s, quotas…)
     if points:
-        elevations = await fetch_elevations(points)   # renvoie une liste alignée de Optional[int]
+        elevations = await fetch_elevations(points)  # renvoie une liste alignée de int | None
 
         # Réinjection dans les docs correspondants (on laisse None si échec)
         for k, elev in enumerate(elevations):
             if elev is not None:
                 all_caches_to_db[to_enrich_idx[k]]["elevation"] = int(elev)
 
-
     nb_items_to_db = len(all_caches_to_db)
     INSERTS_CHUNK_SIZE = 100
     nb_chunks = math.ceil(nb_items_to_db / INSERTS_CHUNK_SIZE)
-    items_to_db_chunks = [all_caches_to_db[i * INSERTS_CHUNK_SIZE:min(nb_items_to_db, (i+1) * INSERTS_CHUNK_SIZE)] for i in range(nb_chunks)]
-    for i, items_to_db_chunk in enumerate(items_to_db_chunks):
+    items_to_db_chunks = [
+        all_caches_to_db[i * INSERTS_CHUNK_SIZE : min(nb_items_to_db, (i + 1) * INSERTS_CHUNK_SIZE)]
+        for i in range(nb_chunks)
+    ]
+    for _i, items_to_db_chunk in enumerate(items_to_db_chunks):
         try:
             result_chunk = caches_collection.insert_many(items_to_db_chunk)
-            nb_inserted_caches+= len(result_chunk.inserted_ids)
+            nb_inserted_caches += len(result_chunk.inserted_ids)
         except BulkWriteError as bwe:
             # Compter les duplicates comme existants et continuer
             for err in bwe.details.get("writeErrors", []):
@@ -598,19 +656,24 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
                 # stocker un datetime "minuit" (naïf) pour être compatible PyMongo
                 found_dt = dt.datetime(found_date.year, found_date.month, found_date.day)
                 found_caches_by_gc[item["GC"]] = {
-                    "found_date": found_dt,            # <-- OK: type datetime
+                    "found_date": found_dt,  # <-- OK: type datetime
                     "notes": item.get("notes"),
                 }
         if found_caches_by_gc:
-            found_caches_in_db_ids = {item["GC"]: item["_id"] for item in caches_collection.find(
-                {"GC": {"$in": list(found_caches_by_gc.keys())}},
-                {"_id": 1, "GC": 1}
-            )}
+            found_caches_in_db_ids = {
+                item["GC"]: item["_id"]
+                for item in caches_collection.find(
+                    {"GC": {"$in": list(found_caches_by_gc.keys())}},
+                    {"_id": 1, "GC": 1},
+                )
+            }
             for gc, db_cache_id in found_caches_in_db_ids.items():
-                found_caches_by_gc[gc].update({
-                    "cache_id": db_cache_id,
-                    "user_id": user["_id"],
-                })
+                found_caches_by_gc[gc].update(
+                    {
+                        "cache_id": db_cache_id,
+                        "user_id": user.id,
+                    }
+                )
         # map GC -> cache _id en base
         found_caches_in_db_ids = {
             item["GC"]: item["_id"]
@@ -627,7 +690,7 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
                 continue
             doc = {
                 "cache_id": cache_id,
-                "user_id": user["_id"],
+                "user_id": user.id,
                 "found_date": meta["found_date"],
             }
             if "notes" in meta:
@@ -640,7 +703,6 @@ async def import_gpx_payload(payload: bytes, filename: str, user: dict, found: b
                 "$setOnInsert": {
                     "found_date": item["found_date"],
                     "created_at": now(),
-
                 },
                 "$set": {"updated_at": now()},
             }
