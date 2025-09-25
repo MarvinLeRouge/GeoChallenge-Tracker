@@ -3,10 +3,9 @@
 
 from typing import Annotated
 
-from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
-from app.core.security import get_current_user, get_current_user_id
+from app.core.security import CurrentUserId, get_current_user
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
 from app.services.user_profile import (
     coords_in_deg_min_mil,
@@ -38,6 +37,7 @@ def put_my_location(
         UserLocationIn,
         Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
     ],
+    user_id: CurrentUserId,
 ):
     """Enregistrer ou mettre à jour la localisation.
 
@@ -51,8 +51,6 @@ def put_my_location(
     Returns:
         dict: Message d’état (modifiée ou non).
     """
-    user_id = get_current_user_id()
-
     # Choix de la source : position string > lat/lon
     if payload.position:
         try:
@@ -82,7 +80,7 @@ def put_my_location(
     summary="Obtenir ma dernière localisation",
     description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
 )
-def get_my_location():
+def get_my_location(user_id: CurrentUserId):
     """Obtenir ma dernière localisation.
 
     Description:
@@ -94,12 +92,6 @@ def get_my_location():
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
 
-    current_user = get_current_user()
-    user_id = (
-        current_user["_id"]
-        if isinstance(current_user.get("_id"), ObjectId)
-        else ObjectId(str(current_user["_id"]))
-    )
     loc = user_location_get(user_id)
     if not loc:
         raise HTTPException(

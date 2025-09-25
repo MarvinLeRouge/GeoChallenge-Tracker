@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.core.bson_utils import MongoBaseModel, PyObjectId
 from app.core.utils import now, utcnow
@@ -100,6 +100,27 @@ class User(MongoBaseModel, UserBase):
 
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: dt.datetime | None = None
+
+    # --- Normalisation d'entrée ---
+    # Si la DB fournit location en GeoJSON Point, on le convertit vers UserLocation attendu.
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_geojson_location(cls, data: dict):
+        if not isinstance(data, dict):
+            return data
+        loc = data.get("location")
+        if isinstance(loc, dict) and loc.get("type") == "Point":
+            coords = loc.get("coordinates") or []
+            if len(coords) >= 2:
+                lon, lat = coords[0], coords[1]
+                # Conserver un éventuel updated_at présent dans l'objet DB
+                ua = loc.get("updated_at")
+                data["location"] = {
+                    "lon": float(lon),
+                    "lat": float(lat),
+                    **({"updated_at": ua} if ua else {}),
+                }
+        return data
 
 
 # Input/Output DTOs

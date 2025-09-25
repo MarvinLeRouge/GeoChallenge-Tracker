@@ -17,7 +17,6 @@ from pymongo.errors import BulkWriteError
 
 from app.core.utils import now
 from app.db.mongodb import get_collection, get_column
-from app.models.user import User
 from app.services.elevation_retrieval import fetch as fetch_elevations
 from app.services.parsers.GPXCacheParser import (
     GPXCacheParser,
@@ -491,7 +490,7 @@ def _parse_dt_iso8601(s: str | None) -> dt.datetime | None:
 # --------- Import principal ---------
 
 
-async def import_gpx_payload(payload: bytes, filename: str, found: bool, user: User) -> dict:
+async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id: ObjectId) -> dict:
     """Importer des caches depuis un upload GPX/ZIP (avec enrichissements).
 
     Description:
@@ -671,7 +670,7 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user: U
                 found_caches_by_gc[gc].update(
                     {
                         "cache_id": db_cache_id,
-                        "user_id": user.id,
+                        "user_id": user_id,
                     }
                 )
         # map GC -> cache _id en base
@@ -690,7 +689,7 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user: U
                 continue
             doc = {
                 "cache_id": cache_id,
-                "user_id": user.id,
+                "user_id": user_id,
                 "found_date": meta["found_date"],
             }
             if "notes" in meta:

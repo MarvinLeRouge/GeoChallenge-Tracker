@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 
 from app.core.security import get_current_user, require_admin
 from app.db.mongodb import get_collection
+from app.models.user import User
 from app.services.elevation_retrieval import fetch as fetch_elevations
 
 router = APIRouter(
@@ -27,6 +30,7 @@ router = APIRouter(
     ),
 )
 async def backfill_elevation(
+    admin: Annotated[User, Depends(require_admin)],
     limit: int = Query(1000, ge=1, le=20000, description="Nombre maximum de caches à traiter."),
     page_size: int = Query(
         500, ge=10, le=1000, description="Taille de lot pour les lectures/écritures."
@@ -49,7 +53,6 @@ async def backfill_elevation(
     Returns:
         dict: Statistiques de traitement (scanned, updated, failed, batches, requests_used, dry_run).
     """
-    require_admin()
 
     coll = get_collection("caches")
 
