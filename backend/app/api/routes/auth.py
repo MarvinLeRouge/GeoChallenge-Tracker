@@ -79,7 +79,7 @@ def register(
         Body(..., description="Données d'inscription : username, email et mot de passe."),
     ],
     users: Annotated[Collection, Depends(users_coll)],
-    background_tasks: BackgroundTasks | None = None,
+    background_tasks: BackgroundTasks,
 ):
     """Inscription d’un utilisateur.
 
@@ -371,7 +371,7 @@ def resend_verification(
         Body(..., description="Identifiant (username ou email) de l’utilisateur."),
     ],
     users: Annotated[Collection, Depends(users_coll)],
-    background_tasks: BackgroundTasks | None = None,
+    background_tasks: BackgroundTasks,
 ):
     """Renvoi d’email de vérification.
 

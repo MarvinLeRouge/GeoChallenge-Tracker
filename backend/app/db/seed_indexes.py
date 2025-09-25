@@ -5,10 +5,11 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, Union
+from typing import Any, Union, cast
 
 from pymongo import ASCENDING, DESCENDING, TEXT
 from pymongo.collation import Collation
+from pymongo.errors import OperationFailure
 from pymongo.operations import IndexModel
 
 from app.db.mongodb import get_collection
@@ -154,7 +155,17 @@ def ensure_index(
     if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
         return
     if existing:
-        coll.drop_index(existing["name"])
+        # Tolérer l'exécution concurrente (plusieurs workers) :
+        #  - re-lister pour minimiser la fenêtre de course
+        #  - ignorer IndexNotFound (code 27)
+        try:
+            server_names = {ix.get("name") for ix in coll.list_indexes()}
+            name_to_drop = cast(str, existing["name"])
+            if name_to_drop in server_names:
+                coll.drop_index(name_to_drop)
+        except OperationFailure as exc:
+            if getattr(exc, "code", None) != 27:  # IndexNotFound
+                raise
     opts: dict[str, Any] = {}
     if name:
         opts["name"] = name

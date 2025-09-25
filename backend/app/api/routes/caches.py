@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user
+from app.core.security import CurrentUserId, get_current_user
 from app.core.settings import settings
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
@@ -189,6 +189,7 @@ class CacheFilterIn(BaseModel):
     },
 )
 async def upload_gpx(
+    user_id: CurrentUserId,
     file: Annotated[
         UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
     ],
@@ -237,7 +238,7 @@ async def upload_gpx(
             payload=payload,
             filename=file.filename or "upload.gpx",
             found=found,
-            user=get_current_user(),
+            user_id=ObjectId(str(user_id)),
         )
     except HTTPException:
         raise

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user, get_current_user_id
+from app.core.security import CurrentUserId, get_current_user
 from app.models.user_challenge_dto import (
     DetailResponse,
     ListResponse,
@@ -41,7 +41,7 @@ router = APIRouter(
         "- Retourne des statistiques de synchronisation"
     ),
 )
-def sync():
+def sync(user_id: CurrentUserId):
     """Synchroniser les UserChallenges.
 
     Description:
@@ -52,7 +52,6 @@ def sync():
     Returns:
         dict: Statistiques (créations, ignorés, etc.).
     """
-    user_id = get_current_user_id()
     stats = sync_user_challenges(user_id)
     return stats
 
@@ -68,6 +67,7 @@ def sync():
     ),
 )
 def list_uc(
+    user_id: CurrentUserId,
     status: str | None = Query(
         default=None,
         enum=["pending", "accepted", "dismissed", "completed"],
@@ -89,7 +89,6 @@ def list_uc(
     Returns:
         ListResponse: Items et informations de pagination.
     """
-    user_id = get_current_user_id()
     return list_user_challenges(user_id, status, page, limit)
 
 
@@ -134,6 +133,7 @@ def patch_uc_batch(
             description="Tableau d’ordres de patch (uc_id, status?, notes?, override_reason?).",
         ),
     ],
+    user_id: CurrentUserId,
 ):
     """Patch en lot de UserChallenges.
 
@@ -157,7 +157,6 @@ def patch_uc_batch(
             detail="Batch trop volumineux (max 200 items)",
         )
 
-    user_id = get_current_user_id()
     results: list[BatchPatchResultItem] = []
     updated = 0
 
@@ -194,6 +193,7 @@ def patch_uc_batch(
 )
 def get_uc(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    user_id: CurrentUserId,
 ):
     """Détail d’un UserChallenge.
 
@@ -206,7 +206,6 @@ def get_uc(
     Returns:
         DetailResponse: Détail du UserChallenge.
     """
-    user_id = get_current_user_id()
     doc = get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
@@ -227,6 +226,7 @@ def patch_uc(
         PatchUCIn,
         Body(..., description="Champs modifiables : `status`, `notes`, `override_reason`."),
     ],
+    user_id: CurrentUserId,
 ):
     """Patch d’un UserChallenge.
 
@@ -240,7 +240,6 @@ def patch_uc(
     Returns:
         PatchResponse: UserChallenge après mise à jour.
     """
-    user_id = get_current_user_id()
     doc = patch_user_challenge(
         user_id=user_id,
         uc_id=ObjectId(str(uc_id)),

@@ -9,7 +9,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user, get_current_user_id
+from app.core.security import get_current_user, CurrentUserId
 from app.models.user_challenge_task_dto import (
     TasksListResponse,
     TasksPutIn,
@@ -33,6 +33,7 @@ router = APIRouter(
 )
 def get_tasks(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    user_id: CurrentUserId
 ):
     """Lister les tâches d’un UserChallenge.
 
@@ -45,7 +46,6 @@ def get_tasks(
     Returns:
         TasksListResponse: Tâches ordonnées.
     """
-    user_id = get_current_user_id()
     tasks = list_tasks(user_id, ObjectId(str(uc_id)))
 
     return {"tasks": tasks}
@@ -62,6 +62,7 @@ def put_tasks_route(
     payload: Annotated[
         TasksPutIn, Body(..., description="Liste complète de tâches à appliquer (ordre inclus).")
     ],
+    user_id: CurrentUserId
 ):
     """Remplacer l’ensemble des tâches (ordre inclus).
 
@@ -75,7 +76,6 @@ def put_tasks_route(
     Returns:
         TasksListResponse: Tâches persistées après remplacement.
     """
-    user_id = get_current_user_id()
     try:
         tasks = put_tasks(
             user_id,
@@ -98,6 +98,7 @@ def put_tasks_route(
 def validate_tasks_route(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     payload: Annotated[TasksValidateIn, Body(..., description="Liste de tâches à valider.")],
+    user_id: CurrentUserId
 ):
     """Valider une liste de tâches (sans persistance).
 
@@ -111,7 +112,6 @@ def validate_tasks_route(
     Returns:
         TasksValidateResponse: Détails de validation (erreurs, avertissements, etc.).
     """
-    user_id = get_current_user_id()
     res = validate_only(
         user_id,
         ObjectId(str(uc_id)),

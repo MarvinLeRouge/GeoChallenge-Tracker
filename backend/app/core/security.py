@@ -3,6 +3,7 @@
 
 import datetime as dt
 import re
+from typing import Annotated
 from uuid import uuid4
 
 from bson import ObjectId
@@ -137,22 +138,20 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return User(**raw_user)
 
 
-def get_current_user_id() -> PyObjectId:
+def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]) -> PyObjectId:
     # MongoBaseModel expose généralement `id` alias de `_id`
-    user = get_current_user()
-    if user.id is None:
+    if current_user.id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user without id",
         )
-    return user.id
+    return current_user.id
 
 
-def require_admin():
-    user = get_current_user()
-    if not user.get("role") == "admin":
+def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
+    if current_user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
-    return user
+    return current_user
 
 
 def validate_password_strength(password: str) -> bool:
@@ -187,7 +186,7 @@ def validate_password_strength(password: str) -> bool:
     return True
 
 
-def generate_verification_code():
+def generate_verification_code() -> str:
     """Génère un code de vérification.
 
     Description:
@@ -199,3 +198,8 @@ def generate_verification_code():
     result = str(uuid4())
 
     return result
+
+
+# Type aliases pour faciliter l'usage
+CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUserId = Annotated[PyObjectId, Depends(get_current_user_id)]

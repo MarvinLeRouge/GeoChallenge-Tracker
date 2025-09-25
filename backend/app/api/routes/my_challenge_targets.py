@@ -8,7 +8,7 @@ from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
-from app.core.security import get_current_user, get_current_user_id
+from app.core.security import CurrentUserId, get_current_user
 from app.core.utils import utcnow
 from app.models.target_dto import TargetListResponse
 from app.services.targets import (
@@ -76,6 +76,7 @@ def _current_user_id(current_user: dict) -> ObjectId:
     ),
 )
 def evaluate_targets(
+    user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     limit_per_task: int = Query(500, ge=1, le=5000, description="Cap de calcul par tâche."),
     hard_limit_total: int = Query(
@@ -114,7 +115,6 @@ def evaluate_targets(
     Returns:
         dict: Compte-rendu `{ok, inserted, updated, total}`.
     """
-    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
 
     geo_ctx = None
@@ -164,6 +164,7 @@ def evaluate_targets(
     ),
 )
 def list_targets_uc(
+    user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
@@ -183,7 +184,6 @@ def list_targets_uc(
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
     return list_targets_for_user_challenge(
         user_id=user_id, uc_id=uc_oid, page=int(page), limit=int(limit), sort=sort
@@ -201,6 +201,7 @@ def list_targets_uc(
     ),
 )
 def list_targets_uc_nearby(
+    user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     radius_km: float = Query(50.0, gt=0, description="Rayon de recherche (km)."),
     lat: float | None = Query(
@@ -230,7 +231,6 @@ def list_targets_uc_nearby(
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
 
     final_lat: float
@@ -276,6 +276,7 @@ def list_targets_uc_nearby(
     ),
 )
 def list_targets_all(
+    user_id: CurrentUserId,
     status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
     limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
@@ -295,7 +296,6 @@ def list_targets_all(
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = get_current_user_id()
     return list_targets_for_user(
         user_id=user_id,
         status_filter=(status_filter or None),
@@ -316,6 +316,7 @@ def list_targets_all(
     ),
 )
 def list_targets_all_nearby(
+    user_id: CurrentUserId,
     radius_km: float = Query(50.0, gt=0, description="Rayon (km)."),
     lat: float | None = Query(
         None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."
@@ -345,7 +346,6 @@ def list_targets_all_nearby(
     Returns:
         TargetListResponse: Items et pagination.
     """
-    user_id = get_current_user_id()
     final_lat: float
     final_lon: float
 
@@ -385,6 +385,7 @@ def list_targets_all_nearby(
     description="Efface toutes les targets associées au UserChallenge fourni.",
 )
 def clear_targets_uc(
+    user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
 ):
     """Supprimer les targets d’un UserChallenge.
@@ -398,7 +399,6 @@ def clear_targets_uc(
     Returns:
         dict: Résultat `{ok, deleted}`.
     """
-    user_id = get_current_user_id()
     uc_oid = _as_objid(uc_id)
     result = delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_oid)
     # result attendu: {"ok": True, "deleted": n}

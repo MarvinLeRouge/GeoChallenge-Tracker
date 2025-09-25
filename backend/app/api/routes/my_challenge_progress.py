@@ -11,7 +11,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user, get_current_user_id
+from app.core.security import CurrentUser, CurrentUserId, get_current_user
 from app.models.progress_dto import ProgressEvaluateResponse, ProgressGetResponse
 from app.services.progress import (
     evaluate_new_progress,
@@ -37,14 +37,15 @@ router = APIRouter(
     ),
 )
 def get_progress_route(
+    user_id: CurrentUserId,
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
-    limit: Annotated[
-        int, Query(10, ge=1, le=50, description="Nombre d’entrées d’historique à renvoyer (1–50).")
-    ],
     before: Annotated[
         datetime | None,
-        Query(None, description="Ne renvoyer que l’historique **antérieur** à ce timestamp."),
-    ],
+        Query(description="Ne renvoyer que l’historique **antérieur** à ce timestamp."),
+    ] = None,
+    limit: Annotated[
+        int, Query(ge=1, le=50, description="Nombre d’entrées d’historique à renvoyer (1–50).")
+    ] = 10,
 ):
     """Récupérer le dernier snapshot et l’historique court.
 
@@ -60,7 +61,6 @@ def get_progress_route(
     Returns:
         ProgressGetResponse: Dernier snapshot et mini-historique.
     """
-    user_id = get_current_user_id()
     out = get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
     if out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
@@ -78,6 +78,7 @@ def get_progress_route(
     ),
 )
 def evaluate_progress_route(
+    user: CurrentUser,
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     force: bool = Query(
         False,
@@ -97,14 +98,15 @@ def evaluate_progress_route(
     Returns:
         ProgressEvaluateResponse: Snapshot évalué et persisté.
     """
-    current_user = get_current_user()
-    if force and current_user.role != "admin":
+    if force and user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seuls les administrateurs peuvent utiliser le paramètre 'force'",
         )
-    user_id = get_current_user_id()
-    doc = evaluate_progress(user_id=user_id, uc_id=ObjectId(str(uc_id)), force=force)
+    if user.id is None:
+        raise HTTPException(status_code=400, detail="User ID manquant")
+
+    doc = evaluate_progress(user_id=user.id, uc_id=ObjectId(str(uc_id)), force=force)
     return doc
 
 
@@ -130,6 +132,7 @@ def evaluate_new_progress_route(
             description="Options d’évaluation initiale : `include_pending`, `limit`, `since`.",
         ),
     ],
+    user_id: CurrentUserId,
 ):
     """Évaluer le premier snapshot pour les challenges sans progression.
 
@@ -145,7 +148,6 @@ def evaluate_new_progress_route(
     """
     if payload is None:
         payload = EvaluateNewPayload()
-    user_id = get_current_user_id()
     res = evaluate_new_progress(
         user_id,
         include_pending=payload.include_pending,
