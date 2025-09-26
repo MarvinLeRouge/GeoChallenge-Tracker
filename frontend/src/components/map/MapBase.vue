@@ -1,6 +1,9 @@
 <template>
-    <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
-    <div ref="el" class="absolute inset-0"></div>
+  <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
+  <div
+    ref="el"
+    class="absolute inset-0"
+  />
 </template>
 
 <script setup lang="ts">
@@ -27,38 +30,15 @@ const attribution = computed(
     () => props.attribution ?? '© OpenStreetMap contributors'
 )
 
-function getUserCenter(): [number, number] | null {
-    const u = auth.user
-    if (!u) return null
-
-    // 1) GeoJSON: { location: { coordinates: [lon, lat] } }
-    const gc = u.location?.coordinates
-    if (Array.isArray(gc) && Number.isFinite(gc[0]) && Number.isFinite(gc[1])) {
-        return [gc[1], gc[0]]
-    }
-
-    // 2) { location: { lat, lon } }
-    if (u.location && Number.isFinite(u.location.lat) && Number.isFinite(u.location.lon)) {
-        return [u.location.lat, u.location.lon]
-    }
-
-    // 3) { lat, lon } (réponse /my/profile/location actuelle)
-    if (Number.isFinite(u.lat) && Number.isFinite(u.lon)) {
-        return [u.lat, u.lon]
-    }
-
-    // 4) coords: "lat, lon"
-    if (typeof u.coords === 'string') {
-        const m = u.coords.split(',').map(s => Number(s.trim()))
-        if (m.length === 2 && Number.isFinite(m[0]) && Number.isFinite(m[1])) {
-            return [m[0], m[1]]
-        }
-    }
-    return null
-}
-
 function currentCenter(): LatLng {
-    return props.center ?? getUserCenter() ?? fallbackCenter
+    if (props.center) return props.center
+    const loc = auth.user?.location
+    console.log("loc", loc)
+    if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon)) {
+        console.log("loc found", loc.lat, loc.lon)
+        return [loc.lat, loc.lon]
+    }
+    return fallbackCenter
 }
 
 function tileUrl() {
@@ -81,6 +61,28 @@ function init() {
     setTimeout(() => map?.invalidateSize(true), 0);
 }
 
+// remplace ta logique de watch/recenter par ceci :
+
+let recentered = false
+
+function tryRecenterOnce() {
+    if (!map || recentered) return
+    // priorité au prop center, sinon user.location, sinon rien
+    const fromProp = props.center
+    const fromUser = auth.user?.location
+    const target =
+        (fromProp && Number.isFinite(fromProp[0]) && Number.isFinite(fromProp[1]))
+            ? fromProp
+            : (fromUser && Number.isFinite(fromUser.lat) && Number.isFinite(fromUser.lon))
+                ? [fromUser.lat, fromUser.lon] as [number, number]
+                : null
+
+    if (target) {
+        map.setView(target, initialZoom.value)
+        recentered = true
+    }
+}
+
 onMounted(() => {
     init()
     window.addEventListener("resize", onResize);
@@ -95,15 +97,9 @@ onMounted(() => {
 
     onBeforeUnmount(() => window.removeEventListener('resize', onResize))
     // ➕ Ajout non intrusif du picker (désactivé par défaut)
-})
 
-// si le profil arrive après coup, on recadre UNE fois
-let recentered = false
-watch(() => auth.user, (u) => {
-    if (!map || recentered || props.center) return
-    const c = getUserCenter()
-    if (c) { map.setView(c, initialZoom.value); recentered = true }
-}, { immediate: true })
+    tryRecenterOnce()
+})
 
 onBeforeUnmount(() => {
     window.removeEventListener("resize", onResize);
@@ -127,4 +123,16 @@ function disablePick() {
 }
 defineExpose({ getMap: () => map, enablePick, disablePick });
 
+// 👉 réagir si le center prop change (par ex. via une recherche)
+watch(() => props.center, () => {
+    // on autorise un re-center si c’est un center “externe”
+    recentered = false
+    tryRecenterOnce()
+})
+
+// 👉 réagir si la localisation utilisateur arrive/après-coup
+watch(() => auth.user?.location, () => {
+    // seulement si on n’a pas encore recadré via user
+    tryRecenterOnce()
+})
 </script>

@@ -1,6 +1,8 @@
 <template>
   <section>
-    <h2 class="text-xl font-semibold">Zone protégée</h2>
+    <h2 class="text-xl font-semibold">
+      Zone protégée
+    </h2>
     <pre class="text-xs">{{ user }}</pre>
   </section>
 </template>
