@@ -9,7 +9,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
 
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user, CurrentUserId
+from app.core.security import CurrentUserId, get_current_user
 from app.models.user_challenge_task_dto import (
     TasksListResponse,
     TasksPutIn,
@@ -33,7 +33,7 @@ router = APIRouter(
 )
 def get_tasks(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
-    user_id: CurrentUserId
+    user_id: CurrentUserId,
 ):
     """Lister les tâches d’un UserChallenge.
 
@@ -62,7 +62,7 @@ def put_tasks_route(
     payload: Annotated[
         TasksPutIn, Body(..., description="Liste complète de tâches à appliquer (ordre inclus).")
     ],
-    user_id: CurrentUserId
+    user_id: CurrentUserId,
 ):
     """Remplacer l’ensemble des tâches (ordre inclus).
 
@@ -98,7 +98,7 @@ def put_tasks_route(
 def validate_tasks_route(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     payload: Annotated[TasksValidateIn, Body(..., description="Liste de tâches à valider.")],
-    user_id: CurrentUserId
+    user_id: CurrentUserId,
 ):
     """Valider une liste de tâches (sans persistance).
 

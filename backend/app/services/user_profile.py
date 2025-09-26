@@ -269,3 +269,17 @@ def coords_in_deg_min_mil(lat: float, lon: float) -> str:
     result = f"{lat_str} {lon_str}"
 
     return result
+
+
+def user_get(user_id: ObjectId):
+    """Lire les infos de l’utilisateur.
+
+    Args:
+        user_id: Identifiant utilisateur.
+
+    Returns:
+        dict | None: profil utilisateur ou None.
+    """
+    doc = get_collection("users").find_one({"_id": user_id})
+
+    return doc or {}
