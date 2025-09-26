@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
+import type { RouteLocationNormalized } from 'vue-router'
 
 // Auth
 const authRoutes = [
@@ -9,27 +10,32 @@ const authRoutes = [
 
 // Caches
 const cachesRoutes = [
-  { path: '/caches/import-gpx', name: 'caches/import-gpx', 
-    component: () => import('@/pages/caches/ImportGpx.vue') 
+  {
+    path: '/caches/import-gpx', name: 'caches/import-gpx',
+    component: () => import('@/pages/caches/ImportGpx.vue')
   },
-  { path: '/caches/by-filter', name: 'caches/by-filter',
+  {
+    path: '/caches/by-filter', name: 'caches/by-filter',
     component: () => import('@/pages/_NotImplemented.vue'),
     props: { title: 'Recherche par filtres', message: 'Cette page arrive bientôt.', helpTo: '/help/caches' },
-    meta: { dense: true, noFabPadding: true }    
+    meta: { dense: true, noFabPadding: true }
   },
-  { path: '/caches/within-bbox', name: 'caches/within-bbox',
+  {
+    path: '/caches/within-bbox', name: 'caches/within-bbox',
     component: () => import('@/pages/caches/WithinBbox.vue'),
-    meta: { dense: true, noFabPadding: true }    
+    meta: { dense: true, noFabPadding: true }
   },
-  { path: '/caches/within-radius', name: 'caches-radius',
+  {
+    path: '/caches/within-radius', name: 'caches-radius',
     component: () => import('@/pages/caches/WithinRadius.vue'),
     meta: { dense: true, noFabPadding: true }
   },
-  { path: '/caches/map-demo', name: 'caches-map-demo',
+  {
+    path: '/caches/map-demo', name: 'caches-map-demo',
     component: () => import('@/pages/caches/MapDemo.vue'),
     meta: { dense: true, noFabPadding: true }
   }
-  
+
 ]
 
 // Challenges (placeholder)
@@ -45,7 +51,11 @@ const challengesRoutes = [
     path: '/my/challenges/:ucId',
     name: 'uc-detail',
     component: () => import('@/pages/_NotImplemented.vue'),
-    props: r => ({ title: 'Détail du challenge', message: `UC: ${r.params.ucId}`, helpTo: '/help/challenges' }),
+    props: (r: RouteLocationNormalized) => ({
+      title: 'Détail du challenge',
+      message: `UC: ${r.params.ucId}`,
+      helpTo: '/help/challenges'
+    }),
     // planned: component: () => import('@/pages/challenges/ChallengeDetail.vue')
   },
   {
@@ -81,18 +91,18 @@ const routes = [
   { path: '/', name: 'home', component: () => import('@/pages/Home.vue') },
   ...authRoutes, ...cachesRoutes, ...challengesRoutes,
 
-  { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') }, // pour tests
+  { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') }, // pour tests
 
   { path: '/:pathMatch(.*)*', name: '404', component: () => import('@/pages/404.vue') },
 ]
 
 const router = createRouter({
-  history: createWebHistory(), 
+  history: createWebHistory(),
   routes,
   scrollBehavior: (to, from, saved) => saved ?? (to.hash ? { el: to.hash } : { top: 0 }),
 })
 
-const PUBLIC_NAMES = new Set(['home', 'legal', '404', 'auth/login','auth/register','auth/verify-email','auth/resend-verification'])
+const PUBLIC_NAMES = new Set(['home', 'legal', '404', 'auth/login', 'auth/register', 'auth/verify-email', 'auth/resend-verification'])
 const PUBLIC_PREFIXES = ['/help']
 
 router.beforeEach(async (to) => {
@@ -100,9 +110,9 @@ router.beforeEach(async (to) => {
   await auth.init()
 
   // protégé ?
-  const isPublic = PUBLIC_NAMES.has(String(to.name||'')) || PUBLIC_PREFIXES.some(p => to.path.startsWith(p))  
+  const isPublic = PUBLIC_NAMES.has(String(to.name || '')) || PUBLIC_PREFIXES.some(p => to.path.startsWith(p))
   if (!isPublic && !auth.isAuthenticated) return { name: 'auth/login', query: { redirect: to.fullPath } }
-  if (isPublic && auth.isAuthenticated && (to.name==='auth/login'||to.name==='auth/register')) return { path: '/' }
+  if (isPublic && auth.isAuthenticated && (to.name === 'auth/login' || to.name === 'auth/register')) return { path: '/' }
 })
 
 export default router

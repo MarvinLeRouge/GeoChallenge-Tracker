@@ -1,47 +1,87 @@
 <template>
-    <div class="absolute inset-0">
-        <div class="absolute inset-0 z-0">
-            <MapBase ref="mapRef" @ready="onMapReady" @click="onMapClick" @pick="onMapPick" />
-        </div>
-
-        <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
-            <div class="rounded-lg bg-white/95 border p-2 shadow">
-                <div class="flex items-center gap-2">
-                    <button type="button" class="border rounded px-3 py-3" aria-label="Choisir sur la carte"
-                        title="Choisir sur la carte" @click="startPick">
-                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                            <path
-                                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z" />
-                            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
-                        </svg>
-                    </button>
-                    <button type="button" class="border rounded px-3 py-3" aria-label="Rechercher" title="Rechercher"
-                        :disabled="!hasBbox || picking !== 'idle'" @click="search">
-                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                            <path
-                                d="M10 2a8 8 0 105.293 14.293l3.707 3.707 1.414-1.414-3.707-3.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z" />
-                        </svg>
-                    </button>
-                </div>
-                <p v-if="bbox" class="text-xs text-gray-600 mt-1">
-                    BBox: {{ bboxDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
-                </p>
-                <p v-else-if="picking !== 'idle'" class="text-xs text-indigo-700 mt-1">
-                    Cliquez une première fois pour le coin A, déplacez le réticule, puis cliquez pour le coin B…
-                </p>
-            </div>
-        </div>
+  <div class="absolute inset-0">
+    <div class="absolute inset-0 z-0">
+      <MapBase
+        ref="mapRef"
+        @ready="onMapReady"
+        @pick="onMapPick"
+      />
     </div>
+
+    <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
+      <div class="rounded-lg bg-white/95 border p-2 shadow">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="border rounded px-3 py-3"
+            aria-label="Choisir sur la carte"
+            title="Choisir sur la carte"
+            @click="startPick"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              aria-hidden="true"
+            >
+              <path
+                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="border rounded px-3 py-3"
+            aria-label="Rechercher"
+            title="Rechercher"
+            :disabled="!hasBbox || picking !== 'idle'"
+            @click="search"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              aria-hidden="true"
+            >
+              <path
+                d="M10 2a8 8 0 105.293 14.293l3.707 3.707 1.414-1.414-3.707-3.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"
+              />
+            </svg>
+          </button>
+        </div>
+        <p
+          v-if="bbox"
+          class="text-xs text-gray-600 mt-1"
+        >
+          BBox: {{ bboxDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
+        </p>
+        <p
+          v-else-if="picking !== 'idle'"
+          class="text-xs text-indigo-700 mt-1"
+        >
+          Cliquez une première fois pour le coin A, déplacez le réticule, puis cliquez pour le coin B…
+        </p>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, computed } from 'vue'
 import L from 'leaflet'
 import MapBase from '@/components/map/MapBase.vue'
 import api from '@/api/http'
 import 'leaflet.markercluster'
 import { getIconFor } from '@/config/cache-icon'
-import { installCrosshairPicker } from "@/map/crosshairPicker"
+import type { ApiListResponse, CacheCompact } from '@/types/caches'
 
 let map: L.Map | null = null
 let moveHandler: ((e: L.LeafletMouseEvent) => void) | null = null
@@ -117,7 +157,7 @@ async function search() {
     try {
         const [south, west, north, east] = bbox.value!
         console.log(south, west, north, east)
-        const { data } = await api.get('/caches/within-bbox', {
+        const { data } = await api.get<ApiListResponse<CacheCompact>>('/caches/within-bbox', {
             params: {
                 min_lat: south,
                 min_lon: west,
@@ -128,19 +168,14 @@ async function search() {
         results?.clearLayers()
         cluster!.clearLayers()
 
-        if (data?.type === 'FeatureCollection') {
-            L.geoJSON(data, {
-                pointToLayer: (feat, latlng) => L.marker(latlng, { icon: getIconFor(feat?.properties?.type) }),
-            }).eachLayer((lyr) => cluster!.addLayer(lyr))
-            count.value = data.features?.length ?? 0
-        } else if (Array.isArray(data?.items)) {
-            data.items.forEach((c: any) => {
+        if (Array.isArray(data?.items)) {
+            data.items.forEach((c: CacheCompact) => {
                 const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
                 if (isFinite(lat) && isFinite(lon)) {
                     cluster!.addLayer(L.marker([lat, lon], { icon: getIconFor(c.type.code) }))
                 }
             })
-            count.value = data.total
+            count.value = typeof data.total === 'number' ? data.total : (Array.isArray(data.items) ? data.items.length : 0)
         } else {
             count.value = 0
         }

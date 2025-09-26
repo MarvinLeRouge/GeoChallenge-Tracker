@@ -1,4 +1,4 @@
-import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig, AxiosHeaders } from 'axios'
 import { useAuthStore } from '@/store/auth'
 
 const api = axios.create({
@@ -7,6 +7,15 @@ const api = axios.create({
 })
 
 let refreshPromise: Promise<void> | null = null
+
+function setAuthHeader(cfg: InternalAxiosRequestConfig, token: string) {
+  // normalise les headers en AxiosHeaders, puis set l’Authorization
+  const h = cfg.headers instanceof AxiosHeaders
+    ? cfg.headers
+    : new AxiosHeaders(cfg.headers)
+  h.set('Authorization', `Bearer ${token}`)
+  cfg.headers = h
+}
 
 // Attach Authorization (restore from sessionStorage if needed)
 api.interceptors.request.use((config) => {
@@ -17,7 +26,7 @@ api.interceptors.request.use((config) => {
     if (cached) auth.accessToken = cached
   }
   if (auth.accessToken) {
-    (config.headers ??= {}).Authorization = `Bearer ${auth.accessToken}`
+    setAuthHeader(config, auth.accessToken)
   }
   return config
 })
@@ -53,7 +62,7 @@ api.interceptors.response.use(
       try {
         await refreshPromise
         if (auth.accessToken) {
-          (original.headers ??= {}).Authorization = `Bearer ${auth.accessToken}`
+          setAuthHeader(original, auth.accessToken)
         }
         return api(original)
       } catch (e) {

@@ -1,14 +1,14 @@
 import { defineStore } from 'pinia'
 import api from '@/api/http'
-
-type Tokens = { access_token: string; refresh_token?: string }
-type LoginPayload = { identifier: string; password: string }
+import { isAxiosError } from 'axios'
+import type { Me, ProfileBaseApi, UserLocation, Tokens, LoginPayload } from '@/types/auth'
+import { mapProfileBase } from '@/types/auth'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: '' as string,
     refreshToken: (localStorage.getItem('refresh_token') || '') as string,
-    user: null as any,
+    user: null as Me | null,
     initialized: false,
   }),
   getters: { isAuthenticated: s => !!s.accessToken },
@@ -21,6 +21,18 @@ export const useAuthStore = defineStore('auth', {
         localStorage.setItem('refresh_token', this.refreshToken)
       }
     },
+    // 1) Profil de base immédiatement après login
+    async fetchProfileBase() {
+      const { data } = await api.get<ProfileBaseApi>('/my/profile')
+      const base = mapProfileBase(data)
+      this.user = { ...(this.user ?? {} as Me), ...base }
+    },
+
+    // 2) Localisation pour enrichir
+    async fetchLocation() {
+      const { data } = await api.get<UserLocation>('/my/profile/location')
+      this.user = { ...(this.user ?? {} as Me), location: data }
+    },
     async login({ identifier, password }: LoginPayload) {
       const body = new URLSearchParams()
       body.set('username', identifier) // email OU username
@@ -29,16 +41,18 @@ export const useAuthStore = defineStore('auth', {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       })
       this.setTokens(data)
-      await this.fetchMe().catch(() => {})
+      // Enchaînement : profil de base puis localisation (indépendants)
+      try { await this.fetchProfileBase() } catch (e: unknown) {
+        if (isAxiosError(e)) console.warn('fetchProfileBase failed:', e.response?.status)
+      }
+      try { await this.fetchLocation() } catch (e: unknown) {
+        if (isAxiosError(e)) console.warn('fetchLocation failed:', e.response?.status)
+      }
     },
     async refresh() {
       if (!this.refreshToken) throw new Error('no refresh')
       const { data } = await api.post<Tokens>('/auth/refresh', { refresh_token: this.refreshToken })
       this.setTokens(data)
-    },
-    async fetchMe() {
-      const { data } = await api.get('/my/profile/location')
-      this.user = data
     },
     logout() {
       this.accessToken = ''
@@ -53,7 +67,7 @@ export const useAuthStore = defineStore('auth', {
       // 👉 restaurer l'access, ne PAS appeler refresh ici
       this.accessToken = sessionStorage.getItem('access_token') || ''
       if (!this.accessToken) return            // ⟵ évite le 401 au premier chargement
-      try { await this.fetchMe() } catch { /* l'interceptor fera refresh si 401 */ }
+      await Promise.allSettled([this.fetchProfileBase(), this.fetchLocation()])
     }
   }
 })
