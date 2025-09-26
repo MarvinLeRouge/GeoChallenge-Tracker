@@ -1,9 +1,29 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [vue()],
-  resolve: { alias: { '@': '/src' } },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
+    },
+  },
+  test: {  // si tu utilises ce fichier comme config Vitest (ok avec Vitest 3)
+    environment: 'jsdom',
+    globals: true,
+    coverage: {
+      provider: 'v8',
+      include: ['src/utils/**'],
+      exclude: [
+        '**/*.d.ts',
+        'node_modules/**',
+        'dist/**',
+      ],
+      reportsDirectory: 'coverage',
+      reporter: ['text', 'html']
+    }
+  },
   server: {
     host: true,
     port: 5173,
@@ -21,8 +41,8 @@ export default defineConfig({
         changeOrigin: true,
         // pas de rewrite: on garde /tiles/... pour que tiles.conf fasse son rewrite interne
       },
-  
+
     }
   },
-  
+
 })

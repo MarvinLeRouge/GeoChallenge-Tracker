@@ -91,8 +91,8 @@ import { useRouter } from 'vue-router'
 import api from '@/api/http'
 import { toast } from 'vue-sonner'
 import { isAxiosError } from 'axios'
-import type { FastAPIErrorDetail, FastAPIValidationItem } from '@/types/http'
-
+import type { FastAPIValidationItem } from '@/types/http'
+import { getDetail } from '@/utils/http'
 
 const router = useRouter()
 const username = ref(''), email = ref(''), password = ref(''), confirm = ref('')
@@ -111,25 +111,6 @@ async function submit() {
   } catch (e: unknown) {
     const status = isAxiosError(e) ? e.response?.status : undefined
     const data = (isAxiosError(e) ? e.response?.data : undefined)
-    // Safe extraction du champ detail/msg
-
-    const isObject = (v: unknown): v is Record<string, unknown> =>
-      typeof v === 'object' && v !== null
-
-    const isValidationItem = (x: unknown): x is FastAPIValidationItem =>
-      isObject(x) &&
-      ('msg' in x || 'loc' in x || 'type' in x)
-
-    const getDetail = (d: unknown): FastAPIErrorDetail => {
-      if (!isObject(d)) return undefined
-      const rawDetail = (d as Record<string, unknown>).detail
-      if (typeof rawDetail === 'string') return rawDetail
-      if (Array.isArray(rawDetail) && rawDetail.every(isValidationItem)) return rawDetail
-
-      const msg = (d as Record<string, unknown>).msg
-      if (typeof msg === 'string') return msg
-      return undefined
-    }
     const detail = isAxiosError(e) ? getDetail(data) : undefined
 
     // util: transforme detail FastAPI (liste) en texte — sans any

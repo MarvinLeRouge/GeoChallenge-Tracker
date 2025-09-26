@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import api from '@/api/http'
 import { isAxiosError } from 'axios'
 import type { Me, ProfileBaseApi, UserLocation, Tokens, LoginPayload } from '@/types/auth'
-import { mapProfileBase } from '@/types/auth'
+import { mapProfileBase } from '@/utils/auth'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
