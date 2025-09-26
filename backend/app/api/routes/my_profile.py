@@ -6,10 +6,12 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.core.security import CurrentUserId, get_current_user
+from app.models.user import UserOut
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
 from app.services.user_profile import (
     coords_in_deg_min_mil,
     location_parse_to_lon_lat,
+    user_get,
     user_location_get,
     user_location_set,
 )
@@ -107,3 +109,31 @@ def get_my_location(user_id: CurrentUserId):
         coords=coords_in_deg_min_mil(lat, lon),
         updated_at=loc.get("updated_at"),
     )
+
+
+@router.get(
+    "",
+    response_model=UserOut,
+    summary="Obtenir mon profil",
+    description="Retourne le profil de l'utilisateur courant.",
+)
+def get_my_profile(user_id: CurrentUserId):
+    """Obtenir mon profil.
+
+    Description:
+        Récupère le profil pour l’utilisateur courant.
+
+    Args:
+
+    Returns:
+        UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
+    """
+
+    user = user_get(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No user found with this id.",
+        )
+
+    return user
