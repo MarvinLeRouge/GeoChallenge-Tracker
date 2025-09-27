@@ -11,6 +11,7 @@
       v-model.trim="identifier"
       type="text"
       placeholder="Email ou nom d'utilisateur"
+      name="identifier"
       class="border p-2 w-full"
       autocomplete="username"
       required
@@ -20,12 +21,14 @@
       v-model="password"
       type="password"
       placeholder="Mot de passe"
+      name="password"
       class="border p-2 w-full"
       autocomplete="current-password"
       required
     >
 
     <button
+      type="submit"
       class="border px-3 py-2"
       :disabled="loading"
     >

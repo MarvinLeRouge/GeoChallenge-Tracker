@@ -6,7 +6,7 @@ app = FastAPI()
 # Autorise le frontend à se connecter
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # 👈 domaine du frontend
+    allow_origins=["http://localhost:5173", "http://localhost:4173"],  # 👈 domaine du frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,9 +1,6 @@
 <template>
-  <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
-  <div
-    ref="el"
-    class="absolute inset-0"
-  />
+    <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
+    <div ref="el" class="absolute inset-0" id="imZeMapComponent" />
 </template>
 
 <script setup lang="ts">
@@ -18,6 +15,7 @@ const props = defineProps<{ center?: LatLng; zoom?: number; attribution?: string
 const emit = defineEmits<{
     (e: "ready", map: L.Map): void;
     (e: "pick", payload: { lat: number; lng: number }): void;
+    (e: "centerChanged", payload: { lat: number; lng: number; coords: string }): void; // ← AJOUT ICI
 }>();
 const el = ref<HTMLDivElement | null>(null)
 let map: L.Map | null = null
@@ -29,6 +27,34 @@ const initialZoom = computed(() => props.zoom ?? 6)
 const attribution = computed(
     () => props.attribution ?? '© OpenStreetMap contributors'
 )
+
+// Fonction pour formater les coordonnées
+function formatCoords(lat: number, lng: number): string {
+    const latDir = lat >= 0 ? 'N' : 'S'
+    const lngDir = lng >= 0 ? 'E' : 'W'
+
+    const latDeg = Math.floor(Math.abs(lat))
+    const latMin = ((Math.abs(lat) - latDeg) * 60).toFixed(3)
+
+    const lngDeg = Math.floor(Math.abs(lng))
+    const lngMin = ((Math.abs(lng) - lngDeg) * 60).toFixed(3)
+
+    return `${latDir}${latDeg} ${latMin} ${lngDir}${lngDeg} ${lngMin}`
+}
+
+// Fonction pour émettre le centre actuel
+function emitCurrentCenter() {
+    if (!map) return
+
+    const center = map.getCenter()
+    const coords = formatCoords(center.lat, center.lng)
+
+    emit('centerChanged', {
+        lat: center.lat,
+        lng: center.lng,
+        coords
+    })
+}
 
 function currentCenter(): LatLng {
     if (props.center) return props.center
@@ -80,6 +106,7 @@ function tryRecenterOnce() {
     if (target) {
         map.setView(target, initialZoom.value)
         recentered = true
+        emitCurrentCenter()
     }
 }
 
@@ -92,9 +119,13 @@ onMounted(() => {
         picker = installCrosshairPicker(map, (ll) => {
             emit("pick", { lat: ll.lat, lng: ll.lng });
         });
+
+        // Écouter les mouvements de carte
+        map.on('moveend', () => {
+            emitCurrentCenter()
+        })
     }
-
-
+    
     onBeforeUnmount(() => window.removeEventListener('resize', onResize))
     // ➕ Ajout non intrusif du picker (désactivé par défaut)
 
