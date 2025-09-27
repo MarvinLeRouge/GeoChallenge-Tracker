@@ -1,5 +1,6 @@
 <!-- src/pages/Home.vue -->
 <template>
+  <span data-testid="username">{{ user?.username ?? '' }}</span>
   <section class="max-w-screen-lg mx-auto space-y-12">
     <!-- HERO -->
     <header class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-indigo-50 to-white ring-1 ring-indigo-100 p-6 md:p-10 text-center">
@@ -291,5 +292,5 @@ import {
   MapIcon
 } from '@heroicons/vue/24/outline'
 
-const { isAuthenticated } = storeToRefs(useAuthStore())
+const { isAuthenticated, user } = storeToRefs(useAuthStore())
 </script>

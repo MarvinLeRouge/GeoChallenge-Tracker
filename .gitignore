@@ -12,6 +12,8 @@ Thumbs.db
 *.zip
 *.gpx
 *.csv
+*.tsv
+*.sh
 
 # Python
 *.egg-info/
