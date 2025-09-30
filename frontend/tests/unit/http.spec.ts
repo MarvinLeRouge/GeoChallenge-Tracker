@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { getDetail, detailToText } from './http'
 import type { FastAPIValidationItem } from '@/types/http'
+import { getDetail, detailToText } from '@/utils/http'
 
 describe('http utils (FastAPI detail)', () => {
     it('retourne le detail string', () => {

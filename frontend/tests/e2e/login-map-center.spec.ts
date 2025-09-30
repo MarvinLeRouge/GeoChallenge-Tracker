@@ -92,6 +92,6 @@ test('login → homepage → recherche par rayon', async ({ page }) => {
   await page.goto('/caches/within-radius')
   await expect(page.locator('.leaflet-container')).toBeVisible()
   await expect(page.locator('button[aria-label="Choisir sur la carte"]')).toBeVisible()
-  await expect(page.getByTestId('current-center')).toHaveText('N43 6.628 E5 56.557')
+  await expect(page.getByTestId('current-center')).toHaveText('Centre : N43 6.628 E5 56.557')
 
 })

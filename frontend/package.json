@@ -9,15 +9,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:test": "vite build --mode test",
     "preview": "vite preview",
+    "preview:test": "vite preview --mode test",
     "lint": "eslint . --ext .ts,.tsx,.vue --max-warnings=0",
     "typecheck": "vue-tsc --noEmit",
-    "test:unit": "vitest run --coverage --config vite.config.ts",
-    "test:unit:watch": "vitest",
-    "test:e2e": "npm run build && playwright test",
-    "test:e2e:ui": "npm run build && playwright test --ui",
-    "test:e2e:headed": "npm run build && playwright test --headed",
-    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run build"
+    "test:unit": "vitest run --coverage --config vitest.config.ts",
+    "test:unit:watch": "vitest --config vitest.config.ts",
+    "test:e2e": "npm run build:test && playwright test",
+    "test:e2e:ui": "npm run build:test && playwright test --ui",
+    "test:e2e:headed": "npm run build:test && playwright test --headed",
+    "tests:all": "npm run lint && npm run typecheck && npm run test:unit && npm run test:e2e && npm run build"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",

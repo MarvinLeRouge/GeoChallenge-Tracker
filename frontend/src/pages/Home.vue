@@ -1,9 +1,18 @@
 <!-- src/pages/Home.vue -->
-<template>
-  <span data-testid="username">{{ user?.username ?? '' }}</span>
+<template>  
+  <span
+    v-if="isTest"
+    data-testid="username"
+  >
+    <!-- Test e2e item, not on prod -->
+    {{ user?.username ?? '' }}
+  </span>
+
   <section class="max-w-screen-lg mx-auto space-y-12">
     <!-- HERO -->
-    <header class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-indigo-50 to-white ring-1 ring-indigo-100 p-6 md:p-10 text-center">
+    <header
+      class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-indigo-50 to-white ring-1 ring-indigo-100 p-6 md:p-10 text-center"
+    >
       <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">
         GeoChallenge Tracker
       </h1>
@@ -293,4 +302,8 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const { isAuthenticated, user } = storeToRefs(useAuthStore())
+
+// Test item for e2e test, not  on prod
+const isTest = import.meta.env.MODE === 'test'
+
 </script>

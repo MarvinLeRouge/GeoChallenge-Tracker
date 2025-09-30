@@ -9,21 +9,6 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  test: {  // si tu utilises ce fichier comme config Vitest (ok avec Vitest 3)
-    environment: 'jsdom',
-    globals: true,
-    coverage: {
-      provider: 'v8',
-      include: ['src/utils/**'],
-      exclude: [
-        '**/*.d.ts',
-        'node_modules/**',
-        'dist/**',
-      ],
-      reportsDirectory: 'coverage',
-      reporter: ['text', 'html']
-    }
-  },
   server: {
     host: true,
     port: 5173,

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { ProfileBaseApi } from '@/types/auth'
-import { mapProfileBase } from './auth'
+import { mapProfileBase } from '@/utils/auth'
 
 
 describe('mapProfileBase', () => {

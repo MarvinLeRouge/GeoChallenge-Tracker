@@ -16,14 +16,14 @@ if (result.error) {
 }
 
 export default defineConfig({
-    testDir: './tests-e2e',
+    testDir: 'tests/e2e',
     use: {
         baseURL: 'http://localhost:4173',
         headless: true,
         trace: 'retain-on-failure',
     },
     webServer: {
-        command: 'npm run preview -- --port 4173',
+        command: 'npm run preview:test -- --port 4173',
         url: 'http://localhost:4173',
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
