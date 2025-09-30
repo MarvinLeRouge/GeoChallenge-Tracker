@@ -4,7 +4,8 @@
 from pymongo import MongoClient
 from pymongo.database import Database
 
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 
 client: MongoClient[dict] = MongoClient(settings.mongodb_uri)
 db: Database[dict] = client[settings.mongodb_db]

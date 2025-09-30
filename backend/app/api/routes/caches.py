@@ -26,7 +26,8 @@ from pymongo import ASCENDING, DESCENDING
 
 from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
 from app.services.gpx_importer import import_gpx_payload

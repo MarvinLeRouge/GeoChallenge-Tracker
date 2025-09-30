@@ -1,5 +1,6 @@
 from app.core.security import verify_password
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.db.mongodb import get_collection
 
 TEST_USERNAME = settings.admin_username

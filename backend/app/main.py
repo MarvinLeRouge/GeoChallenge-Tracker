@@ -10,7 +10,8 @@ from fastapi.concurrency import (
 
 from app.api.routes import routers
 from app.core.middleware import MaxBodySizeMiddleware
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.db.seed_data import seed_referentials
 from app.db.seed_indexes import ensure_indexes
 

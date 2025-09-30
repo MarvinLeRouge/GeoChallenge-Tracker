@@ -13,7 +13,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.core.bson_utils import PyObjectId
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.models.user import User
@@ -139,13 +140,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 
 
 def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]) -> PyObjectId:
-    # MongoBaseModel expose généralement `id` alias de `_id`
-    if current_user.id is None:
+    if current_user.get("_id") is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user without id",
         )
-    return current_user.id
+    return current_user.get("_id")
 
 
 def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:

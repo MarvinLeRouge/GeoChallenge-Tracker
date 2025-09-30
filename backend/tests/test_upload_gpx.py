@@ -18,15 +18,7 @@ GPX_FOLDER = Path(__file__).resolve().parents[1] / "data" / "samples" / "gpx"
 @pytest.fixture(autouse=True)
 def clean_db():
     # on ne nettoie que les collections “volatiles”
-    get_collection("caches").delete_many({})
-    get_collection("found_caches").delete_many({})
-    get_collection("countries").delete_many({})
-    get_collection("states").delete_many({})
     yield
-    get_collection("caches").delete_many({})
-    get_collection("found_caches").delete_many({})
-    get_collection("countries").delete_many({})
-    get_collection("states").delete_many({})
 
 
 @pytest.fixture
@@ -55,9 +47,7 @@ def test_upload_gpx_without_found(client, sample_gpx_path):
         resp = client.post("/caches/upload-gpx?found=false", files=files)
 
     assert resp.status_code == 200, resp.text
-    data = resp.json()
-
-    print("data", data)
+    data = resp.json().get("summary", {})
 
     assert data["nb_gpx_files"] == 1
     assert data["nb_inserted_caches"] + data["nb_existing_caches"] == 295
@@ -75,7 +65,7 @@ def test_upload_gpx_with_found(client, sample_gpx_path):
         resp = client.post("/caches/upload-gpx?found=true", files=files)
 
     assert resp.status_code == 200, resp.text
-    data = resp.json()
+    data = resp.json().get("summary", {})
 
     print(data)
     assert data["nb_gpx_files"] >= 1
