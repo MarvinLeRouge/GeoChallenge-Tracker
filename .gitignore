@@ -45,6 +45,8 @@ pip-wheel-metadata/
 /frontend/.output/
 /frontend/.vitepress/cache/
 /frontend/.turbo/
+/frontend/coverage/
+/frontend/coverage/*
 
 # Docker
 **/docker-compose.override.yml
@@ -76,3 +78,4 @@ documents/
 
 # Fichiers de tests dev
 /test-scripts/
+frontend/coverage/index.html

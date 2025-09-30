@@ -1,6 +1,10 @@
 <template>
-    <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
-    <div ref="el" class="absolute inset-0" id="imZeMapComponent" />
+  <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
+  <div
+    id="imZeMapComponent"
+    ref="el"
+    class="absolute inset-0"
+  />
 </template>
 
 <script setup lang="ts">

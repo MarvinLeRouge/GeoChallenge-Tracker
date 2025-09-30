@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { coalesceTotal } from './caches'
+import { coalesceTotal } from '@/utils/caches'
 
 describe('coalesceTotal', () => {
     it('retourne total quand il est défini', () => {
