@@ -33,7 +33,8 @@ from app.core.security import (
     validate_password_strength,
     verify_password,
 )
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.models.user import (
@@ -255,6 +256,7 @@ def refresh_token(
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
+        print("data", data)
         sub = data.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Invalid refresh token")

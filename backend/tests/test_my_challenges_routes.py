@@ -33,6 +33,7 @@ def _sync_and_get_one(client) -> dict | None:
     r = client.post("/my/challenges/sync")
     assert r.status_code in (200, 201)
     items = _items(client)
+    print("items", items)
     return items[0] if items else None
 
 

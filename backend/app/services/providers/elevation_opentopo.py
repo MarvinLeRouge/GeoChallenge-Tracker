@@ -9,7 +9,8 @@ import os
 
 import httpx
 
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 

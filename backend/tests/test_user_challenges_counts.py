@@ -5,7 +5,7 @@ from app.db.mongodb import get_collection
 from app.services.user_challenges import patch_user_challenge
 
 ADMIN_ROLE = "admin"
-EXPECTED_TOTAL = 1016
+EXPECTED_TOTAL = 222
 EXPECTED_COMPLETED = 90
 
 

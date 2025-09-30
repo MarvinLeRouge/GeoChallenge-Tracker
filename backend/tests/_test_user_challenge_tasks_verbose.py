@@ -148,6 +148,7 @@ def _sample_referentials():
         else []
     )
     sizes = list(get_collection("cache_sizes").find({}, {"_id": 1, "name": 1}).limit(2))
+    print("sizes", sizes)
 
     missing = []
     if not ct_tradi:

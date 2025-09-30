@@ -3,7 +3,8 @@
 
 from __future__ import annotations
 
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 
 # Provider registry (can be extended later)
 from app.services.providers.elevation_opentopo import fetch as fetch_opentopo

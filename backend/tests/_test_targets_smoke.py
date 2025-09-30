@@ -5,6 +5,8 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 
+from app.core.settings import get_settings
+settings = get_settings()
 from app.db.mongodb import get_collection
 from app.main import app
 
@@ -14,8 +16,8 @@ from app.main import app
 
 
 def _login_and_headers(client: TestClient):
-    username = os.environ.get("ADMIN_USERNAME")
-    password = os.environ.get("ADMIN_PASSWORD")
+    username = settings.admin_username
+    password = settings.admin_password
     assert username and password, "ADMIN_USERNAME / ADMIN_PASSWORD non définis"
 
     # OAuth2PasswordRequestForm -> x-www-form-urlencoded

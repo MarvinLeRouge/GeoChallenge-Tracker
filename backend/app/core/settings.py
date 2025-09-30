@@ -1,9 +1,23 @@
 # backend/app/core/settings.py
 # Chargement des variables d’environnement via Pydantic Settings, avec propriétés utiles (ex. `mongodb_uri`).
 
+import os
+import logging
+from pathlib import Path
+from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich import print
 
+log = logging.getLogger("settings")
+
+def _resolve_env_file() -> Path:
+    # backend/ comme racine par défaut
+    backend_root = Path(__file__).resolve().parents[1]
+    default_env = backend_root / ".env"
+    env_file = os.getenv("ENV_FILE")
+    env_path = Path(env_file).resolve() if env_file else default_env
+    log.info("Loading dotenv from: %s", env_path)
+    return env_path
 
 class Settings(BaseSettings):
     """Paramètres de l’application (Pydantic Settings).
@@ -56,7 +70,11 @@ class Settings(BaseSettings):
     # === TEST ===
     test: str
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=_resolve_env_file(),
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     @property
     def mongodb_uri(self) -> str:
@@ -78,7 +96,8 @@ class Settings(BaseSettings):
         return self.max_upload_mb * self.one_mb
 
 
-# Instance globale
-settings = Settings()  # type: ignore[call-arg]
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
 
 print("--- Settings loaded ---")

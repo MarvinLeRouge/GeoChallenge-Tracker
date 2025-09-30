@@ -3,7 +3,8 @@ from collections.abc import Sequence
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from app.core.settings import settings
+from app.core.settings import get_settings
+settings = get_settings()
 
 
 class MaxBodySizeMiddleware(BaseHTTPMiddleware):
