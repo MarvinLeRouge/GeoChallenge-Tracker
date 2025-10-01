@@ -71,3 +71,9 @@ services:
     ports:
       - "127.0.0.1:1025:1025"  # SMTP, accessible seulement depuis le serveur
       - "127.0.0.1:8025:8025"  # UI Web, accessible via tunnel SSH
+
+volumes:
+  tiles_cache:
+    driver: local
+  tiles_logs:
+    driver: local
