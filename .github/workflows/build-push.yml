@@ -82,6 +82,9 @@ jobs:
           source: "ops/nginx/*"
           target: "/home/deploy/apps/gctracker/shared/"
           strip_components: 0
+          timeout: 2m
+          command_timeout: 10m
+          overwrite: true
 
       - name: Copy updated docker-compose.yml to server
         uses: appleboy/scp-action@v0.1.7
@@ -92,6 +95,9 @@ jobs:
           source: "ops/deploy/docker-compose.yml"
           target: "/home/deploy/apps/gctracker/compose/"
           strip_components: 2
+          timeout: 2m
+          command_timeout: 10m
+          overwrite: true
 
       - name: Deploy over SSH (compose pull + up) — Variante A (latest)
         uses: appleboy/ssh-action@v1.2.0
