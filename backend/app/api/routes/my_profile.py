@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
-from app.core.security import CurrentUserId, get_current_user
-from app.models.user import UserOut
+from app.core.security import CurrentUserId, get_current_user, CurrentUser
+from app.models.user import UserOut, User
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
 from app.services.user_profile import (
     coords_in_deg_min_mil,
@@ -82,7 +82,7 @@ def put_my_location(
     summary="Obtenir ma dernière localisation",
     description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
 )
-def get_my_location(user_id: CurrentUserId):
+def get_my_location(user: CurrentUser):
     """Obtenir ma dernière localisation.
 
     Description:
@@ -94,22 +94,23 @@ def get_my_location(user_id: CurrentUserId):
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
 
-    loc = user_location_get(user_id)
-    if not loc:
+    if (
+        not user.location 
+        or user.location.lat is None 
+        or user.location.lon is None
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No location saved for this user.",
+            detail="No location found for this user.",
         )
-
-    lat = loc["coordinates"][1]
-    lon = loc["coordinates"][0]
+    
+    # Construire la réponse avec les données de location
     return UserLocationOut(
-        lat=lat,
-        lon=lon,
-        coords=coords_in_deg_min_mil(lat, lon),
-        updated_at=loc.get("updated_at"),
+        id=user.id,
+        lat=user.location.lat,
+        lon=user.location.lon,
+        updated_at=user.location.updated_at,
     )
-
 
 @router.get(
     "",
@@ -117,7 +118,7 @@ def get_my_location(user_id: CurrentUserId):
     summary="Obtenir mon profil",
     description="Retourne le profil de l'utilisateur courant.",
 )
-def get_my_profile(user_id: CurrentUserId):
+def get_my_profile(user: CurrentUser):
     """Obtenir mon profil.
 
     Description:
@@ -128,12 +129,5 @@ def get_my_profile(user_id: CurrentUserId):
     Returns:
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
-
-    user = user_get(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No user found with this id.",
-        )
 
     return user

@@ -5,9 +5,14 @@ from __future__ import annotations
 
 import datetime as dt
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field, ConfigDict
 
 from app.core.utils import utcnow
+
+from app.core.bson_utils import PyObjectId
+
+from app.services.user_profile import coords_in_deg_min_mil
+
 
 
 class UserLocationIn(BaseModel):
@@ -30,16 +35,17 @@ class UserLocationIn(BaseModel):
 
 
 class UserLocationOut(BaseModel):
-    """Sortie de localisation.
-
-    Attributes:
-        lat (float): Latitude.
-        lon (float): Longitude.
-        coords (str | None): Représentation DM (si calculée).
-        updated_at (datetime): Dernière mise à jour (UTC).
-    """
-
+    """Sortie de localisation utilisateur."""
+    id: PyObjectId
     lat: float
     lon: float
-    coords: str | None = ""
     updated_at: dt.datetime = Field(default_factory=lambda: utcnow())
+    
+    @computed_field
+    @property
+    def coords(self) -> str:
+        """Représentation en degrés/minutes (calculé automatiquement)."""
+        return coords_in_deg_min_mil(self.lat, self.lon)
+    
+    model_config = ConfigDict(from_attributes=True)
+
