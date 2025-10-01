@@ -136,16 +136,18 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if raw_user is None:
         raise credentials_exception
 
-    return User(**raw_user)
+    result = User(**raw_user)
+    return result
 
 
 def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]) -> PyObjectId:
-    if current_user.get("_id") is None:
+    user_id = current_user.id
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid user without id",
         )
-    return current_user.get("_id")
+    return user_id
 
 
 def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
