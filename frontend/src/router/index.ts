@@ -43,9 +43,7 @@ const challengesRoutes = [
   {
     path: '/my/challenges',
     name: 'my-challenges',
-    component: () => import('@/pages/_NotImplemented.vue'),
-    props: { title: 'Mes challenges', message: 'Cette page arrive bientôt.', helpTo: '/help/challenges' },
-    // planned: component: () => import('@/pages/challenges/MyChallenges.vue')
+    component: () => import('@/pages/userChallenges/List.vue'),
   },
   {
     path: '/my/challenges/:ucId',
