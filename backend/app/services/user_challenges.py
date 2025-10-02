@@ -120,7 +120,7 @@ def list_user_challenges(
     user_id: ObjectId,
     status: str | None,
     page: int,
-    limit: int,
+    page_size: int,
 ) -> dict[str, Any]:
     """Lister les UserChallenges (paginé + filtre effectif).
 
@@ -131,10 +131,10 @@ def list_user_challenges(
         user_id: Utilisateur.
         status: Filtre (`pending|accepted|dismissed|completed` ou None).
         page: Numéro de page.
-        limit: Taille de page.
+        page_size: Taille de page.
 
     Returns:
-        dict: `{items, page, limit, total}`.
+        dict: `{items, page, nb_pages, page_size, total}`.
     """
     ucs = get_collection("user_challenges")
     pipeline: list[dict[str, Any]] = [
@@ -206,8 +206,8 @@ def list_user_challenges(
         {
             "$facet": {
                 "items": [
-                    {"$skip": max(0, (page - 1) * limit)},
-                    {"$limit": limit},
+                    {"$skip": max(0, (page - 1) * page_size)},
+                    {"$limit": page_size},
                     {
                         "$project": {
                             "_id": 1,
@@ -237,7 +237,7 @@ def list_user_challenges(
 
     out = list(ucs.aggregate(pipeline))
     if not out:
-        return {"items": [], "page": page, "limit": limit, "total": 0}
+        return {"items": [], "page": page, "page_size": page_size, "nb_pages": 0, "total": 0}
 
     result = out[0]
     items = result["items"]
@@ -257,7 +257,10 @@ def list_user_challenges(
             it["challenge"]["id"] = str(it["challenge"]["id"])
         it["effective_status"] = effective_status(it)
 
-    return {"items": items, "page": page, "limit": limit, "total": result["total"]}
+    nb_pages = (result["total"] // page_size) + (1 if result["total"] % page_size != 0 else 0)
+    result = {"items": items, "page": page, "nb_pages": nb_pages, "page_size": page_size, "nb_items": result["total"]}
+
+    return result
 
 
 def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any] | None:

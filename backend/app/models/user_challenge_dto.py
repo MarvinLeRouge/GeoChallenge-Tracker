@@ -39,7 +39,7 @@ class ChallengeMini(BaseModel):
     name: str
 
 
-class ListItem(BaseModel):
+class UserChallengeListItemOut(BaseModel):
     """Élément de liste UC.
 
     Attributes:
@@ -63,20 +63,22 @@ class ListItem(BaseModel):
     cache: CacheDetail
 
 
-class ListResponse(BaseModel):
+class UserChallengeListResponse(BaseModel):
     """Réponse de liste paginée UC.
 
     Attributes:
-        items (list[ListItem]): Résultats.
+        items (list[UserChallengeListItemOut]): Résultats.
+        nb_items (int): Nb items trouvés.
         page (int): Page courante.
-        limit (int): Taille de page.
-        total (int): Total.
+        nb_pages (int): Nombre de pages.
+        page_size (int): Taille de page.
     """
 
-    items: list[ListItem]
+    items: list[UserChallengeListItemOut]
+    nb_items: int
     page: int
-    limit: int
-    total: int
+    page_size: int
+    nb_pages: int
 
 
 class CacheDetail(BaseModel):

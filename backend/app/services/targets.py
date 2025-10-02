@@ -476,7 +476,7 @@ def list_targets_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     page: int = 1,
-    limit: int = 50,
+    page_size: int = 50,
     sort: str = "-score",
 ) -> dict[str, Any]:
     """Lister les targets d’un UserChallenge (paginé).
@@ -485,17 +485,17 @@ def list_targets_for_user_challenge(
         user_id: Utilisateur.
         uc_id: UserChallenge.
         page: Numéro de page.
-        limit: Taille de page.
+        page_size: Taille de page.
         sort: Clé de tri (ex. `-score`).
 
     Returns:
-        dict: `{items, total, page, limit}`.
+        dict: `{items, nb_items, page, page_size, nb_pages}`.
     """
     coll = get_collection("targets")
     q = {"user_id": user_id, "user_challenge_id": uc_id}
     sort_spec = [("score", -1)] if sort == "-score" else [("updated_at", -1)]
-    skip = max(0, (int(page) - 1) * int(limit))
-    cur = coll.find(q).sort(sort_spec).skip(skip).limit(int(limit))
+    skip = max(0, (page - 1) * page_size)
+    cur = coll.find(q).sort(sort_spec).skip(skip).limit(page_size)
     items = []
     for d in cur:
         items.append(
@@ -521,8 +521,10 @@ def list_targets_for_user_challenge(
                 "pinned": bool(d.get("pinned") or False),
             }
         )
-    total = coll.count_documents(q)
-    return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+    nb_items = coll.count_documents(q)
+    nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
+    
+    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
 
 
 def list_targets_nearby_for_user_challenge(
@@ -532,7 +534,7 @@ def list_targets_nearby_for_user_challenge(
     lon: float,
     radius_km: float,
     page: int = 1,
-    limit: int = 50,
+    page_size: int = 50,
     sort: str = "distance",
 ) -> dict[str, Any]:
     """Lister les targets proches (par UC) via `$geoNear`.
@@ -544,11 +546,11 @@ def list_targets_nearby_for_user_challenge(
         lon: Longitude de référence.
         radius_km: Rayon en kilomètres.
         page: Page (≥1).
-        limit: Taille de page.
+        page_size: Taille de page.
         sort: `distance` (asc) ou `-distance` (desc).
 
     Returns:
-        dict: `{items, total, page, limit}` avec `distance_km`.
+        dict: `{items, nb_items, page, page_size, nb_pages}` avec `distance_km`.
     """
     coll = get_collection("targets")
     pipeline: list[dict[str, Any]] = [
@@ -563,8 +565,8 @@ def list_targets_nearby_for_user_challenge(
             }
         },
         {"$sort": {"distance_m": 1 if sort == "distance" else -1}},
-        {"$skip": max(0, (int(page) - 1) * int(limit))},
-        {"$limit": int(limit)},
+        {"$skip": max(0, (page - 1) * page_size)},
+        {"$limit": page_size},
         {
             "$project": {
                 "_id": 1,
@@ -604,15 +606,17 @@ def list_targets_nearby_for_user_challenge(
                 "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
             }
         )
-    total = coll.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
-    return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+    nb_items = coll.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
+    nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
+
+    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
 
 
 def list_targets_for_user(
     user_id: ObjectId,
     status_filter: str | None = None,
     page: int = 1,
-    limit: int = 50,
+    page_size: int = 50,
     sort: str = "-score",
 ) -> dict[str, Any]:
     """Lister toutes les targets de l’utilisateur (tous challenges).
@@ -621,11 +625,11 @@ def list_targets_for_user(
         user_id: Utilisateur.
         status_filter: Filtre sur le statut UC (ex. 'accepted').
         page: Page (≥1).
-        limit: Taille de page.
+        page_size: Taille de page.
         sort: `-score` ou `updated_at`.
 
     Returns:
-        dict: `{items, total, page, limit}`.
+        dict: `{items, nb_items, page, page_size, nb_pages}`.
     """
     pipeline: list[dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
@@ -643,8 +647,8 @@ def list_targets_for_user(
         pipeline.append({"$match": {"uc.status": status_filter}})
     pipeline += [
         {"$sort": {"score": -1} if sort == "-score" else {"updated_at": -1}},
-        {"$skip": max(0, (int(page) - 1) * int(limit))},
-        {"$limit": int(limit)},
+        {"$skip": max(0, (page - 1) * page_size)},
+        {"$limit": page_size},
         {
             "$project": {
                 "_id": 1,
@@ -682,8 +686,10 @@ def list_targets_for_user(
                 "pinned": bool(d.get("pinned") or False),
             }
         )
-    total = get_collection("targets").count_documents({"user_id": user_id})
-    return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+    nb_items = get_collection("targets").count_documents({"user_id": user_id})
+    nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
+    
+    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
 
 
 def list_targets_nearby_for_user(
@@ -693,7 +699,7 @@ def list_targets_nearby_for_user(
     radius_km: float,
     status_filter: str | None = None,
     page: int = 1,
-    limit: int = 50,
+    page_size: int = 50,
     sort: str = "distance",
 ) -> dict[str, Any]:
     """Lister les targets proches (tous challenges) via `$geoNear`.
@@ -705,11 +711,11 @@ def list_targets_nearby_for_user(
         radius_km: Rayon en kilomètres.
         status_filter: Filtre statut UC (optionnel).
         page: Page (≥1).
-        limit: Taille de page.
+        page_size: Taille de page.
         sort: `distance` (asc) ou `-distance` (desc).
 
     Returns:
-        dict: `{items, total, page, limit}` avec `distance_km`.
+        dict: `{items, nb_items, page, page_size, nb_pages}` avec `distance_km`.
     """
     pipeline: list[dict[str, Any]] = [
         {
@@ -737,8 +743,8 @@ def list_targets_nearby_for_user(
 
     pipeline += [
         {"$sort": {"distance_m": 1 if sort == "distance" else -1}},
-        {"$skip": max(0, (int(page) - 1) * int(limit))},
-        {"$limit": int(limit)},
+        {"$skip": max(0, (page - 1) * page_size)},
+        {"$limit": page_size},
         {
             "$project": {
                 "_id": 1,
@@ -778,8 +784,10 @@ def list_targets_nearby_for_user(
                 "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
             }
         )
-    total = get_collection("targets").count_documents({"user_id": user_id})
-    return {"items": items, "total": int(total), "page": int(page), "limit": int(limit)}
+    nb_items = get_collection("targets").count_documents({"user_id": user_id})
+    nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
+    
+    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
 
 
 def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
