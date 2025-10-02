@@ -167,7 +167,7 @@ def list_targets_uc(
     user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     page: int = Query(1, ge=1, description="Numéro de page."),
-    limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
 ):
     """Lister les targets d’un UserChallenge (paginé).
@@ -178,7 +178,7 @@ def list_targets_uc(
     Args:
         uc_id (str): Identifiant du UserChallenge.
         page (int): Page (≥1).
-        limit (int): Taille de page (1–200).
+        page_size (int): Taille de page (1–200).
         sort (str): Clé de tri.
 
     Returns:
@@ -186,7 +186,7 @@ def list_targets_uc(
     """
     uc_oid = _as_objid(uc_id)
     return list_targets_for_user_challenge(
-        user_id=user_id, uc_id=uc_oid, page=int(page), limit=int(limit), sort=sort
+        user_id=user_id, uc_id=uc_oid, page=page, page_size=page_size, sort=sort
     )
 
 
@@ -211,7 +211,7 @@ def list_targets_uc_nearby(
         None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."
     ),
     page: int = Query(1, ge=1, description="Numéro de page."),
-    limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
 ):
     """Lister les targets proches d’un point (par UC).
@@ -225,7 +225,7 @@ def list_targets_uc_nearby(
         lat (float | None): Latitude ou localisation enregistrée.
         lon (float | None): Longitude ou localisation enregistrée.
         page (int): Page (≥1).
-        limit (int): Taille de page (1–200).
+        page_size (int): Taille de page (1–200).
         sort (str): Clé de tri.
 
     Returns:
@@ -255,7 +255,7 @@ def list_targets_uc_nearby(
         lon=final_lon,
         radius_km=radius_km,
         page=int(page),
-        limit=int(limit),
+        page_size=int(page_size),
         sort=sort,
     )
 
@@ -279,7 +279,7 @@ def list_targets_all(
     user_id: CurrentUserId,
     status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
-    limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
 ):
     """Lister toutes mes targets (paginé).
@@ -290,7 +290,7 @@ def list_targets_all(
     Args:
         status_filter (str | None): Filtre de statut des UC.
         page (int): Page (≥1).
-        limit (int): Taille de page (1–200).
+        page_size (int): Taille de page (1–200).
         sort (str): Clé de tri.
 
     Returns:
@@ -300,7 +300,7 @@ def list_targets_all(
         user_id=user_id,
         status_filter=(status_filter or None),
         page=int(page),
-        limit=int(limit),
+        page_size=int(page_size),
         sort=sort,
     )
 
@@ -326,7 +326,7 @@ def list_targets_all_nearby(
     ),
     status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
-    limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
     sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
 ):
     """Lister les targets proches (tous challenges).
@@ -340,7 +340,7 @@ def list_targets_all_nearby(
         lon (float | None): Longitude ou localisation enregistrée.
         status_filter (str | None): Filtre de statut UC.
         page (int): Page (≥1).
-        limit (int): Taille de page (1–200).
+        page_size (int): Taille de page (1–200).
         sort (str): Clé de tri.
 
     Returns:
@@ -368,7 +368,7 @@ def list_targets_all_nearby(
         radius_km=radius_km,
         status_filter=(status_filter or None),
         page=int(page),
-        limit=int(limit),
+        page_size=int(page_size),
         sort=sort,
     )
 

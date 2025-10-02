@@ -13,7 +13,7 @@ from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
 from app.models.user_challenge_dto import (
     DetailResponse,
-    ListResponse,
+    UserChallengeListResponse,
     PatchResponse,
     PatchUCIn,
 )
@@ -58,12 +58,12 @@ def sync(user_id: CurrentUserId):
 
 @router.get(
     "",
-    response_model=ListResponse,
+    response_model=UserChallengeListResponse,
     summary="Lister mes UserChallenges",
     description=(
         "Retourne la liste paginée des UserChallenges de l’utilisateur.\n\n"
         "- Filtre optionnel `status` (pending|accepted|dismissed|completed)\n"
-        "- Pagination via `page` et `limit` (max 200)"
+        "- Pagination via `page` et `page_size` (max 200)"
     ),
 )
 def list_uc(
@@ -74,7 +74,7 @@ def list_uc(
         description="Filtrer par statut du UserChallenge.",
     ),
     page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
-    limit: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
 ):
     """Lister mes UserChallenges (paginé).
 
@@ -84,12 +84,12 @@ def list_uc(
     Args:
         status (str | None): Statut à filtrer.
         page (int): Numéro de page (≥1).
-        limit (int): Taille de page (1–200).
+        page_size (int): Taille de page (1–200).
 
     Returns:
-        ListResponse: Items et informations de pagination.
+        UserChallengeListResponse: Items et informations de pagination.
     """
-    return list_user_challenges(user_id, status, page, limit)
+    return list_user_challenges(user_id, status, page, page_size)
 
 
 # --- modèles locaux pour le batch ---

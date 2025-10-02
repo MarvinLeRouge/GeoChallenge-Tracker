@@ -71,15 +71,17 @@ class TargetListResponse(BaseModel):
 
     Attributes:
         items (list[TargetListItemOut]): Résultats.
-        total (int): Total trouvé.
+        nb_items (int): Nb items trouvés.
         page (int): Page courante.
-        limit (int): Taille de page.
+        page_size (int): Taille de page.
+        nb_pages (int): Nombre de pages.
     """
 
     items: list[TargetListItemOut]
-    total: int
+    nb_items: int
     page: int
-    limit: int
+    page_size: int
+    nb_pages: int
 
 
 # ---- (Optionnel) DTO de preview "par tâche" ----
