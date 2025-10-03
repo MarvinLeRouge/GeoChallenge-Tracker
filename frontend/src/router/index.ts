@@ -81,6 +81,7 @@ const challengesRoutes = [
 
 const routes = [
   { path: '/', name: 'home', component: () => import('@/pages/Home.vue') },
+  { path: '/legal', name: 'legal', component: () => import('@/pages/misc/Legal.vue') },
   ...authRoutes, ...cachesRoutes, ...challengesRoutes,
 
   { path: '/protected', name: 'protected', component: () => import('@/pages/auth/Protected.vue') }, // pour tests
