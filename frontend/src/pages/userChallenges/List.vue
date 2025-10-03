@@ -65,7 +65,7 @@
           </button>
 
           <button v-if="ch.status != 'pending' || ch.computed_status"
-            class="p-2 rounded-full border bg-white hover:bg-indigo-50" @click="manageTasks(ch)" title="Reset">
+            class="p-2 rounded-full border bg-white hover:bg-indigo-50" @click="resetChallenge(ch)" title="Reset">
             <ClockIcon class="w-5 h-5" />
           </button>
 
@@ -227,6 +227,22 @@ async function dismissChallenge(ch: UserChallenge) {
     loading.value = false
   }
 }
+
+async function resetChallenge(ch: UserChallenge) {
+  try {
+    loading.value = true
+    await api.patch(`/my/challenges/${ch.id}`, {
+      status: 'pending',
+    })
+    await fetchChallenges()
+  } catch (e: any) {
+    console.error('Erreur reset:', e)
+    error.value = e?.message ?? 'Erreur reset'
+  } finally {
+    loading.value = false
+  }
+}
+
 async function manageTasks(ch: UserChallenge) {
   // e.g. this.$router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
 }
