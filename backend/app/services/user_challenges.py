@@ -385,6 +385,7 @@ def patch_user_challenge(
             }
         else:
             update["manual_override"] = False
+            update["computed_status"] = None
             unset["override_reason"] = ""
             unset["overridden_at"] = ""
 
@@ -402,21 +403,6 @@ def patch_user_challenge(
     )
     if not res:
         return None
-
-    # Trigger progress evaluation when status switches to 'accepted'
-    try:
-        if status == "accepted":
-            from app.services.progress import evaluate_progress
-
-            progress_coll = get_collection("progress")
-            has_snapshot = (
-                progress_coll.find_one({"user_challenge_id": uc_id}, {"_id": 1}) is not None
-            )
-            if not has_snapshot:
-                evaluate_progress(user_id, uc_id)
-    except Exception:
-        # best-effort: do not block patch if evaluation fails
-        pass
 
     cs = res.get("computed_status")
     st = res.get("status")
