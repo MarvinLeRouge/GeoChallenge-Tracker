@@ -239,19 +239,7 @@
               >
                 <li>
                   <RouterLink
-                    to="/my/challenges/sync"
-                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
-                  >
-                    <ArrowPathIcon
-                      class="w-5 h-5 shrink-0 text-gray-700"
-                      aria-hidden="true"
-                    />
-                    <span>Synchroniser</span>
-                  </RouterLink>
-                </li>
-                <li>
-                  <RouterLink
-                    to="/my/challenges/list"
+                    to="/my/challenges"
                     class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
                   >
                     <Mountain
