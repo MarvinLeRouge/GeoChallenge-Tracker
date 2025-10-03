@@ -42,19 +42,13 @@ const cachesRoutes = [
 const challengesRoutes = [
   {
     path: '/my/challenges',
-    name: 'my-challenges',
+    name: 'userChallengeList',
     component: () => import('@/pages/userChallenges/List.vue'),
   },
   {
-    path: '/my/challenges/:ucId',
-    name: 'uc-detail',
-    component: () => import('@/pages/_NotImplemented.vue'),
-    props: (r: RouteLocationNormalized) => ({
-      title: 'Détail du challenge',
-      message: `UC: ${r.params.ucId}`,
-      helpTo: '/help/challenges'
-    }),
-    // planned: component: () => import('@/pages/challenges/ChallengeDetail.vue')
+    path: '/my/challenges/:id',
+    name: 'userChallengeDetails',
+    component: () => import('@/pages/userChallenges/Details.vue'),
   },
   {
     path: '/my/challenges/:ucId/tasks',

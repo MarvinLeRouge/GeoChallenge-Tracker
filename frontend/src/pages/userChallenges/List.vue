@@ -2,16 +2,12 @@
   <div class="p-4 space-y-4">
     <!-- Filtres (boutons ronds) -->
     <div class="flex gap-3 justify-center">
-      <button
-        v-for="s in ['all','pending','accepted','dismissed','completed']"
-        :key="s"
+      <button v-for="s in ['all', 'pending', 'accepted', 'dismissed', 'completed']" :key="s"
         class="p-2 rounded-full border flex items-center justify-center w-10 h-10 transition"
         :class="filterStatus === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 hover:bg-gray-50'"
-        @click="setFilter(s as any)"
-        :title="s === 'all' ? 'Tous' : s"
-        :aria-label="s === 'all' ? 'Tous' : s"
-      >
-        <component :is="s==='all'?AdjustmentsHorizontalIcon:statusIcons[s as keyof typeof statusIcons]" class="w-5 h-5" />
+        @click="setFilter(s as any)" :title="statusLabels[s]" :aria-label="statusLabels[s]">
+        <component :is="s === 'all' ? AdjustmentsHorizontalIcon : statusIcons[s as keyof typeof statusIcons]"
+          class="w-5 h-5" />
       </button>
     </div>
 
@@ -21,14 +17,22 @@
 
     <!-- Liste -->
     <div v-if="!loading" class="space-y-3">
-      <div
-        v-for="ch in challenges"
-        :key="ch.id"
-        class="rounded-lg border bg-white shadow-sm p-3"
-      >
+      <div v-for="(ch, idx) in challenges" :key="ch.id" class="rounded-lg border shadow-sm p-3 transition"
+        :class="idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'">
         <div class="flex justify-between items-start gap-3">
           <div class="min-w-0">
-            <h3 class="font-semibold truncate">{{ ch.challenge.name }}</h3>
+            <h3 class="font-semibold flex items-center gap-2">
+              <CheckCircleIcon v-if="ch.status === 'accepted'" class="w-5 h-5 text-green-600 shrink-0"
+                aria-hidden="true" />
+              <XCircleIcon v-else-if="ch.status === 'dismissed'" class="w-5 h-5 text-red-600 shrink-0"
+                aria-hidden="true" />
+              <ClockIcon v-else-if="ch.status === 'pending' && ch.computed_status != 'completed'"
+                class="w-5 h-5 text-gray-600 shrink-0" aria-hidden="true" />
+              <TrophyIcon v-else-if="ch.status === 'completed' || ch.computed_status === 'completed'"
+                class="w-5 h-5 text-gold-600 shrink-0" aria-hidden="true" />
+
+              <span class="truncate">{{ ch.challenge.name }}</span>
+            </h3>
             <p class="text-sm text-gray-500">GC: {{ ch.cache.GC }}</p>
             <p class="text-xs text-gray-400">
               Màj: {{ new Date(ch.updated_at).toLocaleDateString() }}
@@ -46,37 +50,27 @@
 
         <!-- Actions (icônes ronds) -->
         <div class="flex gap-2 mt-3">
-          <button
-            class="p-2 rounded-full border bg-white hover:bg-gray-100"
-            @click="showDetails(ch)"
-            title="Détails"
-          >
+          <button class="p-2 rounded-full border bg-white hover:bg-gray-100" @click="showDetails(ch)" title="Détails">
             <InformationCircleIcon class="w-5 h-5" />
           </button>
 
-          <button
-            v-if="!['accepted','completed'].includes(ch.status)"
-            class="p-2 rounded-full border bg-white hover:bg-green-50"
-            @click="acceptChallenge(ch)"
-            title="Accepter"
-          >
+          <button v-if="!['accepted', 'completed'].includes(ch.status) && ch.computed_status !== 'completed'"
+            class="p-2 rounded-full border bg-white hover:bg-green-50" @click="acceptChallenge(ch)" title="Accepter">
             <CheckIcon class="w-5 h-5" />
           </button>
 
-          <button
-            v-if="!['dismissed','completed'].includes(ch.status)"
-            class="p-2 rounded-full border bg-white hover:bg-red-50"
-            @click="dismissChallenge(ch)"
-            title="Refuser"
-          >
+          <button v-if="!['dismissed', 'completed'].includes(ch.status) && ch.computed_status !== 'completed'"
+            class="p-2 rounded-full border bg-white hover:bg-red-50" @click="dismissChallenge(ch)" title="Refuser">
             <XMarkIcon class="w-5 h-5" />
           </button>
 
-          <button
-            class="p-2 rounded-full border bg-white hover:bg-indigo-50"
-            @click="manageTasks(ch)"
-            title="Tâches"
-          >
+          <button v-if="ch.status != 'pending' || ch.computed_status"
+            class="p-2 rounded-full border bg-white hover:bg-indigo-50" @click="manageTasks(ch)" title="Reset">
+            <ClockIcon class="w-5 h-5" />
+          </button>
+
+          <button v-if="!['dismissed', 'completed'].includes(ch.status) && ch.computed_status !== 'completed'"
+            class="ml-4 p-2 rounded-full border bg-white hover:bg-indigo-50" @click="manageTasks(ch)" title="Tâches">
             <ClipboardDocumentListIcon class="w-5 h-5" />
           </button>
         </div>
@@ -84,19 +78,11 @@
 
       <!-- Pagination -->
       <div class="flex justify-between items-center mt-4">
-        <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
-          :disabled="!canPrev"
-          @click="prevPage"
-        >
+        <button class="px-3 py-2 rounded border bg-white disabled:opacity-50" :disabled="!canPrev" @click="prevPage">
           Précédent
         </button>
         <span class="text-sm">Page {{ page }} / {{ nbPages }}</span>
-        <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
-          :disabled="!canNext"
-          @click="nextPage"
-        >
+        <button class="px-3 py-2 rounded border bg-white disabled:opacity-50" :disabled="!canNext" @click="nextPage">
           Suivant
         </button>
       </div>
@@ -107,6 +93,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import api from '@/api/http'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 // Heroicons 24/outline (cohérent avec ta home)
 import {
@@ -153,7 +142,13 @@ const statusIcons: Record<UserChallenge['status'], any> = {
   dismissed: XCircleIcon,
   completed: TrophyIcon,
 }
-
+const statusLabels: Record<string, string> = {
+  all: 'Tous',
+  pending: 'En attente',
+  accepted: 'Acceptés',
+  dismissed: 'Refusés',
+  completed: 'Complétés',
+}
 const canPrev = computed(() => page.value > 1)
 const canNext = computed(() => page.value < nbPages.value && nbPages.value > 0)
 
@@ -201,22 +196,33 @@ function nextPage() {
 
 // Actions (branche tes endpoints si dispo)
 async function showDetails(ch: UserChallenge) {
-  // e.g. this.$router.push({ name: 'userChallengeDetail', params: { id: ch.id } })
+  router.push({ name: 'userChallengeDetails', params: { id: ch.id } })
 }
 async function acceptChallenge(ch: UserChallenge) {
   try {
     loading.value = true
-    await api.post(`/my/challenges/${ch.id}/accept`)
+    await api.patch(`/my/challenges/${ch.id}`, {
+      status: 'accepted',
+    })
     await fetchChallenges()
+  } catch (e: any) {
+    console.error('Erreur accept:', e)
+    error.value = e?.message ?? 'Erreur accept'
   } finally {
     loading.value = false
   }
 }
+
 async function dismissChallenge(ch: UserChallenge) {
   try {
     loading.value = true
-    await api.post(`/my/challenges/${ch.id}/dismiss`)
+    await api.patch(`/my/challenges/${ch.id}`, {
+      status: 'dismissed',
+    })
     await fetchChallenges()
+  } catch (e: any) {
+    console.error('Erreur dismiss:', e)
+    error.value = e?.message ?? 'Erreur dismiss'
   } finally {
     loading.value = false
   }
@@ -225,4 +231,3 @@ async function manageTasks(ch: UserChallenge) {
   // e.g. this.$router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
 }
 </script>
-
