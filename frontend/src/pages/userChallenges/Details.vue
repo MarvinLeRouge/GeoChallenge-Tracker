@@ -1,3 +1,4 @@
+<!-- src/pages/userChallenges/Details.vue -->
 <template>
     <div class="p-4 space-y-4">
         <button class="inline-flex items-center gap-2 text-sm" @click="router.back()">
@@ -82,6 +83,7 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useUserChallenge } from '@/composables/useUserChallenge'
 import api from '@/api/http'
 import DOMPurify from 'dompurify'
 
@@ -116,10 +118,8 @@ type Detail = {
 const route = useRoute()
 const router = useRouter()
 const id = route.params.id as string
-
-const loading = ref(false)
-const error = ref<string | null>(null)
-const uc = ref<Detail | null>(null)
+const { uc, loadingDetail: loading, errorDetail: error, safeDescription, fetchDetail } =
+  useUserChallenge(id)
 
 const notes = ref('')
 const overrideReason = ref('')
@@ -131,30 +131,6 @@ const canAccept = computed(() =>
 const canDismiss = computed(() =>
     uc.value && !['dismissed', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
 )
-
-const safeDescription = computed(() => {
-    const html = uc.value?.challenge.description ?? ''
-    try {
-        return DOMPurify.sanitize(html)
-    } catch {
-        return html // fallback (évite crash si DOMPurify absent)
-    }
-})
-
-async function fetchDetail() {
-    loading.value = true
-    error.value = null
-    try {
-        const { data } = await api.get(`/my/challenges/${id}`)
-        uc.value = data
-        notes.value = data.notes ?? ''
-        overrideReason.value = data.override_reason ?? ''
-    } catch (e: any) {
-        error.value = e?.message ?? 'Erreur de chargement'
-    } finally {
-        loading.value = false
-    }
-}
 
 async function patchStatus(status: Detail['status']) {
     if (!uc.value) return
