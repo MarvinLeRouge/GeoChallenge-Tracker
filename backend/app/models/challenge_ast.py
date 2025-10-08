@@ -39,7 +39,7 @@ class TypeSelector(ASTBase):
 
     cache_type_doc_id: PyObjectId | None = None
     cache_type_id: int | None = None
-    cache_type_code: str | None = Field(
+    code: str | None = Field(
         default=None, description="Cache type code, e.g. 'whereigo'"
     )
 
