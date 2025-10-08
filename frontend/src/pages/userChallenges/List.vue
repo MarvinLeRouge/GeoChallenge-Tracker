@@ -1,3 +1,4 @@
+<!-- src/pages/userChallenges/List.vue -->
 <template>
   <div class="p-4 space-y-4">
     <!-- Filtres (boutons ronds) -->
@@ -69,7 +70,7 @@
             <ClockIcon class="w-5 h-5" />
           </button>
 
-          <button v-if="!['dismissed', 'completed'].includes(ch.status) && ch.computed_status !== 'completed'"
+          <button v-if="['accepted', 'completed'].includes(ch.status)"
             class="ml-4 p-2 rounded-full border bg-white hover:bg-indigo-50" @click="manageTasks(ch)" title="Tâches">
             <ClipboardDocumentListIcon class="w-5 h-5" />
           </button>
@@ -244,6 +245,7 @@ async function resetChallenge(ch: UserChallenge) {
 }
 
 async function manageTasks(ch: UserChallenge) {
-  // e.g. this.$router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
+  console.log("tasks", ch.id)
+  router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
 }
 </script>
