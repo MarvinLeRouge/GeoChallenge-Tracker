@@ -58,7 +58,11 @@ export interface CacheDetailed extends CacheBase {
 export interface ApiListResponse<T> {
     items: T[]
     total?: number
+    page?: number
+    nb_pages?: number
+    page_size?: number
     next?: string
+
 }
 
 // Type guard pratique si tu reçois un item dont tu ne sais pas s’il est détaillé
