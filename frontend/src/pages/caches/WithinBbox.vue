@@ -1,77 +1,50 @@
 <template>
-  <div class="absolute inset-0">
-    <div class="absolute inset-0 z-0">
-      <MapBase
-        ref="mapRef"
-        @ready="onMapReady"
-        @pick="onMapPick"
-      />
-    </div>
-
-    <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
-      <div class="rounded-lg bg-white/95 border p-2 shadow">
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="border rounded px-3 py-3"
-            aria-label="Choisir sur la carte"
-            title="Choisir sur la carte"
-            @click="startPick"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              aria-hidden="true"
-            >
-              <path
-                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z"
-              />
-              <circle
-                cx="12"
-                cy="12"
-                r="3"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="border rounded px-3 py-3"
-            aria-label="Rechercher"
-            title="Rechercher"
-            :disabled="!hasBbox || picking !== 'idle'"
-            @click="search"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              aria-hidden="true"
-            >
-              <path
-                d="M10 2a8 8 0 105.293 14.293l3.707 3.707 1.414-1.414-3.707-3.707A8 8 0 0010 2zm0 2a6 6 0 110 12A6 6 0 0110 4z"
-              />
-            </svg>
-          </button>
+    <div class="absolute inset-0">
+        <div class="absolute inset-0 z-0">
+            <MapBase ref="mapRef" @ready="onMapReady" @pick="onMapPick" />
         </div>
-        <p
-          v-if="bbox"
-          class="text-xs text-gray-600 mt-1"
-        >
-          BBox: {{ bboxDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
-        </p>
-        <p
-          v-else-if="picking !== 'idle'"
-          class="text-xs text-indigo-700 mt-1"
-        >
-          Cliquez une première fois pour le coin A, déplacez le réticule, puis cliquez pour le coin B…
-        </p>
-      </div>
+
+        <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
+            <div class="rounded-lg bg-white/95 border p-2 shadow">
+                <div class="flex items-center gap-2">
+                    <button type="button" class="border rounded px-3 py-3" aria-label="Choisir sur la carte"
+                        title="Choisir sur la carte" @click="startPick">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                            <path
+                                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z" />
+                            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
+                        </svg>
+                    </button>
+                    <button type="button"
+                        class="relative border rounded px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition"
+                        :disabled="isDisabled" @click="search" :title="searchTitle" :aria-label="searchTitle">
+                        <!-- Icône principale -->
+                        <ArrowPathIcon v-if="loading" class="w-5 h-5 animate-spin" aria-hidden="true" />
+                        <NoSymbolIcon v-else-if="isDisabled" class="w-5 h-5" aria-hidden="true" />
+                        <MagnifyingGlassIcon v-else class="w-5 h-5" aria-hidden="true" />
+
+                        <!-- Badge d’état (facultatif) -->
+                        <span v-if="!loading && hasMore && currentPage > 1"
+                            class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
+                            aria-hidden="true">
+                            <PlusIcon class="w-3 h-3" />
+                        </span>
+                        <span v-else-if="!loading && !hasMore"
+                            class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
+                            aria-hidden="true">
+                            <CheckIcon class="w-3 h-3" />
+                        </span>
+                    </button>
+                </div>
+                <p v-if="bbox" class="text-xs text-gray-600 mt-1">
+                    BBox: {{ bboxDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
+                </p>
+                <p v-else-if="picking !== 'idle'" class="text-xs text-indigo-700 mt-1">
+                    Cliquez une première fois pour le coin A, déplacez le réticule, puis cliquez pour le coin B…
+                </p>
+            </div>
+        </div>
     </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -82,6 +55,13 @@ import api from '@/api/http'
 import 'leaflet.markercluster'
 import { getIconFor } from '@/config/cache-icon'
 import type { ApiListResponse, CacheCompact } from '@/types/caches'
+import {
+    MagnifyingGlassIcon,
+    NoSymbolIcon,
+    ArrowPathIcon,
+    PlusIcon,
+    CheckIcon,
+} from '@heroicons/vue/24/solid'
 
 let map: L.Map | null = null
 let moveHandler: ((e: L.LeafletMouseEvent) => void) | null = null
@@ -97,7 +77,24 @@ const bbox = ref<[number, number, number, number] | null>(null) // [minLat, minL
 const loading = ref(false)
 const count = ref<number | null>(null)
 const mapRef = ref<InstanceType<typeof MapBase> | null>(null);
-const hasBbox = computed(() => !!bbox.value && bbox.value.length === 4);
+const hasBbox = computed(() => bbox.value !== null && Array.isArray(bbox.value) && bbox.value.length === 4);
+// Pagination & dédup (AJOUT)
+const currentPage = ref(1)
+const nbPages = ref(1)
+const pageSize = ref(100)
+const seenIds = ref(new Set<string>())
+const hasMore = computed(() => currentPage.value <= nbPages.value)
+
+const isDisabled = computed(() =>
+    loading.value || !hasBbox.value || !hasMore.value
+)
+
+const searchTitle = computed(() => {
+    if (loading.value) return 'Chargement…'
+    if (!hasBbox.value) return 'Définir une zone de recherche'
+    if (!hasMore.value) return 'Fin de liste'
+    return currentPage.value > 1 ? 'Charger la suite' : 'Rechercher'
+})
 
 function startPick() {
     console.log("[parent] startPick clicked");
@@ -115,6 +112,11 @@ function onMapPick(p: { lat: number; lng: number }) {
     if (!map) return
 
     if (picking.value === "first") {
+        currentPage.value = 1
+        nbPages.value = 1
+        seenIds.value.clear()
+        cluster?.clearLayers()
+
         cornerA.value = { lat: p.lat, lng: p.lng }
 
         // handler d’aperçu: coin A -> position curseur
@@ -156,20 +158,39 @@ async function search() {
     loading.value = true; count.value = null
     try {
         const [south, west, north, east] = bbox.value!
-        console.log(south, west, north, east)
+        const page = currentPage.value
         const { data } = await api.get<ApiListResponse<CacheCompact>>('/caches/within-bbox', {
             params: {
+                page,
                 min_lat: south,
                 min_lon: west,
                 max_lat: north,
                 max_lon: east,
             },
         });
+        if ((data as any)?.page !== undefined) {
+            currentPage.value = (data as any).page + 1
+        }
+        if ((data as any)?.nb_pages !== undefined) {
+            nbPages.value = (data as any).nb_pages
+        }
+        if ((data as any)?.page_size !== undefined) {
+            pageSize.value = (data as any).page_size
+        }
         results?.clearLayers()
-        cluster!.clearLayers()
 
         if (Array.isArray(data?.items)) {
-            data.items.forEach((c: CacheCompact) => {
+            // AJOUT: filtrer les nouveaux items par _id
+            const fresh = Array.isArray((data as any)?.items)
+                ? (data as any).items.filter((c: any) => {
+                    const id = c?._id
+                    if (!id) return false
+                    if (seenIds.value.has(id)) return false
+                    seenIds.value.add(id)
+                    return true
+                })
+                : []
+            fresh.forEach((c: CacheCompact) => {
                 const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
                 if (isFinite(lat) && isFinite(lon)) {
                     cluster!.addLayer(L.marker([lat, lon], { icon: getIconFor(c.type.code) }))
