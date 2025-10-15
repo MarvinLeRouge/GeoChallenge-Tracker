@@ -91,6 +91,9 @@ class CacheDetail(BaseModel):
 
     id: PyObjectId
     GC: str
+    difficulty: float | None = None
+    terrain: float | None = None
+
 
 
 class ChallengeDetail(BaseModel):
