@@ -220,7 +220,7 @@ def list_user_challenges(
                                 "id": "$challenge._id",
                                 "name": "$challenge.name",
                             },
-                            "cache": {"id": "$cache._id", "GC": "$cache.GC"},
+                            "cache": {"id": "$cache._id", "GC": "$cache.GC", "difficulty": "$cache.difficulty", "terrain": "$cache.terrain"},
                         }
                     },
                 ],
