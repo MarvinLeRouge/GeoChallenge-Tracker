@@ -62,6 +62,8 @@ import {
     PlusIcon,
     CheckIcon,
 } from '@heroicons/vue/24/solid'
+import { useMapPopup } from '@/composables/useMapPopup'
+const { bindPopupToMarker, clearDetailsCache } = useMapPopup()
 
 let map: L.Map | null = null
 let moveHandler: ((e: L.LeafletMouseEvent) => void) | null = null
@@ -116,7 +118,8 @@ function onMapPick(p: { lat: number; lng: number }) {
         nbPages.value = 1
         seenIds.value.clear()
         cluster?.clearLayers()
-
+        clearDetailsCache()
+        
         cornerA.value = { lat: p.lat, lng: p.lng }
 
         // handler d’aperçu: coin A -> position curseur
@@ -193,7 +196,10 @@ async function search() {
             fresh.forEach((c: CacheCompact) => {
                 const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
                 if (isFinite(lat) && isFinite(lon)) {
-                    cluster!.addLayer(L.marker([lat, lon], { icon: getIconFor(c.type.code) }))
+                    const marker = L.marker([lat, lon], { icon: getIconFor(c.type?.code) })
+                    const id = (c as any)?._id as string | undefined
+                    if (id) bindPopupToMarker(id, marker)
+                    cluster!.addLayer(marker)
                 }
             })
             count.value = typeof data.total === 'number' ? data.total : (Array.isArray(data.items) ? data.items.length : 0)
