@@ -70,6 +70,8 @@ import {
     PlusIcon,
     CheckIcon,
 } from '@heroicons/vue/24/solid'
+import { useMapPopup } from '@/composables/useMapPopup'
+const { bindPopupToMarker, clearDetailsCache } = useMapPopup()
 
 let map: L.Map | null = null
 let circle: L.Circle | null = null
@@ -144,6 +146,7 @@ function setCenter(latlng: L.LatLng) {
     currentPage.value = 1
     nbPages.value = 1
     seenIds.value.clear()
+    clearDetailsCache()
     // on repart propre: on vide le cluster si tu souhaites recommencer l’accumulation
     cluster?.clearLayers()
     center.value = { lat: latlng.lat, lng: latlng.lng }
@@ -200,7 +203,10 @@ async function search() {
             fresh.forEach((c: CacheCompact) => {
                 const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
                 if (isFinite(lat) && isFinite(lon)) {
-                    cluster!.addLayer(L.marker([lat, lon], { icon: getIconFor(c.type.code) }))
+                    const marker = L.marker([lat, lon], { icon: getIconFor(c.type?.code) })
+                    const id = (c as any)?._id as string | undefined
+                    if (id) bindPopupToMarker(id, marker)
+                    cluster!.addLayer(marker)
                 }
             })
             count.value = typeof data.total === 'number' ? data.total : (Array.isArray(data.items) ? data.items.length : 0)
