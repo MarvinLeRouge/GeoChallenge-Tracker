@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Annotated, Any, Literal
+import math
 
 from bson import ObjectId
 from fastapi import (
@@ -394,7 +395,15 @@ def by_filter(
         docs = [_doc(d) for d in cur]
 
     total = coll.count_documents(q)
-    return {"items": docs, "total": total, "page": page, "page_size": page_size}
+    nb_pages = math.ceil(total / page_size)
+
+    return {
+        "items": docs, 
+        "total": total, 
+        "page": page, 
+        "nb_pages": nb_pages,
+        "page_size": page_size
+    }
 
 
 @router.get(
@@ -486,7 +495,15 @@ def within_bbox(
         docs = [_doc(d) for d in cur]
 
     total = coll.count_documents(q)
-    return {"items": docs, "total": total, "page": page, "page_size": page_size}
+    nb_pages = math.ceil(total / page_size)
+
+    return {
+        "items": docs, 
+        "total": total, 
+        "page": page, 
+        "nb_pages": nb_pages,
+        "page_size": page_size
+    }
 
 
 @router.get(
@@ -537,7 +554,7 @@ def within_radius(
         page_size (int): Taille de page.
 
     Returns:
-        dict: Résultats paginés `{items, total, page, page_size}`.
+        dict: Résultats paginés `{items, total, page, nb_pages, page_size}`.
 
     Raises:
         HTTPException: 400 si l’index `2dsphere` requis sur `caches.loc` est manquant.
@@ -550,6 +567,10 @@ def within_radius(
     if size_id:
         q["size_id"] = _oid(size_id)
 
+    page_size = min(max(1, page_size), 200)
+    page = max(1, page)
+    skip = (page - 1) * page_size
+
     pipeline = [
         {
             "$geoNear": {
@@ -561,8 +582,8 @@ def within_radius(
             }
         },
         {"$sort": {"dist_meters": 1}},
-        {"$skip": max(0, (page - 1) * min(page_size, 200))},
-        {"$limit": min(page_size, 200)},
+        {"$skip": skip},
+        {"$limit": page_size},
     ]
     if compact:
         pipeline += _compact_lookups_and_project()
@@ -579,11 +600,13 @@ def within_radius(
     total = coll.count_documents(
         {"loc": {"$geoWithin": {"$centerSphere": [[lon, lat], radius_radians]}}, **q}
     )
+    nb_pages = math.ceil(total / page_size)
     return {
         "items": docs,
         "total": total,
         "page": page,
-        "page_size": min(page_size, 200),
+        "nb_pages": nb_pages,
+        "page_size": page_size
     }
 
 
