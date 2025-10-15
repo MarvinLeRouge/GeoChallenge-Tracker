@@ -29,7 +29,7 @@
             <!-- Difficulty / Terrain -->
             <span v-if="challenge.cache?.difficulty && challenge.cache?.terrain"
                 class="flex items-center gap-1 text-gray-700">
-                <FireIcon class="w-4 h-4 text-orange-500" />
+                <FireIcon class="w-4 h-4" :class="difficultyColor(challenge.cache.difficulty)" />
                 <span>D{{ challenge.cache.difficulty }} / T{{ challenge.cache.terrain }}</span>
             </span>
         </div>
@@ -96,6 +96,16 @@ import {
     ArrowTopRightOnSquareIcon,
     FireIcon,
 } from '@heroicons/vue/24/outline'
+
+function difficultyColor(value: number | string | null | undefined) {
+  const d = Number(value)
+  if (isNaN(d)) return 'text-gray-400'
+  if (d <= 1.5) return 'text-green-500'
+  if (d <= 2.5) return 'text-yellow-500'
+  if (d <= 3.5) return 'text-orange-500'
+  if (d <= 4.5) return 'text-red-500'
+  return 'text-purple-600'
+}
 
 type Progress = {
     percent: number | null
