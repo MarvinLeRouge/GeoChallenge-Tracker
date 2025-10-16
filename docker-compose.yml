@@ -19,10 +19,12 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - SMTP_HOST=${SMTP_HOST}
       - SMTP_PORT=${SMTP_PORT}
+      - BACKUP_DIR=/backups
     depends_on:
       - maildev
     volumes:
       - ./backend:/app
+      - ./backups:/backups
       - ./backend/uploads:/app/uploads
       - ./backend/data/samples:/app/data/samples
       - ./.env:/app/.env
