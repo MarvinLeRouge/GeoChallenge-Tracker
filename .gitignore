@@ -82,3 +82,8 @@ documents/
 # Fichiers de tests dev
 /test-scripts/
 frontend/coverage/index.html
+
+# Backups
+backups/
+!backups/.gitkeep
+!backups/**/.gitkeep
