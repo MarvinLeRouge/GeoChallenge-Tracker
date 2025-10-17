@@ -12,6 +12,7 @@ services:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       # Persistance des uploads côté hôte
+      - ../shared/backups:/backups
       - ../shared/uploads:/app/uploads
       # (optionnel) logs/app si tu veux des fichiers log persistants
       # - ../shared/logs/backend:/app/logs
