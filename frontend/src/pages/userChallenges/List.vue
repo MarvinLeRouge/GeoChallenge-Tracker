@@ -18,7 +18,9 @@
 
         <!-- Liste -->
         <div v-if="!loading" class="space-y-3">
-            <UserChallengeCard v-for="(ch, idx) in challenges" :key="ch.id" :challenge="ch" :zebra="idx % 2 !== 0" @details="showDetails" @accept="acceptChallenge" @dismiss="dismissChallenge" @reset="resetChallenge" @tasks="manageTasks" />
+            <UserChallengeCard v-for="(ch, idx) in challenges" :key="ch.id" :challenge="ch" :zebra="idx % 2 !== 0"
+                @details="showDetails" @accept="acceptChallenge" @dismiss="dismissChallenge" @reset="resetChallenge"
+                @tasks="manageTasks" />
 
             <!-- Pagination -->
             <div class="flex justify-between items-center mt-4">
@@ -37,11 +39,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import api from '@/api/http'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 
 import UserChallengeCard from '@/components/userChallenges/UserChallengeCard.vue'
 
@@ -72,14 +75,17 @@ type UserChallenge = {
 }
 
 const challenges = ref<UserChallenge[]>([])
-const page = ref(1)
 const pageSize = ref(20)
 const nbPages = ref(1)
 const nbItems = ref(0)
 const loading = ref(false)
 const error = ref<string | null>(null)
-const filterStatus = ref<'all' | UserChallenge['status']>('all')
-
+const filterStatus = ref<'all' | UserChallenge['status']>(
+    (route.query.status as any) || 'all'
+)
+const page = ref(
+    route.query.page ? parseInt(route.query.page as string, 10) : 1
+)
 const statusIcons: Record<UserChallenge['status'], any> = {
     pending: ClockIcon,
     accepted: CheckCircleIcon,
@@ -118,24 +124,37 @@ async function fetchChallenges() {
     }
 }
 
+// Mise à jour de l'URL quand les filtres changent
+function updateUrl() {
+    const query: Record<string, string> = {}
+    if (filterStatus.value !== 'all') query.status = filterStatus.value
+    if (page.value > 1) query.page = page.value.toString()
+
+    router.replace({ query })
+}
+
+// Watch pour synchroniser URL ↔ état
+watch([filterStatus, page], () => {
+    updateUrl()
+    fetchChallenges()
+})
+
 onMounted(fetchChallenges)
 
 function setFilter(status: 'all' | UserChallenge['status']) {
     if (filterStatus.value === status) return
     filterStatus.value = status
     page.value = 1
-    fetchChallenges()
 }
 
 function prevPage() {
     if (!canPrev.value) return
     page.value -= 1
-    fetchChallenges()
 }
+
 function nextPage() {
     if (!canNext.value) return
     page.value += 1
-    fetchChallenges()
 }
 
 // Actions (branche tes endpoints si dispo)
