@@ -4,26 +4,25 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.concurrency import (
-    run_in_threadpool,
-)  # optionnel mais propre si fonctions sync
 
 from app.api.routes import routers
 from app.core.middleware import MaxBodySizeMiddleware
 from app.core.settings import get_settings
-settings = get_settings()
 from app.db.seed_data import seed_referentials
 from app.db.seed_indexes import ensure_indexes
+from app.services.referentials_cache import populate_mapping
+
+settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- startup ---
-    # Si ensure_indexes / seed_referentials sont synchrones, on peut les déporter dans un thread
-    await run_in_threadpool(ensure_indexes)  # toujours
+    await populate_mapping()
+    await ensure_indexes()
 
     if os.getenv("SEED_ON_STARTUP", "false").lower() == "true":
-        await run_in_threadpool(seed_referentials)  # idempotent et léger
+        await seed_referentials()  # idempotent et léger; seed_referentials est async
 
     yield  # l'app tourne ici
 

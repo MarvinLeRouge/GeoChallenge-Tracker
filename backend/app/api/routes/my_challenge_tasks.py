@@ -31,7 +31,7 @@ router = APIRouter(
     summary="Lister les tâches d’un UserChallenge",
     description="Retourne la liste **ordonnée** des tâches associées au UserChallenge.",
 )
-def get_tasks(
+async def get_tasks(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     user_id: CurrentUserId,
 ):
@@ -46,7 +46,7 @@ def get_tasks(
     Returns:
         TasksListResponse: Tâches ordonnées.
     """
-    tasks = list_tasks(user_id, ObjectId(str(uc_id)))
+    tasks = await list_tasks(user_id, ObjectId(str(uc_id)))
 
     return {"tasks": tasks}
 
@@ -57,7 +57,7 @@ def get_tasks(
     summary="Remplacer toutes les tâches d’un UserChallenge",
     description="Remplace **l’intégralité** des tâches (avec leur ordre) pour le UserChallenge.",
 )
-def put_tasks_route(
+async def put_tasks_route(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     payload: Annotated[
         TasksPutIn, Body(..., description="Liste complète de tâches à appliquer (ordre inclus).")
@@ -77,7 +77,7 @@ def put_tasks_route(
         TasksListResponse: Tâches persistées après remplacement.
     """
     try:
-        tasks = put_tasks(
+        tasks = await put_tasks(
             user_id,
             ObjectId(str(uc_id)),
             [t.model_dump(by_alias=True) for t in payload.tasks],
@@ -95,7 +95,7 @@ def put_tasks_route(
     summary="Valider une liste de tâches (sans persistance)",
     description="Valide la cohérence d’une liste de tâches **sans l’enregistrer**.",
 )
-def validate_tasks_route(
+async def validate_tasks_route(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     payload: Annotated[TasksValidateIn, Body(..., description="Liste de tâches à valider.")],
     user_id: CurrentUserId,

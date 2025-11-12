@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from threading import RLock
+import asyncio
 from typing import Any
 
 from bson import ObjectId
@@ -11,11 +11,12 @@ from bson import ObjectId
 from app.db.mongodb import get_collection
 
 collections_mapping: dict[str, dict[str, Any]] = {}
-_collections_lock = RLock()
+# Verrou asynchrone pour éviter des reconstructions concurrentes du cache
+_mapping_lock = asyncio.Lock()
 _mapping_ready = False
 
 
-def _map_collection(
+async def _map_collection(
     collection_name: str,
     *,
     code_field: str | None = None,
@@ -41,7 +42,7 @@ def _map_collection(
     Returns:
         None
     """
-    coll = get_collection(collection_name)
+    collection_obj = await get_collection(collection_name)
 
     # Construire la projection dynamiquement pour éviter les clés None
     projection: dict[str, int] = {"_id": 1}
@@ -52,7 +53,8 @@ def _map_collection(
     if extra_numeric_id_field:
         projection[extra_numeric_id_field] = 1
 
-    docs = list(coll.find({}, projection))
+    cursor = collection_obj.find({}, projection)
+    docs = await cursor.to_list(length=None)
 
     ids: set[ObjectId] = set()
     code_map: dict[str, ObjectId] = {}
@@ -85,7 +87,7 @@ def _map_collection(
     collections_mapping[collection_name] = out
 
 
-def _map_collection_states() -> None:
+async def _map_collection_states() -> None:
     """Indexer la collection `states` par pays.
 
     Description:
@@ -99,8 +101,9 @@ def _map_collection_states() -> None:
     Returns:
         None
     """
-    coll = get_collection("states")
-    docs = list(coll.find({}, {"_id": 1, "country_id": 1, "name": 1}))
+    coll_states = await get_collection("states")
+    cursor = coll_states.find({}, {"_id": 1, "country_id": 1, "name": 1})
+    docs = await cursor.to_list(length=None)
 
     ids: set[ObjectId] = set()
     by_country: dict[str, dict[str, ObjectId]] = {}
@@ -118,7 +121,7 @@ def _map_collection_states() -> None:
     collections_mapping["states"] = {"ids": ids, "by_country": by_country}
 
 
-def _populate_mapping() -> None:
+async def populate_mapping() -> None:
     """(Ré)initialiser tous les index en mémoire.
 
     Description:
@@ -131,20 +134,25 @@ def _populate_mapping() -> None:
     Returns:
         None
     """
-    collections_mapping.clear()
-    _map_collection(
-        "cache_attributes",
-        code_field="code",
-        name_field="txt",
-        extra_numeric_id_field="cache_attribute_id",
-    )
-    _map_collection("cache_types", code_field="code")
-    _map_collection("cache_sizes", code_field="code", name_field="name")  # si "name" existe
-    _map_collection("countries", name_field="name")
-    _map_collection_states()
+    async with _mapping_lock:
+        collections_mapping.clear()
+        await _map_collection(
+            "cache_attributes",
+            code_field="code",
+            name_field="txt",
+            extra_numeric_id_field="cache_attribute_id",
+        )
+        await _map_collection("cache_types", code_field="code")
+        await _map_collection(
+            "cache_sizes", code_field="code", name_field="name"
+        )  # si "name" existe
+        await _map_collection("countries", name_field="name")
+        await _map_collection_states()
+        global _mapping_ready
+        _mapping_ready = True
 
 
-def refresh_referentials_cache() -> None:
+async def refresh_referentials_cache() -> None:
     """Forcer un rafraîchissement des référentiels en mémoire.
 
     Description:
@@ -156,12 +164,8 @@ def refresh_referentials_cache() -> None:
     Returns:
         None
     """
-    _populate_mapping()
+    await populate_mapping()
 
-
-# Populate au chargement du module
-if not _mapping_ready:
-    _populate_mapping()
 
 # --------------------------------------------------------------------------------------
 # Existence checks via cache

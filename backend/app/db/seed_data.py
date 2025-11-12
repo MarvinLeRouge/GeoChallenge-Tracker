@@ -1,6 +1,7 @@
 # backend/app/db/seed_data.py
 # Outils de remplissage initial : ping Mongo, seed des référentiels et création/MAJ du compte admin.
 
+import asyncio
 import json
 import os
 import sys
@@ -12,15 +13,14 @@ from rich import print
 
 import app.core.security as security
 from app.core.utils import now
-from app.db.mongodb import db as mg_db
-from app.db.mongodb import get_collection
+from app.db.mongodb import db, get_collection
 from app.db.seed_indexes import ensure_indexes
 
 load_dotenv()
 SEEDS_FOLDER = Path(__file__).resolve().parents[2] / "data" / "seeds"
 
 
-def test_connection():
+async def test_connection():
     """Teste la connexion à MongoDB (ping).
 
     Description:
@@ -34,14 +34,14 @@ def test_connection():
         None
     """
     try:
-        mg_db.command("ping")
+        await db.command("ping")
         print("✅ Connexion à MongoDB réussie.")
     except ConnectionFailure:
         print("❌ Échec de la connexion à MongoDB.")
         sys.exit(1)
 
 
-def seed_collection(file_path: str, collection_name: str, force: bool = False):
+async def seed_collection(file_path: str, collection_name: str, force: bool = False):
     """Remplit une collection depuis un fichier JSON.
 
     Description:
@@ -61,7 +61,8 @@ def seed_collection(file_path: str, collection_name: str, force: bool = False):
         FileNotFoundError: Si le fichier n’existe pas.
         json.JSONDecodeError: Si le JSON est invalide.
     """
-    count = mg_db[collection_name].count_documents({})
+    collection_obj = await get_collection(collection_name)
+    count = await collection_obj.count_documents({})
     if count > 0 and not force:
         print(f"🔁 Collection '{collection_name}' non vide ({count} documents). Rien modifié.")
         return
@@ -69,13 +70,13 @@ def seed_collection(file_path: str, collection_name: str, force: bool = False):
     with open(file_path, encoding="utf-8") as f:
         data = json.load(f)
     if force:
-        mg_db[collection_name].delete_many({})
+        await collection_obj.delete_many({})
         print(f"♻️ Collection '{collection_name}' vidée (force=True).")
-    mg_db[collection_name].insert_many(data)
+    await collection_obj.insert_many(data)
     print(f"✅ {len(data)} documents insérés dans '{collection_name}'.")
 
 
-def seed_admin_user(force: bool = False):
+async def seed_admin_user(force: bool = False):
     """Crée ou met à jour l’utilisateur administrateur.
 
     Description:
@@ -91,7 +92,7 @@ def seed_admin_user(force: bool = False):
     Raises:
         ValueError: Si une des variables d’environnement admin est absente.
     """
-    collection = get_collection("users")
+    coll_users = await get_collection("users")
 
     admin_username = os.getenv("ADMIN_USERNAME")
     admin_email = os.getenv("ADMIN_EMAIL")
@@ -101,7 +102,7 @@ def seed_admin_user(force: bool = False):
 
     admin_password_hashed = security.pwd_context.hash(admin_password)
 
-    collection.update_one(
+    await coll_users.update_one(
         {"username": admin_username},
         {
             "$set": {
@@ -121,7 +122,7 @@ def seed_admin_user(force: bool = False):
     print("✅ Admin user seeded/updated.")
 
 
-def seed_referentials(force: bool = False):
+async def seed_referentials(force: bool = False):
     """Seed des collections de référentiels et de l’admin.
 
     Description:
@@ -134,15 +135,19 @@ def seed_referentials(force: bool = False):
     Returns:
         None
     """
-    seed_collection(f"{SEEDS_FOLDER}/cache_types.json", "cache_types", force=force)
-    seed_collection(f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", force=force)
-    seed_collection(f"{SEEDS_FOLDER}/cache_attributes.json", "cache_attributes", force=force)
-    seed_admin_user(force=force)
+    await seed_collection(f"{SEEDS_FOLDER}/cache_types.json", "cache_types", force=force)
+    await seed_collection(f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", force=force)
+    await seed_collection(f"{SEEDS_FOLDER}/cache_attributes.json", "cache_attributes", force=force)
+    await seed_admin_user(force=force)
+
+
+async def main():
+    await test_connection()
+    await ensure_indexes()
+    await seed_referentials(force=force)
 
 
 if __name__ == "__main__":
     val = now()
     force = "--force" in sys.argv
-    test_connection()
-    ensure_indexes()
-    seed_referentials(force=force)
+    asyncio.run(main())

@@ -54,7 +54,7 @@ async def backfill_elevation(
         dict: Statistiques de traitement (scanned, updated, failed, batches, requests_used, dry_run).
     """
 
-    coll = get_collection("caches")
+    coll = await get_collection("caches")
 
     # Build cursor for missing elevation but with valid lat/lon
     filt = {
@@ -69,9 +69,14 @@ async def backfill_elevation(
     batches = 0
     docs_buffer: list[dict] = []
 
-    cursor = coll.find(filt, {"_id": 1, "lat": 1, "lon": 1}).limit(limit)
-    while True:
-        docs_buffer = list(cursor[:page_size])  # using slicing to page-lightly
+    while scanned < limit:
+        cursor = (
+            coll.find(filt, {"_id": 1, "lat": 1, "lon": 1})
+            .skip(scanned)
+            .limit(min(page_size, limit - scanned))
+        )
+        docs_buffer = await cursor.to_list(length=page_size)
+
         if not docs_buffer:
             break
         batches += 1
@@ -79,6 +84,7 @@ async def backfill_elevation(
 
         if dry_run:
             # simulate work but do not write
+            requests_used += 1
             continue
 
         pts = [(float(d["lat"]), float(d["lon"])) for d in docs_buffer]
@@ -104,26 +110,15 @@ async def backfill_elevation(
 
             for op in ops:
                 bulk_ops.append(UpdateOne(op["filter"], op["update"]))
-            coll.bulk_write(bulk_ops, ordered=False)
+            await coll.bulk_write(bulk_ops, ordered=False)
+            updated += len(bulk_ops)
 
         # simple estimate of requests used: provider increments in its own quota; we expose batches as proxy
         requests_used += 1
 
-        # move the cursor forward
-        cursor = (
-            coll.find(filt, {"_id": 1, "lat": 1, "lon": 1}).skip(scanned).limit(limit - scanned)
-        )
-        if scanned >= limit:
-            break
-
     return {
         "scanned": scanned,
-        "updated": updated
-        + (
-            len([1 for d, ev in zip(docs_buffer, elevs) if ev is not None])
-            if not dry_run and docs_buffer
-            else 0
-        ),
+        "updated": updated,
         "failed": failed,
         "batches": batches,
         "requests_used": requests_used,

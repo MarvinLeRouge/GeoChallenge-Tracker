@@ -5,14 +5,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
-from app.core.security import CurrentUserId, get_current_user, CurrentUser
-from app.models.user import UserOut, User
+from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.models.user import UserOut
 from app.models.user_profile_dto import UserLocationIn, UserLocationOut
 from app.services.user_profile import (
-    coords_in_deg_min_mil,
     location_parse_to_lon_lat,
-    user_get,
-    user_location_get,
     user_location_set,
 )
 
@@ -34,7 +31,7 @@ router = APIRouter(
         "Valide l’input et renvoie un message indiquant si une mise à jour a eu lieu."
     ),
 )
-def put_my_location(
+async def put_my_location(
     payload: Annotated[
         UserLocationIn,
         Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
@@ -69,11 +66,10 @@ def put_my_location(
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             raise HTTPException(status_code=422, detail="Coordinates out of range.")
 
-    result = user_location_set(user_id=user_id, lon=lon, lat=lat)
-    if result.modified_count > 0:
+    updated = await user_location_set(user_id, lon, lat)
+    if updated:
         return {"message": "Location updated successfully"}
-    else:
-        return {"message": "Location was not updated"}
+    return {"message": "No change (same location)"}
 
 
 @router.get(
@@ -82,7 +78,7 @@ def put_my_location(
     summary="Obtenir ma dernière localisation",
     description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
 )
-def get_my_location(user: CurrentUser):
+async def get_my_location(user: CurrentUser):
     """Obtenir ma dernière localisation.
 
     Description:
@@ -94,16 +90,15 @@ def get_my_location(user: CurrentUser):
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
 
-    if (
-        not user.location 
-        or user.location.lat is None 
-        or user.location.lon is None
-    ):
+    if user.id is None:
+        raise HTTPException(status_code=401, detail="Utilisateur non authentifié.")
+
+    if not user.location or user.location.lat is None or user.location.lon is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No location found for this user.",
         )
-    
+
     # Construire la réponse avec les données de location
     return UserLocationOut(
         id=user.id,
@@ -112,13 +107,14 @@ def get_my_location(user: CurrentUser):
         updated_at=user.location.updated_at,
     )
 
+
 @router.get(
     "",
     response_model=UserOut,
     summary="Obtenir mon profil",
     description="Retourne le profil de l'utilisateur courant.",
 )
-def get_my_profile(user: CurrentUser):
+async def get_my_profile(user: CurrentUser):
     """Obtenir mon profil.
 
     Description:

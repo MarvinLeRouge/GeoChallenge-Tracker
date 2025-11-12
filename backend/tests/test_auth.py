@@ -7,10 +7,12 @@ from fastapi.testclient import TestClient
 
 from app.core.security import create_refresh_token
 from app.core.settings import get_settings
-settings = get_settings()
 from app.main import app
 
+settings = get_settings()
+
 client = TestClient(app)
+
 
 @pytest.fixture
 def test_user():
@@ -19,6 +21,7 @@ def test_user():
         "username": settings.admin_username,
         "password": settings.admin_password,
     }
+
 
 def test_login_with_email(test_user):
     response = client.post(
@@ -29,8 +32,6 @@ def test_login_with_email(test_user):
     assert response.status_code == 200
     assert "access_token" in response.json()
     assert response.json()["token_type"] == "bearer"
-
-    
 
 
 def test_login_with_username(test_user):

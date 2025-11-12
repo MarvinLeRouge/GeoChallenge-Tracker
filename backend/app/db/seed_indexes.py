@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterable
 from typing import Any, Union, cast
 
@@ -45,7 +46,7 @@ def _normalize_key_from_mongo(key_doc: dict[str, Any]) -> KeySpec:
     return norm
 
 
-def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
+async def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
     """Recherche un index existant portant exactement ces clés.
 
     Description:
@@ -58,7 +59,7 @@ def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
     Returns:
         dict | None: Descripteur d’index existant ou `None` si absent.
     """
-    for ix in coll.list_indexes():
+    async for ix in coll.list_indexes():
         if "key" in ix and _normalize_key_from_mongo(ix["key"]) == keys:
             return ix
     return None
@@ -123,7 +124,7 @@ def _same_options(
     return (_collation_to_dict(collation) or None) == (ex_collation or None)
 
 
-def ensure_index(
+async def ensure_index(
     coll_name: str,
     keys: KeySpec,
     *,
@@ -150,8 +151,8 @@ def ensure_index(
     Returns:
         None
     """
-    coll = get_collection(coll_name)
-    existing = _find_existing_by_keys(coll, keys)
+    coll = await get_collection(coll_name)
+    existing = await _find_existing_by_keys(coll, keys)
     if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
         return
     if existing:
@@ -159,10 +160,10 @@ def ensure_index(
         #  - re-lister pour minimiser la fenêtre de course
         #  - ignorer IndexNotFound (code 27)
         try:
-            server_names = {ix.get("name") for ix in coll.list_indexes()}
+            server_names = {ix.get("name") async for ix in coll.list_indexes()}
             name_to_drop = cast(str, existing["name"])
             if name_to_drop in server_names:
-                coll.drop_index(name_to_drop)
+                await coll.drop_index(name_to_drop)
         except OperationFailure as exc:
             if getattr(exc, "code", None) != 27:  # IndexNotFound
                 raise
@@ -175,10 +176,12 @@ def ensure_index(
         opts["partialFilterExpression"] = partial
     if collation is not None:
         opts["collation"] = collation
-    coll.create_indexes([IndexModel(keys, **opts)])
+    await coll.create_indexes([IndexModel(keys, **opts)])
 
 
-def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: str | None = None) -> None:
+async def ensure_text_index(
+    coll_name: str, fields: Iterable[str], *, name: str | None = None
+) -> None:
     """Assure un **unique** index texte sur les champs donnés (poids = 1).
 
     Description:
@@ -194,10 +197,10 @@ def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: str | None
     Returns:
         None
     """
-    coll = get_collection(coll_name)
+    coll = await get_collection(coll_name)
     wanted = {f: 1 for f in fields}
     existing = None
-    for ix in coll.list_indexes():
+    async for ix in coll.list_indexes():
         if "weights" in ix:  # text index
             existing = ix
             break
@@ -206,12 +209,12 @@ def ensure_text_index(coll_name: str, fields: Iterable[str], *, name: str | None
         ex_weights = {k: v for k, v in existing.get("weights", {}).items() if k != "_id"}
         if ex_weights == wanted:
             return  # already desired
-        coll.drop_index(existing["name"])
+        await coll.drop_index(existing["name"])
     keys = [(f, TEXT) for f in fields]
-    coll.create_indexes([IndexModel(keys, name=name)])
+    await coll.create_indexes([IndexModel(keys, name=name)])
 
 
-def ensure_indexes() -> None:
+async def ensure_indexes() -> None:
     """Crée/assure l’ensemble des index utilisés par l’application.
 
     Description:
@@ -225,14 +228,14 @@ def ensure_indexes() -> None:
         None
     """
     # ---------- users (CI uniques via collation) ----------
-    ensure_index(
+    await ensure_index(
         "users",
         [("username", ASCENDING)],
         name="uniq_username_ci",
         unique=True,
         collation=COLLATION_CI,
     )
-    ensure_index(
+    await ensure_index(
         "users",
         [("email", ASCENDING)],
         name="uniq_email_ci",
@@ -240,13 +243,13 @@ def ensure_indexes() -> None:
         collation=COLLATION_CI,
     )
     # Non-unique helpers
-    ensure_index("users", [("is_active", ASCENDING)])
-    ensure_index("users", [("is_verified", ASCENDING)])
-    ensure_index("users", [("location", "2dsphere")], name="geo_user_location_2dsphere")
+    await ensure_index("users", [("is_active", ASCENDING)])
+    await ensure_index("users", [("is_verified", ASCENDING)])
+    await ensure_index("users", [("location", "2dsphere")], name="geo_user_location_2dsphere")
 
     # ---------- countries ----------
-    ensure_index("countries", [("name", ASCENDING)], name="uniq_country_name", unique=True)
-    ensure_index(
+    await ensure_index("countries", [("name", ASCENDING)], name="uniq_country_name", unique=True)
+    await ensure_index(
         "countries",
         [("code", ASCENDING)],
         unique=True,
@@ -254,14 +257,14 @@ def ensure_indexes() -> None:
     )
 
     # ---------- states ----------
-    ensure_index("states", [("country_id", ASCENDING)])
-    ensure_index(
+    await ensure_index("states", [("country_id", ASCENDING)])
+    await ensure_index(
         "states",
         [("country_id", ASCENDING), ("name", ASCENDING)],
         name="uniq_state_name_per_country",
         unique=True,
     )
-    ensure_index(
+    await ensure_index(
         "states",
         [("country_id", ASCENDING), ("code", ASCENDING)],
         name="uniq_state_code_per_country_if_present",
@@ -270,24 +273,26 @@ def ensure_indexes() -> None:
     )
 
     # ---------- cache_attributes ----------
-    ensure_index(
+    await ensure_index(
         "cache_attributes",
         [("cache_attribute_id", ASCENDING)],
         name="uniq_cache_attribute_id",
         unique=True,
     )
-    ensure_index(
+    await ensure_index(
         "cache_attributes",
         [("txt", ASCENDING)],
         name="uniq_cache_attribute_txt",
         unique=True,
         partial={"txt": {"$type": "string"}},
     )
-    ensure_index("cache_attributes", [("name", ASCENDING)])
+    await ensure_index("cache_attributes", [("name", ASCENDING)])
 
     # ---------- cache_sizes ----------
-    ensure_index("cache_sizes", [("name", ASCENDING)], name="uniq_cache_size_name", unique=True)
-    ensure_index(
+    await ensure_index(
+        "cache_sizes", [("name", ASCENDING)], name="uniq_cache_size_name", unique=True
+    )
+    await ensure_index(
         "cache_sizes",
         [("code", ASCENDING)],
         name="uniq_cache_size_code_if_present",
@@ -296,8 +301,10 @@ def ensure_indexes() -> None:
     )
 
     # ---------- cache_types ----------
-    ensure_index("cache_types", [("name", ASCENDING)], name="uniq_cache_type_name", unique=True)
-    ensure_index(
+    await ensure_index(
+        "cache_types", [("name", ASCENDING)], name="uniq_cache_type_name", unique=True
+    )
+    await ensure_index(
         "cache_types",
         [("code", ASCENDING)],
         name="uniq_cache_type_code_if_present",
@@ -306,19 +313,19 @@ def ensure_indexes() -> None:
     )
 
     # ---------- caches ----------
-    ensure_index("caches", [("GC", ASCENDING)], name="uniq_gc_code", unique=True)
-    ensure_index("caches", [("type_id", ASCENDING)])
-    ensure_index("caches", [("size_id", ASCENDING)])
-    ensure_index("caches", [("country_id", ASCENDING)])
-    ensure_index("caches", [("state_id", ASCENDING)])
-    ensure_index("caches", [("country_id", ASCENDING), ("state_id", ASCENDING)])
-    ensure_index("caches", [("difficulty", ASCENDING)])
-    ensure_index("caches", [("terrain", ASCENDING)])
-    ensure_index("caches", [("placed_at", DESCENDING)])
-    ensure_text_index("caches", ["title", "description_html"], name="text_title_desc")
-    ensure_index("caches", [("loc", "2dsphere")], name="geo_loc_2dsphere")
+    await ensure_index("caches", [("GC", ASCENDING)], name="uniq_gc_code", unique=True)
+    await ensure_index("caches", [("type_id", ASCENDING)])
+    await ensure_index("caches", [("size_id", ASCENDING)])
+    await ensure_index("caches", [("country_id", ASCENDING)])
+    await ensure_index("caches", [("state_id", ASCENDING)])
+    await ensure_index("caches", [("country_id", ASCENDING), ("state_id", ASCENDING)])
+    await ensure_index("caches", [("difficulty", ASCENDING)])
+    await ensure_index("caches", [("terrain", ASCENDING)])
+    await ensure_index("caches", [("placed_at", DESCENDING)])
+    await ensure_text_index("caches", ["title", "description_html"], name="text_title_desc")
+    await ensure_index("caches", [("loc", "2dsphere")], name="geo_loc_2dsphere")
     # Caches: accelerate attribute-based filters (RuleAttributes)
-    ensure_index(
+    await ensure_index(
         "caches",
         [
             ("attributes.attribute_doc_id", ASCENDING),
@@ -327,59 +334,63 @@ def ensure_indexes() -> None:
         name="ix_caches__attributes_attrdocid_ispos",
     )
     # NEW: combos fréquents pour targets
-    ensure_index(
+    await ensure_index(
         "caches",
         [("type_id", ASCENDING), ("size_id", ASCENDING)],
         name="ix_caches__type_size",
     )
-    ensure_index(
+    await ensure_index(
         "caches",
         [("difficulty", ASCENDING), ("terrain", ASCENDING)],
         name="ix_caches__difficulty_terrain",
     )
 
     # ---------- found_caches ----------
-    ensure_index(
+    await ensure_index(
         "found_caches",
         [("user_id", ASCENDING), ("cache_id", ASCENDING)],
         name="uniq_user_cache_found",
         unique=True,
     )
-    ensure_index("found_caches", [("user_id", ASCENDING), ("found_date", DESCENDING)])
-    ensure_index("found_caches", [("cache_id", ASCENDING)])
+    await ensure_index("found_caches", [("user_id", ASCENDING), ("found_date", DESCENDING)])
+    await ensure_index("found_caches", [("cache_id", ASCENDING)])
 
     # ---------- challenges ----------
-    ensure_index("challenges", [("cache_id", ASCENDING)], name="uniq_mother_cache", unique=True)
-    ensure_text_index("challenges", ["name", "description"], name="text_name_desc")
+    await ensure_index(
+        "challenges", [("cache_id", ASCENDING)], name="uniq_mother_cache", unique=True
+    )
+    await ensure_text_index("challenges", ["name", "description"], name="text_name_desc")
 
     # ---------- user_challenges ----------
-    ensure_index(
+    await ensure_index(
         "user_challenges",
         [("user_id", ASCENDING), ("challenge_id", ASCENDING)],
         name="uniq_user_challenge_pair",
         unique=True,
     )
-    ensure_index("user_challenges", [("user_id", ASCENDING)])
-    ensure_index("user_challenges", [("challenge_id", ASCENDING)])
-    ensure_index("user_challenges", [("status", ASCENDING)])
+    await ensure_index("user_challenges", [("user_id", ASCENDING)])
+    await ensure_index("user_challenges", [("challenge_id", ASCENDING)])
+    await ensure_index("user_challenges", [("status", ASCENDING)])
     # UserChallenges: fast listing by user + status sorted by most recently updated
-    ensure_index(
+    await ensure_index(
         "user_challenges",
         [("user_id", ASCENDING), ("status", ASCENDING), ("updated_at", DESCENDING)],
         name="ix_user_challenges__by_user_status_updated",
     )
 
     # ---------- user_challenge_tasks ----------
-    ensure_index("user_challenge_tasks", [("user_challenge_id", ASCENDING), ("order", ASCENDING)])
-    ensure_index(
+    await ensure_index(
+        "user_challenge_tasks", [("user_challenge_id", ASCENDING), ("order", ASCENDING)]
+    )
+    await ensure_index(
         "user_challenge_tasks",
         [("user_challenge_id", ASCENDING), ("status", ASCENDING)],
     )
-    ensure_index("user_challenge_tasks", [("user_challenge_id", ASCENDING)])
-    ensure_index("user_challenge_tasks", [("last_evaluated_at", DESCENDING)])
+    await ensure_index("user_challenge_tasks", [("user_challenge_id", ASCENDING)])
+    await ensure_index("user_challenge_tasks", [("last_evaluated_at", DESCENDING)])
 
     # ---------- progress ----------
-    ensure_index(
+    await ensure_index(
         "progress",
         [("user_challenge_id", ASCENDING), ("checked_at", ASCENDING)],
         name="uniq_progress_time_per_challenge",
@@ -388,7 +399,7 @@ def ensure_indexes() -> None:
 
     # ---------- targets ----------
     # Unicité d’un target par (UC, cache)
-    ensure_index(
+    await ensure_index(
         "targets",
         [("user_challenge_id", ASCENDING), ("cache_id", ASCENDING)],
         name="uniq_target_per_challenge_cache",
@@ -396,16 +407,20 @@ def ensure_indexes() -> None:
     )
 
     # Filtrages et tris courants
-    ensure_index("targets", [("user_challenge_id", ASCENDING), ("satisfies_task_ids", ASCENDING)])
-    ensure_index("targets", [("user_challenge_id", ASCENDING), ("primary_task_id", ASCENDING)])
-    ensure_index("targets", [("cache_id", ASCENDING)])
-    ensure_index(
+    await ensure_index(
+        "targets", [("user_challenge_id", ASCENDING), ("satisfies_task_ids", ASCENDING)]
+    )
+    await ensure_index(
+        "targets", [("user_challenge_id", ASCENDING), ("primary_task_id", ASCENDING)]
+    )
+    await ensure_index("targets", [("cache_id", ASCENDING)])
+    await ensure_index(
         "targets",
         [("user_id", ASCENDING), ("score", DESCENDING)],
         name="user_score_desc",
     )
     # Tri par score pour un UC donné
-    ensure_index(
+    await ensure_index(
         "targets",
         [
             ("user_id", ASCENDING),
@@ -415,10 +430,10 @@ def ensure_indexes() -> None:
         name="ix_targets__uc_score_desc",
     )
     # Index géospatial sur loc (GeoJSON Point)
-    ensure_index("targets", [("loc", "2dsphere")], name="geo_targets_loc_2dsphere")
+    await ensure_index("targets", [("loc", "2dsphere")], name="geo_targets_loc_2dsphere")
 
     # Tri récents si besoin d’ordonnancement temporel
-    ensure_index(
+    await ensure_index(
         "targets",
         [("updated_at", DESCENDING), ("created_at", DESCENDING)],
         name="updated_created_desc",
@@ -426,4 +441,4 @@ def ensure_indexes() -> None:
 
 
 if __name__ == "__main__":
-    ensure_indexes()
+    asyncio.run(ensure_indexes())

@@ -2,6 +2,7 @@
 # Calcule des caches candidates par UserChallenge (anti-join des trouvailles, scoring, géo), et listings.
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from math import asin, cos, radians, sin, sqrt
 from typing import Any
@@ -36,7 +37,7 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * R * asin(sqrt(a))
 
 
-def _get_username(user_id: ObjectId) -> str | None:
+async def _get_username(user_id: ObjectId) -> str | None:
     """Obtenir le username d’un utilisateur.
 
     Args:
@@ -45,17 +46,19 @@ def _get_username(user_id: ObjectId) -> str | None:
     Returns:
         str | None: `username` ou None si absent.
     """
-    u = get_collection("users").find_one({"_id": user_id}, {"username": 1})
+    coll_users = await get_collection("users")
+    u = await coll_users.find_one({"_id": user_id}, {"username": 1})
     return (u or {}).get("username")
 
 
-def _get_user_location(user_id: ObjectId) -> tuple[float, float] | None:
+async def _get_user_location(user_id: ObjectId) -> tuple[float, float] | None:
     """Obtenir la dernière position utilisateur (lat, lon).
 
     Returns:
         tuple[float, float] | None: (lat, lon) si disponible, sinon None.
     """
-    u = get_collection("users").find_one({"_id": user_id}, {"location": 1})
+    coll_users = await get_collection("users")
+    u = await coll_users.find_one({"_id": user_id}, {"location": 1})
     loc = (u or {}).get("location")
     if loc and isinstance(loc, dict) and (loc.get("type") == "Point"):
         lon, lat = loc.get("coordinates") or [None, None]
@@ -64,7 +67,7 @@ def _get_user_location(user_id: ObjectId) -> tuple[float, float] | None:
     return None
 
 
-def _latest_progress_task_map(uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]:
+async def _latest_progress_task_map(uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]:
     """Index des métriques par tâche depuis le dernier snapshot.
 
     Description:
@@ -76,7 +79,8 @@ def _latest_progress_task_map(uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]
     Returns:
         dict: Carte `task_id -> {min_count, current_count}`.
     """
-    p = get_collection("progress").find_one(
+    coll_progress = await get_collection("progress")
+    p = await coll_progress.find_one(
         {"user_challenge_id": uc_id}, sort=[("checked_at", -1), ("created_at", -1)]
     )
     out: dict[ObjectId, dict[str, Any]] = {}
@@ -166,7 +170,7 @@ def _score_cache(
 # ------------------------------------------------------------
 
 
-def evaluate_targets_for_user_challenge(
+async def evaluate_targets_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     limit_per_task: int = 200,
@@ -195,14 +199,14 @@ def evaluate_targets_for_user_challenge(
     Returns:
         dict: `{ok, inserted, updated, total, skipped?}`.
     """
-    coll_uc = get_collection("user_challenges")
-    uc = coll_uc.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
+    coll_uc = await get_collection("user_challenges")
+    uc = await coll_uc.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
     if not uc:
         raise PermissionError("UserChallenge not found or not owned by user")
 
     # "ne pas recalculer si on en a assez" : soft cap simple
-    coll_targets = get_collection("targets")
-    existing = coll_targets.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
+    coll_targets = await get_collection("targets")
+    existing = await coll_targets.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
     if (not force) and existing >= min(hard_limit_total, limit_per_task * 5):
         return {
             "ok": True,
@@ -213,8 +217,8 @@ def evaluate_targets_for_user_challenge(
         }
 
     # Récup params utilisateur
-    username = _get_username(user_id)
-    user_loc = _get_user_location(user_id)
+    username = await _get_username(user_id)
+    user_loc = await _get_user_location(user_id)
     ref_latlon = None
     if geo_ctx and "lat" in geo_ctx and "lon" in geo_ctx:
         ref_latlon = (float(geo_ctx["lat"]), float(geo_ctx["lon"]))
@@ -222,14 +226,12 @@ def evaluate_targets_for_user_challenge(
         ref_latlon = user_loc  # (lat, lon)
 
     # Tasks canonisées (déjà en base via put_tasks) :contentReference[oaicite:4]{index=4}
-    tasks = list(
-        get_collection("user_challenge_tasks")
-        .find({"user_challenge_id": uc_id})
-        .sort([("order", 1), ("_id", 1)])
-    )
+    coll_uctasks = await get_collection("user_challenge_tasks")
+    cursor = coll_uctasks.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
+    tasks = await cursor.to_list(length=None)
 
     # Progrès courant (pour récupérer min_count/current_count) :contentReference[oaicite:5]{index=5}
-    prog_map = _latest_progress_task_map(uc_id)
+    prog_map = await _latest_progress_task_map(uc_id)
     not_done_task_ids: list[ObjectId] = []
     for t in tasks:
         mc = _task_constraints_min_count(t)
@@ -241,6 +243,7 @@ def evaluate_targets_for_user_challenge(
     unique_by_cache: dict[ObjectId, dict[str, Any]] = {}
     total_seen = 0
 
+    coll_caches = await get_collection("caches")
     for t in tasks:
         expr = t.get("expression") or {}
         # and-only
@@ -249,7 +252,7 @@ def evaluate_targets_for_user_challenge(
             continue  # on ignore OR/NOT pour le MVP
 
         # pipeline sur caches
-        pipeline: list[dict[str, Any]] = []
+        pipeline: list[Mapping[str, Any]] = []
 
         # $geoNear en tête si geo_ctx avec radius_km
         use_geo = False
@@ -356,7 +359,8 @@ def evaluate_targets_for_user_challenge(
 
         pipeline.append({"$limit": int(limit_per_task)})
 
-        rows = list(get_collection("caches").aggregate(pipeline, allowDiskUse=False))
+        aggregate_cursor = coll_caches.aggregate(pipeline, allowDiskUse=False)
+        rows = await aggregate_cursor.to_list(length=None)
 
         # Pour chaque cache candidate, attacher la task couverte
         for r in rows:
@@ -396,6 +400,7 @@ def evaluate_targets_for_user_challenge(
     # total de tasks non terminées (pour S_tasks)
     total_tasks_not_done = len(not_done_task_ids) if not_done_task_ids else max(1, len(tasks))
 
+    coll_targets = await get_collection("targets")
     for cid, data in unique_by_cache.items():
         matched = data["matched_tasks"]
         if not matched:
@@ -424,8 +429,8 @@ def evaluate_targets_for_user_challenge(
         score = _score_cache(len(matched), total_tasks_not_done, max_ratio, s_geo)
 
         # raisons & diag
-        reasons = [f"covers {len(matched)} task(s); max_ratio={round(max_ratio,2)}"] + (
-            [f"dist≈{round(dist_km,1)}km"] if dist_km is not None else []
+        reasons = [f"covers {len(matched)} task(s); max_ratio={round(max_ratio, 2)}"] + (
+            [f"dist≈{round(dist_km, 1)}km"] if dist_km is not None else []
         )
 
         doc = {
@@ -451,7 +456,7 @@ def evaluate_targets_for_user_challenge(
         }
 
         # upsert par (user_id, uc_id, cache_id)
-        res = get_collection("targets").update_one(
+        res = await coll_targets.update_one(
             {"user_id": user_id, "user_challenge_id": uc_id, "cache_id": cid},
             {"$set": doc, "$setOnInsert": {"created_at": now}},
             upsert=True,
@@ -461,9 +466,7 @@ def evaluate_targets_for_user_challenge(
         elif res.modified_count > 0:
             updated += 1
 
-    total = get_collection("targets").count_documents(
-        {"user_id": user_id, "user_challenge_id": uc_id}
-    )
+    total = await coll_targets.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
     return {"ok": True, "inserted": inserted, "updated": updated, "total": int(total)}
 
 
@@ -472,7 +475,7 @@ def evaluate_targets_for_user_challenge(
 # ------------------------------------------------------------
 
 
-def list_targets_for_user_challenge(
+async def list_targets_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     page: int = 1,
@@ -491,13 +494,14 @@ def list_targets_for_user_challenge(
     Returns:
         dict: `{items, nb_items, page, page_size, nb_pages}`.
     """
-    coll = get_collection("targets")
+    coll_targets = await get_collection("targets")
     q = {"user_id": user_id, "user_challenge_id": uc_id}
     sort_spec = [("score", -1)] if sort == "-score" else [("updated_at", -1)]
     skip = max(0, (page - 1) * page_size)
-    cur = coll.find(q).sort(sort_spec).skip(skip).limit(page_size)
+    cursor = coll_targets.find(q).sort(sort_spec).skip(skip).limit(page_size)
+    rows = await cursor.to_list(length=page_size)
     items = []
-    for d in cur:
+    for d in rows:
         items.append(
             {
                 "id": str(d.get("_id")),
@@ -521,13 +525,19 @@ def list_targets_for_user_challenge(
                 "pinned": bool(d.get("pinned") or False),
             }
         )
-    nb_items = coll.count_documents(q)
+    nb_items = await coll_targets.count_documents(q)
     nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
-    
-    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
+
+    return {
+        "items": items,
+        "nb_items": nb_items,
+        "page": page,
+        "page_size": page_size,
+        "nb_pages": nb_pages,
+    }
 
 
-def list_targets_nearby_for_user_challenge(
+async def list_targets_nearby_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     lat: float,
@@ -552,8 +562,8 @@ def list_targets_nearby_for_user_challenge(
     Returns:
         dict: `{items, nb_items, page, page_size, nb_pages}` avec `distance_km`.
     """
-    coll = get_collection("targets")
-    pipeline: list[dict[str, Any]] = [
+    coll_targets = await get_collection("targets")
+    pipeline: list[Mapping[str, Any]] = [
         {
             "$geoNear": {
                 "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
@@ -582,7 +592,8 @@ def list_targets_nearby_for_user_challenge(
             }
         },
     ]
-    rows = list(coll.aggregate(pipeline, allowDiskUse=False))
+    cursor = coll_targets.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     items = []
     for d in rows:
         loc = d.get("loc")
@@ -606,13 +617,19 @@ def list_targets_nearby_for_user_challenge(
                 "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
             }
         )
-    nb_items = coll.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
+    nb_items = await coll_targets.count_documents({"user_id": user_id, "user_challenge_id": uc_id})
     nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
 
-    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
+    return {
+        "items": items,
+        "nb_items": nb_items,
+        "page": page,
+        "page_size": page_size,
+        "nb_pages": nb_pages,
+    }
 
 
-def list_targets_for_user(
+async def list_targets_for_user(
     user_id: ObjectId,
     status_filter: str | None = None,
     page: int = 1,
@@ -631,7 +648,8 @@ def list_targets_for_user(
     Returns:
         dict: `{items, nb_items, page, page_size, nb_pages}`.
     """
-    pipeline: list[dict[str, Any]] = [
+    coll_targets = await get_collection("targets")
+    pipeline: list[Mapping[str, Any]] = [
         {"$match": {"user_id": user_id}},
         {
             "$lookup": {
@@ -663,7 +681,8 @@ def list_targets_for_user(
             }
         },
     ]
-    rows = list(get_collection("targets").aggregate(pipeline, allowDiskUse=False))
+    cursor = coll_targets.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     items = []
     for d in rows:
         loc = d.get("loc")
@@ -686,13 +705,19 @@ def list_targets_for_user(
                 "pinned": bool(d.get("pinned") or False),
             }
         )
-    nb_items = get_collection("targets").count_documents({"user_id": user_id})
+    nb_items = await coll_targets.count_documents({"user_id": user_id})
     nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
-    
-    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
+
+    return {
+        "items": items,
+        "nb_items": nb_items,
+        "page": page,
+        "page_size": page_size,
+        "nb_pages": nb_pages,
+    }
 
 
-def list_targets_nearby_for_user(
+async def list_targets_nearby_for_user(
     user_id: ObjectId,
     lat: float,
     lon: float,
@@ -717,7 +742,8 @@ def list_targets_nearby_for_user(
     Returns:
         dict: `{items, nb_items, page, page_size, nb_pages}` avec `distance_km`.
     """
-    pipeline: list[dict[str, Any]] = [
+    coll_targets = await get_collection("targets")
+    pipeline: list[Mapping[str, Any]] = [
         {
             "$geoNear": {
                 "near": {"type": "Point", "coordinates": [float(lon), float(lat)]},
@@ -760,7 +786,8 @@ def list_targets_nearby_for_user(
             }
         },
     ]
-    rows = list(get_collection("targets").aggregate(pipeline, allowDiskUse=False))
+    cursor = coll_targets.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     items = []
     for d in rows:
         loc = d.get("loc")
@@ -784,13 +811,19 @@ def list_targets_nearby_for_user(
                 "distance_km": round(float(d.get("distance_m") or 0) / 1000.0, 3),
             }
         )
-    nb_items = get_collection("targets").count_documents({"user_id": user_id})
+    nb_items = await coll_targets.count_documents({"user_id": user_id})
     nb_pages = nb_items // page_size + (1 if nb_items % page_size != 0 else 0)
-    
-    return {"items": items, "nb_items": nb_items, "page": page, "page_size": page_size, "nb_pages": nb_pages}
+
+    return {
+        "items": items,
+        "nb_items": nb_items,
+        "page": page,
+        "page_size": page_size,
+        "nb_pages": nb_pages,
+    }
 
 
-def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
+async def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
     """Supprimer toutes les targets d’un UserChallenge.
 
     Args:
@@ -800,5 +833,6 @@ def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dic
     Returns:
         dict: `{ok, deleted}`.
     """
-    res = get_collection("targets").delete_many({"user_challenge_id": uc_id, "user_id": user_id})
+    coll_targets = await get_collection("targets")
+    res = await coll_targets.delete_many({"user_challenge_id": uc_id, "user_id": user_id})
     return {"ok": True, "deleted": int(res.deleted_count)}

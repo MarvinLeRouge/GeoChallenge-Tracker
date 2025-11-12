@@ -12,7 +12,7 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
 
-def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
+async def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
     """Créer les UserChallenges manquants (status=pending).
 
     Description:
@@ -26,20 +26,21 @@ def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
     Returns:
         dict: `{'created', 'existing', 'total_user_challenges'}`.
     """
-    challenges = get_collection("challenges")
-    ucs = get_collection("user_challenges")
-    found = get_collection("found_caches")
+    coll_challenges = await get_collection("challenges")
+    coll_ucs = await get_collection("user_challenges")
+    coll_found = await get_collection("found_caches")
 
     # 1) Créer les UC manquants (status=pending)
-    challenge_ids = list(challenges.distinct("_id"))
+    challenge_ids = list(await coll_challenges.distinct("_id"))
     if not challenge_ids:
         return {"created": 0, "existing": 0, "total_user_challenges": 0}
 
-    known = set(ucs.distinct("challenge_id", {"user_id": user_id}))
+    known = set(await coll_ucs.distinct("challenge_id", {"user_id": user_id}))
     missing = [cid for cid in challenge_ids if cid not in known]
 
     ops: list[UpdateOne] = []
     for cid in missing:
+        now = utcnow()
         ops.append(
             UpdateOne(
                 {"user_id": user_id, "challenge_id": cid},
@@ -48,32 +49,32 @@ def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
                         "user_id": user_id,
                         "challenge_id": cid,
                         "status": "pending",
-                        "created_at": utcnow(),
+                        "created_at": now,
                     },
-                    "$set": {"updated_at": utcnow()},
+                    "$set": {"updated_at": now},
                 },
                 upsert=True,
             )
         )
     created = 0
     if ops:
-        res = ucs.bulk_write(ops, ordered=False)
-        created = len(res.upserted_ids) if getattr(res, "upserted_ids", None) else 0
+        res = await coll_ucs.bulk_write(ops, ordered=False)
+        created = len(res.upserted_ids) if res.upserted_ids else 0
 
     # 2) Marquer comme completed (computed) les UC dont la cache mère a été trouvée
     #    - On récupère les cache_id trouvés par l'utilisateur
-    found_cache_ids = set(found.distinct("cache_id", {"user_id": user_id}))
+    found_cache_ids = set(await coll_found.distinct("cache_id", {"user_id": user_id}))
     if found_cache_ids:
         # Map cache_id -> (challenge_id)
         cache_to_challenge = {
             doc["cache_id"]: doc["_id"]
-            for doc in challenges.find(
+            async for doc in coll_challenges.find(
                 {"cache_id": {"$in": list(found_cache_ids)}}, {"_id": 1, "cache_id": 1}
             )
         }
         if cache_to_challenge:
             # Pour associer la bonne date à chaque UC, on lit found_caches (user_id, cache_id, found_date)
-            cur = found.find(
+            cur = coll_found.find(
                 {
                     "user_id": user_id,
                     "cache_id": {"$in": list(cache_to_challenge.keys())},
@@ -82,7 +83,7 @@ def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
             )
             updates: list[UpdateOne] = []
             now = utcnow()
-            for fc in cur:
+            async for fc in cur:
                 ch_id = cache_to_challenge.get(fc["cache_id"])
                 if not ch_id:
                     continue
@@ -109,14 +110,14 @@ def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
                     )
                 )
             if updates:
-                ucs.bulk_write(updates, ordered=False)
+                await coll_ucs.bulk_write(updates, ordered=False)
 
-    total = ucs.count_documents({"user_id": user_id})
+    total = await coll_ucs.count_documents({"user_id": user_id})
     existing = total - created
     return {"created": created, "existing": existing, "total_user_challenges": total}
 
 
-def list_user_challenges(
+async def list_user_challenges(
     user_id: ObjectId,
     status: str | None,
     page: int,
@@ -136,7 +137,7 @@ def list_user_challenges(
     Returns:
         dict: `{items, page, nb_pages, page_size, total}`.
     """
-    ucs = get_collection("user_challenges")
+    coll_uc = await get_collection("user_challenges")
     pipeline: list[dict[str, Any]] = [
         {"$match": {"user_id": user_id}},
     ]
@@ -220,7 +221,12 @@ def list_user_challenges(
                                 "id": "$challenge._id",
                                 "name": "$challenge.name",
                             },
-                            "cache": {"id": "$cache._id", "GC": "$cache.GC", "difficulty": "$cache.difficulty", "terrain": "$cache.terrain"},
+                            "cache": {
+                                "id": "$cache._id",
+                                "GC": "$cache.GC",
+                                "difficulty": "$cache.difficulty",
+                                "terrain": "$cache.terrain",
+                            },
                         }
                     },
                 ],
@@ -235,7 +241,9 @@ def list_user_challenges(
         },
     ]
 
-    out = list(ucs.aggregate(pipeline))
+    cursor = coll_uc.aggregate(pipeline)
+
+    out = await cursor.to_list(length=None)
     if not out:
         return {"items": [], "page": page, "page_size": page_size, "nb_pages": 0, "total": 0}
 
@@ -258,12 +266,18 @@ def list_user_challenges(
         it["effective_status"] = effective_status(it)
 
     nb_pages = (result["total"] // page_size) + (1 if result["total"] % page_size != 0 else 0)
-    result = {"items": items, "page": page, "nb_pages": nb_pages, "page_size": page_size, "nb_items": result["total"]}
+    result = {
+        "items": items,
+        "page": page,
+        "nb_pages": nb_pages,
+        "page_size": page_size,
+        "nb_items": result["total"],
+    }
 
     return result
 
 
-def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any] | None:
+async def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any] | None:
     """Obtenir le détail d’un UserChallenge.
 
     Args:
@@ -273,7 +287,7 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, A
     Returns:
         dict | None: Détail enrichi (challenge + cache), ou None si introuvable.
     """
-    ucs = get_collection("user_challenges")
+    coll_uc = await get_collection("user_challenges")
     pipeline: list[dict[str, Any]] = [
         {"$match": {"_id": uc_id, "user_id": user_id}},
         {
@@ -319,7 +333,8 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, A
         },
     ]
 
-    rows = list(ucs.aggregate(pipeline, allowDiskUse=False))
+    cursor = coll_uc.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     if not rows:
         return None
 
@@ -339,7 +354,7 @@ def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, A
     return doc
 
 
-def patch_user_challenge(
+async def patch_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     *,
@@ -364,16 +379,17 @@ def patch_user_challenge(
     Returns:
         dict | None: Document UC mis à jour (avec `effective_status`) ou None.
     """
-    ucs = get_collection("user_challenges")
+    coll_uc = await get_collection("user_challenges")
 
-    update: dict[str, Any] = {"updated_at": utcnow()}
+    now = utcnow()
+    update: dict[str, Any] = {"updated_at": now}
     unset: dict[str, Literal[""]] = {}
 
     if status is not None:
         update["status"] = status
         if status == "completed":
             update["manual_override"] = True
-            update["overridden_at"] = utcnow()
+            update["overridden_at"] = now
             if override_reason is not None:
                 update["override_reason"] = override_reason
             # Progression instantanée à 100% lors d'un override manuel
@@ -381,7 +397,7 @@ def patch_user_challenge(
                 "percent": 100,
                 "tasks_done": None,
                 "tasks_total": None,
-                "checked_at": utcnow(),
+                "checked_at": now,
             }
         else:
             update["manual_override"] = False
@@ -396,7 +412,7 @@ def patch_user_challenge(
     if unset:
         update_doc["$unset"] = unset
 
-    res = ucs.find_one_and_update(
+    res = await coll_uc.find_one_and_update(
         {"_id": uc_id, "user_id": user_id},
         update_doc,
         return_document=ReturnDocument.AFTER,

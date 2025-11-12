@@ -6,6 +6,7 @@ from email.message import EmailMessage
 from aiosmtplib import send
 
 from app.core.settings import get_settings
+
 settings = get_settings()
 
 

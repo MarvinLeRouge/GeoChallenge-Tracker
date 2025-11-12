@@ -2,7 +2,6 @@ aiosmtplib==4.0.2
 annotated-types==0.7.0
 anyio==4.11.0
 bcrypt==4.0.1
-black==24.8.0
 certifi==2025.8.3
 charset-normalizer==3.4.3
 click==8.3.0
@@ -21,6 +20,7 @@ lxml==6.0.2
 lxml-stubs==0.5.1
 markdown-it-py==4.0.0
 mdurl==0.1.2
+motor==3.7.1
 mypy==1.14.1
 mypy_extensions==1.1.0
 packaging==25.0

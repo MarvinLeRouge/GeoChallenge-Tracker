@@ -20,9 +20,9 @@ from fastapi import (
     status,
 )
 from jose import JWTError, jwt
+from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, Field
 from pymongo.collation import Collation
-from pymongo.collection import Collection
 
 from app.core.bson_utils import PyObjectId
 from app.core.email import send_verification_email
@@ -34,7 +34,6 @@ from app.core.security import (
     verify_password,
 )
 from app.core.settings import get_settings
-settings = get_settings()
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.models.user import (
@@ -46,15 +45,17 @@ from app.models.user import (
     UserOut,
 )
 
+settings = get_settings()
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # Case-insensitive collation (case-insensitive, accent-sensitive)
 COLLATION_CI = Collation(locale="en", strength=2)
 
 
-def users_coll() -> Collection:
+async def users_coll() -> AsyncIOMotorCollection:
     """Retourne la collection MongoDB `users`."""
-    return get_collection("users")
+    return await get_collection("users")
 
 
 class MessageOut(BaseModel):
@@ -74,12 +75,12 @@ class MessageOut(BaseModel):
         "- Retourne les informations publiques du compte créé"
     ),
 )
-def register(
+async def register(
     payload: Annotated[
         UserInRegister,
         Body(..., description="Données d'inscription : username, email et mot de passe."),
     ],
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
     """Inscription d’un utilisateur.
@@ -90,7 +91,7 @@ def register(
 
     Args:
         payload (UserInRegister): Données d'inscription (username, email, password).
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         UserOut: Données publiques de l’utilisateur (id, username, email, role).
@@ -103,7 +104,7 @@ def register(
         raise HTTPException(status_code=400, detail="Password too weak")
 
     # Unicité insensible à la casse (sans champs *_lower)
-    existing = users.find_one(
+    existing = await users.find_one(
         {"$or": [{"username": username}, {"email": email}]},
         collation=COLLATION_CI,
         projection={"_id": 1},
@@ -125,7 +126,7 @@ def register(
         "created_at": now(),
         "updated_at": None,
     }
-    res = users.insert_one(doc)
+    res = await users.insert_one(doc)
 
     if background_tasks:
         background_tasks.add_task(
@@ -135,7 +136,7 @@ def register(
             code=verification_code,
         )
 
-    created = users.find_one(
+    created = await users.find_one(
         {"_id": res.inserted_id}, {"_id": 1, "email": 1, "username": 1, "role": 1}
     )
 
@@ -163,7 +164,7 @@ def register(
 )
 async def login(
     request: Request,
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
     """Connexion utilisateur.
 
@@ -173,7 +174,7 @@ async def login(
 
     Args:
         request (Request): Requête HTTP (support JSON ou formulaire).
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         TokenPair: Contenant access_token, refresh_token et token_type.
@@ -203,7 +204,7 @@ async def login(
     if not ident or not password:
         raise HTTPException(status_code=422, detail="Missing credentials")
 
-    user = users.find_one(
+    user = await users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},
         collation=COLLATION_CI,
     )
@@ -233,9 +234,9 @@ async def login(
         "- Retourne un nouvel access token"
     ),
 )
-def refresh_token(
+async def refresh_token(
     payload: Annotated[RefreshTokenRequest, Body(..., description="Refresh token JWT valide.")],
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
     """Rafraîchissement du token d’accès.
 
@@ -245,7 +246,7 @@ def refresh_token(
 
     Args:
         payload (RefreshTokenRequest): Refresh token à valider.
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         TokenResponse: Nouveau jeton d’accès.
@@ -256,14 +257,13 @@ def refresh_token(
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
-        print("data", data)
         sub = data.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
     except JWTError as e:
         raise HTTPException(status_code=401, detail="Invalid refresh token") from e
 
-    user = users.find_one({"_id": PyObjectId(sub)}, {"_id": 1, "is_active": 1})
+    user = await users.find_one({"_id": PyObjectId(sub)}, {"_id": 1, "is_active": 1})
     if not user or not user.get("is_active", True):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
 
@@ -293,11 +293,11 @@ def create_verification_code() -> str:
         "- Retourne un message de confirmation"
     ),
 )
-def verify_email(
+async def verify_email(
     code: Annotated[
         str, Query(..., description="Code de vérification reçu par email, valide 24h.")
     ],
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
     """Vérification email.
 
@@ -307,20 +307,20 @@ def verify_email(
 
     Args:
         code (str): Code de vérification envoyé par email.
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         MessageOut: Message confirmant la vérification.
     """
     now_ts = now()
-    user = users.find_one(
+    user = await users.find_one(
         {"verification_code": code, "verification_expires_at": {"$gte": now_ts}},
         projection={"_id": 1},
     )
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or expired verification code")
 
-    users.update_one(
+    await users.update_one(
         {"_id": user["_id"]},
         {
             "$set": {"is_verified": True, "updated_at": now()},
@@ -336,11 +336,11 @@ def verify_email(
     summary="Vérification d’email via POST",
     description="Alternative POST pour transmettre le code de vérification dans le corps JSON.",
 )
-def verify_email_post(
+async def verify_email_post(
     body: Annotated[
         VerifyEmailBody, Body(..., description="Objet contenant le code de vérification.")
     ],
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
     """Vérification email (POST).
 
@@ -349,7 +349,7 @@ def verify_email_post(
 
     Args:
         body (VerifyEmailBody): Objet contenant le code de vérification.
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         MessageOut: Message confirmant la vérification.
@@ -367,12 +367,12 @@ def verify_email_post(
         "- Met à jour l’expiration du code (24h)"
     ),
 )
-def resend_verification(
+async def resend_verification(
     body: Annotated[
         ResendVerificationRequest,
         Body(..., description="Identifiant (username ou email) de l’utilisateur."),
     ],
-    users: Annotated[Collection, Depends(users_coll)],
+    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
     """Renvoi d’email de vérification.
@@ -383,20 +383,20 @@ def resend_verification(
 
     Args:
         body (ResendVerificationRequest): Identifiant (username ou email).
-        users (Collection): Collection MongoDB des utilisateurs.
+        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
 
     Returns:
         MessageOut: Message de confirmation (sans divulguer l’existence du compte).
     """
     ident = (body.identifier or "").strip()
-    user = users.find_one(
+    user = await users.find_one(
         {"$or": [{"email": ident}, {"username": ident}]},
         collation=COLLATION_CI,
         projection={"_id": 1, "email": 1, "is_verified": 1},
     )
     if user and not user.get("is_verified", False):
         code = create_verification_code()
-        users.update_one(
+        await users.update_one(
             {"_id": user["_id"]},
             {
                 "$set": {

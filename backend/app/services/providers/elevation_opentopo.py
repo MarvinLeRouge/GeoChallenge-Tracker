@@ -10,9 +10,10 @@ import os
 import httpx
 
 from app.core.settings import get_settings
-settings = get_settings()
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
+
+settings = get_settings()
 
 # Config
 ENDPOINT = settings.elevation_provider_endpoint
@@ -43,7 +44,7 @@ def _quota_key_for_today() -> str:
     return f"{PROVIDER_KEY}:{today}"
 
 
-def _read_quota() -> int:
+async def _read_quota() -> int:
     """Lire le compteur de requêtes du jour.
 
     Description:
@@ -57,11 +58,12 @@ def _read_quota() -> int:
     Returns:
         int: Compteur courant de requêtes (≥ 0).
     """
-    doc = get_collection("api_quotas").find_one({"_id": _quota_key_for_today()})
+    coll_quotas = await get_collection("api_quotas")
+    doc = await coll_quotas.find_one({"_id": _quota_key_for_today()})
     return int(doc["count"]) if doc and "count" in doc else 0
 
 
-def _inc_quota(n: int) -> None:
+async def _inc_quota(n: int) -> None:
     """Incrémenter le compteur de quota du jour.
 
     Description:
@@ -74,7 +76,8 @@ def _inc_quota(n: int) -> None:
     Returns:
         None
     """
-    get_collection("api_quotas").update_one(
+    coll_quotas = await get_collection("api_quotas")
+    await coll_quotas.update_one(
         {"_id": _quota_key_for_today()},
         {"$inc": {"count": int(n)}, "$setOnInsert": {"created_at": utcnow()}},
         upsert=True,
@@ -195,7 +198,7 @@ async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
         return [None] * len(points)
 
     # Respect daily quota (1000 calls/day), counting *requests*, not points
-    daily_count = _read_quota()
+    daily_count = await _read_quota()
     DAILY_LIMIT = int(os.getenv("ELEVATION_DAILY_LIMIT", "1000"))
     if daily_count >= DAILY_LIMIT:
         return [None] * len(points)
@@ -239,7 +242,7 @@ async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
 
             # update quota & delay
             daily_count += 1
-            _inc_quota(1)
+            await _inc_quota(1)
             idx_start += n_pts
 
             # Rate-limit (skip after the last chunk)

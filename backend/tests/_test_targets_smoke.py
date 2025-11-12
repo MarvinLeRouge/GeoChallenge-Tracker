@@ -1,14 +1,14 @@
 # tests/test_targets_api_smoke.py
-import os
 
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 
 from app.core.settings import get_settings
-settings = get_settings()
 from app.db.mongodb import get_collection
 from app.main import app
+
+settings = get_settings()
 
 # -----------------------
 # Helpers
@@ -33,36 +33,37 @@ def _login_and_headers(client: TestClient):
     return {"Authorization": f"Bearer {token}"}, username
 
 
-def _admin_user_id(admin_username: str):
-    u = get_collection("users").find_one({"username": admin_username}, {"_id": 1})
+async def _admin_user_id(admin_username: str):
+    collection = await get_collection("users")
+    u = await collection.find_one({"username": admin_username}, {"_id": 1})
     assert u, f"user '{admin_username}' introuvable en DB"
     return u["_id"]
 
 
-def _one_multitask_uc_for_user(user_id: ObjectId):
+async def _one_multitask_uc_for_user(user_id: ObjectId):
     # UC avec au moins 2 tasks pour CE user
-    agg = list(
-        get_collection("user_challenge_tasks").aggregate(
-            [
-                {
-                    "$lookup": {
-                        "from": "user_challenges",
-                        "localField": "user_challenge_id",
-                        "foreignField": "_id",
-                        "as": "uc",
-                    }
-                },
-                {"$unwind": "$uc"},
-                {"$match": {"uc.user_id": user_id}},
-                {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
-                {"$match": {"cnt": {"$gte": 2}}},
-                {"$limit": 1},
-            ]
-        )
-    )
+    collection = await get_collection("user_challenge_tasks")
+    agg = await collection.aggregate(
+        [
+            {
+                "$lookup": {
+                    "from": "user_challenges",
+                    "localField": "user_challenge_id",
+                    "foreignField": "_id",
+                    "as": "uc",
+                }
+            },
+            {"$unwind": "$uc"},
+            {"$match": {"uc.user_id": user_id}},
+            {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
+            {"$match": {"cnt": {"$gte": 2}}},
+            {"$limit": 1},
+        ]
+    ).to_list(length=None)
     assert agg, "Aucun user_challenge multi-tasks pour cet utilisateur"
     uc_id = agg[0]["_id"]
-    uc = get_collection("user_challenges").find_one({"_id": uc_id})
+    collection = await get_collection("user_challenges")
+    uc = await collection.find_one({"_id": uc_id})
     assert uc, "user_challenge introuvable"
     return uc
 

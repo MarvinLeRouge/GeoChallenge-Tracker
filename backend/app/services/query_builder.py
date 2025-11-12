@@ -72,7 +72,7 @@ def _flatten_and_nodes(expr: dict[str, Any]) -> list[dict[str, Any]] | None:
 
 
 def _extract_aggregate_spec(
-    leaves: list[dict[str, Any]]
+    leaves: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Extraire la spécification d’agrégat et les feuilles « cache.* ».
 
@@ -316,7 +316,7 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
 
 
 def compile_and_only(
-    expr: dict[str, Any]
+    expr: dict[str, Any],
 ) -> tuple[str, dict[str, Any], bool, list[str], dict[str, Any] | None]:
     """Compiler une expression AND en filtres Mongo « caches.* ».
 

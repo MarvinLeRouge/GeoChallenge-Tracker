@@ -36,7 +36,7 @@ router = APIRouter(
         "- L’historique peut être restreint via `before` et `limit`"
     ),
 )
-def get_progress_route(
+async def get_progress_route(
     user_id: CurrentUserId,
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     before: Annotated[
@@ -77,7 +77,7 @@ def get_progress_route(
         "- Retourne le snapshot résultant"
     ),
 )
-def evaluate_progress_route(
+async def evaluate_progress_route(
     user: CurrentUser,
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     force: bool = Query(
@@ -125,7 +125,7 @@ class EvaluateNewPayload(BaseModel):
         "- Paramètres `limit` et `since` pour borner le traitement"
     ),
 )
-def evaluate_new_progress_route(
+async def evaluate_new_progress_route(
     payload: Annotated[
         EvaluateNewPayload | None,
         Body(

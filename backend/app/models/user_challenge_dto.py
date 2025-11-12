@@ -95,7 +95,6 @@ class CacheDetail(BaseModel):
     terrain: float | None = None
 
 
-
 class ChallengeDetail(BaseModel):
     """Détail minimal challenge.
 
