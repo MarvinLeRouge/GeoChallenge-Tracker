@@ -186,7 +186,7 @@ def location_parse_to_lon_lat(position: str) -> tuple[float, float]:
     return (lon, lat)
 
 
-def user_location_get(user_id: ObjectId):
+async def user_location_get(user_id: ObjectId):
     """Lire la localisation (GeoJSON) de l’utilisateur.
 
     Args:
@@ -195,12 +195,13 @@ def user_location_get(user_id: ObjectId):
     Returns:
         dict | None: Champ `location` (GeoJSON Point) ou None.
     """
-    doc = get_collection("users").find_one({"_id": user_id}, {"_id": 1, "location": 1})
+    coll_users = await get_collection("users")
+    doc = await coll_users.find_one({"_id": user_id}, {"_id": 1, "location": 1})
 
     return (doc or {}).get("location")
 
 
-def user_location_set(user_id: ObjectId, lon: float, lat: float):
+async def user_location_set(user_id: ObjectId, lon: float, lat: float):
     """Écrire la localisation utilisateur (GeoJSON Point).
 
     Args:
@@ -211,15 +212,16 @@ def user_location_set(user_id: ObjectId, lon: float, lat: float):
     Returns:
         UpdateResult: Résultat MongoDB (ack/modified).
     """
-    result = get_collection("users").update_one(
+    coll_users = await get_collection("users")
+    result = await coll_users.update_one(
         {"_id": user_id},
         {
             "$set": {
                 "location": {
                     "type": "Point",
                     "coordinates": [lon, lat],
-                    "updated_at": utcnow(),
-                }
+                },
+                "updated_at": utcnow(),
             }
         },
     )
@@ -271,7 +273,7 @@ def coords_in_deg_min_mil(lat: float, lon: float) -> str:
     return result
 
 
-def user_get(user_id: ObjectId):
+async def user_get(user_id: ObjectId):
     """Lire les infos de l’utilisateur.
 
     Args:
@@ -280,6 +282,7 @@ def user_get(user_id: ObjectId):
     Returns:
         dict | None: profil utilisateur ou None.
     """
-    doc = get_collection("users").find_one({"_id": user_id})
+    coll_users = await get_collection("users")
+    doc = await coll_users.find_one({"_id": user_id})
 
     return doc or {}

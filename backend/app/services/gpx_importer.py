@@ -1,6 +1,7 @@
 # backend/app/services/gpx_importer.py
 # Importe des caches depuis un fichier GPX (ou un ZIP de GPX), mappe référentiels, enrichit (altitude), et upsert found_caches.
 
+import asyncio
 import datetime as dt
 import io
 import math
@@ -16,7 +17,7 @@ from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
 from app.core.utils import now
-from app.db.mongodb import get_collection, get_column
+from app.db.mongodb import get_collection, get_distinct
 from app.services.elevation_retrieval import fetch as fetch_elevations
 from app.services.parsers.GPXCacheParser import (
     GPXCacheParser,
@@ -212,7 +213,7 @@ def _normalize_name(name: str | None) -> str:
     return (name or "").strip().casefold()
 
 
-def _get_all_countries_by_name() -> dict[str, ObjectId]:
+async def _get_all_countries_by_name() -> dict[str, ObjectId]:
     """Indexer les pays par nom normalisé.
 
     Description:
@@ -222,13 +223,14 @@ def _get_all_countries_by_name() -> dict[str, ObjectId]:
         dict[str, ObjectId]: Index des pays.
     """
     result: dict[str, ObjectId] = {}
-    cursor = get_collection("countries").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
+    coll_countries = await get_collection("countries")
+    cursor = coll_countries.find({}, {"name": 1})
+    result = {_normalize_name(item["name"]): item["_id"] async for item in cursor}
 
     return result
 
 
-def _get_all_states_by_countryid_and_name() -> dict[ObjectId, dict[str, ObjectId]]:
+async def _get_all_states_by_countryid_and_name() -> dict[ObjectId, dict[str, ObjectId]]:
     """Indexer les états par (country_id, nom).
 
     Description:
@@ -238,55 +240,57 @@ def _get_all_states_by_countryid_and_name() -> dict[ObjectId, dict[str, ObjectId
         dict[ObjectId, dict[str, ObjectId]]: Index imbriqué pays→états.
     """
     result: dict[ObjectId, dict[str, ObjectId]] = {}
-    cursor = get_collection("states").find({}, {"name": 1, "country_id": 1})
-    for item in cursor:
+    coll_states = await get_collection("states")
+    cursor = coll_states.find({}, {"name": 1, "country_id": 1})
+    async for item in cursor:
         result[item["country_id"]] = result.get(item["country_id"], {})
         result[item["country_id"]][_normalize_name(item["name"])] = item["_id"]
 
     return result
 
 
-def _get_all_types_by_name() -> dict[str, ObjectId]:
+async def _get_all_types_by_name() -> dict[str, ObjectId]:
     """Indexer les types par nom normalisé.
 
     Returns:
         dict[str, ObjectId]: `{type_name: _id}` depuis `cache_types`.
     """
     result: dict[str, ObjectId] = {}
-    cursor = get_collection("cache_types").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
+    coll_types = await get_collection("cache_types")
+    cursor = coll_types.find({}, {"name": 1})
+    result = {_normalize_name(item["name"]): item["_id"] async for item in cursor}
 
     return result
 
 
-def _get_all_sizes_by_name() -> dict[str, ObjectId]:
+async def _get_all_sizes_by_name() -> dict[str, ObjectId]:
     """Indexer les tailles par nom normalisé.
 
     Returns:
         dict[str, ObjectId]: `{size_name: _id}` depuis `cache_sizes`.
     """
     result: dict[str, ObjectId] = {}
-    cursor = get_collection("cache_sizes").find({}, {"name": 1})
-    result = {_normalize_name(item["name"]): item["_id"] for item in cursor}
+    coll_sizes = await get_collection("cache_sizes")
+    cursor = coll_sizes.find({}, {"name": 1})
+    result = {_normalize_name(item["name"]): item["_id"] async for item in cursor}
 
     return result
 
 
-def _get_all_attributes_by_id() -> dict[int, ObjectId]:
+async def _get_all_attributes_by_id() -> dict[int, ObjectId]:
     """Indexer les attributs par identifiant numérique global.
 
     Returns:
         dict[int, ObjectId]: `{cache_attribute_id: _id}` depuis `cache_attributes`.
     """
-    result = {
-        item["cache_attribute_id"]: item["_id"]
-        for item in get_collection("cache_attributes").find({}, {"cache_attribute_id": 1})
-    }
+    coll_attrs = await get_collection("cache_attributes")
+    cursor = coll_attrs.find({}, {"cache_attribute_id": 1})
+    result = {item["cache_attribute_id"]: item["_id"] async for item in cursor}
 
     return result
 
 
-def _ensure_country_state(
+async def _ensure_country_state(
     country_name: str | None,
     state_name: str | None,
     all_countries_by_name: dict[str, ObjectId] | None = None,
@@ -310,11 +314,11 @@ def _ensure_country_state(
 
     # Récupération des pays si nécessaire
     if all_countries_by_name is None:
-        all_countries_by_name = _get_all_countries_by_name()
+        all_countries_by_name = await _get_all_countries_by_name()
 
     # Récupération des états si nécessaire
     if all_states_by_countryid_and_name is None:
-        all_states_by_countryid_and_name = _get_all_states_by_countryid_and_name()
+        all_states_by_countryid_and_name = await _get_all_states_by_countryid_and_name()
 
     country_id = None
     state_id = None
@@ -323,20 +327,20 @@ def _ensure_country_state(
     if country_name:
         country_id = all_countries_by_name.get(_normalize_name(country_name))
         if country_id is None:
-            country_id = get_collection("countries").insert_one({"name": country_name}).inserted_id
+            coll_countries = await get_collection("countries")
+            result = await coll_countries.insert_one({"name": country_name})
+            country_id = result.inserted_id
             all_countries_by_name[_normalize_name(country_name)] = country_id
             all_states_by_countryid_and_name[country_id] = {}
 
-    # Gestion de l'état
+    # Gestion de l'étatattr_refs
     if state_name and country_id:
         states_for_country = all_states_by_countryid_and_name.get(country_id, {})
         state_id = states_for_country.get(_normalize_name(state_name))
         if state_id is None:
-            state_id = (
-                get_collection("states")
-                .insert_one({"name": state_name, "country_id": country_id})
-                .inserted_id
-            )
+            coll_states = await get_collection("states")
+            result = await coll_states.insert_one({"name": state_name, "country_id": country_id})
+            state_id = result.inserted_id
             states_for_country[_normalize_name(state_name)] = state_id
             all_states_by_countryid_and_name[country_id] = states_for_country
 
@@ -418,7 +422,7 @@ def get_size_by_name(
     return size_id
 
 
-def _map_type_size_attrs(
+async def _map_type_size_attrs(
     cache_type_name: str | None,
     cache_size_name: str | None,
     cache_attributes: list | None = None,
@@ -445,11 +449,11 @@ def _map_type_size_attrs(
     """
     cache_attributes = cache_attributes or []
     if all_types_by_name is None:
-        all_types_by_name = _get_all_types_by_name()
+        all_types_by_name = await _get_all_types_by_name()
     if all_sizes_by_name is None:
-        all_sizes_by_name = _get_all_sizes_by_name()
+        all_sizes_by_name = await _get_all_sizes_by_name()
     if all_attributes_by_id is None:
-        all_attributes_by_id = _get_all_attributes_by_id()
+        all_attributes_by_id = await _get_all_attributes_by_id()
 
     type_id = get_type_by_name(cache_type_name, all_types_by_name)
     size_id = get_size_by_name(cache_size_name, all_sizes_by_name)
@@ -511,20 +515,21 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
               `nb_inserted_found_caches`, `nb_updated_found_caches`,
               `nb_new_countries`, `nb_new_states`.
     """
-    gpx_paths = _materialize_to_paths(payload, filename)
+    loop = asyncio.get_running_loop()
+    gpx_paths = await loop.run_in_executor(None, _materialize_to_paths, payload, filename)
 
-    caches_collection = get_collection("caches")
-    found_caches_collection = get_collection("found_caches")
+    caches_collection = await get_collection("caches")
+    found_caches_collection = await get_collection("found_caches")
 
     nb_inserted_caches = 0
     nb_existing_caches = 0
     nb_inserted_found_caches = 0
     nb_updated_found_caches = 0
-    all_countries_by_name = _get_all_countries_by_name()
-    all_states_by_countryid_and_name = _get_all_states_by_countryid_and_name()
-    all_types_by_name = _get_all_types_by_name()
-    all_sizes_by_name = _get_all_sizes_by_name()
-    all_attributes_by_id = _get_all_attributes_by_id()
+    all_countries_by_name = await _get_all_countries_by_name()
+    all_states_by_countryid_and_name = await _get_all_states_by_countryid_and_name()
+    all_types_by_name = await _get_all_types_by_name()
+    all_sizes_by_name = await _get_all_sizes_by_name()
+    all_attributes_by_id = await _get_all_attributes_by_id()
 
     nb_countries_before = len(all_countries_by_name)
     nb_states_before = sum(
@@ -538,8 +543,8 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
         except Exception:
             return default
 
-    # Récupérer les GC connus
-    known_gcs = set(get_column("caches", "GC"))
+    # Récupérer les GC connus (distinct côté serveur -> moins d'I/O et pas de doublons)
+    known_gcs = set(await get_distinct("caches", "GC"))
     seen_gcs: set[str] = set()
 
     items = []
@@ -565,13 +570,13 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
             else None
         )
 
-        country_id, state_id = _ensure_country_state(
+        country_id, state_id = await _ensure_country_state(
             item.get("country"),
             item.get("state"),
             all_countries_by_name,
             all_states_by_countryid_and_name,
         )
-        type_id, size_id, attr_refs = _map_type_size_attrs(
+        type_id, size_id, attr_refs = await _map_type_size_attrs(
             item.get("cache_type"),
             item.get("cache_size"),
             item.get("attributes"),
@@ -638,7 +643,7 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
     ]
     for _i, items_to_db_chunk in enumerate(items_to_db_chunks):
         try:
-            result_chunk = caches_collection.insert_many(items_to_db_chunk)
+            result_chunk = await caches_collection.insert_many(items_to_db_chunk)
             nb_inserted_caches += len(result_chunk.inserted_ids)
         except BulkWriteError as bwe:
             # Compter les duplicates comme existants et continuer
@@ -659,13 +664,11 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
                     "notes": item.get("notes"),
                 }
         if found_caches_by_gc:
-            found_caches_in_db_ids = {
-                item["GC"]: item["_id"]
-                for item in caches_collection.find(
-                    {"GC": {"$in": list(found_caches_by_gc.keys())}},
-                    {"_id": 1, "GC": 1},
-                )
-            }
+            cursor = caches_collection.find(
+                {"GC": {"$in": list(found_caches_by_gc.keys())}},
+                {"_id": 1, "GC": 1},
+            )
+            found_caches_in_db_ids = {item["GC"]: item["_id"] async for item in cursor}
             for gc, db_cache_id in found_caches_in_db_ids.items():
                 found_caches_by_gc[gc].update(
                     {
@@ -674,12 +677,10 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
                     }
                 )
         # map GC -> cache _id en base
-        found_caches_in_db_ids = {
-            item["GC"]: item["_id"]
-            for item in caches_collection.find(
-                {"GC": {"$in": list(found_caches_by_gc.keys())}}, {"_id": 1, "GC": 1}
-            )
-        }
+        cursor = caches_collection.find(
+            {"GC": {"$in": list(found_caches_by_gc.keys())}}, {"_id": 1, "GC": 1}
+        )
+        found_caches_in_db_ids = {item["GC"]: item["_id"] async for item in cursor}
 
         # ne garder que les items avec cache_id présent
         found_caches_to_db = []
@@ -715,15 +716,17 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
             found_ops.append(UpdateOne(q, update, upsert=True))
 
         if found_ops:
-            result_found = found_caches_collection.bulk_write(found_ops, ordered=False)
+            result_found = await found_caches_collection.bulk_write(found_ops, ordered=False)
             nb_inserted_found_caches = result_found.upserted_count
             nb_updated_found_caches = result_found.modified_count
         else:
             nb_inserted_found_caches = 0
             nb_updated_found_caches = 0
 
-    nb_countries_after = get_collection("countries").count_documents({})
-    nb_states_after = get_collection("states").count_documents({})
+    collection = await get_collection("countries")
+    nb_countries_after = await collection.count_documents({})
+    collection = await get_collection("states")
+    nb_states_after = await collection.count_documents({})
 
     return {
         "nb_gpx_files": len(gpx_paths),

@@ -12,7 +12,7 @@ router = APIRouter()
     summary="Vérification de santé de l’API",
     description="Retourne un message 'pong' permettant de tester que l’API répond.",
 )
-def ping():
+async def ping():
     """Health-check API.
 
     Description:

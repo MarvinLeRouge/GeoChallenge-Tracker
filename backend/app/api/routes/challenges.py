@@ -35,7 +35,7 @@ class RefreshIn(BaseModel):
     ),
     dependencies=[Depends(require_admin)],
 )
-def refresh_from_caches(
+async def refresh_from_caches(
     payload: Annotated[
         RefreshIn,
         Body(
@@ -59,6 +59,6 @@ def refresh_from_caches(
     cache_ids = None
     if payload.cache_ids:
         cache_ids = [ObjectId(str(x)) for x in payload.cache_ids]
-    stats = create_challenges_from_caches(cache_ids=cache_ids)
+    stats = await create_challenges_from_caches(cache_ids=cache_ids)
 
     return {"ok": True, "stats": stats}

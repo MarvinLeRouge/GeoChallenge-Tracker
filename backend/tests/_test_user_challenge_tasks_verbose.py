@@ -1,3 +1,4 @@
+import asyncio
 import json
 from collections.abc import Mapping
 from typing import Any
@@ -13,15 +14,17 @@ from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_on
 ADMIN_ROLE = "admin"
 
 
-def _name_for(coll: str, _id: ObjectId) -> str:
-    doc = get_collection(coll).find_one({"_id": _id}, {"name": 1, "code": 1})
+async def _name_for(coll: str, _id: ObjectId) -> str:
+    collection = await get_collection(coll)
+    doc = await collection.find_one({"_id": _id}, {"name": 1, "code": 1})
     if not doc:
         return str(_id)
     return doc.get("name") or doc.get("code") or str(_id)
 
 
-def _attr_name(caid: int) -> str:
-    doc = get_collection("cache_attributes").find_one(
+async def _attr_name(caid: int) -> str:
+    coll_attrs = await get_collection("cache_attributes")
+    doc = await coll_attrs.find_one(
         {"cache_attribute_id": caid}, {"name": 1, "name_reverse": 1, "code": 1}
     )
     if not doc:
@@ -29,32 +32,40 @@ def _attr_name(caid: int) -> str:
     return doc.get("name") or doc.get("name_reverse") or doc.get("code") or f"attr:{caid}"
 
 
-def _render_expression_human(expr: Mapping[str, Any] | None) -> str:
+async def _render_expression_human(expr: Mapping[str, Any] | None) -> str:
     if not isinstance(expr, Mapping):
         return json.dumps(expr, default=str, indent=2)
 
     kind = expr.get("kind")
     if kind == "and":
         nodes = expr.get("nodes", [])
-        return " AND ".join(_render_expression_human(n) for n in nodes)
+        parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
+        return " AND ".join(parts)
     if kind == "or":
         nodes = expr.get("nodes", [])
-        return "(" + " OR ".join(_render_expression_human(n) for n in nodes) + ")"
+        parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
+        return "(" + " OR ".join(parts) + ")"
     if kind == "not":
-        return "NOT (" + _render_expression_human(expr.get("node")) + ")"
+        return "NOT (" + await _render_expression_human(expr.get("node")) + ")"
 
     if kind == "type_in":
-        ids = [_name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", [])]
+        ids = await asyncio.gather(
+            *(_name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", []))
+        )
         return f"type in [{', '.join(ids)}]"
     if kind == "size_in":
-        ids = [_name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", [])]
+        ids = await asyncio.gather(
+            *(_name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", []))
+        )
         return f"size in [{', '.join(ids)}]"
     if kind == "country_is":
         cid = expr.get("country_id")
-        name = _name_for("countries", ObjectId(str(cid))) if cid else "?"
+        name = await _name_for("countries", ObjectId(str(cid))) if cid else "?"
         return f"country is {name}"
     if kind == "state_in":
-        ids = [_name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", [])]
+        ids = await asyncio.gather(
+            *(_name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", []))
+        )
         return f"state in [{', '.join(ids)}]"
     if kind == "difficulty_between":
         a = expr.get("min")
@@ -241,7 +252,7 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
 
     rprint("\n[print] Human-readable conditions:")
     for i, t in enumerate(tasks_payload):
-        rprint(f"  - Task {i+1}: {t['title']}")
+        rprint(f"  - Task {i + 1}: {t['title']}")
         rprint(f"    AST: {json.dumps(t['expression'], default=str, indent=2)}")
         rprint(f"    Human: {_render_expression_human(t['expression'])}")
 
@@ -261,6 +272,6 @@ def test_user_challenge_tasks_verbose(admin_user_id, uc_ctx):
     assert [i["order"] for i in res_list] == list(range(len(tasks_payload)))
 
     done = next((i for i in res_list if i["status"] == "done"), None)
-    assert (
-        done is not None and done.get("progress", {}).get("percent") == 100
-    ), "Done task did not get 100% progress"
+    assert done is not None and done.get("progress", {}).get("percent") == 100, (
+        "Done task did not get 100% progress"
+    )

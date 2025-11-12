@@ -13,9 +13,9 @@ from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
 from app.models.user_challenge_dto import (
     DetailResponse,
-    UserChallengeListResponse,
     PatchResponse,
     PatchUCIn,
+    UserChallengeListResponse,
 )
 from app.services.user_challenges import (
     get_user_challenge_detail,
@@ -41,7 +41,7 @@ router = APIRouter(
         "- Retourne des statistiques de synchronisation"
     ),
 )
-def sync(user_id: CurrentUserId):
+async def sync(user_id: CurrentUserId):
     """Synchroniser les UserChallenges.
 
     Description:
@@ -52,7 +52,7 @@ def sync(user_id: CurrentUserId):
     Returns:
         dict: Statistiques (créations, ignorés, etc.).
     """
-    stats = sync_user_challenges(user_id)
+    stats = await sync_user_challenges(user_id)
     return stats
 
 
@@ -66,7 +66,7 @@ def sync(user_id: CurrentUserId):
         "- Pagination via `page` et `page_size` (max 200)"
     ),
 )
-def list_uc(
+async def list_uc(
     user_id: CurrentUserId,
     status: str | None = Query(
         default=None,
@@ -89,7 +89,7 @@ def list_uc(
     Returns:
         UserChallengeListResponse: Items et informations de pagination.
     """
-    return list_user_challenges(user_id, status, page, page_size)
+    return await list_user_challenges(user_id, status, page, page_size)
 
 
 # --- modèles locaux pour le batch ---
@@ -125,7 +125,7 @@ class BatchPatchResponse(BaseModel):
         "- Max 200 items"
     ),
 )
-def patch_uc_batch(
+async def patch_uc_batch(
     items: Annotated[
         list[BatchPatchItem],
         Body(
@@ -162,7 +162,7 @@ def patch_uc_batch(
 
     for it in items:
         try:
-            doc = patch_user_challenge(
+            doc = await patch_user_challenge(
                 user_id=user_id,
                 uc_id=ObjectId(str(it.uc_id)),
                 status=it.status,
@@ -191,7 +191,7 @@ def patch_uc_batch(
     summary="Détail d’un UserChallenge",
     description="Retourne le détail d’un UserChallenge appartenant à l’utilisateur.",
 )
-def get_uc(
+async def get_uc(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     user_id: CurrentUserId,
 ):
@@ -206,7 +206,7 @@ def get_uc(
     Returns:
         DetailResponse: Détail du UserChallenge.
     """
-    doc = get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
+    doc = await get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return doc
@@ -220,7 +220,7 @@ def get_uc(
         "Met à jour un UserChallenge : statut (`pending|accepted|dismissed|completed`), notes et `override_reason`."
     ),
 )
-def patch_uc(
+async def patch_uc(
     uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
     payload: Annotated[
         PatchUCIn,
@@ -240,7 +240,7 @@ def patch_uc(
     Returns:
         PatchResponse: UserChallenge après mise à jour.
     """
-    doc = patch_user_challenge(
+    doc = await patch_user_challenge(
         user_id=user_id,
         uc_id=ObjectId(str(uc_id)),
         status=payload.status,

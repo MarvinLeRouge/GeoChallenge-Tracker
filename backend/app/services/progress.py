@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -17,7 +18,7 @@ from app.services.query_builder import compile_and_only
 # ---------- Helpers ----------
 
 
-def _ensure_uc_owned(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
+async def _ensure_uc_owned(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
     """Vérifier que l’UC appartient bien à l’utilisateur.
 
     Description:
@@ -33,14 +34,14 @@ def _ensure_uc_owned(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
     Raises:
         PermissionError: Si l’UC n’appartient pas à l’utilisateur (ou n’existe pas).
     """
-    ucs = get_collection("user_challenges")
-    row = ucs.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
+    ucs = await get_collection("user_challenges")
+    row = await ucs.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
     if not row:
         raise PermissionError("UserChallenge not found or not owned by user")
     return row
 
 
-def _get_tasks_for_uc(uc_id: ObjectId) -> list[dict[str, Any]]:
+async def _get_tasks_for_uc(uc_id: ObjectId) -> list[dict[str, Any]]:
     """Récupérer les tâches d’un UC (triées).
 
     Args:
@@ -49,11 +50,13 @@ def _get_tasks_for_uc(uc_id: ObjectId) -> list[dict[str, Any]]:
     Returns:
         list[dict]: Tâches triées par `order`, puis `_id`.
     """
-    coll = get_collection("user_challenge_tasks")
-    return list(coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)]))
+    coll_uctasks = await get_collection("user_challenge_tasks")
+    cursor = coll_uctasks.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
+    result = await cursor.to_list(length=None)
+    return result
 
 
-def _attr_id_by_cache_attr_id(cache_attribute_id: int) -> ObjectId | None:
+async def _attr_id_by_cache_attr_id(cache_attribute_id: int) -> ObjectId | None:
     """Résoudre l’ObjectId d’un attribut de cache par ID numérique global.
 
     Args:
@@ -62,13 +65,12 @@ def _attr_id_by_cache_attr_id(cache_attribute_id: int) -> ObjectId | None:
     Returns:
         ObjectId | None: Référence du document `cache_attributes` ou None.
     """
-    row = get_collection("cache_attributes").find_one(
-        {"cache_attribute_id": cache_attribute_id}, {"_id": 1}
-    )
+    coll_attrs = await get_collection("cache_attributes")
+    row = await coll_attrs.find_one({"cache_attribute_id": cache_attribute_id}, {"_id": 1})
     return row["_id"] if row else None
 
 
-def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str, Any]) -> int:
+async def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str, Any]) -> int:
     """Compter les trouvailles d’un utilisateur qui matchent des conditions « caches.* ».
 
     Description:
@@ -82,8 +84,8 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str, Any]
     Returns:
         int: Nombre de trouvailles correspondantes.
     """
-    fc = get_collection("found_caches")
-    pipeline: list[dict[str, Any]] = [
+    fc = await get_collection("found_caches")
+    pipeline: list[Mapping[str, Any]] = [
         {"$match": {"user_id": user_id}},
         {
             "$lookup": {
@@ -97,7 +99,7 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str, Any]
     ]
 
     # Apply match on cache.*
-    conds: list[dict[str, Any]] = []
+    conds: list[Mapping[str, Any]] = []
     for field, cond in match_caches.items():
         if isinstance(cond, list):
             # multiple conditions for the same field => all must hold
@@ -108,11 +110,14 @@ def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str, Any]
     if conds:
         pipeline.append({"$match": {"$and": conds}})
     pipeline.append({"$count": "current_count"})
-    rows = list(fc.aggregate(pipeline, allowDiskUse=False))
+    cursor = fc.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     return int(rows[0]["current_count"]) if rows else 0
 
 
-def _aggregate_total(user_id: ObjectId, match_caches: dict[str, Any], spec: dict[str, Any]) -> int:
+async def _aggregate_total(
+    user_id: ObjectId, match_caches: dict[str, Any], spec: dict[str, Any]
+) -> int:
     """Calculer une somme agrégée (difficulté, terrain, diff+terr, altitude).
 
     Description:
@@ -130,8 +135,8 @@ def _aggregate_total(user_id: ObjectId, match_caches: dict[str, Any], spec: dict
     Returns:
         int: Total agrégé (0 si `kind` inconnu).
     """
-    fc = get_collection("found_caches")
-    pipeline: list[dict[str, Any]] = [
+    fc = await get_collection("found_caches")
+    pipeline: list[Mapping[str, Any]] = [
         {"$match": {"user_id": user_id}},
         {
             "$lookup": {
@@ -144,7 +149,7 @@ def _aggregate_total(user_id: ObjectId, match_caches: dict[str, Any], spec: dict
         {"$unwind": "$cache"},
     ]
     # Apply match on cache.*
-    conds: list[dict[str, Any]] = []
+    conds: list[Mapping[str, Any]] = []
     for field, cond in match_caches.items():
         if isinstance(cond, list):
             for c in cond:
@@ -175,15 +180,16 @@ def _aggregate_total(user_id: ObjectId, match_caches: dict[str, Any], spec: dict
         {"$project": {"score": score_expr}},
         {"$group": {"_id": None, "total": {"$sum": "$score"}}},
     ]
-    rows = list(fc.aggregate(pipeline, allowDiskUse=False))
+    cursor = fc.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
     return int(rows[0]["total"]) if rows else 0
 
 
-def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: int) -> date | None:
+async def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: int) -> date | None:
     if n <= 0:
         return None
-    fc = get_collection("found_caches")
-    pipeline = [
+    fc = await get_collection("found_caches")
+    pipeline: list[Mapping[str, Any]] = [
         {"$match": {"user_id": user_id}},
         {
             "$lookup": {
@@ -195,7 +201,7 @@ def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: int) -> 
         },
         {"$unwind": "$cache"},
     ]
-    and_conds = []
+    and_conds: list[Mapping[str, Any]] = []
     for field, cond in match_caches.items():
         if isinstance(cond, list):
             for c in cond:
@@ -210,19 +216,20 @@ def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: int) -> 
         {"$limit": 1},
         {"$project": {"_id": 0, "found_date": 1}},
     ]
-    rows = list(fc.aggregate(pipeline, allowDiskUse=False))
+    cursor = fc.aggregate(pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=1)
     return rows[0]["found_date"] if rows else None
 
 
 # alias pratique
-def _first_found_date(user_id: ObjectId, match_caches: dict[str, Any]) -> date | None:
-    return _nth_found_date(user_id, match_caches, 1)
+async def _first_found_date(user_id: ObjectId, match_caches: dict[str, Any]) -> date | None:
+    return await _nth_found_date(user_id, match_caches, 1)
 
 
 # ---------- Public API ----------
 
 
-def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[str, Any]:
+async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[str, Any]:
     """Évaluer les tâches d’un UC et insérer un snapshot.
 
     Description:
@@ -241,21 +248,22 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
     Returns:
         dict: Document snapshot inséré (avec `id` ajouté pour la réponse).
     """
-    _ensure_uc_owned(user_id, uc_id)
-    tasks = _get_tasks_for_uc(uc_id)
+    await _ensure_uc_owned(user_id, uc_id)
+    tasks = await _get_tasks_for_uc(uc_id)
+    coll_uctasks = await get_collection("user_challenge_tasks")
     snapshots: list[dict[str, Any]] = []
     sum_current = 0
     sum_min = 0
     tasks_supported = 0
     tasks_done = 0
-    uc_statuses = get_collection("user_challenges").find_one(
-        {"_id": uc_id}, {"status": 1, "computed_status": 1}
-    )
+    coll_uc = await get_collection("user_challenges")
+    uc_statuses = await coll_uc.find_one({"_id": uc_id}, {"status": 1, "computed_status": 1})
     uc_status = (uc_statuses or {}).get("status")
     uc_computed_status = (uc_statuses or {}).get("computed_status")
     if (not force) and (uc_computed_status == "completed" or uc_status == "completed"):
         # Renvoyer le dernier snapshot existant, sans recalcul ni insertion
-        last = get_collection("progress").find_one(
+        coll_progress = await get_collection("progress")
+        last = await coll_progress.find_one(
             {"user_challenge_id": uc_id}, sort=[("checked_at", -1), ("created_at", -1)]
         )
         if last:
@@ -306,7 +314,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 }
             else:
                 tic = utcnow()
-                current = _count_found_caches_matching(user_id, match_caches)
+                current = await _count_found_caches_matching(user_id, match_caches)
                 ms = int((utcnow() - tic).total_seconds() * 1000)
 
                 # base percent on min_count
@@ -316,7 +324,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 task_id = t["_id"]
                 t["status"] = new_status
                 if status != "done":
-                    get_collection("user_challenge_tasks").update_one(
+                    await coll_uctasks.update_one(
                         {"_id": task_id},
                         {
                             "$set": {
@@ -333,7 +341,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 aggregate_percent = None
                 aggregate_unit = None
                 if agg_spec:
-                    aggregate_total = _aggregate_total(user_id, match_caches, agg_spec)
+                    aggregate_total = await _aggregate_total(user_id, match_caches, agg_spec)
                     aggregate_target = int(agg_spec.get("min_total", 0)) or None
                     if aggregate_target and aggregate_target > 0:
                         aggregate_percent = max(
@@ -364,9 +372,9 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 min_count = int((t.get("constraints") or {}).get("min_count") or 0)
 
                 # 2.1 start_found_at : première trouvaille qui matche
-                start_dt = _first_found_date(user_id, match_caches)
+                start_dt = await _first_found_date(user_id, match_caches)
                 if start_dt and not t.get("start_found_at"):
-                    get_collection("user_challenge_tasks").update_one(
+                    await coll_uctasks.update_one(
                         {"_id": task_id},
                         {"$set": {"start_found_at": start_dt, "updated_at": utcnow()}},
                     )
@@ -375,12 +383,12 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 # 2.2 completed_at : date de la min_count-ième trouvaille
                 completed_dt = None
                 if min_count > 0 and current >= min_count:
-                    completed_dt = _nth_found_date(user_id, match_caches, min_count)
+                    completed_dt = await _nth_found_date(user_id, match_caches, min_count)
 
                 # persister la date si atteinte, sinon l'annuler si elle existait mais plus valide
                 if completed_dt:
                     if t.get("completed_at") != completed_dt:
-                        get_collection("user_challenge_tasks").update_one(
+                        await coll_uctasks.update_one(
                             {"_id": task_id},
                             {
                                 "$set": {
@@ -392,7 +400,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                         t["completed_at"] = completed_dt
                 else:
                     if t.get("completed_at") is not None:
-                        get_collection("user_challenge_tasks").update_one(
+                        await coll_uctasks.update_one(
                             {"_id": task_id},
                             {"$set": {"completed_at": None, "updated_at": utcnow()}},
                         )
@@ -454,7 +462,7 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
     }
     if (uc_computed_status != "completed") and (tasks_done == tasks_supported):
         new_status = "completed"
-        get_collection("user_challenges").update_one(
+        await coll_uc.update_one(
             {"_id": uc_id},
             {
                 "$set": {
@@ -464,14 +472,15 @@ def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[s
                 }
             },
         )
-    get_collection("progress").insert_one(doc)
+    coll_progress = await get_collection("progress")
+    await coll_progress.insert_one(doc)
     # enrich for response
     doc["id"] = str(doc.get("_id")) if "_id" in doc else None
 
     return doc
 
 
-def get_latest_and_history(
+async def get_latest_and_history(
     user_id: ObjectId,
     uc_id: ObjectId,
     limit: int = 10,
@@ -493,26 +502,26 @@ def get_latest_and_history(
         dict: `{'latest': dict | None, 'history': list[dict]}`.
     """
     q: dict[str, Any] = {}
-    _ensure_uc_owned(user_id, uc_id)
-    coll = get_collection("progress")
+    await _ensure_uc_owned(user_id, uc_id)
+    coll = await get_collection("progress")
     q = {"user_challenge_id": uc_id}
     if before:
         q["checked_at"] = {"$lt": before}
-    cur = coll.find(q).sort([("checked_at", DESCENDING)]).limit(limit)
-    items = list(cur)
+    cursor = coll.find(q).sort([("checked_at", DESCENDING)]).limit(limit)
+    items = await cursor.to_list(length=limit)
     latest = items[0] if items else None
     history = items[1:] if len(items) > 1 else []
 
     # --- enrichir 'latest' avec ETA par tâche + ETA globale ---
     if latest:
         # map (task_id -> {start_found_at, completed_at, min_count courant})
-        tasks_coll = get_collection("user_challenge_tasks")
-        tdocs = list(
-            tasks_coll.find(
-                {"user_challenge_id": uc_id},
-                {"_id": 1, "start_found_at": 1, "completed_at": 1, "constraints": 1},
-            )
+        tasks_coll = await get_collection("user_challenge_tasks")
+        cursor = tasks_coll.find(
+            {"user_challenge_id": uc_id},
+            {"_id": 1, "start_found_at": 1, "completed_at": 1, "constraints": 1},
         )
+        tdocs = await cursor.to_list(length=None)
+
         dates_by_tid: dict[ObjectId, dict[str, Any]] = {
             d["_id"]: {
                 "start": d.get("start_found_at"),
@@ -527,7 +536,7 @@ def get_latest_and_history(
         eta_values: list[datetime] = []
         for it in latest.get("tasks") or []:
             tid = it.get("task_id")
-            cur = int(it.get("current_count") or 0)
+            current_count = int(it.get("current_count") or 0)
             # min_count : priorité au snapshot si présent, sinon doc task
             min_c = int(it.get("min_count") or dates_by_tid.get(tid, {}).get("min_count") or 0)
             info = dates_by_tid.get(tid) or {}
@@ -539,12 +548,12 @@ def get_latest_and_history(
                 # terminé -> ETA figée
                 # found_date est un 'date', on le normalise en 'datetime' pour la réponse
                 eta = datetime(done.year, done.month, done.day)  # 00:00 locale/UTC selon now()
-            elif start and cur >= 1 and min_c > 0:
+            elif start and current_count >= 1 and min_c > 0:
                 # progression -> extrapolation
                 # vitesse = (cur - 1) / jours écoulés depuis la 1ère trouvaille
                 elapsed_days = max((now_dt.date() - start.date()).days, 1)
-                speed = float(cur - 1) / float(elapsed_days)
-                remaining = max(0, min_c - cur)
+                speed = float(current_count - 1) / float(elapsed_days)
+                remaining = max(0, min_c - current_count)
                 if speed > 0.0 and remaining > 0:
                     eta_days = int(math.ceil(remaining / speed))
                     eta_date = now_dt.date() + timedelta(days=eta_days)
@@ -576,7 +585,7 @@ def get_latest_and_history(
     return res
 
 
-def evaluate_new_progress(
+async def evaluate_new_progress(
     user_id: ObjectId,
     *,
     include_pending: bool = False,
@@ -599,8 +608,8 @@ def evaluate_new_progress(
     Returns:
         dict: `{'evaluated_count': int, 'skipped_count': int, 'uc_ids': list[str]}`.
     """
-    ucs = get_collection("user_challenges")
-    progress = get_collection("progress")
+    ucs = await get_collection("user_challenges")
+    progress = await get_collection("progress")
 
     st = ["accepted"] + (["pending"] if include_pending else [])
     q: dict[str, Any] = {"user_id": user_id, "status": {"$in": st}}
@@ -608,21 +617,20 @@ def evaluate_new_progress(
         q["created_at"] = {"$gte": since}
 
     # candidates
-    cand = list(ucs.find(q, {"_id": 1}).sort([("_id", ASCENDING)]).limit(limit * 3))
+    cursor = ucs.find(q, {"_id": 1}).sort([("_id", ASCENDING)]).limit(limit * 3)
+    cand = await cursor.to_list(length=limit * 3)
     uc_ids = [c["_id"] for c in cand]
 
     # remove those already in progress
     if not uc_ids:
         return {"evaluated_count": 0, "skipped_count": 0, "uc_ids": []}
-    present = set(
-        d["user_challenge_id"]
-        for d in progress.find({"user_challenge_id": {"$in": uc_ids}}, {"user_challenge_id": 1})
-    )
+    cursor = progress.find({"user_challenge_id": {"$in": uc_ids}}, {"user_challenge_id": 1})
+    present = {d["user_challenge_id"] async for d in cursor}
     todo = [uc_id for uc_id in uc_ids if uc_id not in present][:limit]
 
     evaluated_ids: list[str] = []
     for uc_id in todo:
-        evaluate_progress(user_id, uc_id)
+        await evaluate_progress(user_id, uc_id)
         evaluated_ids.append(str(uc_id))
 
     return {

@@ -1,5 +1,6 @@
-from pathlib import Path
 import os
+from pathlib import Path
+
 
 def _default_backup_root() -> Path:
     # 1) Si env explicite, on le respecte
@@ -21,21 +22,22 @@ def _default_backup_root() -> Path:
     # └── backups/   (cible)
     return Path(__file__).resolve().parents[3] / "backups"
 
+
 # Configuration des backups
 BACKUP_ROOT_DIR = _default_backup_root()
 CLEANUP_BACKUP_DIR = BACKUP_ROOT_DIR / "db_cleanup"
 FULL_BACKUP_DIR = BACKUP_ROOT_DIR / "full_backup"
 
+
 def ensure_backup_dirs():
     """Crée les dossiers de backup si nécessaire"""
     CLEANUP_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
     FULL_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    
+
     # Vérifie les permissions
     if not os.access(CLEANUP_BACKUP_DIR, os.W_OK):
-        raise PermissionError(
-            f"Cannot write to backup directory: {CLEANUP_BACKUP_DIR}"
-        )
+        raise PermissionError(f"Cannot write to backup directory: {CLEANUP_BACKUP_DIR}")
+
 
 # Initialise au démarrage
 ensure_backup_dirs()

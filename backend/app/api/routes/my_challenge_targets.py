@@ -75,7 +75,7 @@ def _current_user_id(current_user: dict) -> ObjectId:
         "- Option `force` pour recalculer même si des targets existent"
     ),
 )
-def evaluate_targets(
+async def evaluate_targets(
     user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     limit_per_task: int = Query(500, ge=1, le=5000, description="Cap de calcul par tâche."),
@@ -121,7 +121,7 @@ def evaluate_targets(
     if include_geo_filter:
         # si lat/lon non fournis, tenter depuis le profil
         if lat is None or lon is None:
-            loc = user_location_get(user_id)
+            loc = await user_location_get(user_id)
             if not loc:
                 raise HTTPException(
                     status_code=422,
@@ -135,7 +135,7 @@ def evaluate_targets(
             )
         geo_ctx = {"lat": lat, "lon": lon, "radius_km": radius_km}
 
-    result = evaluate_targets_for_user_challenge(
+    result = await evaluate_targets_for_user_challenge(
         user_id=user_id,
         uc_id=uc_oid,
         limit_per_task=int(limit_per_task),
@@ -163,7 +163,7 @@ def evaluate_targets(
         "- Pagination `page`/`limit` (max 200)"
     ),
 )
-def list_targets_uc(
+async def list_targets_uc(
     user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     page: int = Query(1, ge=1, description="Numéro de page."),
@@ -185,7 +185,7 @@ def list_targets_uc(
         TargetListResponse: Items et pagination.
     """
     uc_oid = _as_objid(uc_id)
-    return list_targets_for_user_challenge(
+    return await list_targets_for_user_challenge(
         user_id=user_id, uc_id=uc_oid, page=page, page_size=page_size, sort=sort
     )
 
@@ -200,7 +200,7 @@ def list_targets_uc(
         "- Tri par défaut: `distance`"
     ),
 )
-def list_targets_uc_nearby(
+async def list_targets_uc_nearby(
     user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
     radius_km: float = Query(50.0, gt=0, description="Rayon de recherche (km)."),
@@ -237,7 +237,7 @@ def list_targets_uc_nearby(
     final_lon: float
 
     if lat is None or lon is None:
-        loc = user_location_get(user_id)
+        loc = await user_location_get(user_id)
         if not loc:
             raise HTTPException(
                 status_code=422,
@@ -248,7 +248,7 @@ def list_targets_uc_nearby(
         final_lat = lat
         final_lon = lon
 
-    return list_targets_nearby_for_user_challenge(
+    return await list_targets_nearby_for_user_challenge(
         user_id=user_id,
         uc_id=uc_oid,
         lat=final_lat,
@@ -275,7 +275,7 @@ def list_targets_uc_nearby(
         "- Tri (ex. `-score`, `distance`, `GC`)"
     ),
 )
-def list_targets_all(
+async def list_targets_all(
     user_id: CurrentUserId,
     status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
     page: int = Query(1, ge=1, description="Numéro de page."),
@@ -296,7 +296,7 @@ def list_targets_all(
     Returns:
         TargetListResponse: Items et pagination.
     """
-    return list_targets_for_user(
+    return await list_targets_for_user(
         user_id=user_id,
         status_filter=(status_filter or None),
         page=int(page),
@@ -315,7 +315,7 @@ def list_targets_all(
         "- Filtre de statut UC disponible (`status_filter`)"
     ),
 )
-def list_targets_all_nearby(
+async def list_targets_all_nearby(
     user_id: CurrentUserId,
     radius_km: float = Query(50.0, gt=0, description="Rayon (km)."),
     lat: float | None = Query(
@@ -350,7 +350,7 @@ def list_targets_all_nearby(
     final_lon: float
 
     if lat is None or lon is None:
-        loc = user_location_get(user_id)
+        loc = await user_location_get(user_id)
         if not loc:
             raise HTTPException(
                 status_code=422,
@@ -361,7 +361,7 @@ def list_targets_all_nearby(
         final_lat = lat
         final_lon = lon
 
-    return list_targets_nearby_for_user(
+    return await list_targets_nearby_for_user(
         user_id=user_id,
         lat=final_lat,
         lon=final_lon,
@@ -384,7 +384,7 @@ def list_targets_all_nearby(
     summary="Supprimer toutes les targets d’un UserChallenge",
     description="Efface toutes les targets associées au UserChallenge fourni.",
 )
-def clear_targets_uc(
+async def clear_targets_uc(
     user_id: CurrentUserId,
     uc_id: str = Path(..., description="Identifiant du UserChallenge."),
 ):
@@ -400,6 +400,6 @@ def clear_targets_uc(
         dict: Résultat `{ok, deleted}`.
     """
     uc_oid = _as_objid(uc_id)
-    result = delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_oid)
+    result = await delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_oid)
     # result attendu: {"ok": True, "deleted": n}
     return result

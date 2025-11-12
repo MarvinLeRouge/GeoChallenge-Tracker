@@ -3,13 +3,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
+from typing import Callable
+
 from app.core.settings import get_settings
-settings = get_settings()
 
 # Provider registry (can be extended later)
 from app.services.providers.elevation_opentopo import fetch as fetch_opentopo
 
-DEFAULT_PROVIDER = settings.elevation_provider
+settings = get_settings()
+
+
+DEFAULT_PROVIDER = (settings.elevation_provider or "").lower()
+_PROVIDERS: dict[str, Callable[[list[tuple[float, float]]], Awaitable[list[int | None]]]] = {
+    "opentopo": fetch_opentopo,
+    "opentopodata": fetch_opentopo,
+}
 
 
 async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
@@ -26,8 +35,10 @@ async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
     Returns:
         list[int | None]: Altitudes en mètres (ou `None` en cas d’indisponibilité/échec), alignées sur `points`.
     """
-    provider = DEFAULT_PROVIDER.lower()
-    if provider in ("opentopo", "opentopodata"):
-        return await fetch_opentopo(points)
-    # Fallback: no provider -> all None
-    return [None] * len(points)
+    if not DEFAULT_PROVIDER:
+        return [None] * len(points)
+    provider_fn = _PROVIDERS.get(DEFAULT_PROVIDER)
+    if not provider_fn:
+        # selon ta préférence: raise HTTPException(422, ...) si appelé depuis une route
+        return [None] * len(points)
+    return await provider_fn(points)

@@ -29,7 +29,7 @@ from app.db.mongodb import get_collection
 CHALLENGE_ATTRIBUTE_ID = 71
 
 
-def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectId:
+async def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectId:
     """Résoudre l’_id référentiel de l’attribut « challenge ».
 
     Description:
@@ -45,8 +45,8 @@ def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectI
     Raises:
         RuntimeError: Si aucun attribut correspondant n’est trouvé (référentiels non seedés).
     """
-    attr_coll = get_collection("cache_attributes")
-    doc = attr_coll.find_one({"cache_attribute_id": attribute_id}, {"_id": 1})
+    coll_attrs = await get_collection("cache_attributes")
+    doc = await coll_attrs.find_one({"cache_attribute_id": attribute_id}, {"_id": 1})
     if not doc:
         raise RuntimeError(
             f"cache_attributes: aucun document avec cache_attribute_id={attribute_id}. "
@@ -55,7 +55,7 @@ def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectI
     return doc["_id"]
 
 
-def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
+async def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
     """Lister globalement les caches challenge non encore présentes dans `challenges`.
 
     Description:
@@ -70,8 +70,8 @@ def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
     Returns:
         Iterable[dict]: Curseur d’agrégation sur les caches candidates.
     """
-    caches = get_collection("caches")
-    pipeline = [
+    coll_caches = await get_collection("caches")
+    pipeline: list[dict[str, Any]] = [
         {
             "$match": {
                 "attributes": {
@@ -93,10 +93,12 @@ def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
         {"$match": {"$expr": {"$eq": [{"$size": "$existing"}, 0]}}},
         {"$project": {"title": 1, "description_html": 1}},
     ]
-    return caches.aggregate(pipeline, allowDiskUse=True)
+    return coll_caches.aggregate(pipeline, allowDiskUse=True)
 
 
-def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Iterable[ObjectId]):
+async def _iter_new_challenge_caches_subset(
+    attribute_doc_id: ObjectId, cache_ids: Iterable[ObjectId]
+):
     """Lister un sous-ensemble de caches challenge à partir d’_id fournis.
 
     Description:
@@ -110,15 +112,15 @@ def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Ite
     Returns:
         Iterable[dict]: Curseur de recherche sur les caches candidates (projection légère).
     """
-    caches = get_collection("caches")
-    challenges = get_collection("challenges")
+    coll_caches = await get_collection("caches")
+    coll_challenges = await get_collection("challenges")
 
     cache_ids = list(cache_ids)
     if not cache_ids:
         return iter(())
 
     # Déjà connus (uniquement dans ce sous-ensemble)
-    known_ids = set(challenges.distinct("cache_id", {"cache_id": {"$in": cache_ids}}))
+    known_ids = set(await coll_challenges.distinct("cache_id", {"cache_id": {"$in": cache_ids}}))
 
     base_filter: dict[str, Any] = {
         "_id": {"$in": [cid for cid in cache_ids if cid not in known_ids]},
@@ -130,10 +132,12 @@ def _iter_new_challenge_caches_subset(attribute_doc_id: ObjectId, cache_ids: Ite
         },
     }
     projection = {"title": 1, "description_html": 1}
-    return caches.find(base_filter, projection)
+    return coll_caches.find(base_filter, projection)
 
 
-def create_challenges_from_caches(*, cache_ids: Iterable[ObjectId] | None = None) -> dict[str, Any]:
+async def create_challenges_from_caches(
+    *, cache_ids: Iterable[ObjectId] | None = None
+) -> dict[str, Any]:
     """Créer (upsert) les challenges à partir des caches « challenge ».
 
     Description:
@@ -148,18 +152,18 @@ def create_challenges_from_caches(*, cache_ids: Iterable[ObjectId] | None = None
     Returns:
         dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}`.
     """
-    attr_doc_id = _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
+    attr_doc_id = await _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
 
     if cache_ids is None:
-        cursor = _iter_new_challenge_caches_all(attr_doc_id)
+        cursor = await _iter_new_challenge_caches_all(attr_doc_id)
     else:
-        cursor = _iter_new_challenge_caches_subset(attr_doc_id, cache_ids)
+        cursor = await _iter_new_challenge_caches_subset(attr_doc_id, cache_ids)
 
-    challenges = get_collection("challenges")
+    coll_challenges = await get_collection("challenges")
 
     ops: list[UpdateOne] = []
     matched = 0
-    for cache in cursor:
+    async for cache in cursor:
         matched += 1
         cache_id = cache["_id"]
         title = cache.get("title") or "Challenge"
@@ -185,8 +189,8 @@ def create_challenges_from_caches(*, cache_ids: Iterable[ObjectId] | None = None
 
     created = 0
     if ops:
-        res = challenges.bulk_write(ops, ordered=False)
-        created = len(res.upserted_ids) if getattr(res, "upserted_ids", None) else 0
+        res = await coll_challenges.bulk_write(ops, ordered=False)
+        created = len(res.upserted_ids or {})
 
     skipped_existing = matched - created
     return {
@@ -196,7 +200,7 @@ def create_challenges_from_caches(*, cache_ids: Iterable[ObjectId] | None = None
     }
 
 
-def create_new_challenges_from_caches(
+async def create_new_challenges_from_caches(
     *, cache_ids: Iterable[ObjectId] | None = None
 ) -> dict[str, Any]:
     """Wrapper : déterminer explicitement les nouveaux `_id` avant création.
@@ -212,29 +216,29 @@ def create_new_challenges_from_caches(
     Returns:
         dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}` (zéro si rien à créer).
     """
-    attr_doc_id = _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
-    caches = get_collection("caches")
-    challenges = get_collection("challenges")
+    attr_doc_id = await _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
+    coll_caches = await get_collection("caches")
+    coll_challenges = await get_collection("challenges")
 
     if cache_ids is not None:
         subset = list(cache_ids)
         if not subset:
             return {"matched": 0, "created": 0, "skipped_existing": 0}
-        known = set(challenges.distinct("cache_id", {"cache_id": {"$in": subset}}))
+        known = set(await coll_challenges.distinct("cache_id", {"cache_id": {"$in": subset}}))
         new_ids = [cid for cid in subset if cid not in known]
         if not new_ids:
             return {"matched": 0, "created": 0, "skipped_existing": 0}
-        return create_challenges_from_caches(cache_ids=new_ids)
+        return await create_challenges_from_caches(cache_ids=new_ids)
 
-    candidate_ids = caches.distinct(
+    candidate_ids = await coll_caches.distinct(
         "_id",
         {"attributes": {"$elemMatch": {"attribute_doc_id": attr_doc_id, "is_positive": True}}},
     )
     if not candidate_ids:
         return {"matched": 0, "created": 0, "skipped_existing": 0}
 
-    known = set(challenges.distinct("cache_id", {"cache_id": {"$in": candidate_ids}}))
+    known = set(await coll_challenges.distinct("cache_id", {"cache_id": {"$in": candidate_ids}}))
     new_ids = [cid for cid in candidate_ids if cid not in known]
     if not new_ids:
         return {"matched": 0, "created": 0, "skipped_existing": 0}
-    return create_challenges_from_caches(cache_ids=new_ids)
+    return await create_challenges_from_caches(cache_ids=new_ids)

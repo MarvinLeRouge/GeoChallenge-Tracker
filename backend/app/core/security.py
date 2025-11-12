@@ -14,10 +14,11 @@ from passlib.context import CryptContext
 
 from app.core.bson_utils import PyObjectId
 from app.core.settings import get_settings
-settings = get_settings()
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.models.user import User
+
+settings = get_settings()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
@@ -99,7 +100,7 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
     return encoded_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     """Dépendance FastAPI: charge l’utilisateur courant depuis le JWT.
 
     Description:
@@ -116,7 +117,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     Raises:
         HTTPException: 401 si jeton invalide/inexistant ou utilisateur introuvable.
     """
-    users_collection = get_collection("users")
+    coll_users = await get_collection("users")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -132,7 +133,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     except JWTError as e:
         raise credentials_exception from e
 
-    raw_user = users_collection.find_one({"_id": ObjectId(user_id)})
+    raw_user = await coll_users.find_one({"_id": ObjectId(user_id)})
     if raw_user is None:
         raise credentials_exception
 
@@ -179,7 +180,6 @@ def validate_password_strength(password: str) -> bool:
         or not re.search(r"[0-9]", password)
         or not re.search(r"[\W_]", password)
     ):  # caractère spécial
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 8 characters and include uppercase, lowercase, number, and special character.",

@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Any, Literal
 import math
+from typing import Annotated, Any, Literal
 
 from bson import ObjectId
 from fastapi import (
@@ -28,10 +28,11 @@ from pymongo import ASCENDING, DESCENDING
 from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
 from app.core.settings import get_settings
-settings = get_settings()
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
 from app.services.gpx_importer import import_gpx_payload
+
+settings = get_settings()
 
 router = APIRouter(prefix="/caches", tags=["caches"], dependencies=[Depends(get_current_user)])
 
@@ -249,7 +250,7 @@ async def upload_gpx(
 
     try:
         # Variante simple (scan global optimisé: ne traite que les nouvelles caches challenge)
-        challenges_stats = create_new_challenges_from_caches()
+        challenges_stats = await create_new_challenges_from_caches()
         # Variante optimisée si tu as la liste des _id caches importées :
         # challenge_stats = create_new_challenges_from_caches(cache_ids=upserted_cache_ids)
     except Exception as e:
@@ -271,7 +272,7 @@ async def upload_gpx(
         "- BBox optionnelle et tri (-placed_at, -favorites, difficulty, terrain)"
     ),
 )
-def by_filter(
+async def by_filter(
     payload: Annotated[
         CacheFilterIn,
         Body(
@@ -304,7 +305,7 @@ def by_filter(
     Returns:
         dict: Résultats paginés `{items, total, page, page_size}`.
     """
-    coll = get_collection("caches")
+    coll = await get_collection("caches")
     q: dict[str, Any] = {}
 
     if payload.q:
@@ -388,21 +389,19 @@ def by_filter(
             {"$limit": page_size},
             *_compact_lookups_and_project(),
         ]
-        cur = coll.aggregate(pipeline)
-        docs = [_doc(d) for d in cur]
+        docs = [_doc(d) async for d in coll.aggregate(pipeline)]
     else:
-        cur = coll.find(q).sort(sort).skip(skip).limit(page_size)
-        docs = [_doc(d) for d in cur]
+        docs = [_doc(d) async for d in coll.find(q).sort(sort).skip(skip).limit(page_size)]
 
-    total = coll.count_documents(q)
+    total = await coll.count_documents(q)
     nb_pages = math.ceil(total / page_size)
 
     return {
-        "items": docs, 
-        "total": total, 
-        "page": page, 
+        "items": docs,
+        "total": total,
+        "page": page,
         "nb_pages": nb_pages,
-        "page_size": page_size
+        "page_size": page_size,
     }
 
 
@@ -416,7 +415,7 @@ def by_filter(
         "- Pagination avec `page` et `page_size` (max 200)"
     ),
 )
-def within_bbox(
+async def within_bbox(
     min_lat: float = Query(..., description="Latitude minimale de la BBox."),
     min_lon: float = Query(..., description="Longitude minimale de la BBox."),
     max_lat: float = Query(..., description="Latitude maximale de la BBox."),
@@ -458,7 +457,7 @@ def within_bbox(
     Returns:
         dict: Résultats paginés `{items, total, page, page_size}`.
     """
-    coll = get_collection("caches")
+    coll = await get_collection("caches")
     q: dict[str, Any] = {
         "lat": {"$gte": min_lat, "$lte": max_lat},
         "lon": {"$gte": min_lon, "$lte": max_lon},
@@ -488,21 +487,19 @@ def within_bbox(
             {"$limit": page_size},
             *_compact_lookups_and_project(),
         ]
-        cur = coll.aggregate(pipeline)
-        docs = [_doc(d) for d in cur]
+        docs = [_doc(d) async for d in coll.aggregate(pipeline)]
     else:
-        cur = coll.find(q).sort(order).skip(skip).limit(page_size)
-        docs = [_doc(d) for d in cur]
+        docs = [_doc(d) async for d in (coll.find(q).sort(order).skip(skip).limit(page_size))]
 
-    total = coll.count_documents(q)
+    total = await coll.count_documents(q)
     nb_pages = math.ceil(total / page_size)
 
     return {
-        "items": docs, 
-        "total": total, 
-        "page": page, 
+        "items": docs,
+        "total": total,
+        "page": page,
         "nb_pages": nb_pages,
-        "page_size": page_size
+        "page_size": page_size,
     }
 
 
@@ -516,7 +513,7 @@ def within_bbox(
         "- Pagination via `page`/`page_size` (max 200)"
     ),
 )
-def within_radius(
+async def within_radius(
     lat: float = Query(..., description="Latitude du centre."),
     lon: float = Query(..., description="Longitude du centre."),
     radius_km: float = Query(
@@ -559,7 +556,7 @@ def within_radius(
     Raises:
         HTTPException: 400 si l’index `2dsphere` requis sur `caches.loc` est manquant.
     """
-    coll = get_collection("caches")
+    coll = await get_collection("caches")
     geo = {"type": "Point", "coordinates": [lon, lat]}
     q: dict[str, Any] = {}
     if type_id:
@@ -571,7 +568,7 @@ def within_radius(
     page = max(1, page)
     skip = (page - 1) * page_size
 
-    pipeline = [
+    pipeline: list[dict[str, Any]] = [
         {
             "$geoNear": {
                 "near": geo,
@@ -590,14 +587,14 @@ def within_radius(
 
     try:
         cur = coll.aggregate(pipeline)
+        docs = [_doc(d) async for d in cur]
     except Exception as e:
         raise HTTPException(
             status_code=400, detail=f"2dsphere index required on caches.loc: {e}"
         ) from e
-    docs = [_doc(d) for d in cur]
     # count with same query (rough, not exact geo count but OK for paging UI)
     radius_radians = radius_km / 6378.1  # rayon de la Terre en km
-    total = coll.count_documents(
+    total = await coll.count_documents(
         {"loc": {"$geoWithin": {"$centerSphere": [[lon, lat], radius_radians]}}, **q}
     )
     nb_pages = math.ceil(total / page_size)
@@ -606,7 +603,7 @@ def within_radius(
         "total": total,
         "page": page,
         "nb_pages": nb_pages,
-        "page_size": page_size
+        "page_size": page_size,
     }
 
 
@@ -615,7 +612,7 @@ def within_radius(
     summary="Récupère une cache par code GC",
     description="Retourne une cache unique à partir de son code GC.",
 )
-def get_by_gc(
+async def get_by_gc(
     gc: str = Path(..., description="Code GC unique de la cache."),
 ):
     """Lecture d’une cache (code GC).
@@ -630,8 +627,8 @@ def get_by_gc(
         dict: Document cache sérialisé.
     """
 
-    coll = get_collection("caches")
-    cur = coll.aggregate(
+    coll = await get_collection("caches")
+    cur = await coll.aggregate(
         [
             {"$match": {"GC": gc}},
             {
@@ -664,7 +661,7 @@ def get_by_gc(
             },
             {"$limit": 1},
         ]
-    )
+    ).to_list(length=None)
     doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
@@ -676,7 +673,7 @@ def get_by_gc(
     summary="Récupère une cache par identifiant MongoDB",
     description="Retourne une cache unique à partir de son ObjectId (format chaîne).",
 )
-def get_by_id(
+async def get_by_id(
     id: str = Path(
         ..., description="Identifiant MongoDB (ObjectId) de la cache, au format chaîne."
     ),
@@ -693,9 +690,9 @@ def get_by_id(
     Returns:
         dict: Document cache sérialisé.
     """
-    coll = get_collection("caches")
+    coll = await get_collection("caches")
     oid = _oid(id)
-    cur = coll.aggregate(
+    cur = await coll.aggregate(
         [
             {"$match": {"_id": oid}},
             {
@@ -728,7 +725,7 @@ def get_by_id(
             },
             {"$limit": 1},
         ]
-    )
+    ).to_list(length=None)
     doc = next(iter(cur), None)
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")

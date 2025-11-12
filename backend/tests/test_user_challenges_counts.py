@@ -10,37 +10,38 @@ EXPECTED_COMPLETED = 90
 
 
 @pytest.fixture(scope="module")
-def admin_user_id():
-    user = get_collection("users").find_one({"role": ADMIN_ROLE}, {"_id": 1})
+async def admin_user_id():
+    coll_users = await get_collection("users")
+    user = await coll_users.find_one({"role": ADMIN_ROLE}, {"_id": 1})
     if not user:
         pytest.skip("No admin user found in DB.")
     return user["_id"]
 
 
-def _counts(user_id: ObjectId):
-    uc = get_collection("user_challenges")
-    total = uc.count_documents({"user_id": user_id})
-    completed = uc.count_documents(
+async def _counts(user_id: ObjectId):
+    coll_uc = await get_collection("user_challenges")
+    total = await coll_uc.count_documents({"user_id": user_id})
+    completed = await coll_uc.count_documents(
         {
             "user_id": user_id,
             "$or": [{"status": "completed"}, {"computed_status": "completed"}],
         }
     )
-    accepted = uc.count_documents(
+    accepted = await coll_uc.count_documents(
         {
             "user_id": user_id,
             "status": "accepted",
             "computed_status": {"$ne": "completed"},
         }
     )
-    dismissed = uc.count_documents(
+    dismissed = await coll_uc.count_documents(
         {
             "user_id": user_id,
             "status": "dismissed",
             "computed_status": {"$ne": "completed"},
         }
     )
-    pending = uc.count_documents(
+    pending = await coll_uc.count_documents(
         {
             "user_id": user_id,
             "status": {"$nin": ["accepted", "dismissed", "completed"]},
@@ -56,9 +57,9 @@ def _counts(user_id: ObjectId):
     }
 
 
-def _pick_pending(user_id: ObjectId, n: int):
-    uc = get_collection("user_challenges")
-    cursor = uc.find(
+async def _pick_pending(user_id: ObjectId, n: int):
+    coll_uc = await get_collection("user_challenges")
+    cursor = coll_uc.find(
         {
             "user_id": user_id,
             "status": {"$nin": ["accepted", "dismissed", "completed"]},
@@ -76,7 +77,7 @@ def _pick_pending(user_id: ObjectId, n: int):
             "updated_at": 1,
         },
     ).limit(n)
-    docs = list(cursor)
+    docs = await cursor.to_list(length=None)
     return docs
 
 
@@ -100,12 +101,12 @@ def test_effective_status_counts_and_revert(admin_user_id, saved_docs):
 
     # 1) Sanity: initial counts match expectations
     initial = _counts(user_id)
-    assert (
-        initial["total"] == EXPECTED_TOTAL
-    ), f"Expected total={EXPECTED_TOTAL}, got {initial['total']}"
-    assert (
-        initial["completed"] == EXPECTED_COMPLETED
-    ), f"Expected completed={EXPECTED_COMPLETED}, got {initial['completed']}"
+    assert initial["total"] == EXPECTED_TOTAL, (
+        f"Expected total={EXPECTED_TOTAL}, got {initial['total']}"
+    )
+    assert initial["completed"] == EXPECTED_COMPLETED, (
+        f"Expected completed={EXPECTED_COMPLETED}, got {initial['completed']}"
+    )
 
     # 2) Pick pending UCs to modify
     needed = 6
@@ -150,6 +151,6 @@ def test_effective_status_counts_and_revert(admin_user_id, saved_docs):
 
     # Pending is the complement (effective)
     expected_pending = initial["pending"] - (len(to_dismiss) + len(to_accept) + len(to_complete))
-    assert (
-        after["pending"] == expected_pending
-    ), f"Expected pending={expected_pending}, got {after['pending']}"
+    assert after["pending"] == expected_pending, (
+        f"Expected pending={expected_pending}, got {after['pending']}"
+    )

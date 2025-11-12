@@ -477,7 +477,7 @@ def _legacy_fixup_expression(exp: Any) -> Any:
     return _fix(exp)
 
 
-def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> list[dict[str, Any]]:
+async def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> list[dict[str, Any]]:
     """Lister les tâches d’un UC (déjà canoniques pour l’API).
 
     Description:
@@ -491,11 +491,11 @@ def list_tasks(user_id: ObjectId, uc_id: ObjectId) -> list[dict[str, Any]]:
     Returns:
         list[dict]: Tâches prêtes pour `TaskOut`.
     """
-    coll = get_collection("user_challenge_tasks")
+    coll = await get_collection("user_challenge_tasks")
     cur = coll.find({"user_challenge_id": uc_id}, sort=[("order", 1), ("_id", 1)])
 
     tasks: list[dict[str, Any]] = []
-    for d in cur:
+    async for d in cur:
         # title est requis côté TaskOut -> fallback si absent
         title = d.get("title") or "Untitled task"
         exp = d.get("expression")
@@ -575,7 +575,7 @@ def validate_only(
         return {"ok": False, "errors": [_mk_err(idx, field, code, s)]}
 
 
-def put_tasks(
+async def put_tasks(
     user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Remplacer toutes les tâches d’un UC (canonisation + insert).
@@ -595,15 +595,15 @@ def put_tasks(
     # Validate first (raises on error)
     _validate_tasks_payload(user_id, uc_id, tasks_payload)
 
-    coll = get_collection("user_challenge_tasks")
-    coll.delete_many({"user_challenge_id": uc_id})
+    coll = await get_collection("user_challenge_tasks")
+    await coll.delete_many({"user_challenge_id": uc_id})
 
     to_insert = []
     now = utcnow()
     for i, item in enumerate(tasks_payload):
         _maybe_id = item.get("id") or item.get("_id")
         doc_id = ObjectId(str(_maybe_id)) if _maybe_id else ObjectId()
-        title = item.get("title") or f"Task #{i+1}"
+        title = item.get("title") or f"Task #{i + 1}"
 
         # NEW: canonicalize expression for storage
         expr_pre = preprocess_expression_default_and(item["expression"])
@@ -628,12 +628,12 @@ def put_tasks(
         to_insert.append(doc)
 
     if to_insert:
-        coll.insert_many(to_insert, ordered=True)
+        await coll.insert_many(to_insert, ordered=True)
 
     # read-back (already canonical)
     cur = coll.find({"user_challenge_id": uc_id}).sort([("order", 1), ("_id", 1)])
     items: list[dict[str, Any]] = []
-    for d in cur:
+    async for d in cur:
         items.append(
             {
                 "id": d["_id"],
