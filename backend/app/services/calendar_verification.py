@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Optional, Dict, List, Tuple
 from pymongo.database import Database
 from bson import ObjectId
+from bson.errors import InvalidId
 
 from app.models.calendar_verification import CalendarResult, CalendarFilters
 
@@ -37,32 +38,54 @@ class CalendarVerificationService:
         cache_size_id = None
         
         if filters.cache_type_name:
-            # Search by name OR code (case insensitive)
-            cache_type = await self.db.cache_types.find_one({
-                "$or": [
-                    {"name": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}},
-                    {"code": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}}
-                ]
-            })
-            if cache_type:
-                cache_type_id = cache_type["_id"]
-            else:
-                # Cache type name/code not found - return empty result
-                return self._empty_calendar_result(filters)
+            # Check if it's a valid ObjectId first
+            try:
+                potential_id = ObjectId(filters.cache_type_name)
+                # Verify the ObjectId exists in cache_types
+                cache_type = await self.db.cache_types.find_one({"_id": potential_id})
+                if cache_type:
+                    cache_type_id = potential_id
+                else:
+                    # ObjectId not found - return empty result
+                    return self._empty_calendar_result(filters)
+            except InvalidId:
+                # Not a valid ObjectId, search by name OR code (case insensitive)
+                cache_type = await self.db.cache_types.find_one({
+                    "$or": [
+                        {"name": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}},
+                        {"code": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}}
+                    ]
+                })
+                if cache_type:
+                    cache_type_id = cache_type["_id"]
+                else:
+                    # Cache type name/code not found - return empty result
+                    return self._empty_calendar_result(filters)
         
         if filters.cache_size_name:
-            # Search by name OR code (case insensitive)
-            cache_size = await self.db.cache_sizes.find_one({
-                "$or": [
-                    {"name": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
-                    {"code": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}}
-                ]
-            })
-            if cache_size:
-                cache_size_id = cache_size["_id"]
-            else:
-                # Cache size name/code not found - return empty result
-                return self._empty_calendar_result(filters)
+            # Check if it's a valid ObjectId first
+            try:
+                potential_id = ObjectId(filters.cache_size_name)
+                # Verify the ObjectId exists in cache_sizes
+                cache_size = await self.db.cache_sizes.find_one({"_id": potential_id})
+                if cache_size:
+                    cache_size_id = potential_id
+                else:
+                    # ObjectId not found - return empty result
+                    return self._empty_calendar_result(filters)
+            except InvalidId:
+                # Not a valid ObjectId, search by name OR code (case insensitive)
+                cache_size = await self.db.cache_sizes.find_one({
+                    "$or": [
+                        {"name": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
+                        {"code": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}}
+                    ]
+                })
+                if cache_size:
+                    cache_size_id = cache_size["_id"]
+                else:
+                    # Cache size name/code not found - return empty result
+                    return self._empty_calendar_result(filters)
         
         # Add cache filters if resolved
         cache_filter = {}
