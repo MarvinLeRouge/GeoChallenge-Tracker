@@ -161,20 +161,20 @@ const sortedCacheSizes = computed(() => {
 async function fetchCacheTypes() {
   try {
     const response = await api.get('/cache_types')
-    console.log('Cache types response:', response.data)
     cacheTypes.value = response.data
   } catch (e: any) {
     console.error('Erreur chargement types:', e)
+    error.value = `Erreur chargement types: ${e.message}`
   }
 }
 
 async function fetchCacheSizes() {
   try {
     const response = await api.get('/cache_sizes')
-    console.log('Cache sizes response:', response.data)
     cacheSizes.value = response.data
   } catch (e: any) {
     console.error('Erreur chargement tailles:', e)
+    error.value = `Erreur chargement tailles: ${e.message}`
   }
 }
 
@@ -194,11 +194,6 @@ async function fetchMatrix() {
     const response = await api.get(`/my/challenges/basics/matrix?${params}`)
     console.log('Matrix API response:', response.data)
     matrixResult.value = response.data
-    
-    if (response.data?.matrix) {
-      console.log('Matrix data structure:', Object.keys(response.data.matrix))
-      console.log('First matrix entry:', response.data.matrix[Object.keys(response.data.matrix)[0]])
-    }
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Erreur lors du chargement de la matrice'
   } finally {
@@ -207,14 +202,8 @@ async function fetchMatrix() {
 }
 
 function getMatrixValue(difficulty: string, terrain: string): number {
-  if (!matrixResult.value?.matrix) {
-    console.log('No matrix data available')
-    return 0
-  }
-  
-  const value = matrixResult.value.matrix[difficulty]?.[terrain] || 0
-  console.log(`Matrix value for ${difficulty}/${terrain}:`, value)
-  return value
+  if (!matrixResult.value?.matrix) return 0
+  return matrixResult.value.matrix[difficulty]?.[terrain] || 0
 }
 
 function getCellClass(difficulty: string, terrain: string): string {
