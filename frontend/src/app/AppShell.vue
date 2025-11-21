@@ -249,6 +249,30 @@
                     <span>Mes challenges</span>
                   </RouterLink>
                 </li>
+                <li>
+                  <RouterLink
+                    to="/my/challenges/basics/matrix"
+                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
+                  >
+                    <Target
+                      class="w-5 h-5 shrink-0 text-gray-700"
+                      aria-hidden="true"
+                    />
+                    <span>Matrix D/T</span>
+                  </RouterLink>
+                </li>
+                <li>
+                  <RouterLink
+                    to="/my/challenges/basics/calendar"
+                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
+                  >
+                    <DocumentTextIcon
+                      class="w-5 h-5 shrink-0 text-gray-700"
+                      aria-hidden="true"
+                    />
+                    <span>Calendar 365</span>
+                  </RouterLink>
+                </li>
               </ul>
             </div>
 
