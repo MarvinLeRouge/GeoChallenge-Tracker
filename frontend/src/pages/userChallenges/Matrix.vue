@@ -202,8 +202,17 @@ async function fetchMatrix() {
 }
 
 function getMatrixValue(difficulty: string, terrain: string): number {
-  if (!matrixResult.value?.matrix) return 0
-  return matrixResult.value.matrix[difficulty]?.[terrain] || 0
+  if (!matrixResult.value?.completed_combinations_details) return 0
+  
+  const diff = parseFloat(difficulty)
+  const terr = parseFloat(terrain)
+  
+  // Find the combination in completed_combinations_details
+  const combination = matrixResult.value.completed_combinations_details.find(
+    combo => combo.difficulty === diff && combo.terrain === terr
+  )
+  
+  return combination ? combination.count : 0
 }
 
 function getCellClass(difficulty: string, terrain: string): string {

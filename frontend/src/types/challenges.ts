@@ -18,12 +18,21 @@ export interface CacheSize {
 
 /** Résultat de vérification Matrix D/T */
 export interface MatrixResult {
+  total_combinations: number
   completed_combinations: number
-  matrix: { [difficulty: string]: { [terrain: string]: number } }
-  filters: {
-    cache_type_name?: string
-    cache_size_name?: string
-  }
+  completion_rate: number
+  missing_combinations: Array<{
+    difficulty: number
+    terrain: number
+  }>
+  missing_combinations_by_difficulty: { [difficulty: string]: Array<{ terrain: number }> }
+  completed_combinations_details: Array<{
+    difficulty: number
+    terrain: number
+    count: number
+  }>
+  cache_type_filter?: string
+  cache_size_filter?: string
 }
 
 /** Résultat de vérification Calendar */
