@@ -262,20 +262,20 @@ function getCompletedDaysInMonth(month: number): number {
 async function fetchCacheTypes() {
   try {
     const response = await api.get('/cache_types')
-    console.log('Cache types response:', response.data)
     cacheTypes.value = response.data
   } catch (e: any) {
     console.error('Erreur chargement types:', e)
+    error.value = `Erreur chargement types: ${e.message}`
   }
 }
 
 async function fetchCacheSizes() {
   try {
     const response = await api.get('/cache_sizes')
-    console.log('Cache sizes response:', response.data)
     cacheSizes.value = response.data
   } catch (e: any) {
     console.error('Erreur chargement tailles:', e)
+    error.value = `Erreur chargement tailles: ${e.message}`
   }
 }
 
