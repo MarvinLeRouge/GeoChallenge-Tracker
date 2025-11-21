@@ -63,22 +63,6 @@ TYPE_COLLECTION = "cache_types"
 SIZE_COLLECTION = "cache_sizes"
 
 
-@router.get("/cache_types", summary="Get all cache types")
-async def get_cache_types():
-    """Get all available cache types."""
-    cache_types_coll = await get_collection(TYPE_COLLECTION)
-    cache_types = await cache_types_coll.find({}).to_list(length=None)
-    return cache_types
-
-
-@router.get("/cache_sizes", summary="Get all cache sizes") 
-async def get_cache_sizes():
-    """Get all available cache sizes."""
-    cache_sizes_coll = await get_collection(SIZE_COLLECTION)
-    cache_sizes = await cache_sizes_coll.find({}).to_list(length=None)
-    return cache_sizes
-
-
 TYPE_LABEL_FIELD = "name"
 TYPE_CODE_FIELD = "code"
 SIZE_LABEL_FIELD = "name"
