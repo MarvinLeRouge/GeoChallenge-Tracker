@@ -213,12 +213,14 @@ function getDaysInMonth(month: number): number {
 
 function isCompletedDay(month: number, day: number): boolean {
   if (!calendarResult.value) return false
-  return calendarResult.value.completed_days.some(d => d.month === month && d.day === day)
+  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+  return calendarResult.value.completed_days.some(d => d.day === dayStr)
 }
 
 function getDayCount(month: number, day: number): number {
   if (!calendarResult.value) return 0
-  const dayData = calendarResult.value.completed_days.find(d => d.month === month && d.day === day)
+  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+  const dayData = calendarResult.value.completed_days.find(d => d.day === dayStr)
   return dayData?.count || 0
 }
 
@@ -245,18 +247,22 @@ function getDayTitle(month: number, day: number): string {
 
 function isMissingDay(month: number, day: number): boolean {
   if (!calendarResult.value) return false
-  const missingDays = calendarResult.value.missing_days_by_month[month]
-  return missingDays?.includes(day) || false
+  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
+  const monthStr = month.toString().padStart(2, '0')
+  const missingDays = calendarResult.value.missing_days_by_month[monthStr]
+  return missingDays?.includes(dayStr) || false
 }
 
 function getMissingDaysCount(month: number): number {
   if (!calendarResult.value) return 0
-  return calendarResult.value.missing_days_by_month[month]?.length || 0
+  const monthStr = month.toString().padStart(2, '0')
+  return calendarResult.value.missing_days_by_month[monthStr]?.length || 0
 }
 
 function getCompletedDaysInMonth(month: number): number {
   if (!calendarResult.value) return 0
-  return calendarResult.value.completed_days.filter(d => d.month === month).length
+  const monthStr = month.toString().padStart(2, '0')
+  return calendarResult.value.completed_days.filter(d => d.day.startsWith(monthStr)).length
 }
 
 async function fetchCacheTypes() {
@@ -293,6 +299,7 @@ async function fetchCalendar() {
     }
     
     const response = await api.get(`/my/challenges/basics/calendar?${params}`)
+    console.log('Calendar API response:', response.data)
     calendarResult.value = response.data
   } catch (e: any) {
     error.value = e?.response?.data?.detail || e?.message || 'Erreur lors du chargement du calendrier'
