@@ -11,18 +11,22 @@ from pydantic import BaseModel, Field
 
 from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
+from app.db.mongodb import db
 from app.models.user_challenge_dto import (
     DetailResponse,
     PatchResponse,
     PatchUCIn,
     UserChallengeListResponse,
 )
+from app.models.calendar_verification import CalendarResult, CalendarFilters, MatrixResult, MatrixFilters
 from app.services.user_challenges import (
     get_user_challenge_detail,
     list_user_challenges,
     patch_user_challenge,
     sync_user_challenges,
 )
+from app.services.calendar_verification import CalendarVerificationService
+from app.services.matrix_verification import MatrixVerificationService
 
 router = APIRouter(
     prefix="/my/challenges",
@@ -250,3 +254,69 @@ async def patch_uc(
     if not doc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return doc
+
+
+@router.get(
+    "/basics/calendar",
+    response_model=CalendarResult,
+    summary="Verify user's calendar completion",
+)
+async def verify_calendar(
+    user_id: CurrentUserId,
+    cache_type: str | None = Query(None, description="Optional cache type name filter"),
+    cache_size: str | None = Query(None, description="Optional cache size name filter"),
+) -> CalendarResult:
+    """
+    Verify if the current user has completed the calendar challenge.
+    
+    Returns completion status for both 365-day and 366-day scenarios.
+    Optional filtering by cache type and/or cache size.
+    
+    Args:
+        user_id: Current user ID (from JWT token).
+        cache_type: Optional cache type name for filtering.
+        cache_size: Optional cache size name for filtering.
+        
+    Returns:
+        CalendarResult: Calendar completion status and details.
+    """
+    filters = CalendarFilters(
+        cache_type_name=cache_type,
+        cache_size_name=cache_size
+    )
+    
+    service = CalendarVerificationService(db)
+    return await service.verify_user_calendar(str(user_id), filters)
+
+
+@router.get(
+    "/basics/matrix",
+    response_model=MatrixResult,
+    summary="Verify user's D/T matrix completion",
+)
+async def verify_matrix(
+    user_id: CurrentUserId,
+    cache_type: str | None = Query(None, description="Optional cache type name filter"),
+    cache_size: str | None = Query(None, description="Optional cache size name filter"),
+) -> MatrixResult:
+    """
+    Verify if the current user has completed the D/T matrix challenge.
+    
+    Returns completion status for 9x9 matrix (difficulty 1.0-5.0 × terrain 1.0-5.0 by 0.5).
+    Optional filtering by cache type and/or cache size.
+    
+    Args:
+        user_id: Current user ID (from JWT token).
+        cache_type: Optional cache type name for filtering.
+        cache_size: Optional cache size name for filtering.
+        
+    Returns:
+        MatrixResult: D/T matrix completion status and details.
+    """
+    filters = MatrixFilters(
+        cache_type_name=cache_type,
+        cache_size_name=cache_size
+    )
+    
+    service = MatrixVerificationService(db)
+    return await service.verify_user_matrix(str(user_id), filters)

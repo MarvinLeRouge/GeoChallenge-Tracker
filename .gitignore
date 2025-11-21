@@ -87,3 +87,8 @@ frontend/coverage/index.html
 backups/
 !backups/.gitkeep
 !backups/**/.gitkeep
+
+# Documentation
+documentation/prompt-*
+documentation/*.txt
+
