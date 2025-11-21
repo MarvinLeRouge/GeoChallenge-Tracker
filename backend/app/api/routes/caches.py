@@ -61,6 +61,22 @@ def _oid(v: str | ObjectId | None) -> ObjectId | None:
 # Collections et champs d'étiquette (ajuste "name" si ton schéma diffère)
 TYPE_COLLECTION = "cache_types"
 SIZE_COLLECTION = "cache_sizes"
+
+
+@router.get("/cache_types", summary="Get all cache types")
+async def get_cache_types(db: Database = Depends(get_db)):
+    """Get all available cache types."""
+    cache_types = await db.cache_types.find({}).to_list(length=None)
+    return cache_types
+
+
+@router.get("/cache_sizes", summary="Get all cache sizes") 
+async def get_cache_sizes(db: Database = Depends(get_db)):
+    """Get all available cache sizes."""
+    cache_sizes = await db.cache_sizes.find({}).to_list(length=None)
+    return cache_sizes
+
+
 TYPE_LABEL_FIELD = "name"
 TYPE_CODE_FIELD = "code"
 SIZE_LABEL_FIELD = "name"
