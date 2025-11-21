@@ -37,16 +37,18 @@ export interface MatrixResult {
 
 /** Résultat de vérification Calendar */
 export interface CalendarResult {
+  total_days_365: number
+  completed_days_365: number
   completion_rate_365: number
+  total_days_366: number
+  completed_days_366: number
   completion_rate_366: number
+  missing_days: string[]
+  missing_days_by_month: { [month: string]: string[] }
   completed_days: Array<{
-    month: number
-    day: number
+    day: string
     count: number
   }>
-  missing_days_by_month: { [month: number]: number[] }
-  filters: {
-    cache_type_name?: string
-    cache_size_name?: string
-  }
+  cache_type_filter?: string
+  cache_size_filter?: string
 }
