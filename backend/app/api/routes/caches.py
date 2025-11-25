@@ -19,6 +19,7 @@ from fastapi import (
     HTTPException,
     Path,
     Query,
+    Request,
     UploadFile,
 )
 from fastapi.encoders import jsonable_encoder
@@ -186,6 +187,7 @@ class CacheFilterIn(BaseModel):
         "- Optionnellement, marque les caches comme trouvées (création de `found_caches`)\n"
         "- Tente ensuite une création automatique de challenges à partir des caches importées\n"
         f"- **Limite de taille** : {settings.max_upload_mb} Mo\n"
+        "- Supporte plusieurs formats de GPX (cgeo, pocket_query)\n"
         "- Retourne un résumé d’import et des statistiques liées aux challenges"
     ),
     responses={
@@ -194,13 +196,18 @@ class CacheFilterIn(BaseModel):
     },
 )
 async def upload_gpx(
+    request: Request,
     user_id: CurrentUserId,
     file: Annotated[
         UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
     ],
-    found: bool = Query(
-        False,
-        description="Si vrai, crée également des `found_caches` avec date de trouvaille.",
+    import_mode: Literal["caches", "finds"] = Query(
+        "caches",
+        description="Mode d'import: 'caches' (découvrir) ou 'finds' (mes trouvailles)",
+    ),
+    source_type: Literal["auto", "cgeo", "pocket_query"] = Query(
+        "auto",
+        description="Type de source GPX: 'auto' (détection automatique), 'cgeo', 'pocket_query'",
     ),
 ):
     """Importe un fichier GPX/ZIP et déclenche la création de challenges.
@@ -211,10 +218,11 @@ async def upload_gpx(
 
     Args:
         file (UploadFile): Fichier GPX ou ZIP à traiter.
-        found (bool): Active la création de `found_caches` associées aux entrées importées.
+        import_mode (str): Mode d'import - 'caches' pour découvrir, 'finds' pour marquer comme trouvées.
+        source_type (str): Format du fichier GPX - 'auto' pour détection automatique, 'cgeo' ou 'pocket_query'.
 
     Returns:
-        dict: Objet contenant le récapitulatif d’import (`summary`) et des statistiques liées aux challenges (`challenges_stats`).
+        dict: Objet contenant le récapitulatif d'import (`summary`) et des statistiques liées aux challenges (`challenges_stats`).
     """
 
     result = {}
@@ -242,8 +250,10 @@ async def upload_gpx(
         result["summary"] = await import_gpx_payload(
             payload=payload,
             filename=file.filename or "upload.gpx",
-            found=found,
+            import_mode=import_mode,
             user_id=ObjectId(str(user_id)),
+            request=request,
+            source_type=source_type,
         )
     except HTTPException:
         raise
