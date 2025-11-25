@@ -30,18 +30,46 @@
         </p>
       </div>
 
-      <!-- Caches “trouvées” -->
+      <!-- Mode d'import -->
       <div class="space-y-1">
-        <label class="text-sm font-medium">Contenu</label>
-        <label class="inline-flex items-center gap-2 text-sm">
+        <label class="text-sm font-medium">Mode d'import</label>
+        <div class="grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-2 items-center">
           <input
-            v-model="found"
-            type="checkbox"
+            v-model="importMode"
+            type="radio"
+            id="mode-caches"
+            value="caches"
+            class="justify-self-start"
           >
-          <span>Le fichier contient des caches <strong>trouvées</strong></span>
-        </label>
+          <label for="mode-caches" class="text-sm">Caches (découvrir)</label>
+
+          <input
+            v-model="importMode"
+            type="radio"
+            id="mode-found"
+            value="finds"
+            class="justify-self-start"
+          >
+          <label for="mode-found" class="text-sm">Caches trouvées</label>
+        </div>
         <p class="text-xs text-gray-500">
-          Si coché, toutes les caches marquées “found” dans le GPX seront ajoutées à vos trouvailles dans GC Tracker.
+          Sélectionnez le mode d'import : découvrir de nouvelles caches ou ajouter des caches trouvées par vous.
+        </p>
+      </div>
+
+      <!-- Type de source GPX -->
+      <div class="space-y-1">
+        <label class="text-sm font-medium">Type de source GPX</label>
+        <select
+          v-model="sourceType"
+          class="w-full border rounded px-3 py-2 text-sm"
+        >
+          <option value="auto">Détection automatique</option>
+          <option value="cgeo">c:geo (export GPX)</option>
+          <option value="pocket_query">Pocket Query</option>
+        </select>
+        <p class="text-xs text-gray-500">
+          Choisissez le format du fichier GPX ou laissez "Détection automatique" pour laisser le système déterminer le format.
         </p>
       </div>
 
@@ -148,7 +176,8 @@ type ImportResponse = {
 }
 
 const file = ref<File | null>(null)
-const found = ref(false)
+const importMode = ref<'caches' | 'finds'>('caches')  // 'caches' par défaut
+const sourceType = ref<'auto' | 'cgeo' | 'pocket_query'>('auto')  // Valeur par défaut
 const loading = ref(false)
 const progress = ref(0)
 const error = ref('')
@@ -176,12 +205,20 @@ async function submit() {
     const fd = new FormData()
     fd.append('file', file.value)
 
-    // Import
+    // Import - use importMode and sourceType
     const { data } = await api.post<ImportResponse>('/caches/upload-gpx', fd, {
-      params: { found: found.value || undefined }, // si false → omis (backend: défaut false)
+      params: {
+        import_mode: importMode.value,
+        source_type: sourceType.value
+      },
       headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (p) => {
-        if (p.total) progress.value = Math.round((p.loaded / p.total) * 100)
+        if (p.total) {
+          // Only update progress if no error has occurred
+          if (!error.value) {
+            progress.value = Math.round((p.loaded / p.total) * 100)
+          }
+        }
       }
     })
 
@@ -200,15 +237,30 @@ async function submit() {
       toast.error('Synchronisation partielle', { description })
     }
   } catch (e: unknown) {
-    const status = isAxiosError(e) ? e.response?.status : undefined
-    const detail = isAxiosError(e)
-    ? ( (e.response?.data as { detail?: string } | undefined)?.detail )
-    : undefined
-    if (status === 400) {
-      error.value = 'Fichier GPX/ZIP invalide ou mal formé.'
+    // Check if it's an Axios error with response
+    if (isAxiosError(e) && e.response) {
+      // HTTP error with response
+      const status = e.response.status;
+      const detail = (e.response.data as { detail?: string } | undefined)?.detail;
+
+      if (status === 400) {
+        error.value = detail || 'Fichier GPX/ZIP invalide ou mal formé.'
+      } else if (status === 413) {
+        error.value = detail || 'Fichier trop volumineux (limite dépassée).'
+      } else {
+        error.value = detail ?? (status ? `Erreur ${status}` : 'Import impossible.')
+      }
+    } else if (isAxiosError(e) && (e.code === 'ERR_NETWORK' || e.code === 'ECONNRESET')) {
+      // Network error - likely a 413 that was converted to network error by Vite proxy
+      error.value = 'Fichier trop volumineux (connexion réinitialisée).'
     } else {
-      error.value = detail ?? (status ? `Erreur ${status}` : 'Import impossible.')
+      // Other error types
+      const detail = isAxiosError(e)
+        ? ((e.response?.data as { detail?: string } | undefined)?.detail || e.message)
+        : 'Import impossible.'
+      error.value = detail
     }
+
     toast.error('Import échoué', { description: error.value })
   } finally {
     loading.value = false
