@@ -22,6 +22,10 @@ from app.services.elevation_retrieval import fetch as fetch_elevations
 from app.services.parsers.GPXCacheParser import (
     GPXCacheParser,
 )  # ton parser: __init__(gpx_file: Path), parse()
+from app.services.parsers.MultiFormatGPXParser import (
+    MultiFormatGPXParser,
+)  # multi-format parser
+from app.core.logging_config import get_loggers, extract_user_data
 
 # --------- Constantes & FS helpers ---------
 
@@ -491,10 +495,125 @@ def _parse_dt_iso8601(s: str | None) -> dt.datetime | None:
         return None
 
 
+def _is_valid_for_import_mode(item: dict, import_mode: str) -> bool:
+    """Valider qu'un item correspond au format attendu pour le mode d'import.
+
+    Args:
+        item (dict): Item parsé depuis le GPX.
+        import_mode (str): Mode d'import ('caches' ou 'finds').
+
+    Returns:
+        bool: True si l'item est valide pour le mode, False sinon.
+    """
+    if import_mode == "caches":
+        # Pour mode "caches" : on accepte tout item avec un GC valide
+        return bool(item.get("GC"))
+    elif import_mode == "finds":
+        # Pour mode "finds" : on doit avoir un GC ET une date de trouvaille
+        return bool(item.get("GC") and item.get("found_date"))
+    return False
+
+
+async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all_sizes_by_name: dict) -> dict:
+    """
+    Validator for comprehensive cache validation.
+
+    Validates:
+    - lat/lon existence and validity
+    - type_id and size_id existence in collections
+    - difficulty and terrain in valid range (1.0 to 5.0 in 0.5 increments)
+
+    Args:
+        item: The cache item to validate
+        all_types_by_name: Cached lookup for types
+        all_sizes_by_name: Cached lookup for sizes
+
+    Returns:
+        dict: {"is_valid": bool, "reason": str}
+    """
+    # Validate coordinates exist and are valid
+    lat = item.get("latitude")
+    lon = item.get("longitude")
+    if lat is None or lon is None:
+        return {"is_valid": False, "reason": "missing_coordinates"}
+
+    # Validate coordinates are valid numbers
+    try:
+        lat = float(lat)
+        lon = float(lon)
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            return {"is_valid": False, "reason": "invalid_coordinates_range"}
+    except (TypeError, ValueError):
+        return {"is_valid": False, "reason": "invalid_coordinate_values"}
+
+    # Validate type_id exists in cache_types collection
+    type_name = item.get("cache_type")
+    type_id = get_type_by_name(type_name, all_types_by_name)  # Using the existing function
+    if type_id is None:
+        # Try to resolve using the referential cache
+        from app.services.referentials_cache import resolve_type_code
+        resolved_type_id = resolve_type_code(type_name) if type_name else None
+        if resolved_type_id is None:
+            return {"is_valid": False, "reason": f"unknown_cache_type: {type_name}"}
+    else:
+        # Verify that the resolved type_id exists in the DB
+        from app.services.referentials_cache import exists_id
+        if not exists_id("cache_types", type_id):
+            return {"is_valid": False, "reason": f"cache_type_not_in_db: {type_name}"}
+
+    # Validate size_id exists in cache_sizes collection
+    size_name = item.get("cache_size")
+    size_id = get_size_by_name(size_name, all_sizes_by_name)  # Using the existing function
+    if size_id is None:
+        # Try to resolve using the referential cache
+        from app.services.referentials_cache import resolve_size_code, resolve_size_name
+        resolved_size_id = resolve_size_code(size_name) if size_name else None
+        if resolved_size_id is None:
+            resolved_size_id = resolve_size_name(size_name) if size_name else None
+        if resolved_size_id is None:
+            return {"is_valid": False, "reason": f"unknown_cache_size: {size_name}"}
+    else:
+        # Verify that the resolved size_id exists in the DB
+        from app.services.referentials_cache import exists_id
+        if not exists_id("cache_sizes", size_id):
+            return {"is_valid": False, "reason": f"cache_size_not_in_db: {size_name}"}
+
+    # Validate difficulty and terrain are in range 1.0 to 5.0 with 0.5 increments
+    difficulty_str = item.get("difficulty", "")
+    terrain_str = item.get("terrain", "")
+
+    try:
+        difficulty = float(difficulty_str) if difficulty_str != "" else None
+        if difficulty is not None:
+            if not (1.0 <= difficulty <= 5.0):
+                return {"is_valid": False, "reason": f"difficulty_out_of_range: {difficulty}"}
+            # Check for valid 0.5 increments (e.g., 1.0, 1.5, 2.0, ..., 5.0)
+            if round(difficulty * 2) != difficulty * 2:
+                return {"is_valid": False, "reason": f"difficulty_invalid_increment: {difficulty}"}
+    except (TypeError, ValueError):
+        if difficulty_str != "":  # Only error if not empty
+            return {"is_valid": False, "reason": f"difficulty_invalid_value: {difficulty_str}"}
+
+    try:
+        terrain = float(terrain_str) if terrain_str != "" else None
+        if terrain is not None:
+            if not (1.0 <= terrain <= 5.0):
+                return {"is_valid": False, "reason": f"terrain_out_of_range: {terrain}"}
+            # Check for valid 0.5 increments (e.g., 1.0, 1.5, 2.0, ..., 5.0)
+            if round(terrain * 2) != terrain * 2:
+                return {"is_valid": False, "reason": f"terrain_invalid_increment: {terrain}"}
+    except (TypeError, ValueError):
+        if terrain_str != "":  # Only error if not empty
+            return {"is_valid": False, "reason": f"terrain_invalid_value: {terrain_str}"}
+
+    # If all validations pass
+    return {"is_valid": True, "reason": "valid"}
+
+
 # --------- Import principal ---------
 
 
-async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id: ObjectId) -> dict:
+async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, user_id: ObjectId, request=None, source_type: str = "auto") -> dict:
     """Importer des caches depuis un upload GPX/ZIP (avec enrichissements).
 
     Description:
@@ -502,18 +621,19 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
         2) Parse via `GPXCacheParser` pour extraire les champs utiles.\n
         3) Upsert des documents `caches` (par `GC`) avec mapping référentiels + `loc` GeoJSON.\n
         4) **Enrichit l’altitude** (si lat/lon) via `services.elevation_retrieval.fetch`.\n
-        5) Si `found=True`, upsert des `found_caches` (par `user_id` + `cache_id`), gère `notes` et timestamps.
+        5) Si `import_mode="finds"`, upsert des `found_caches` (par `user_id` + `cache_id`), gère `notes` et timestamps.
 
     Args:
         payload (bytes): Contenu du fichier uploadé (GPX ou ZIP).
-        filename (str): Nom de fichier d’origine (pour étiquette de sortie).
-        user (dict): Utilisateur courant (pour `found_caches`).
-        found (bool): Créer/mettre à jour les logs de trouvailles.
+        filename (str): Nom de fichier d'origine (pour étiquette de sortie).
+        import_mode (str): Mode d'import - 'caches' pour découvrir, 'finds' pour mes trouvailles.
+        user_id (ObjectId): Identifiant de l'utilisateur courant.
+        source_type (str): Type de source GPX - 'auto' (détection automatique), 'cgeo', 'pocket_query'.
 
     Returns:
         dict: Résumé : `nb_gpx_files`, `nb_inserted_caches`, `nb_existing_caches`,
               `nb_inserted_found_caches`, `nb_updated_found_caches`,
-              `nb_new_countries`, `nb_new_states`.
+              `nb_new_countries`, `nb_new_states`, `nb_discarded_items`.
     """
     loop = asyncio.get_running_loop()
     gpx_paths = await loop.run_in_executor(None, _materialize_to_paths, payload, filename)
@@ -549,11 +669,66 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
 
     items = []
     for path in gpx_paths:
-        parser = GPXCacheParser(gpx_file=path)
+        parser = MultiFormatGPXParser(gpx_file=path, format_type=source_type)
         items.extend(parser.parse())
 
-    all_caches_to_db = []
+    # Filtrer les items selon le mode d'import
+    nb_total_items = len(items)
+    valid_items = []
+    discarded_items = []
+
+    # Validate and process items
     for item in items:
+        # First check basic import mode requirements
+        if not _is_valid_for_import_mode(item, import_mode):
+            reason = "unknown"
+            if not item.get("GC"):
+                reason = "missing_gc_code"
+            elif import_mode == "finds" and not item.get("found_date"):
+                reason = "missing_found_date"
+
+            discarded_items.append({
+                "item": item,
+                "reason": reason
+            })
+        else:
+            # Perform comprehensive validation
+            validation_result = await _validate_cache_comprehensive(item, all_types_by_name, all_sizes_by_name)
+            if validation_result["is_valid"]:
+                valid_items.append(item)
+            else:
+                discarded_items.append({
+                    "item": item,
+                    "reason": validation_result["reason"]
+                })
+
+    nb_discarded_items = len(discarded_items)
+
+    # Logger les items rejetés si nécessaire
+    if discarded_items:
+        generic_logger, error_logger, data_logger = get_loggers()
+        user_data = extract_user_data(user_id, request)
+
+        # Log générique
+        generic_logger.info(
+            f"GPX import discarded {nb_discarded_items}/{nb_total_items} items "
+            f"for user {user_id} in mode '{import_mode}'"
+        )
+
+        # Log détaillé en JSON
+        data_logger.log_data(
+            calling_context="caches.upload_gpx.import_gpx_payload",
+            data={
+                "import_mode": import_mode,
+                "filename": filename,
+                "total_items": nb_total_items,
+                "discarded_items": discarded_items
+            },
+            user_data=user_data
+        )
+
+    all_caches_to_db = []
+    for item in valid_items:
         gc = item.get("GC")
         if not gc:
             continue
@@ -651,10 +826,10 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
                 if err.get("code") == 11000:
                     nb_existing_caches += 1
 
-    if found:
+    if import_mode == "finds":
         found_ops = []
         found_caches_by_gc = {}
-        for item in items:
+        for item in valid_items:
             found_date = _parse_dt_iso8601(item.get("found_date"))
             if item.get("GC") and found_date:
                 # stocker un datetime "minuit" (naïf) pour être compatible PyMongo
@@ -736,4 +911,6 @@ async def import_gpx_payload(payload: bytes, filename: str, found: bool, user_id
         "nb_updated_found_caches": nb_updated_found_caches,
         "nb_new_countries": nb_countries_after - nb_countries_before,
         "nb_new_states": nb_states_after - nb_states_before,
+        "nb_total_items": nb_total_items,
+        "nb_discarded_items": nb_discarded_items,
     }

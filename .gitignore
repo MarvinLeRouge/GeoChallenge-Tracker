@@ -89,6 +89,9 @@ backups/
 !backups/**/.gitkeep
 
 # Documentation
-documentation/prompt-*
-documentation/*.txt
+documentation/**/*.txt
+documentation/**/*.md
 
+# Logs
+backend/logs/*
+!backend/logs/.gitkeep
