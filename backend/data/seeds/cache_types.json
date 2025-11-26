@@ -6,7 +6,8 @@
 {"cache_type_id": 11, "code": "webcam", "name": "Webcam", "aliases": ["Webcam cache"]},
 {"cache_type_id": 1858, "code": "wig", "name": "Wherigo", "aliases": ["Wherigo cache"]},
 {"cache_type_id": 4, "code": "virtual", "name": "Virtual", "aliases": ["Virtual cache"]},
-{"cache_type_id": 6, "code": "event-regular", "name": "Regular", "aliases": ["Event", "Regular event"]},
-{"cache_type_id": 13, "code": "event-cito", "name": "CITO", "aliases": ["CITO event"]},
+{"cache_type_id": 6, "code": "event-regular", "name": "Event", "aliases": ["Regular event", "Event Cache", "Community Celebration Event"]},
+{"cache_type_id": 13, "code": "event-cito", "name": "CITO", "aliases": ["CITO event", "Cache In Trash Out Event"]},
 {"cache_type_id": 453, "code": "event-mega", "name": "Mega", "aliases": ["Mega-event", "Mega event"]},
-{"cache_type_id": 7005, "code": "event-giga", "name": "Giga", "aliases": ["Giga-event", "Giga event"]}]
+{"cache_type_id": 7005, "code": "event-giga", "name": "Giga", "aliases": ["Giga-event", "Giga event"]},
+{"cache_type_id": 9999, "code": "locationless", "name": "Locationless", "aliases": ["Locationless (Reverse)"]}]

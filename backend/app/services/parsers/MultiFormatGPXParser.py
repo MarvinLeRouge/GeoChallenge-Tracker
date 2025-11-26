@@ -154,6 +154,8 @@ class MultiFormatGPXParser:
             if is_final:
                 # Extraire les données en fonction du format
                 cache = self._extract_cache_data(wpt, cache_elem)
+                if cache["GC"] == "GCAW0J4":
+                    print("cache", cache)
                 self.caches.append(cache)
 
         return self.caches
@@ -192,13 +194,42 @@ class MultiFormatGPXParser:
             # On peut améliorer cela en cherchant d'autres champs spécifiques
             cache["favorites"] = 0  # Les pocket queries n'ont pas de FavPoints GSAK
             cache["notes"] = None
-            cache["found_date"] = None
-            # Il pourrait y avoir d'autres champs spécifiques à chercher
 
             # Vérifier si des logs sont disponibles dans le format pocket query
             found_date = self._extract_found_date_from_logs(cache_elem)
-            if found_date:
-                cache["found_date"] = found_date
+
+            # Pour les caches de type événementiel, si aucune date de trouvaille n'est trouvée,
+            # utiliser la date de placement (time) comme date de trouvaille
+            cache_type = cache.get("cache_type", "").lower()
+
+            # DEBUG: Log the cache item for debugging
+            if not found_date and ("event" in cache_type):
+                time_field_direct = self.find_text_deep(wpt, "time")  # Direct child of wpt
+                time_field_gpx = self.find_text_deep(wpt, "gpx:time")  # With namespace
+                print(f"DEBUG: Event cache without found date, examining: {cache['GC']} - Type: {cache['cache_type']}, Direct time: {time_field_direct}, GPX time: {time_field_gpx}")
+                print("found_date", found_date, "cache_type", cache_type)
+
+
+            if not found_date and ("event" in cache_type):
+                print("coucou")
+                # Prendre la date de placement comme date de trouvaille pour les événements
+                # Essayer d'abord le champ direct <time> puis gpx:time
+                event_time = self.find_text_deep(wpt, "time") or self.find_text_deep(wpt, "gpx:time")
+                print("event_time", event_time)
+                if event_time:
+                    found_date = event_time
+                    print("GC", cache["GC"], "found_date", found_date)
+                    if not found_date.endswith("Z"):
+                        found_date+= "Z"
+                    print("GC", cache["GC"], "found_date", found_date)
+                else:
+                    print(f"DEBUG: Event cache {cache['GC']} ({cache['cache_type']}) has no time field available")
+                    print("cache", cache)
+                    print("wpt", wpt)
+
+            cache["found_date"] = found_date
+
+            print("L230", "GC", cache["GC"], "found_date", found_date)
 
         return cache
 

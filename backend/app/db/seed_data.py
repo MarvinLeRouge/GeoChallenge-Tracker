@@ -45,9 +45,12 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
     """Remplit une collection depuis un fichier JSON.
 
     Description:
-        Charge le contenu JSON de `file_path` et insère les documents dans `collection_name`.
-        - Si la collection est non vide et `force=False`, ne fait rien.
+        Charge le contenu JSON de `file_path` et insère/met à jour les documents dans `collection_name`.
         - Si `force=True`, vide la collection puis insère toutes les données.
+        - Si `force=False` et la collection existe, effectue un upsert :
+          compare les documents existants avec les seeds et ne met à jour que ceux qui diffèrent,
+          tout en insérant les nouveaux documents. Les documents existants non présents dans
+          les seeds sont conservés pour préserver les références entre collections.
 
     Args:
         file_path (str): Chemin du fichier JSON (UTF-8).
@@ -63,17 +66,70 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
     """
     collection_obj = await get_collection(collection_name)
     count = await collection_obj.count_documents({})
-    if count > 0 and not force:
-        print(f"🔁 Collection '{collection_name}' non vide ({count} documents). Rien modifié.")
-        return
-    force = force or count == 0
+
     with open(file_path, encoding="utf-8") as f:
-        data = json.load(f)
+        seed_data = json.load(f)
+
     if force:
         await collection_obj.delete_many({})
         print(f"♻️ Collection '{collection_name}' vidée (force=True).")
-    await collection_obj.insert_many(data)
-    print(f"✅ {len(data)} documents insérés dans '{collection_name}'.")
+        await collection_obj.insert_many(seed_data)
+        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        return
+
+    if count == 0:
+        await collection_obj.insert_many(seed_data)
+        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        return
+
+    # Upsert logic: update documents that differ, insert new ones, keep existing ones
+    updated_count = 0
+    inserted_count = 0
+
+    for seed_doc in seed_data:
+        # Try to find a unique identifier in the seed document
+        unique_field = None
+        unique_value = None
+
+        # Check for common ID field names in the seed document
+        for field in ['_id', 'id', 'code', 'cache_type_id', 'cache_size_id']:
+            if field in seed_doc:
+                unique_field = field
+                unique_value = seed_doc[field]
+                break
+
+        if unique_field is None:
+            # If no unique field is found, we can't do upsert, so skip
+            print(f"⚠️  Document in {file_path} does not have a unique identifier field. Skipping upsert.")
+            continue
+
+        # Find existing document with the same unique value
+        if unique_field == '_id':
+            existing_doc = await collection_obj.find_one({"_id": unique_value})
+        else:
+            # For other unique fields, we need to find by that field
+            existing_doc = await collection_obj.find_one({unique_field: unique_value})
+
+        if existing_doc:
+            # Compare the documents (excluding _id field from comparison)
+            existing_for_comparison = {k: v for k, v in existing_doc.items() if k != '_id'}
+            seed_for_comparison = {k: v for k, v in seed_doc.items() if k != '_id'}
+
+            if existing_for_comparison != seed_for_comparison:
+                # Update the existing document (preserving the _id)
+                await collection_obj.update_one(
+                    {unique_field: unique_value},
+                    {"$set": seed_doc}
+                )
+                updated_count += 1
+            # else: documents are the same, no update needed
+        else:
+            # Insert new document
+            await collection_obj.insert_one(seed_doc)
+            inserted_count += 1
+
+    print(f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans '{collection_name}'.")
+    print(f"ℹ️  Les documents existants non présents dans le seed ont été conservés.")
 
 
 async def seed_admin_user(force: bool = False):

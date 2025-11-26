@@ -678,9 +678,16 @@ async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, us
     discarded_items = []
 
     # Validate and process items
+    print("items[0]", items[0])
+    debug_invalid_items_for_import_mode = []
+    debug_invalid_items_for_test = []
+    
     for item in items:
+        if item["GC"] == "GCAW0J4":
+            print("item GCAW0J4", item)
         # First check basic import mode requirements
         if not _is_valid_for_import_mode(item, import_mode):
+            debug_invalid_items_for_import_mode.append(item.get("GC", None))
             reason = "unknown"
             if not item.get("GC"):
                 reason = "missing_gc_code"
@@ -697,11 +704,13 @@ async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, us
             if validation_result["is_valid"]:
                 valid_items.append(item)
             else:
+                debug_invalid_items_for_test.append(item.get("GC", None))
                 discarded_items.append({
                     "item": item,
                     "reason": validation_result["reason"]
                 })
 
+    print("invalid debug_invalid_items_for_import_mode", debug_invalid_items_for_import_mode, "debug_invalid_items_for_test", debug_invalid_items_for_test)
     nb_discarded_items = len(discarded_items)
 
     # Logger les items rejetés si nécessaire
