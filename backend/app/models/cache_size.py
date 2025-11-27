@@ -20,11 +20,13 @@ class CacheSizeBase(BaseModel):
     Attributes:
         name (str): Nom (ex. "Small", "Micro").
         code (str | None): Code court (ex. "S", "M").
+        aliases (list[str]): Alias reconnus pour cette taille.
         order (int | None): Ordre d’affichage.
     """
 
     name: str  # ex: "Small", "Micro", "Regular"
     code: str | None = None  # code interne ou abbr (ex: "S", "M")
+    aliases: list[str] = Field(default_factory=list)  # alias reconnus pour cette taille
     order: int | None = None  # ordonnancement des cache sizes
 
 
@@ -47,11 +49,13 @@ class CacheSizeUpdate(BaseModel):
     Attributes:
         name (str | None): Nouveau nom.
         code (str | None): Nouveau code.
+        aliases (list[str] | None): Nouveaux alias.
         order (int | None): Nouvel ordre.
     """
 
     name: str | None = None
     code: str | None = None
+    aliases: list[str] | None = None
     order: int | None = None
 
 

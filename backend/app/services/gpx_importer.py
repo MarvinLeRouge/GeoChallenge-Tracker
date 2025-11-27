@@ -275,8 +275,18 @@ async def _get_all_sizes_by_name() -> dict[str, ObjectId]:
     """
     result: dict[str, ObjectId] = {}
     coll_sizes = await get_collection("cache_sizes")
-    cursor = coll_sizes.find({}, {"name": 1})
-    result = {_normalize_name(item["name"]): item["_id"] async for item in cursor}
+    cursor = coll_sizes.find({}, {"name": 1, "aliases": 1})
+
+    async for item in cursor:
+        # Add the primary name
+        if "name" in item:
+            result[_normalize_name(item["name"])] = item["_id"]
+
+        # Add each alias
+        if "aliases" in item and isinstance(item["aliases"], list):
+            for alias in item["aliases"]:
+                if alias:  # Skip empty aliases
+                    result[_normalize_name(alias)] = item["_id"]
 
     return result
 

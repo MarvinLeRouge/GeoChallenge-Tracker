@@ -202,41 +202,39 @@ class MultiFormatGPXParser:
             # utiliser la date de placement (time) comme date de trouvaille
             cache_type = cache.get("cache_type", "").lower()
 
-            # DEBUG: Log the cache item for debugging
             if not found_date and ("event" in cache_type):
-                time_field_direct = self.find_text_deep(wpt, "time")  # Direct child of wpt
-                time_field_gpx = self.find_text_deep(wpt, "gpx:time")  # With namespace
-                print(f"DEBUG: Event cache without found date, examining: {cache['GC']} - Type: {cache['cache_type']}, Direct time: {time_field_direct}, GPX time: {time_field_gpx}")
-                print("found_date", found_date, "cache_type", cache_type)
-
-
-            if not found_date and ("event" in cache_type):
-                print("coucou")
                 # Prendre la date de placement comme date de trouvaille pour les événements
                 # Essayer d'abord le champ direct <time> puis gpx:time
                 event_time = self.find_text_deep(wpt, "time") or self.find_text_deep(wpt, "gpx:time")
-                print("event_time", event_time)
                 if event_time:
                     found_date = event_time
-                    print("GC", cache["GC"], "found_date", found_date)
                     if not found_date.endswith("Z"):
-                        found_date+= "Z"
-                    print("GC", cache["GC"], "found_date", found_date)
-                else:
-                    print(f"DEBUG: Event cache {cache['GC']} ({cache['cache_type']}) has no time field available")
-                    print("cache", cache)
-                    print("wpt", wpt)
+                        found_date += "Z"
 
             cache["found_date"] = found_date
-
-            print("L230", "GC", cache["GC"], "found_date", found_date)
 
         return cache
 
     def _extract_found_date_from_logs(self, cache_elem) -> Optional[str]:
         """Tenter d'extraire la date de trouvaille à partir des logs dans le format pocket query."""
-        # Chercher dans les logs de la cache
-        for log in cache_elem.xpath("groundspeak:logs/groundspeak:log", namespaces=self.namespaces):
+        # Récupérer tous les logs de la cache
+        logs = cache_elem.xpath("groundspeak:logs/groundspeak:log", namespaces=self.namespaces)
+
+        # Si aucun log, retourner None
+        if not logs:
+            return None
+
+        # Si un seul log et que ce format est "pocket query", utiliser sa date comme found_date
+        if self.format_type == 'pocket_query' and len(logs) == 1:
+            date = self.find_text_deep(logs[0], "groundspeak:date")
+            if date:
+                # S'assurer que la date se termine par Z si nécessaire
+                if not date.endswith("Z"):
+                    date += "Z"
+                return date
+
+        # Sinon, continuer avec la logique originale (cherche les logs de type "found")
+        for log in logs:
             log_type = self.find_text_deep(log, "groundspeak:type")
             if log_type and "found" in log_type.lower():
                 date = self.find_text_deep(log, "groundspeak:date")

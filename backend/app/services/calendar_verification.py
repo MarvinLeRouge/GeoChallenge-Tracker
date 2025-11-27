@@ -74,17 +74,18 @@ class CalendarVerificationService:
                     # ObjectId not found - return empty result
                     return self._empty_calendar_result(filters)
             except InvalidId:
-                # Not a valid ObjectId, search by name OR code (case insensitive)
+                # Not a valid ObjectId, search by name OR code OR aliases (case insensitive)
                 cache_size = await self.db.cache_sizes.find_one({
                     "$or": [
                         {"name": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
-                        {"code": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}}
+                        {"code": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
+                        {"aliases": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}}
                     ]
                 })
                 if cache_size:
                     cache_size_id = cache_size["_id"]
                 else:
-                    # Cache size name/code not found - return empty result
+                    # Cache size name/code/alias not found - return empty result
                     return self._empty_calendar_result(filters)
         
         # Add cache filters if resolved

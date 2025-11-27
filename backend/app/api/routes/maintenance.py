@@ -22,10 +22,29 @@ cleanup_cache: dict = {}
 # Durée de validité de la clé de confirmation (en minutes)
 CONFIRMATION_KEY_TTL = 10
 
+# Order matters for deletion: most central to most dependent (to prevent creating new orphans during cleanup)
+COLLECTION_DEPENDENCY_ORDER = [
+    "countries",                  # Level 0: no dependencies
+    "cache_types",                # Level 0: no dependencies
+    "cache_sizes",                # Level 0: no dependencies
+    "cache_attributes",           # Level 0: no dependencies
+    "users",                      # Level 0: no dependencies
+    "states",                     # Level 1: depends on countries
+    "caches",                     # Level 1: depends on cache_types, cache_sizes, countries, states, cache_attributes (nested)
+    "challenges",                 # Level 2: depends on caches
+    "user_challenges",            # Level 3: depends on users, challenges
+    "found_caches",               # Level 3: depends on users, caches
+    "user_challenge_tasks",       # Level 4: depends on user_challenges
+    "progress",                   # Level 4: depends on user_challenges
+    "targets",                    # Level 5: depends on users, user_challenges, caches, user_challenge_tasks
+]
+
 REFERENCES_MAP = {
     "caches": {
         "country_id": "countries",
         "state_id": "states",
+        "type_id": "cache_types",      # Added: CacheType reference
+        "size_id": "cache_sizes",      # Added: CacheSize reference
     },
     "challenges": {
         "cache_id": "caches",
@@ -54,6 +73,56 @@ REFERENCES_MAP = {
         "user_id": "users",
     },
 }
+
+
+async def find_nested_array_orphans(collection_name: str, field_path: str, ref_collection: str):
+    """
+    Find orphan references in nested arrays (like caches.attributes.attribute_doc_id -> cache_attributes)
+
+    Args:
+        collection_name: Source collection name
+        field_path: Dot notation path to the nested field (e.g., "attributes.attribute_doc_id")
+        ref_collection: Target collection name for reference check
+    """
+    # Split the field_path to get the array field and the nested reference field
+    parts = field_path.split('.')
+    if len(parts) < 2:
+        return []
+
+    array_field = ".".join(parts[:-1])  # "attributes"
+    nested_field = parts[-1]            # "attribute_doc_id"
+
+    # Get all valid IDs from the reference collection
+    ref_collection_obj = await get_collection(ref_collection)
+    valid_ids = await ref_collection_obj.distinct("_id")
+
+    # Use aggregation to find documents with nested references that are not in valid_ids
+    pipeline = [
+        # Unwind the array to work with individual elements
+        {"$unwind": f"${array_field}"},
+        # Match where the nested field exists and is not in valid_ids
+        {"$match": {
+            f"{array_field}.{nested_field}": {
+                "$exists": True,
+                "$ne": None,
+                "$nin": valid_ids
+            }
+        }},
+        # Project the document _id and the problematic reference
+        {"$project": {
+            "_id": 1,
+            "problematic_ref": f"${array_field}.{nested_field}",
+            "full_array_item": f"${array_field}"
+        }}
+    ]
+
+    collection_obj = await get_collection(collection_name)
+    cursor = collection_obj.aggregate(pipeline)
+    orphan_docs = await cursor.to_list(length=None)
+
+    # Extract unique document IDs that contain orphaned references
+    orphan_ids = list(set(str(doc["_id"]) for doc in orphan_docs))
+    return orphan_ids
 
 # ============================================================================
 # UTILITAIRES
@@ -115,35 +184,100 @@ async def maintenance_post_1() -> dict:
 async def cleanup_analyze():
     """
     Analyse la base de données pour détecter les enregistrements orphelins.
+    Analyse du plus central vers le plus périphérique pour détecter les orphelins directs et indirects.
+    Simule le processus de suppression pour détecter tous les orphelins potentiels.
     Retourne un rapport et une clé de confirmation pour le nettoyage.
     """
     clean_expired_keys()
 
+    # Create a map of all references in the system: target_collection -> [(source_collection, field), ...]
+    collection_references = {}
+    for ref_key, target_collection in {**{f"{coll}.{field}": ref_coll for coll, field_refs in REFERENCES_MAP.items() for field, ref_coll in field_refs.items()},
+                                       "caches.attributes.attribute_doc_id": "cache_attributes"}.items():
+        if target_collection not in collection_references:
+            collection_references[target_collection] = []
+        source_collection, field = ref_key.split(".", 1)
+        collection_references[target_collection].append((source_collection, field))
+
+    # Copy original collection contents to simulate removals
+    # This is a simplified approach: we'll simulate by tracking what would be removed
+    # and then calculate orphans based on that simulated state
+    simulated_orphan_ids = {}  # collection_name -> set of ObjectId that would be removed
+
+    # Initialize with empty sets
+    for collection_name in COLLECTION_DEPENDENCY_ORDER:
+        simulated_orphan_ids[collection_name] = set()
+
     orphans = {}
-    total_orphans = 0
 
-    for collection, field_refs in REFERENCES_MAP.items():
-        for field, ref_collection in field_refs.items():
-            # Récupère tous les IDs valides de la collection référencée
-            coll_ref = await get_collection(ref_collection)
-            valid_ids = await coll_ref.distinct("_id")
+    # Process from most central to most dependent
+    for collection_name in COLLECTION_DEPENDENCY_ORDER:
+        # Check if this collection is a target of any references
+        if collection_name in collection_references:
+            for source_collection, field in collection_references[collection_name]:
+                # Get all valid IDs in the target collection (excluding those already marked as orphans)
+                target_collection_obj = await get_collection(collection_name)
+                all_target_ids = set(await target_collection_obj.distinct("_id"))
 
-            # Construit le pipeline d'agrégation pour trouver les orphelins
-            pipeline = [
-                {"$match": {field: {"$exists": True, "$ne": None}}},
-                {"$match": {field: {"$nin": valid_ids}}},
-                {"$project": {"_id": 1}},
-            ]
+                # Exclude any IDs that are already marked as orphans in this simulation
+                current_target_ids = all_target_ids - simulated_orphan_ids[collection_name]
 
-            coll_main = await get_collection(collection)
-            cursor = coll_main.aggregate(pipeline)
-            orphan_docs = await cursor.to_list(length=None)
+                # Find documents in source collection that reference invalid target IDs
+                source_collection_obj = await get_collection(source_collection)
 
-            if orphan_docs:
-                key = f"{collection}.{field}"
-                orphan_ids = [str(doc["_id"]) for doc in orphan_docs]
-                orphans[key] = orphan_ids
-                total_orphans += len(orphan_ids)
+                # Check if field is nested (like attributes.attribute_doc_id)
+                if "." in field:
+                    if f"{source_collection}.{field}" == "caches.attributes.attribute_doc_id":
+                        # Handle nested reference case
+                        # This is complex - need to find cache documents where nested attribute references invalid cache_attribute
+                        pipeline = [
+                            {"$unwind": "$attributes"},
+                            {"$match": {"attributes.attribute_doc_id": {"$exists": True, "$ne": None}}},
+                            {"$lookup": {
+                                "from": "cache_attributes",
+                                "localField": "attributes.attribute_doc_id",
+                                "foreignField": "_id",
+                                "as": "valid_attribute"
+                            }},
+                            {"$match": {"valid_attribute": {"$size": 0}}},  # No match found
+                            {"$project": {"_id": 1}},
+                            {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}}
+                        ]
+
+                        results = await source_collection_obj.aggregate(pipeline).to_list(length=None)
+                        if results and results[0]["orphan_ids"]:
+                            orphan_ids = [str(obj_id) for obj_id in results[0]["orphan_ids"]]
+                        else:
+                            orphan_ids = []
+                    else:
+                        orphan_ids = []
+                else:
+                    # Regular reference
+                    pipeline = [
+                        {"$match": {field: {"$exists": True, "$ne": None}}},
+                        {"$match": {field: {"$nin": list(current_target_ids)}}},
+                        {"$project": {"_id": 1}}
+                    ]
+
+                    cursor = source_collection_obj.aggregate(pipeline)
+                    orphan_docs = await cursor.to_list(length=None)
+                    orphan_ids = [str(doc["_id"]) for doc in orphan_docs]
+
+                # Record the orphans found
+                ref_key = f"{source_collection}.{field}"
+                if orphan_ids:
+                    if ref_key not in orphans:
+                        orphans[ref_key] = []
+                    orphans[ref_key].extend(orphan_ids)
+
+                    # Add to simulated removals for this source collection
+                    simulated_orphan_ids[source_collection].update([ObjectId(oid) for oid in orphan_ids])
+
+    # Remove duplicates
+    for key in orphans:
+        orphans[key] = list(set(orphans[key]))
+
+    total_orphans = sum(len(ids) for ids in orphans.values())
 
     if not orphans:
         return {
@@ -173,6 +307,7 @@ async def cleanup_execute(key: str):
     """
     Exécute le nettoyage des enregistrements orphelins après confirmation.
     Sauvegarde les données supprimées dans un fichier JSON horodaté.
+    Process collections in dependency order (most central first) to prevent creating new orphans.
 
     Args:
         key: Clé de confirmation obtenue via GET /db_cleanup
@@ -195,33 +330,50 @@ async def cleanup_execute(key: str):
 
     deleted_count = {}
 
-    # Pour chaque collection avec des orphelins
-    for key_path, orphan_ids in cached_data["orphans"].items():
-        collection, field = key_path.split(".", 1)
+    # Process collections in dependency order (most central first)
+    # This ensures that when we remove items from central collections,
+    # we process potential orphans in dependent collections appropriately
+    for collection_name in COLLECTION_DEPENDENCY_ORDER:
+        # Find all orphan references for documents in this collection
+        collection_orphans = {}
+        for key_path, orphan_ids in cached_data["orphans"].items():
+            current_collection, field = key_path.split(".", 1)
+
+            # Check if this orphan refers to documents in the current collection being processed
+            if current_collection == collection_name:
+                collection_orphans[key_path] = orphan_ids
+
+        if not collection_orphans:
+            continue
+
+        # Collect all document IDs from all orphan references for this collection
+        all_orphan_ids = set()
+        for key_path, orphan_ids in collection_orphans.items():
+            all_orphan_ids.update(orphan_ids)
 
         # Convertit les IDs en ObjectId
-        object_ids = [ObjectId(oid) for oid in orphan_ids]
+        object_ids = [ObjectId(oid) for oid in all_orphan_ids]
 
         # Récupère les documents complets AVANT suppression
-        collection_obj = await get_collection(collection)
+        collection_obj = await get_collection(collection_name)
         docs_to_delete = await collection_obj.find({"_id": {"$in": object_ids}}).to_list(None)
 
         # Ajoute au backup
-        if collection not in backup_data["data"]:
-            backup_data["data"][collection] = []
+        if collection_name not in backup_data["data"]:
+            backup_data["data"][collection_name] = []
 
-        backup_data["data"][collection].extend([serialize_mongo_doc(doc) for doc in docs_to_delete])
+        backup_data["data"][collection_name].extend([serialize_mongo_doc(doc) for doc in docs_to_delete])
 
         # Supprime les documents
-        collection_obj = await get_collection(collection)
+        collection_obj = await get_collection(collection_name)
         result = await collection_obj.delete_many({"_id": {"$in": object_ids}})
 
         # Agrège les compteurs par collection
-        if collection not in deleted_count:
-            deleted_count[collection] = 0
-        deleted_count[collection] += result.deleted_count
+        if collection_name not in deleted_count:
+            deleted_count[collection_name] = 0
+        deleted_count[collection_name] += result.deleted_count
 
-        backup_data["deleted_by_collection"][collection] = deleted_count[collection]
+        backup_data["deleted_by_collection"][collection_name] = deleted_count[collection_name]
 
     backup_data["total_deleted"] = sum(deleted_count.values())
 
