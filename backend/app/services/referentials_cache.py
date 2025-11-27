@@ -22,6 +22,7 @@ async def _map_collection(
     code_field: str | None = None,
     name_field: str | None = None,
     extra_numeric_id_field: str | None = None,
+    aliases_field: str | None = None,
 ) -> None:
     """Indexer une collection référentielle en mémoire.
 
@@ -30,6 +31,7 @@ async def _map_collection(
         - `ids`: set d’ObjectId présents
         - `code`: map `lower(value)` → ObjectId (si `code_field`)
         - `name`: map `lower(value)` → ObjectId (si `name_field`)
+        - `aliases`: map `lower(value)` → ObjectId (si `aliases_field`)
         - `numeric_ids`: set d’ints (si `extra_numeric_id_field`)
         - `doc_by_id`: map ObjectId → doc partiel (projection)
 
@@ -38,6 +40,7 @@ async def _map_collection(
         code_field: Clé à indexer par « code » (optionnel).
         name_field: Clé à indexer par « nom » (optionnel).
         extra_numeric_id_field: Clé numérique supplémentaire (optionnel).
+        aliases_field: Clé à indexer par « alias » (optionnel).
 
     Returns:
         None
@@ -52,6 +55,8 @@ async def _map_collection(
         projection[name_field] = 1
     if extra_numeric_id_field:
         projection[extra_numeric_id_field] = 1
+    if aliases_field:
+        projection[aliases_field] = 1
 
     cursor = collection_obj.find({}, projection)
     docs = await cursor.to_list(length=None)
@@ -59,6 +64,7 @@ async def _map_collection(
     ids: set[ObjectId] = set()
     code_map: dict[str, ObjectId] = {}
     name_map: dict[str, ObjectId] = {}
+    alias_map: dict[str, ObjectId] = {}
     numeric_ids: set[int] = set()
     doc_by_id: dict[ObjectId, dict[str, Any]] = {}
 
@@ -70,6 +76,12 @@ async def _map_collection(
             code_map[str(d[code_field]).lower()] = oid
         if name_field and d.get(name_field):
             name_map[str(d[name_field]).lower()] = oid
+        if aliases_field and d.get(aliases_field):
+            aliases_value = d[aliases_field]
+            if isinstance(aliases_value, list):
+                for alias in aliases_value:
+                    if alias:
+                        alias_map[str(alias).lower()] = oid
         if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
             try:
                 numeric_ids.add(int(d[extra_numeric_id_field]))
@@ -81,6 +93,8 @@ async def _map_collection(
         out["code"] = code_map
     if name_field:
         out["name"] = name_map
+    if aliases_field:
+        out["aliases"] = alias_map
     if extra_numeric_id_field:
         out["numeric_ids"] = numeric_ids
 
@@ -144,7 +158,7 @@ async def populate_mapping() -> None:
         )
         await _map_collection("cache_types", code_field="code")
         await _map_collection(
-            "cache_sizes", code_field="code", name_field="name"
+            "cache_sizes", code_field="code", name_field="name", aliases_field="aliases"
         )  # si "name" existe
         await _map_collection("countries", name_field="name")
         await _map_collection_states()
@@ -216,15 +230,21 @@ def _resolve_code_to_id(collection: str, field: str, value: str) -> ObjectId | N
 
     Args:
         collection: Nom de collection.
-        field: `code` ou `name`.
+        field: `code`, `name`, ou `aliases`.
         value: Valeur fournie (insensible à la casse).
 
     Returns:
         ObjectId | None: Référence trouvée ou None.
     """
     entry = collections_mapping.get(collection) or {}
-    m = entry.get(field) or {}
-    return m.get(str(value).lower())
+    if field == "aliases":
+        # For aliases, we check the aliases map which has been pre-built
+        m = entry.get(field) or {}
+        return m.get(str(value).lower())
+    else:
+        # For other fields (code, name), use the original logic
+        m = entry.get(field) or {}
+        return m.get(str(value).lower())
 
 
 def resolve_attribute_code(code: str) -> tuple[ObjectId, int | None] | None:
@@ -284,7 +304,25 @@ def resolve_size_name(name: str) -> ObjectId | None:
     Returns:
         ObjectId | None: Référence de taille.
     """
-    return _resolve_code_to_id("cache_sizes", "name", name)
+    # First check the name field
+    result = _resolve_code_to_id("cache_sizes", "name", name)
+    if result is not None:
+        return result
+
+    # Then check the aliases field
+    return _resolve_code_to_id("cache_sizes", "aliases", name)
+
+
+def resolve_size_alias(alias: str) -> ObjectId | None:
+    """Résoudre une taille de cache par alias.
+
+    Args:
+        alias: Alias (ex. "nano" for Micro).
+
+    Returns:
+        ObjectId | None: Référence de taille.
+    """
+    return _resolve_code_to_id("cache_sizes", "aliases", alias)
 
 
 def resolve_country_name(name: str) -> ObjectId | None:

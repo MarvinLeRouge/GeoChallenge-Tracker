@@ -299,6 +299,12 @@ async def ensure_indexes() -> None:
         unique=True,
         partial={"code": {"$type": "string"}},
     )
+    # Add index for aliases array
+    await ensure_index(
+        "cache_sizes",
+        [("aliases", ASCENDING)],
+        name="idx_cache_size_aliases",
+    )
 
     # ---------- cache_types ----------
     await ensure_index(
