@@ -2,4 +2,5 @@
 {"cache_size_id": 8, "code": "S", "name": "Small", "order": 1},
 {"cache_size_id": 3, "code": "R", "name": "Regular", "order": 2},
 {"cache_size_id": 4, "code": "L", "name": "Large", "order": 3},
-{"cache_size_id": 6, "code": "O", "name": "Other", "order": 4}]
+{"cache_size_id": 6, "code": "O", "name": "Other", "order": 4},
+{"cache_size_id": 99, "code": "V", "name": "Virtual", "order": 5}]
