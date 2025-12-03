@@ -48,12 +48,12 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
-import { isAxiosError } from 'axios'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
 const identifier = ref('')
 const password = ref('')
 const loading = ref(false)
-const error = ref('')
+const { error, handleApiError, clearError } = useApiErrorHandler()
 
 const router = useRouter()
 const route = useRoute()
@@ -61,17 +61,12 @@ const auth = useAuthStore()
 
 const submit = async () => {
   loading.value = true
-  error.value = ''
+  clearError()
   try {
     await auth.login({ identifier: identifier.value, password: password.value })
     router.replace((route.query.redirect as string) || '/')
   } catch (e: unknown) {
-    const detail =
-      isAxiosError(e)
-        ? (e.response?.data as { detail?: string } | undefined)?.detail
-        : undefined
-
-    error.value = detail ?? 'Échec de connexion'
+    handleApiError(e)
   } finally {
     loading.value = false
   }

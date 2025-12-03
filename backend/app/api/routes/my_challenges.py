@@ -96,27 +96,7 @@ async def list_uc(
     return await list_user_challenges(user_id, status, page, page_size)
 
 
-# --- modèles locaux pour le batch ---
-class BatchPatchItem(BaseModel):
-    uc_id: PyObjectId = Field(..., description="UserChallenge id")
-    status: str | None = Field(
-        default=None,
-        description="Nouveau statut (pending|accepted|dismissed|completed)",
-    )
-    notes: str | None = None
-    override_reason: str | None = None
-
-
-class BatchPatchResultItem(BaseModel):
-    uc_id: PyObjectId
-    ok: bool
-    error: str | None = None
-
-
-class BatchPatchResponse(BaseModel):
-    updated_count: int
-    total: int
-    results: list[BatchPatchResultItem]
+from app.models.user_challenge_batch_dto import BatchPatchItem, BatchPatchResponse, BatchPatchResultItem
 
 
 @router.patch(

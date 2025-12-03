@@ -130,6 +130,7 @@
 import { ref, onMounted, computed } from 'vue'
 import api from '@/api/http'
 import type { MatrixResult, CacheType, CacheSize } from '@/types/challenges'
+import { useMatrixData } from '@/composables/useMatrixData'
 
 const loading = ref(false)
 const error = ref('')
@@ -139,9 +140,8 @@ const cacheSizes = ref<CacheSize[]>([])
 const selectedCacheType = ref('')
 const selectedCacheSize = ref('')
 
-// Valeurs fixes pour la matrice D/T
-const difficultyValues = ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0']
-const terrainValues = ['1.0', '1.5', '2.0', '2.5', '3.0', '3.5', '4.0', '4.5', '5.0']
+// Use the new composable for matrix data processing
+const { matrixData } = useMatrixData(matrixResult)
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {
@@ -181,7 +181,7 @@ async function fetchCacheSizes() {
 async function fetchMatrix() {
   loading.value = true
   error.value = ''
-  
+
   try {
     const params = new URLSearchParams()
     if (selectedCacheType.value) {
@@ -190,7 +190,7 @@ async function fetchMatrix() {
     if (selectedCacheSize.value) {
       params.append('cache_size', selectedCacheSize.value)
     }
-    
+
     const response = await api.get(`/my/challenges/basics/matrix?${params}`)
     console.log('Matrix API response:', response.data)
     matrixResult.value = response.data
@@ -202,26 +202,29 @@ async function fetchMatrix() {
 }
 
 function getMatrixValue(difficulty: string, terrain: string): number {
-  if (!matrixResult.value?.completed_combinations_details) return 0
-  
   const diff = parseFloat(difficulty)
   const terr = parseFloat(terrain)
-  
-  // Find the combination in completed_combinations_details
-  const combination = matrixResult.value.completed_combinations_details.find(
-    combo => combo.difficulty === diff && combo.terrain === terr
-  )
-  
-  return combination ? combination.count : 0
+
+  // Find the combination in the processed matrix data
+  const row = matrixData.value.rows.find(r => r.difficulty === diff)
+  if (!row) return 0
+
+  const cell = row.cells.find(c => c.terrain === terr)
+  return cell ? cell.count : 0
 }
 
 function getCellClass(difficulty: string, terrain: string): string {
-  const value = getMatrixValue(difficulty, terrain)
-  if (value >= 1) {
-    return 'bg-green-100 text-green-800'
-  } else {
-    return 'bg-red-100 text-red-800'
-  }
+  const diff = parseFloat(difficulty)
+  const terr = parseFloat(terrain)
+
+  // Find the combination in the processed matrix data
+  const row = matrixData.value.rows.find(r => r.difficulty === diff)
+  if (!row) return 'bg-red-100 text-red-800'
+
+  const cell = row.cells.find(c => c.terrain === terr)
+  if (!cell) return 'bg-red-100 text-red-800'
+
+  return cell.isCompleted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
 }
 
 onMounted(async () => {
