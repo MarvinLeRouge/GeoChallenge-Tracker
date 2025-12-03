@@ -52,3 +52,9 @@ export interface CalendarResult {
   cache_type_filter?: string
   cache_size_filter?: string
 }
+
+// Types for GPX import response
+export interface ImportResponse {
+  summary: Record<string, number | string>
+  challenge_stats?: Record<string, number | string>
+}

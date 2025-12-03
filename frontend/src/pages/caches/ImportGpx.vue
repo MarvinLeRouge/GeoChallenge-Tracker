@@ -167,13 +167,8 @@
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 import api from '@/api/http'
-import type { ChallengeSyncStats } from '@/types/challenges'
+import type { ChallengeSyncStats, ImportResponse } from '@/types/challenges'
 import { isAxiosError } from 'axios'
-
-type ImportResponse = {
-  summary: Record<string, number | string>
-  challenge_stats?: Record<string, number | string>
-}
 
 const file = ref<File | null>(null)
 const importMode = ref<'caches' | 'finds'>('caches')  // 'caches' par défaut

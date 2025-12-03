@@ -45,3 +45,8 @@ class UserLocationOut(BaseModel):
         return coords_in_deg_min_mil(self.lat, self.lon)
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class VerifyEmailBody(BaseModel):
+    """Request body for email verification."""
+    code: str

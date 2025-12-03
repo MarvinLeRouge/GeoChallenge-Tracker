@@ -44,6 +44,7 @@ from app.models.user import (
     UserInRegister,
     UserOut,
 )
+from app.models.user_profile_dto import VerifyEmailBody
 
 settings = get_settings()
 
@@ -269,10 +270,6 @@ async def refresh_token(
 
     access_token = create_access_token(data={"sub": str(user["_id"])})
     return {"access_token": access_token, "token_type": "bearer"}
-
-
-class VerifyEmailBody(BaseModel):
-    code: str
 
 
 def create_verification_code() -> str:

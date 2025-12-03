@@ -176,6 +176,7 @@
 import { ref, onMounted, computed } from 'vue'
 import api from '@/api/http'
 import type { CalendarResult, CacheType, CacheSize } from '@/types/challenges'
+import { useCalendarData } from '@/composables/useCalendarData'
 
 const loading = ref(false)
 const error = ref('')
@@ -185,10 +186,8 @@ const cacheSizes = ref<CacheSize[]>([])
 const selectedCacheType = ref('')
 const selectedCacheSize = ref('')
 
-const monthNames = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
-]
+// Use the new composable for calendar data processing
+const { calendarData } = useCalendarData(calendarResult)
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {
@@ -205,29 +204,13 @@ const sortedCacheSizes = computed(() => {
   })
 })
 
-function getDaysInMonth(month: number): number {
-  // Retourne le nombre de jours dans le mois (maximum pour année bissextile)
-  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-  return daysInMonth[month - 1]
-}
-
-function isCompletedDay(month: number, day: number): boolean {
-  if (!calendarResult.value) return false
-  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
-  return calendarResult.value.completed_days.some(d => d.day === dayStr)
-}
-
-function getDayCount(month: number, day: number): number {
-  if (!calendarResult.value) return 0
-  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
-  const dayData = calendarResult.value.completed_days.find(d => d.day === dayStr)
-  return dayData?.count || 0
-}
-
 function getDayClass(month: number, day: number): string {
-  if (isCompletedDay(month, day)) {
+  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1]
+  if (!calendarDay) return 'bg-gray-100 text-gray-600'
+
+  if (calendarDay.isCompleted) {
     return 'bg-green-200 text-green-800'
-  } else if (isMissingDay(month, day)) {
+  } else if (calendarDay.isMissing) {
     return 'bg-red-200 text-red-800'
   } else {
     return 'bg-gray-100 text-gray-600'
@@ -235,34 +218,26 @@ function getDayClass(month: number, day: number): string {
 }
 
 function getDayTitle(month: number, day: number): string {
-  const count = getDayCount(month, day)
-  if (count > 0) {
-    return `${day}/${month} - ${count} cache${count > 1 ? 's' : ''}`
-  } else if (isMissingDay(month, day)) {
+  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1]
+  if (!calendarDay) return `${day}/${month}`
+
+  if (calendarDay.count > 0) {
+    return `${day}/${month} - ${calendarDay.count} cache${calendarDay.count > 1 ? 's' : ''}`
+  } else if (calendarDay.isMissing) {
     return `${day}/${month} - Jour manquant`
   } else {
     return `${day}/${month}`
   }
 }
 
-function isMissingDay(month: number, day: number): boolean {
-  if (!calendarResult.value) return false
-  const dayStr = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`
-  const monthStr = month.toString().padStart(2, '0')
-  const missingDays = calendarResult.value.missing_days_by_month[monthStr]
-  return missingDays?.includes(dayStr) || false
-}
-
 function getMissingDaysCount(month: number): number {
-  if (!calendarResult.value) return 0
-  const monthStr = month.toString().padStart(2, '0')
-  return calendarResult.value.missing_days_by_month[monthStr]?.length || 0
+  const calendarMonth = calendarData.value.months[month - 1]
+  return calendarMonth ? calendarMonth.missingCount : 0
 }
 
 function getCompletedDaysInMonth(month: number): number {
-  if (!calendarResult.value) return 0
-  const monthStr = month.toString().padStart(2, '0')
-  return calendarResult.value.completed_days.filter(d => d.day.startsWith(monthStr)).length
+  const calendarMonth = calendarData.value.months[month - 1]
+  return calendarMonth ? calendarMonth.completedCount : 0
 }
 
 async function fetchCacheTypes() {
