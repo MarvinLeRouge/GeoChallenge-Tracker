@@ -52,6 +52,13 @@ L'application permet aux géocacheurs passionnés de :
 - **Nginx** - Serveur web utilisé comme reverse proxy
 - **MongoDB Atlas** - Service cloud MongoDB (externement hébergé)
 
+### Tests
+- **Pytest** - Framework de test pour Python (backend)
+- **Vitest** - Exécuteur de tests rapide pour Vite et Vue.js (frontend)
+- **Playwright** - Framework de test de bout en bout pour frontend
+- **@vitest/coverage-v8** - Outil de couverture de code pour Vitest
+- **JSDOM** - Implémentation JavaScript des standards du web pour les tests
+
 ---
 
 ## 🎯 Fonctionnalités
