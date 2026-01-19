@@ -134,6 +134,18 @@
                   </RouterLink>
                 </li>
                 <li>
+                  <RouterLink
+                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
+                    to="/my/stats"
+                  >
+                    <ChartBarIcon
+                      class="w-5 h-5 shrink-0 text-gray-700"
+                      aria-hidden="true"
+                    />
+                    <span>Mes stats</span>
+                  </RouterLink>
+                </li>
+                <li>
                   <button
                     class="w-full text-left flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
                     @click="doLogout"
@@ -425,8 +437,8 @@ import { useAuthStore } from '@/store/auth'
 import {
   Bars3Icon, XMarkIcon, UserCircleIcon, ArrowLeftOnRectangleIcon, MapPinIcon,
   DocumentArrowUpIcon, AdjustmentsHorizontalIcon, RectangleGroupIcon, RssIcon,
-  ArrowPathIcon, QuestionMarkCircleIcon,
-  DocumentTextIcon
+  QuestionMarkCircleIcon,
+  DocumentTextIcon, ChartBarIcon
 } from '@heroicons/vue/24/outline'
 import { Mountain, Trophy, Target, LocateFixed } from 'lucide-vue-next'
 import { Toaster } from 'vue-sonner'
@@ -467,6 +479,7 @@ function openSectionForRoute(path: string) {
   ; (Object.keys(openSections) as SectionKey[]).forEach(k => (openSections[k] = false))
   // ouvrir la section correspondant à la route
   if (/^\/(login|register|verify|resend|profile)/.test(path)) openSections.account = true
+  else if (path.startsWith('/my/stats')) openSections.account = true
   else if (path.startsWith('/caches')) openSections.caches = true
   else if (path.startsWith('/my/challenges')) openSections.challenges = true
   else if (path.startsWith('/my/targets')) openSections.targets = true
