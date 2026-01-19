@@ -102,6 +102,12 @@ const challengesRoutes = [
     component: () => import('@/pages/userChallenges/Calendar.vue'),
     meta: { title: 'Calendar Challenge' },
   },
+  {
+    path: '/my/stats',
+    name: 'userStats',
+    component: () => import('@/pages/userChallenges/MyStats.vue'),
+    meta: { title: 'Mes statistiques' },
+  },
 ]
 
 // Targets
