@@ -108,6 +108,12 @@ const challengesRoutes = [
     component: () => import('@/pages/userChallenges/MyStats.vue'),
     meta: { title: 'Mes statistiques' },
   },
+  {
+    path: '/profile/location',
+    name: 'myProfile',
+    component: () => import('@/pages/profile/MyProfile.vue'),
+    meta: { title: 'Mon profil' },
+  },
 ]
 
 // Targets
