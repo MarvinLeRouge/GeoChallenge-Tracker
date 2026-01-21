@@ -73,10 +73,13 @@ class DataNormalizer:
                 date_str = date_str.split(".")[0] + "Z"
 
             # Parser avec dateutil si disponible
-            from dateutil import parser
+            try:
+                from dateutil import parser  # type: ignore[import-untyped]
 
-            return parser.parse(date_str)
-        except (ImportError, ValueError):
+                return parser.parse(date_str)
+            except ImportError:
+                pass
+        except ValueError:
             pass
 
         return None
@@ -216,7 +219,7 @@ class DataNormalizer:
         Returns:
             dict: Métadonnées normalisées.
         """
-        metadata = {}
+        metadata: dict[str, Any] = {}
 
         # Code GC (obligatoire)
         gc_code = DataNormalizer.normalize_gc_code(raw_data.get("gc_code"))

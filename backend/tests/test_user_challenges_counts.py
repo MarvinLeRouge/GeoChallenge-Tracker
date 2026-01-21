@@ -2,7 +2,7 @@ import pytest
 from bson import ObjectId
 
 from app.db.mongodb import get_collection
-from app.services.user_challenges import patch_user_challenge
+from app.services.user_challenges_service import patch_user_challenge
 
 ADMIN_ROLE = "admin"
 EXPECTED_TOTAL = 222
@@ -129,16 +129,22 @@ def test_effective_status_counts_and_revert(admin_user_id, saved_docs):
 
     # 3) Apply changes
     for _id in to_dismiss:
-        patch_user_challenge(user_id, _id, status="dismissed", notes=None, override_reason=None)
+        patch_user_challenge(
+            user_id, _id, {"status": "dismissed", "notes": None, "override_reason": None}
+        )
     for _id in to_accept:
-        patch_user_challenge(user_id, _id, status="accepted", notes=None, override_reason=None)
+        patch_user_challenge(
+            user_id, _id, {"status": "accepted", "notes": None, "override_reason": None}
+        )
     for _id in to_complete:
         patch_user_challenge(
             user_id,
             _id,
-            status="completed",
-            notes="pytest-completed",
-            override_reason="pytest",
+            {
+                "status": "completed",
+                "notes": "pytest-completed",
+                "override_reason": "pytest",
+            },
         )
 
     # 4) Check counts

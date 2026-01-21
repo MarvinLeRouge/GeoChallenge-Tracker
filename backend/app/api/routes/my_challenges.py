@@ -30,7 +30,7 @@ from app.core.security import CurrentUserId, get_current_user
 from app.db.mongodb import db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
-from app.services.user_challenges import (
+from app.services.user_challenges_service import (
     get_user_challenge_detail,
     list_user_challenges,
     patch_user_challenge,
@@ -152,12 +152,14 @@ async def patch_uc_batch(
 
     for it in items:
         try:
-            doc = await patch_user_challenge(
+            success, error, doc = await patch_user_challenge(
                 user_id=user_id,
                 uc_id=ObjectId(str(it.uc_id)),
-                status=it.status,
-                notes=it.notes,
-                override_reason=it.override_reason,
+                patch_data={
+                    "status": it.status,
+                    "notes": it.notes,
+                    "override_reason": it.override_reason,
+                }
             )
             if not doc:
                 results.append(
@@ -230,16 +232,20 @@ async def patch_uc(
     Returns:
         PatchResponse: UserChallenge après mise à jour.
     """
-    doc = await patch_user_challenge(
+    success, error, updated_uc = await patch_user_challenge(
         user_id=user_id,
         uc_id=ObjectId(str(uc_id)),
-        status=payload.status,
-        notes=payload.notes,
-        override_reason=payload.override_reason,
+        patch_data={
+            "status": payload.status,
+            "notes": payload.notes,
+            "override_reason": payload.override_reason,
+        }
     )
-    if not doc:
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error or "Failed to update UserChallenge")
+    if not updated_uc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
-    return doc
+    return updated_uc
 
 
 @router.get(
