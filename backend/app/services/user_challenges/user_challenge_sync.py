@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import UpdateOne
