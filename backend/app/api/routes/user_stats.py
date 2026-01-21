@@ -5,8 +5,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.api.dto.user_stats import UserStatsOut
 from app.core.security import CurrentUserId, get_current_user
-from app.models.user_stats_dto import UserStatsOut
 from app.services.user_stats import get_user_stats
 
 router = APIRouter(

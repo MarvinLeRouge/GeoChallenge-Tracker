@@ -3,7 +3,7 @@
 import pytest
 from bson import ObjectId
 
-from app.models.calendar_verification import MatrixFilters
+from app.api.dto.calendar_verification import MatrixFilters
 from app.services.matrix_verification import MatrixVerificationService
 
 

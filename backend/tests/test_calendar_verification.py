@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 from bson import ObjectId
 
-from app.models.calendar_verification import CalendarFilters
+from app.api.dto.calendar_verification import CalendarFilters
 from app.services.calendar_verification import CalendarVerificationService
 
 

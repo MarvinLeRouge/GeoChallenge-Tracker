@@ -6,8 +6,8 @@ from typing import Optional
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
+from app.api.dto.user_stats import UserStatsOut
 from app.db.mongodb import get_collection
-from app.models.user_stats_dto import UserStatsOut
 
 
 async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = None) -> UserStatsOut:

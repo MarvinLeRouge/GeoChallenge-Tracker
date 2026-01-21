@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.bson_utils import MongoBaseModel, PyObjectId
 from app.core.utils import now
-from app.models._shared import ProgressSnapshot  # shared snapshot structure
+from app.shared.progress import ProgressSnapshot  # shared snapshot structure
 
 """
 Progress data model - clarification

@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from app.core.bson_utils import PyObjectId
-from app.models.challenge_ast import TaskExpression
+from app.domain.models.challenge_ast import TaskExpression
 
 
 class TaskIn(BaseModel):
