@@ -18,6 +18,7 @@ router = APIRouter(
 # --- ROUTES ---------------------------------------------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.put(
     "/location",
     status_code=status.HTTP_200_OK,
@@ -61,6 +62,7 @@ async def put_my_location(
     return {"message": "No change (same location)"}
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/location",
     response_model=UserLocationOut,
@@ -89,6 +91,7 @@ async def get_my_location(user_id: CurrentUserId):
     return location_data
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "",
     response_model=UserOut,

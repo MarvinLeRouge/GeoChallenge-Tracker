@@ -64,6 +64,7 @@ def _current_user_id(current_user: dict) -> ObjectId:
 # ---------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/challenges/{uc_id}/targets/evaluate",
     status_code=status.HTTP_200_OK,
@@ -155,6 +156,7 @@ async def evaluate_targets(
 # ---------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/challenges/{uc_id}/targets",
     response_model=TargetListResponse,
@@ -192,6 +194,7 @@ async def list_targets_uc(
     )
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/challenges/{uc_id}/targets/nearby",
     response_model=TargetListResponse,
@@ -268,6 +271,7 @@ async def list_targets_uc_nearby(
 # ---------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/targets",
     response_model=TargetListResponse,
@@ -308,6 +312,7 @@ async def list_targets_all(
     )
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/targets/nearby",
     response_model=TargetListResponse,
@@ -382,6 +387,7 @@ async def list_targets_all_nearby(
 # ---------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.delete(
     "/challenges/{uc_id}/targets",
     status_code=status.HTTP_200_OK,

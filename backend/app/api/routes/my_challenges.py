@@ -44,6 +44,7 @@ router = APIRouter(
 )
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/sync",
     status_code=200,
@@ -69,6 +70,7 @@ async def sync(user_id: CurrentUserId):
     return stats
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "",
     response_model=UserChallengeListResponse,
@@ -105,6 +107,7 @@ async def list_uc(
     return await list_user_challenges(user_id, status, page, page_size)
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.patch(
     "",
     response_model=BatchPatchResponse,
@@ -179,6 +182,7 @@ async def patch_uc_batch(
     return BatchPatchResponse(updated_count=updated, total=len(items), results=results)
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/{uc_id}",
     response_model=DetailResponse,
@@ -206,6 +210,7 @@ async def get_uc(
     return doc
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.patch(
     "/{uc_id}",
     response_model=PatchResponse,
@@ -253,6 +258,7 @@ async def patch_uc(
     return updated_uc
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/basics/calendar",
     response_model=CalendarResult,
@@ -283,6 +289,7 @@ async def verify_calendar(
     return await service.verify_user_calendar(str(user_id), filters)
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/basics/matrix",
     response_model=MatrixResult,
