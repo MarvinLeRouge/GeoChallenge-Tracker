@@ -5,9 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
+from app.api.dto.user_profile import UserLocationIn, UserLocationOut
 from app.core.security import CurrentUser, CurrentUserId, get_current_user
-from app.models.user import UserOut
-from app.models.user_profile_dto import UserLocationIn, UserLocationOut
+from app.domain.models.user import UserOut
 from app.services.user_profile import (
     location_parse_to_lon_lat,
     user_location_set,

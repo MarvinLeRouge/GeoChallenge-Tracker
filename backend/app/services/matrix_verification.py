@@ -7,7 +7,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.models.calendar_verification import MatrixFilters, MatrixResult
+from app.api.dto.calendar_verification import MatrixFilters, MatrixResult
 
 
 class MatrixVerificationService:

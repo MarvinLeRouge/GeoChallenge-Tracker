@@ -8,9 +8,9 @@ from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
+from app.api.dto.target import TargetListResponse
 from app.core.security import CurrentUserId, get_current_user
 from app.core.utils import utcnow
-from app.models.target_dto import TargetListResponse
 from app.services.targets import (
     delete_targets_for_user_challenge,
     evaluate_targets_for_user_challenge,

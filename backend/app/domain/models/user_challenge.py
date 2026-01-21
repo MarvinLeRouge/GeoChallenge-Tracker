@@ -10,8 +10,8 @@ from pydantic import Field
 
 from app.core.bson_utils import MongoBaseModel, PyObjectId
 from app.core.utils import now
-from app.models._shared import ProgressSnapshot
-from app.models.challenge_ast import UCLogic
+from app.domain.models.challenge_ast import UCLogic
+from app.shared.progress import ProgressSnapshot
 
 
 class UserChallenge(MongoBaseModel):

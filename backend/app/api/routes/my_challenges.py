@@ -8,26 +8,26 @@ from typing import Annotated
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 
-from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUserId, get_current_user
-from app.db.mongodb import db
-from app.models.calendar_verification import (
+from app.api.dto.calendar_verification import (
     CalendarFilters,
     CalendarResult,
     MatrixFilters,
     MatrixResult,
 )
-from app.models.user_challenge_batch_dto import (
-    BatchPatchItem,
-    BatchPatchResponse,
-    BatchPatchResultItem,
-)
-from app.models.user_challenge_dto import (
+from app.api.dto.user_challenge import (
     DetailResponse,
     PatchResponse,
     PatchUCIn,
     UserChallengeListResponse,
 )
+from app.api.dto.user_challenge_batch import (
+    BatchPatchItem,
+    BatchPatchResponse,
+    BatchPatchResultItem,
+)
+from app.core.bson_utils import PyObjectId
+from app.core.security import CurrentUserId, get_current_user
+from app.db.mongodb import db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
 from app.services.user_challenges import (

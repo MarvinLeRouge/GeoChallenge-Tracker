@@ -24,6 +24,7 @@ from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, Field
 from pymongo.collation import Collation
 
+from app.api.dto.user_profile import VerifyEmailBody
 from app.core.bson_utils import PyObjectId
 from app.core.email import send_verification_email
 from app.core.security import (
@@ -36,7 +37,7 @@ from app.core.security import (
 from app.core.settings import get_settings
 from app.core.utils import now
 from app.db.mongodb import get_collection
-from app.models.user import (
+from app.domain.models.user import (
     RefreshTokenRequest,
     ResendVerificationRequest,
     TokenPair,
@@ -44,7 +45,6 @@ from app.models.user import (
     UserInRegister,
     UserOut,
 )
-from app.models.user_profile_dto import VerifyEmailBody
 
 settings = get_settings()
 

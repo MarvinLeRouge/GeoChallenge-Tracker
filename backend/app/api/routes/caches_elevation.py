@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.security import get_current_user, require_admin
 from app.db.mongodb import get_collection
-from app.models.user import User
+from app.domain.models.user import User
 from app.services.elevation_retrieval import fetch as fetch_elevations
 
 router = APIRouter(

@@ -15,7 +15,7 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
 # ==== AST imports (must match your models) ====
-from app.models.challenge_ast import (
+from app.domain.models.challenge_ast import (
     RuleCountryIs,
     TaskAnd,
     TaskExpression,
@@ -23,7 +23,7 @@ from app.models.challenge_ast import (
     TaskOr,
     preprocess_expression_default_and,
 )
-from app.models.challenge_ast import (
+from app.domain.models.challenge_ast import (
     TaskExpression as TE,
 )
 from app.services.referentials_cache import (

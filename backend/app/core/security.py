@@ -16,7 +16,7 @@ from app.core.bson_utils import PyObjectId
 from app.core.settings import get_settings
 from app.core.utils import now
 from app.db.mongodb import get_collection
-from app.models.user import User
+from app.domain.models.user import User
 
 settings = get_settings()
 

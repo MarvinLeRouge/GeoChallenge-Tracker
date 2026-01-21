@@ -8,7 +8,7 @@ import datetime as dt
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.bson_utils import PyObjectId
-from app.models._shared import (
+from app.shared.progress import (
     ProgressSnapshot as AggregateProgress,
 )
 
