@@ -159,11 +159,13 @@ async def patch_uc_batch(
                     "status": it.status,
                     "notes": it.notes,
                     "override_reason": it.override_reason,
-                }
+                },
             )
             if not success or not doc:
                 results.append(
-                    BatchPatchResultItem(uc_id=it.uc_id, ok=False, error=error or "UserChallenge not found")
+                    BatchPatchResultItem(
+                        uc_id=it.uc_id, ok=False, error=error or "UserChallenge not found"
+                    )
                 )
                 continue
             updated += 1
@@ -239,10 +241,13 @@ async def patch_uc(
             "status": payload.status,
             "notes": payload.notes,
             "override_reason": payload.override_reason,
-        }
+        },
     )
     if not success:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error or "Failed to update UserChallenge")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error or "Failed to update UserChallenge",
+        )
     if not updated_uc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return updated_uc

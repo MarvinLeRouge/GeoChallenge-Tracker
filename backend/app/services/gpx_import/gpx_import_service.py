@@ -302,7 +302,7 @@ class GpxImportService:
             valid_coordinates = [coord for coord in coordinates if coord is not None]
             if not valid_coordinates:
                 return
-            
+
             elevations = await fetch_elevations(valid_coordinates)
 
             # Appliquer les élévations
