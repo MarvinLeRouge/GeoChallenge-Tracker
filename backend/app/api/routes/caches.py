@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import math
 from typing import Annotated, Any, Literal
 
@@ -23,13 +22,12 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
 from pymongo import ASCENDING, DESCENDING
 
-from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
+from app.models.cache_query_dto import CacheFilterIn
 from app.services.challenge_autocreate import create_new_challenges_from_caches
 from app.services.gpx_importer import import_gpx_payload
 
@@ -138,11 +136,6 @@ def _compact_lookups_and_project():
         # on retire les tableaux temporaires
         {"$project": {**COMPACT_FIELDS, "type": 1, "size": 1}},
     ]
-
-
-# ------------------------- schemas -------------------------
-
-from app.models.cache_query_dto import BBox, CacheFilterIn, Range
 
 
 # ------------------------- routes -------------------------

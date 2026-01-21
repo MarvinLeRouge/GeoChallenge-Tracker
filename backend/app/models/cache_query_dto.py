@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -10,12 +9,14 @@ from app.core.bson_utils import PyObjectId
 
 class Range(BaseModel):
     """Range for numeric filters (e.g., difficulty, terrain)."""
+
     min: float | None = None
     max: float | None = None
 
 
 class BBox(BaseModel):
     """Bounding box for spatial filtering."""
+
     min_lat: float
     min_lon: float
     max_lat: float
@@ -24,6 +25,7 @@ class BBox(BaseModel):
 
 class CacheFilterIn(BaseModel):
     """Input schema for cache filtering and pagination."""
+
     q: str | None = None
     type_id: PyObjectId | None = None
     size_id: PyObjectId | None = None

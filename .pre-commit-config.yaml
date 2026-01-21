@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.1
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+        files: ^backend/  # Ne scanne que ce qui est dans backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend)
+        # On force mypy à se lancer comme si on était dans le dossier backend
+        args: ["--config-file", "backend/pyproject.toml"]
+        entry: bash -c "cd backend && .venv/bin/mypy ."
+        language: system
+        pass_filenames: false
+        files: ^backend/

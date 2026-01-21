@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import secrets
+from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
+from typing import Any, cast
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from bson import ObjectId, json_util
@@ -24,27 +26,27 @@ CONFIRMATION_KEY_TTL = 10
 
 # Order matters for deletion: most central to most dependent (to prevent creating new orphans during cleanup)
 COLLECTION_DEPENDENCY_ORDER = [
-    "countries",                  # Level 0: no dependencies
-    "cache_types",                # Level 0: no dependencies
-    "cache_sizes",                # Level 0: no dependencies
-    "cache_attributes",           # Level 0: no dependencies
-    "users",                      # Level 0: no dependencies
-    "states",                     # Level 1: depends on countries
-    "caches",                     # Level 1: depends on cache_types, cache_sizes, countries, states, cache_attributes (nested)
-    "challenges",                 # Level 2: depends on caches
-    "user_challenges",            # Level 3: depends on users, challenges
-    "found_caches",               # Level 3: depends on users, caches
-    "user_challenge_tasks",       # Level 4: depends on user_challenges
-    "progress",                   # Level 4: depends on user_challenges
-    "targets",                    # Level 5: depends on users, user_challenges, caches, user_challenge_tasks
+    "countries",  # Level 0: no dependencies
+    "cache_types",  # Level 0: no dependencies
+    "cache_sizes",  # Level 0: no dependencies
+    "cache_attributes",  # Level 0: no dependencies
+    "users",  # Level 0: no dependencies
+    "states",  # Level 1: depends on countries
+    "caches",  # Level 1: depends on cache_types, cache_sizes, countries, states, cache_attributes (nested)
+    "challenges",  # Level 2: depends on caches
+    "user_challenges",  # Level 3: depends on users, challenges
+    "found_caches",  # Level 3: depends on users, caches
+    "user_challenge_tasks",  # Level 4: depends on user_challenges
+    "progress",  # Level 4: depends on user_challenges
+    "targets",  # Level 5: depends on users, user_challenges, caches, user_challenge_tasks
 ]
 
 REFERENCES_MAP = {
     "caches": {
         "country_id": "countries",
         "state_id": "states",
-        "type_id": "cache_types",      # Added: CacheType reference
-        "size_id": "cache_sizes",      # Added: CacheSize reference
+        "type_id": "cache_types",  # Added: CacheType reference
+        "size_id": "cache_sizes",  # Added: CacheSize reference
     },
     "challenges": {
         "cache_id": "caches",
@@ -85,12 +87,12 @@ async def find_nested_array_orphans(collection_name: str, field_path: str, ref_c
         ref_collection: Target collection name for reference check
     """
     # Split the field_path to get the array field and the nested reference field
-    parts = field_path.split('.')
+    parts = field_path.split(".")
     if len(parts) < 2:
         return []
 
     array_field = ".".join(parts[:-1])  # "attributes"
-    nested_field = parts[-1]            # "attribute_doc_id"
+    nested_field = parts[-1]  # "attribute_doc_id"
 
     # Get all valid IDs from the reference collection
     ref_collection_obj = await get_collection(ref_collection)
@@ -101,28 +103,29 @@ async def find_nested_array_orphans(collection_name: str, field_path: str, ref_c
         # Unwind the array to work with individual elements
         {"$unwind": f"${array_field}"},
         # Match where the nested field exists and is not in valid_ids
-        {"$match": {
-            f"{array_field}.{nested_field}": {
-                "$exists": True,
-                "$ne": None,
-                "$nin": valid_ids
+        {
+            "$match": {
+                f"{array_field}.{nested_field}": {"$exists": True, "$ne": None, "$nin": valid_ids}
             }
-        }},
+        },
         # Project the document _id and the problematic reference
-        {"$project": {
-            "_id": 1,
-            "problematic_ref": f"${array_field}.{nested_field}",
-            "full_array_item": f"${array_field}"
-        }}
+        {
+            "$project": {
+                "_id": 1,
+                "problematic_ref": f"${array_field}.{nested_field}",
+                "full_array_item": f"${array_field}",
+            }
+        },
     ]
 
     collection_obj = await get_collection(collection_name)
-    cursor = collection_obj.aggregate(pipeline)
+    cursor = collection_obj.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
     orphan_docs = await cursor.to_list(length=None)
 
     # Extract unique document IDs that contain orphaned references
     orphan_ids = list(set(str(doc["_id"]) for doc in orphan_docs))
     return orphan_ids
+
 
 # ============================================================================
 # UTILITAIRES
@@ -192,8 +195,14 @@ async def cleanup_analyze():
 
     # Create a map of all references in the system: target_collection -> [(source_collection, field), ...]
     collection_references = {}
-    for ref_key, target_collection in {**{f"{coll}.{field}": ref_coll for coll, field_refs in REFERENCES_MAP.items() for field, ref_coll in field_refs.items()},
-                                       "caches.attributes.attribute_doc_id": "cache_attributes"}.items():
+    for ref_key, target_collection in {
+        **{
+            f"{coll}.{field}": ref_coll
+            for coll, field_refs in REFERENCES_MAP.items()
+            for field, ref_coll in field_refs.items()
+        },
+        "caches.attributes.attribute_doc_id": "cache_attributes",
+    }.items():
         if target_collection not in collection_references:
             collection_references[target_collection] = []
         source_collection, field = ref_key.split(".", 1)
@@ -232,19 +241,27 @@ async def cleanup_analyze():
                         # This is complex - need to find cache documents where nested attribute references invalid cache_attribute
                         pipeline = [
                             {"$unwind": "$attributes"},
-                            {"$match": {"attributes.attribute_doc_id": {"$exists": True, "$ne": None}}},
-                            {"$lookup": {
-                                "from": "cache_attributes",
-                                "localField": "attributes.attribute_doc_id",
-                                "foreignField": "_id",
-                                "as": "valid_attribute"
-                            }},
+                            {
+                                "$match": {
+                                    "attributes.attribute_doc_id": {"$exists": True, "$ne": None}
+                                }
+                            },
+                            {
+                                "$lookup": {
+                                    "from": "cache_attributes",
+                                    "localField": "attributes.attribute_doc_id",
+                                    "foreignField": "_id",
+                                    "as": "valid_attribute",
+                                }
+                            },
                             {"$match": {"valid_attribute": {"$size": 0}}},  # No match found
                             {"$project": {"_id": 1}},
-                            {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}}
+                            {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}},
                         ]
 
-                        results = await source_collection_obj.aggregate(pipeline).to_list(length=None)
+                        results = await source_collection_obj.aggregate(pipeline).to_list(
+                            length=None
+                        )
                         if results and results[0]["orphan_ids"]:
                             orphan_ids = [str(obj_id) for obj_id in results[0]["orphan_ids"]]
                         else:
@@ -256,7 +273,7 @@ async def cleanup_analyze():
                     pipeline = [
                         {"$match": {field: {"$exists": True, "$ne": None}}},
                         {"$match": {field: {"$nin": list(current_target_ids)}}},
-                        {"$project": {"_id": 1}}
+                        {"$project": {"_id": 1}},
                     ]
 
                     cursor = source_collection_obj.aggregate(pipeline)
@@ -271,7 +288,9 @@ async def cleanup_analyze():
                     orphans[ref_key].extend(orphan_ids)
 
                     # Add to simulated removals for this source collection
-                    simulated_orphan_ids[source_collection].update([ObjectId(oid) for oid in orphan_ids])
+                    simulated_orphan_ids[source_collection].update(
+                        [ObjectId(oid) for oid in orphan_ids]
+                    )
 
     # Remove duplicates
     for key in orphans:
@@ -348,7 +367,7 @@ async def cleanup_execute(key: str):
 
         # Collect all document IDs from all orphan references for this collection
         all_orphan_ids = set()
-        for key_path, orphan_ids in collection_orphans.items():
+        for _, orphan_ids in collection_orphans.items():
             all_orphan_ids.update(orphan_ids)
 
         # Convertit les IDs en ObjectId
@@ -362,7 +381,9 @@ async def cleanup_execute(key: str):
         if collection_name not in backup_data["data"]:
             backup_data["data"][collection_name] = []
 
-        backup_data["data"][collection_name].extend([serialize_mongo_doc(doc) for doc in docs_to_delete])
+        backup_data["data"][collection_name].extend(
+            [serialize_mongo_doc(doc) for doc in docs_to_delete]
+        )
 
         # Supprime les documents
         collection_obj = await get_collection(collection_name)

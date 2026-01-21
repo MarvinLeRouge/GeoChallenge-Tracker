@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.core.bson_utils import PyObjectId
 from app.models._shared import (
     ProgressSnapshot as AggregateProgress,
-)  # percent, tasks_done, tasks_total, checked_at
+)
 
 
 def _round_it(v: float, decimals: int = 0) -> float | None:

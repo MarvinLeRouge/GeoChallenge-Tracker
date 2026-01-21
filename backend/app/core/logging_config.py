@@ -1,13 +1,13 @@
 """Configuration du système de logging centralisé."""
 
+import glob
 import json
 import logging
 import logging.handlers
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional
-import os
-import glob
+from typing import Any, Optional
 
 from bson import ObjectId
 
@@ -31,10 +31,7 @@ class DataLogger:
         self.logs_dir.mkdir(exist_ok=True)
 
     def log_data(
-        self,
-        calling_context: str,
-        data: Dict[str, Any],
-        user_data: Optional[Dict[str, Any]] = None
+        self, calling_context: str, data: dict[str, Any], user_data: Optional[dict[str, Any]] = None
     ) -> None:
         """Log des données lourdes en JSON."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -44,36 +41,36 @@ class DataLogger:
             "datetime": datetime.now().isoformat(),
             "calling_context": calling_context,
             "user_data": user_data or {},
-            "data": data
+            "data": data,
         }
 
         # Maintenir un fichier JSON valide au format tableau
         if json_file.exists():
             # Lire le contenu existant et supprimer le crochet fermant final
-            with open(json_file, "r", encoding="utf-8") as f:
+            with open(json_file, encoding="utf-8") as f:
                 content = f.read()
 
             # Retirer les espaces blancs et le dernier crochet fermant
             content = content.rstrip()
-            if content.endswith(']'):
+            if content.endswith("]"):
                 content = content[:-1]  # Supprimer ']'
                 # Ajouter une virgule si ce n'est pas le premier élément
-                if content.rstrip().endswith('}'):
-                    content += ','
-            elif content.endswith('}'):
-                content += ','
+                if content.rstrip().endswith("}"):
+                    content += ","
+            elif content.endswith("}"):
+                content += ","
 
             # Réécrire le fichier avec la nouvelle entrée
             with open(json_file, "w", encoding="utf-8") as f:
                 f.write(content)
                 f.write(json.dumps(entry, cls=CustomJSONEncoder))
-                f.write(']')
+                f.write("]")
         else:
             # Créer un nouveau fichier avec le tableau JSON contenant l'entrée
             with open(json_file, "w", encoding="utf-8") as f:
-                f.write('[')
+                f.write("[")
                 f.write(json.dumps(entry, cls=CustomJSONEncoder))
-                f.write(']')
+                f.write("]")
 
 
 def setup_logging() -> tuple[logging.Logger, logging.Logger, DataLogger]:
@@ -89,9 +86,7 @@ def setup_logging() -> tuple[logging.Logger, logging.Logger, DataLogger]:
     cleanup_old_logs(logs_dir)
 
     # Format des logs
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # Logger générique (INFO+)
     generic_logger = logging.getLogger("geocaching.generic")
@@ -99,10 +94,7 @@ def setup_logging() -> tuple[logging.Logger, logging.Logger, DataLogger]:
 
     if not generic_logger.handlers:  # Éviter les doublons
         generic_handler = logging.handlers.TimedRotatingFileHandler(
-            filename=logs_dir / "generic.log",
-            when="midnight",
-            interval=1,
-            encoding="utf-8"
+            filename=logs_dir / "generic.log", when="midnight", interval=1, encoding="utf-8"
         )
         generic_handler.suffix = "%Y-%m-%d"
         generic_handler.setFormatter(formatter)
@@ -114,10 +106,7 @@ def setup_logging() -> tuple[logging.Logger, logging.Logger, DataLogger]:
 
     if not error_logger.handlers:  # Éviter les doublons
         error_handler = logging.handlers.TimedRotatingFileHandler(
-            filename=logs_dir / "errors.log",
-            when="midnight",
-            interval=1,
-            encoding="utf-8"
+            filename=logs_dir / "errors.log", when="midnight", interval=1, encoding="utf-8"
         )
         error_handler.suffix = "%Y-%m-%d"
         error_handler.setFormatter(formatter)
@@ -140,7 +129,7 @@ def cleanup_old_logs(logs_dir: Path, retention_days: int = 30) -> None:
         f"{logs_dir}/*-errors.log*",
         f"{logs_dir}/*-data.json",
         f"{logs_dir}/generic.log*",
-        f"{logs_dir}/errors.log*"
+        f"{logs_dir}/errors.log*",
     ]
 
     for pattern in patterns:
@@ -148,8 +137,8 @@ def cleanup_old_logs(logs_dir: Path, retention_days: int = 30) -> None:
             file_name = os.path.basename(file_path)
 
             # Extraire la date du nom de fichier
-            for date_part in file_name.split('-'):
-                if len(date_part) == 10 and date_part.count('-') == 2:
+            for date_part in file_name.split("-"):
+                if len(date_part) == 10 and date_part.count("-") == 2:
                     try:
                         if date_part < cutoff_str:
                             os.remove(file_path)
@@ -171,7 +160,7 @@ def get_loggers() -> tuple[logging.Logger, logging.Logger, DataLogger]:
     return _loggers
 
 
-def extract_user_data(user_id: Optional[ObjectId] = None, request = None) -> Dict[str, Any]:
+def extract_user_data(user_id: Optional[ObjectId] = None, request=None) -> dict[str, Any]:
     """Extrait les données utilisateur pour le logging."""
     user_data = {}
 
@@ -180,11 +169,11 @@ def extract_user_data(user_id: Optional[ObjectId] = None, request = None) -> Dic
 
     if request:
         # IP depuis FastAPI request
-        if hasattr(request, 'client') and request.client:
+        if hasattr(request, "client") and request.client:
             user_data["ip"] = request.client.host
 
         # User-Agent optionnel
-        if hasattr(request, 'headers'):
+        if hasattr(request, "headers"):
             user_agent = request.headers.get("user-agent")
             if user_agent:
                 user_data["user_agent"] = user_agent

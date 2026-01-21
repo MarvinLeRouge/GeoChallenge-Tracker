@@ -92,7 +92,7 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
         unique_value = None
 
         # Check for common ID field names in the seed document
-        for field in ['_id', 'id', 'code', 'cache_type_id', 'cache_size_id']:
+        for field in ["_id", "id", "code", "cache_type_id", "cache_size_id"]:
             if field in seed_doc:
                 unique_field = field
                 unique_value = seed_doc[field]
@@ -100,11 +100,13 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
 
         if unique_field is None:
             # If no unique field is found, we can't do upsert, so skip
-            print(f"⚠️  Document in {file_path} does not have a unique identifier field. Skipping upsert.")
+            print(
+                f"⚠️  Document in {file_path} does not have a unique identifier field. Skipping upsert."
+            )
             continue
 
         # Find existing document with the same unique value
-        if unique_field == '_id':
+        if unique_field == "_id":
             existing_doc = await collection_obj.find_one({"_id": unique_value})
         else:
             # For other unique fields, we need to find by that field
@@ -112,15 +114,12 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
 
         if existing_doc:
             # Compare the documents (excluding _id field from comparison)
-            existing_for_comparison = {k: v for k, v in existing_doc.items() if k != '_id'}
-            seed_for_comparison = {k: v for k, v in seed_doc.items() if k != '_id'}
+            existing_for_comparison = {k: v for k, v in existing_doc.items() if k != "_id"}
+            seed_for_comparison = {k: v for k, v in seed_doc.items() if k != "_id"}
 
             if existing_for_comparison != seed_for_comparison:
                 # Update the existing document (preserving the _id)
-                await collection_obj.update_one(
-                    {unique_field: unique_value},
-                    {"$set": seed_doc}
-                )
+                await collection_obj.update_one({unique_field: unique_value}, {"$set": seed_doc})
                 updated_count += 1
             # else: documents are the same, no update needed
         else:
@@ -128,8 +127,10 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
             await collection_obj.insert_one(seed_doc)
             inserted_count += 1
 
-    print(f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans '{collection_name}'.")
-    print(f"ℹ️  Les documents existants non présents dans le seed ont été conservés.")
+    print(
+        f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans '{collection_name}'."
+    )
+    print("ℹ️  Les documents existants non présents dans le seed ont été conservés.")
 
 
 async def seed_admin_user(force: bool = False):
