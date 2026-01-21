@@ -25,6 +25,7 @@ class RefreshIn(BaseModel):
     )
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/refresh-from-caches",
     summary="(Re)crée les challenges depuis les caches 'challenge'",

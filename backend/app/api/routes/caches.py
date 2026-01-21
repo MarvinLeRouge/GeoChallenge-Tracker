@@ -141,6 +141,8 @@ def _compact_lookups_and_project():
 # ------------------------- routes -------------------------
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/upload-gpx",
     summary="Importe des caches depuis un fichier GPX/ZIP",
@@ -234,6 +236,8 @@ async def upload_gpx(
     return result
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/by-filter",
     summary="Recherche de caches par filtres",
@@ -379,6 +383,9 @@ async def by_filter(
     }
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/within-bbox",
     summary="Caches dans une bounding box",
@@ -477,6 +484,8 @@ async def within_bbox(
     }
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/within-radius",
     summary="Caches autour d’un point (rayon)",
@@ -581,6 +590,8 @@ async def within_radius(
     }
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/{gc}",
     summary="Récupère une cache par code GC",
@@ -642,6 +653,8 @@ async def get_by_gc(
     return _doc(doc)
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "/by-id/{id}",
     summary="Récupère une cache par identifiant MongoDB",

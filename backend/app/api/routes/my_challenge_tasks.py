@@ -25,6 +25,7 @@ router = APIRouter(
 )
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.get(
     "",
     response_model=TasksListResponse,
@@ -51,6 +52,7 @@ async def get_tasks(
     return {"tasks": tasks}
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.put(
     "",
     response_model=TasksListResponse,
@@ -89,6 +91,7 @@ async def put_tasks_route(
     return {"tasks": tasks}
 
 
+# TODO: [BACKLOG] Fonctionnement route à vérifier
 @router.post(
     "/validate",
     response_model=TasksValidateResponse,
