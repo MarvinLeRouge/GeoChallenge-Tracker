@@ -29,7 +29,7 @@ from app.core.security import CurrentUserId, get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
-from app.services.gpx_importer import import_gpx_payload
+from app.services.gpx_importer_service import import_gpx_payload
 
 settings = get_settings()
 
