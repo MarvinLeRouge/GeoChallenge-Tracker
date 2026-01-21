@@ -9,7 +9,7 @@ from rich import print as rprint
 
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
-from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_only
+from app.services.user_challenge_tasks_service import list_tasks, put_tasks, validate_only
 
 ADMIN_ROLE = "admin"
 
