@@ -16,7 +16,7 @@ from app.api.dto.user_challenge_task import (
 )
 from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
-from app.services.user_challenge_tasks import list_tasks, put_tasks, validate_only
+from app.services.user_challenge_tasks_service import list_tasks, put_tasks, validate_only
 
 router = APIRouter(
     prefix="/my/challenges/{uc_id}/tasks",
