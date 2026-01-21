@@ -4,7 +4,6 @@ Type lookup helpers.
 Separated from processing logic to improve testability and maintainability.
 """
 
-from typing import Dict, Optional
 from bson import ObjectId
 
 
@@ -25,7 +24,7 @@ def _normalize_name(name: str | None) -> str:
 
 def get_type_by_name(
     cache_type_name: str | None,
-    all_types_by_name: Dict[str, ObjectId] | None = None,
+    all_types_by_name: dict[str, ObjectId] | None = None,
 ):
     """Résoudre le type par nom (avec synonymes).
 

@@ -2,6 +2,7 @@
 # Route pour obtenir des statistiques synthétiques sur un utilisateur
 
 from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.core.security import CurrentUserId, get_current_user
@@ -37,23 +38,22 @@ router = APIRouter(
 async def get_user_statistics(
     user_id: CurrentUserId,
     username: Optional[str] = Query(
-        None, 
-        description="Username de l'utilisateur cible (admin seulement)"
-    )
+        None, description="Username de l'utilisateur cible (admin seulement)"
+    ),
 ) -> UserStatsOut:
     """Obtenir les statistiques d'un utilisateur.
-    
+
     Description:
         Calcule et retourne les statistiques synthétiques pour l'utilisateur courant
         ou un utilisateur spécifique (si droits admin).
-        
+
     Args:
         user_id (CurrentUserId): ID de l'utilisateur courant.
         username (str | None): Username cible (optionnel, admin seulement).
-        
+
     Returns:
         UserStatsOut: Statistiques calculées.
-        
+
     Raises:
         HTTPException 403: Si username fourni sans droits admin.
         HTTPException 404: Si username cible non trouvé.
@@ -62,21 +62,15 @@ async def get_user_statistics(
     try:
         stats = await get_user_stats(user_id, username)
         return stats
-        
+
     except PermissionError as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=str(e)
-        ) from e
-        
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e)) from e
+
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        ) from e
-        
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error calculating user statistics: {str(e)}"
+            detail=f"Error calculating user statistics: {str(e)}",
         ) from e

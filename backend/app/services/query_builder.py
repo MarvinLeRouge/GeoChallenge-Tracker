@@ -39,7 +39,7 @@ def _mk_date(dt_or_str: Any) -> datetime:
         return datetime(dt_or_str.year, dt_or_str.month, dt_or_str.day)
     if isinstance(dt_or_str, str):
         if len(dt_or_str) == 10:
-            y, m, d = [int(x) for x in dt_or_str.split("-")]
+            y, m, d = (int(x) for x in dt_or_str.split("-"))
             return datetime(y, m, d)
         return datetime.fromisoformat(dt_or_str)
     raise ValueError(f"Invalid date: {dt_or_str!r}")

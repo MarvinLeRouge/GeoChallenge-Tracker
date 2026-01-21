@@ -5,11 +5,12 @@ This module contains validation logic separated from processing logic
 to follow the single responsibility principle.
 """
 
-from typing import Dict, Any
-from bson import ObjectId
+from typing import Any
 
 
-async def validate_cache_comprehensive(item: Dict[str, Any], all_types_by_name: Dict, all_sizes_by_name: Dict) -> Dict[str, Any]:
+async def validate_cache_comprehensive(
+    item: dict[str, Any], all_types_by_name: dict, all_sizes_by_name: dict
+) -> dict[str, Any]:
     """
     Validator for comprehensive cache validation.
 
@@ -45,16 +46,19 @@ async def validate_cache_comprehensive(item: Dict[str, Any], all_types_by_name: 
     type_name = item.get("cache_type")
     # Need to import the type lookup function from its new location
     from app.services.type_helpers import get_type_by_name
+
     type_id = get_type_by_name(type_name, all_types_by_name)  # Using the existing function
     if type_id is None:
         # Try to resolve using the referential cache
         from app.services.referentials_cache import resolve_type_code
+
         resolved_type_id = resolve_type_code(type_name) if type_name else None
         if resolved_type_id is None:
             return {"is_valid": False, "reason": f"unknown_cache_type: {type_name}"}
     else:
         # Verify that the resolved type_id exists in the DB
         from app.services.referentials_cache import exists_id
+
         if not exists_id("cache_types", type_id):
             return {"is_valid": False, "reason": f"cache_type_not_in_db: {type_name}"}
 
@@ -62,10 +66,12 @@ async def validate_cache_comprehensive(item: Dict[str, Any], all_types_by_name: 
     size_name = item.get("cache_size")
     # Need to import the size lookup function from its new location
     from app.services.size_helpers import get_size_by_name
+
     size_id = get_size_by_name(size_name, all_sizes_by_name)  # Using the existing function
     if size_id is None:
         # Try to resolve using the referential cache
         from app.services.referentials_cache import resolve_size_code, resolve_size_name
+
         resolved_size_id = resolve_size_code(size_name) if size_name else None
         if resolved_size_id is None:
             resolved_size_id = resolve_size_name(size_name) if size_name else None
@@ -74,6 +80,7 @@ async def validate_cache_comprehensive(item: Dict[str, Any], all_types_by_name: 
     else:
         # Verify that the resolved size_id exists in the DB
         from app.services.referentials_cache import exists_id
+
         if not exists_id("cache_sizes", size_id):
             return {"is_valid": False, "reason": f"cache_size_not_in_db: {size_name}"}
 

@@ -7,6 +7,7 @@ from app.core.bson_utils import PyObjectId
 
 class BatchPatchItem(BaseModel):
     """Item for batch patching UserChallenges."""
+
     uc_id: PyObjectId = Field(..., description="UserChallenge id")
     status: str | None = Field(
         default=None,
@@ -18,6 +19,7 @@ class BatchPatchItem(BaseModel):
 
 class BatchPatchResultItem(BaseModel):
     """Result item for batch patching."""
+
     uc_id: PyObjectId
     ok: bool
     error: str | None = None
@@ -25,6 +27,7 @@ class BatchPatchResultItem(BaseModel):
 
 class BatchPatchResponse(BaseModel):
     """Response for batch patching UserChallenges."""
+
     updated_count: int
     total: int
     results: list[BatchPatchResultItem]

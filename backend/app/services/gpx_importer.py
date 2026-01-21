@@ -16,16 +16,13 @@ from fastapi import HTTPException
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
+from app.core.logging_config import extract_user_data, get_loggers
 from app.core.utils import now
 from app.db.mongodb import get_collection, get_distinct
 from app.services.elevation_retrieval import fetch as fetch_elevations
-from app.services.parsers.GPXCacheParser import (
-    GPXCacheParser,
-)  # ton parser: __init__(gpx_file: Path), parse()
 from app.services.parsers.MultiFormatGPXParser import (
     MultiFormatGPXParser,
-)  # multi-format parser
-from app.core.logging_config import get_loggers, extract_user_data
+)
 
 # --------- Constantes & FS helpers ---------
 
@@ -524,7 +521,9 @@ def _is_valid_for_import_mode(item: dict, import_mode: str) -> bool:
     return False
 
 
-async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all_sizes_by_name: dict) -> dict:
+async def _validate_cache_comprehensive(
+    item: dict, all_types_by_name: dict, all_sizes_by_name: dict
+) -> dict:
     """
     Validator for comprehensive cache validation.
 
@@ -562,12 +561,14 @@ async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all
     if type_id is None:
         # Try to resolve using the referential cache
         from app.services.referentials_cache import resolve_type_code
+
         resolved_type_id = resolve_type_code(type_name) if type_name else None
         if resolved_type_id is None:
             return {"is_valid": False, "reason": f"unknown_cache_type: {type_name}"}
     else:
         # Verify that the resolved type_id exists in the DB
         from app.services.referentials_cache import exists_id
+
         if not exists_id("cache_types", type_id):
             return {"is_valid": False, "reason": f"cache_type_not_in_db: {type_name}"}
 
@@ -577,6 +578,7 @@ async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all
     if size_id is None:
         # Try to resolve using the referential cache
         from app.services.referentials_cache import resolve_size_code, resolve_size_name
+
         resolved_size_id = resolve_size_code(size_name) if size_name else None
         if resolved_size_id is None:
             resolved_size_id = resolve_size_name(size_name) if size_name else None
@@ -585,6 +587,7 @@ async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all
     else:
         # Verify that the resolved size_id exists in the DB
         from app.services.referentials_cache import exists_id
+
         if not exists_id("cache_sizes", size_id):
             return {"is_valid": False, "reason": f"cache_size_not_in_db: {size_name}"}
 
@@ -623,7 +626,14 @@ async def _validate_cache_comprehensive(item: dict, all_types_by_name: dict, all
 # --------- Import principal ---------
 
 
-async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, user_id: ObjectId, request=None, source_type: str = "auto") -> dict:
+async def import_gpx_payload(
+    payload: bytes,
+    filename: str,
+    import_mode: str,
+    user_id: ObjectId,
+    request=None,
+    source_type: str = "auto",
+) -> dict:
     """Importer des caches depuis un upload GPX/ZIP (avec enrichissements).
 
     Description:
@@ -691,7 +701,7 @@ async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, us
     print("items[0]", items[0])
     debug_invalid_items_for_import_mode = []
     debug_invalid_items_for_test = []
-    
+
     for item in items:
         if item["GC"] == "GCAW0J4":
             print("item GCAW0J4", item)
@@ -704,23 +714,24 @@ async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, us
             elif import_mode == "finds" and not item.get("found_date"):
                 reason = "missing_found_date"
 
-            discarded_items.append({
-                "item": item,
-                "reason": reason
-            })
+            discarded_items.append({"item": item, "reason": reason})
         else:
             # Perform comprehensive validation
-            validation_result = await _validate_cache_comprehensive(item, all_types_by_name, all_sizes_by_name)
+            validation_result = await _validate_cache_comprehensive(
+                item, all_types_by_name, all_sizes_by_name
+            )
             if validation_result["is_valid"]:
                 valid_items.append(item)
             else:
                 debug_invalid_items_for_test.append(item.get("GC", None))
-                discarded_items.append({
-                    "item": item,
-                    "reason": validation_result["reason"]
-                })
+                discarded_items.append({"item": item, "reason": validation_result["reason"]})
 
-    print("invalid debug_invalid_items_for_import_mode", debug_invalid_items_for_import_mode, "debug_invalid_items_for_test", debug_invalid_items_for_test)
+    print(
+        "invalid debug_invalid_items_for_import_mode",
+        debug_invalid_items_for_import_mode,
+        "debug_invalid_items_for_test",
+        debug_invalid_items_for_test,
+    )
     nb_discarded_items = len(discarded_items)
 
     # Logger les items rejetés si nécessaire
@@ -741,9 +752,9 @@ async def import_gpx_payload(payload: bytes, filename: str, import_mode: str, us
                 "import_mode": import_mode,
                 "filename": filename,
                 "total_items": nb_total_items,
-                "discarded_items": discarded_items
+                "discarded_items": discarded_items,
             },
-            user_data=user_data
+            user_data=user_data,
         )
 
     all_caches_to_db = []

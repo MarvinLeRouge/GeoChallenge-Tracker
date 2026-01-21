@@ -4,7 +4,6 @@ Size lookup helpers.
 Separated from processing logic to improve testability and maintainability.
 """
 
-from typing import Dict, Optional
 from bson import ObjectId
 
 
@@ -25,7 +24,7 @@ def _normalize_name(name: str | None) -> str:
 
 def get_size_by_name(
     cache_size_name: str | None,
-    all_sizes_by_name: Dict[str, ObjectId] | None = None,
+    all_sizes_by_name: dict[str, ObjectId] | None = None,
 ):
     """Résoudre la taille par nom.
 

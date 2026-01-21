@@ -23,6 +23,9 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [tool.ruff]
+target-version = "py39"
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]

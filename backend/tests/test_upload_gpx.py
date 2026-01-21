@@ -98,10 +98,10 @@ def test_upload_gpx_default_mode(client, sample_gpx_path):
     with open(sample_gpx_path, "rb") as fh:
         files = {"file": ("export.gpx", fh, "application/gpx+xml")}
         resp = client.post("/caches/upload-gpx", files=files)
-    
+
     assert resp.status_code == 200, resp.text
     data = resp.json().get("summary", {})
-    
+
     # Mode par défaut devrait être "caches", donc pas de found_caches créées
     assert data["nb_inserted_found_caches"] == 0
 
@@ -111,5 +111,5 @@ def test_upload_gpx_invalid_mode(client, sample_gpx_path):
     with open(sample_gpx_path, "rb") as fh:
         files = {"file": ("export.gpx", fh, "application/gpx+xml")}
         resp = client.post("/caches/upload-gpx?import_mode=invalid", files=files)
-    
+
     assert resp.status_code == 422  # Validation error

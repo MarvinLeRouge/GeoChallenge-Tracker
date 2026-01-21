@@ -49,4 +49,5 @@ class UserLocationOut(BaseModel):
 
 class VerifyEmailBody(BaseModel):
     """Request body for email verification."""
+
     code: str
