@@ -185,7 +185,9 @@ class GpxImportService:
         # Traiter les fichiers en parallèle (avec limite)
         semaphore = asyncio.Semaphore(5)  # Max 5 fichiers simultanés
 
-        async def process_single_file(gpx_path: Path):
+        async def process_single_file(
+            gpx_path: Path,
+        ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             async with semaphore:
                 return await self._process_single_gpx_file(gpx_path, import_mode)
 
@@ -286,7 +288,7 @@ class GpxImportService:
             return
 
         # Extraire les coordonnées
-        coordinates = []
+        coordinates: list[tuple[float, float] | None] = []
         for cache_data in caches_data:
             if cache_data.get("lat") is not None and cache_data.get("lon") is not None:
                 coordinates.append((cache_data["lat"], cache_data["lon"]))
