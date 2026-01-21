@@ -98,7 +98,7 @@ class UserChallengeQuery:
         Returns:
             dict | None: Détail enrichi ou None si non trouvé.
         """
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             # Matcher l'UC spécifique
             {"$match": {"_id": uc_id, "user_id": user_id}},
             # Joindre avec le challenge
@@ -182,7 +182,7 @@ class UserChallengeQuery:
         Returns:
             list: Pipeline MongoDB.
         """
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {"user_id": user_id}},
         ]
 
@@ -259,7 +259,7 @@ class UserChallengeQuery:
         Returns:
             int: Nombre de résultats.
         """
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             {"$match": {"user_id": user_id}},
         ]
 

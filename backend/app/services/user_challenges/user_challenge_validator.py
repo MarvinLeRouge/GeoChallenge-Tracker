@@ -171,9 +171,11 @@ class UserChallengeValidator:
             return {}
 
         # Vérifier si la cache du challenge est trouvée
-        challenge_cache_found = await self._is_challenge_cache_found(
-            user_id, current_uc.get("challenge_id")
-        )
+        challenge_id = current_uc.get("challenge_id")
+        if not isinstance(challenge_id, ObjectId):
+            challenge_cache_found = False
+        else:
+            challenge_cache_found = await self._is_challenge_cache_found(user_id, challenge_id)
 
         return {
             "current_uc": current_uc,

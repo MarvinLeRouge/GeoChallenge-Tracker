@@ -179,8 +179,8 @@ class GpxImportService:
         Returns:
             tuple: (caches_data, found_caches_data).
         """
-        all_caches_data = []
-        all_found_caches_data = []
+        all_caches_data: list[dict[str, Any]] = []
+        all_found_caches_data: list[dict[str, Any]] = []
 
         # Traiter les fichiers en parallèle (avec limite)
         semaphore = asyncio.Semaphore(5)  # Max 5 fichiers simultanés
@@ -201,9 +201,10 @@ class GpxImportService:
                 logger_import.warning(f"Error processing GPX file: {result}")
                 continue
 
-            caches_data, found_caches_data = result
-            all_caches_data.extend(caches_data)
-            all_found_caches_data.extend(found_caches_data)
+            if isinstance(result, tuple) and len(result) == 2:
+                caches_data, found_caches_data = result
+                all_caches_data.extend(caches_data)
+                all_found_caches_data.extend(found_caches_data)
 
         return all_caches_data, all_found_caches_data
 
@@ -297,7 +298,12 @@ class GpxImportService:
 
         # Récupérer les élévations
         try:
-            elevations = await fetch_elevations(coordinates)
+            # Filtrer les coordonnées valides pour l'API d'élévation
+            valid_coordinates = [coord for coord in coordinates if coord is not None]
+            if not valid_coordinates:
+                return
+            
+            elevations = await fetch_elevations(valid_coordinates)
 
             # Appliquer les élévations
             for i, cache_data in enumerate(caches_data):

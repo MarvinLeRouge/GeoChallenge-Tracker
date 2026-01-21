@@ -121,7 +121,7 @@ class UserChallengeSync:
             dict: Statistiques d'auto-completion.
         """
         # Pipeline pour identifier les UC à auto-compléter
-        pipeline = [
+        pipeline: list[dict[str, Any]] = [
             # Matcher les UC de l'utilisateur
             {"$match": {"user_id": user_id}},
             # Joindre avec les challenges
