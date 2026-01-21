@@ -296,7 +296,7 @@ class DataNormalizer:
         if not found_date:
             return None
 
-        metadata = {
+        metadata: dict[str, Any] = {
             "found_date": found_date,
         }
 

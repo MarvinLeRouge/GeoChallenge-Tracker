@@ -161,9 +161,9 @@ async def patch_uc_batch(
                     "override_reason": it.override_reason,
                 }
             )
-            if not doc:
+            if not success or not doc:
                 results.append(
-                    BatchPatchResultItem(uc_id=it.uc_id, ok=False, error="UserChallenge not found")
+                    BatchPatchResultItem(uc_id=it.uc_id, ok=False, error=error or "UserChallenge not found")
                 )
                 continue
             updated += 1
