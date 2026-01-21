@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from app.core.bson_utils import PyObjectId
 from app.core.utils import utcnow
-from app.services.user_profile import coords_in_deg_min_mil
+from app.services.location_parser import format_coordinates_deg_min_mil
 
 
 class UserLocationIn(BaseModel):
@@ -42,7 +42,7 @@ class UserLocationOut(BaseModel):
     @computed_field
     def coords(self) -> str:
         """Représentation en degrés/minutes (calculé automatiquement)."""
-        return coords_in_deg_min_mil(self.lat, self.lon)
+        return format_coordinates_deg_min_mil(self.lat, self.lon)
 
     model_config = ConfigDict(from_attributes=True)
 

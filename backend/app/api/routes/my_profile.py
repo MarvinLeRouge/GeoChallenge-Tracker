@@ -7,11 +7,9 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
 from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.db.mongodb import db
 from app.domain.models.user import UserOut
-from app.services.user_profile import (
-    location_parse_to_lon_lat,
-    user_location_set,
-)
+from app.services.user_profile_service import UserProfileService
 
 router = APIRouter(
     prefix="/my/profile", tags=["my_profile"], dependencies=[Depends(get_current_user)]
@@ -50,23 +48,14 @@ async def put_my_location(
     Returns:
         dict: Message d’état (modifiée ou non).
     """
-    # Choix de la source : position string > lat/lon
-    if payload.position:
-        try:
-            lon, lat = location_parse_to_lon_lat(payload.position)
-        except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e)) from e
-    else:
-        if payload.lat is None or payload.lon is None:
-            raise HTTPException(
-                status_code=422,
-                detail="Provide either 'position' or both 'lat' and 'lon'.",
-            )
-        lat, lon = float(payload.lat), float(payload.lon)
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-            raise HTTPException(status_code=422, detail="Coordinates out of range.")
+    # Utiliser le service pour gérer la localisation
+    user_profile_service = UserProfileService(db)
 
-    updated = await user_location_set(user_id, lon, lat)
+    try:
+        await user_profile_service.set_user_location(user_id, payload)
+        updated = True
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
     if updated:
         return {"message": "Location updated successfully"}
     return {"message": "No change (same location)"}
@@ -78,34 +67,26 @@ async def put_my_location(
     summary="Obtenir ma dernière localisation",
     description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
 )
-async def get_my_location(user: CurrentUser):
+async def get_my_location(user_id: CurrentUserId):
     """Obtenir ma dernière localisation.
 
     Description:
-        Récupère la dernière localisation sauvegardée pour l’utilisateur courant. Renvoie 404 si aucune n’existe.
-
-    Args:
+        Récupère la dernière localisation sauvegardée pour l'utilisateur courant. Renvoie 404 si aucune n'existe.
 
     Returns:
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
+    user_profile_service = UserProfileService(db)
 
-    if user.id is None:
-        raise HTTPException(status_code=401, detail="Utilisateur non authentifié.")
+    location_data = await user_profile_service.get_user_location_formatted(user_id)
 
-    if not user.location or user.location.lat is None or user.location.lon is None:
+    if location_data is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No location found for this user.",
         )
 
-    # Construire la réponse avec les données de location
-    return UserLocationOut(
-        id=user.id,
-        lat=user.location.lat,
-        lon=user.location.lon,
-        updated_at=user.location.updated_at,
-    )
+    return location_data
 
 
 @router.get(
