@@ -95,8 +95,8 @@ class TaskExpressionValidator:
         user_id: Any,
         uc_id: Any,
         tasks_payload: list[dict[str, Any]],
-        normalize_func: callable,
-        preprocess_func: callable,
+        normalize_func: Callable[..., Any],
+        preprocess_func: Callable[..., Any],
         TypeAdapter: Any,
     ) -> None:
         """Valider le payload de tâches (lève à la première erreur).
@@ -177,8 +177,8 @@ class TaskExpressionValidator:
         user_id: Any,
         uc_id: Any,
         tasks_payload: list[dict[str, Any]],
-        normalize_func: callable,
-        preprocess_func: callable,
+        normalize_func: Callable[..., Any],
+        preprocess_func: Callable[..., Any],
         TypeAdapter: Any,
     ) -> dict[str, Any]:
         """Valider un payload de tâches **sans persister** et formater la réponse.
