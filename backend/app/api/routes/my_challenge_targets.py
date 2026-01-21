@@ -12,7 +12,7 @@ from app.api.dto.target import TargetListResponse
 from app.core.security import CurrentUserId, get_current_user
 from app.core.utils import utcnow
 from app.db.mongodb import db
-from app.services.targets import (
+from app.services.targets_service import (
     delete_targets_for_user_challenge,
     evaluate_targets_for_user_challenge,
     list_targets_for_user,
