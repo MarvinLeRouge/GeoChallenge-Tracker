@@ -6,7 +6,7 @@ from fastapi import APIRouter
 router = APIRouter()
 
 
-# TODO: [BACKLOG] Route /cache_types (GET) à vérifier
+# DONE: [BACKLOG] Route /cache_types (GET) vérifiée
 @router.get("/cache_types", summary="Get all cache types")
 async def get_cache_types():
     """Get all available cache types."""
@@ -22,7 +22,7 @@ async def get_cache_types():
     return cache_types
 
 
-# TODO: [BACKLOG] Route /cache_sizes (GET) à vérifier
+# DONE: [BACKLOG] Route /cache_sizes (GET) vérifiée
 @router.get("/cache_sizes", summary="Get all cache sizes")
 async def get_cache_sizes():
     """Get all available cache sizes."""
@@ -38,7 +38,7 @@ async def get_cache_sizes():
     return cache_sizes
 
 
-# TODO: [BACKLOG] Route /ping (GET) à vérifier
+# DONE: [BACKLOG] Route /ping (GET) vérifiée
 @router.get(
     "/ping",
     tags=["Health"],
