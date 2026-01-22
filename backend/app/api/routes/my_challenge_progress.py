@@ -26,7 +26,7 @@ router = APIRouter(
 )
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress (GET) à vérifier
 @router.get(
     "/{uc_id}/progress",
     response_model=ProgressGetResponse,
@@ -68,7 +68,7 @@ async def get_progress_route(
     return out
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress/evaluate (POST) à vérifier
 @router.post(
     "/{uc_id}/progress/evaluate",
     response_model=ProgressEvaluateResponse,
@@ -118,7 +118,7 @@ class EvaluateNewPayload(BaseModel):
     since: datetime | None = None
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /my/challenges/new/progress (POST) à vérifier
 @router.post(
     "/new/progress",
     summary="Évaluer le premier snapshot pour les challenges sans progression",
