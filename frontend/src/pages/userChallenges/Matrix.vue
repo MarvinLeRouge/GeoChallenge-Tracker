@@ -141,7 +141,7 @@ const selectedCacheType = ref('')
 const selectedCacheSize = ref('')
 
 // Use the new composable for matrix data processing
-const { matrixData } = useMatrixData(matrixResult)
+const { matrixData, terrainValues, difficultyValues } = useMatrixData(matrixResult)
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {

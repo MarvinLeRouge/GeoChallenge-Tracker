@@ -25,7 +25,7 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
   // Fixed values for the matrix D/T
   const difficultyValues = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
   const terrainValues = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0];
-  
+
   const matrixData = computed(() => {
     if (!matrixResult.value) {
       return {
@@ -42,20 +42,35 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
       const cells: MatrixCell[] = [];
 
       for (const terrain of terrainValues) {
-        // Find the combination in completed_combinations_details
-        const combination = matrixResult.value.completed_combinations_details.find(
+        // Check if this combination is in missing_combinations
+        const isMissing = matrixResult.value.missing_combinations.some(
           combo => combo.difficulty === difficulty && combo.terrain === terrain
         );
 
-        const count = combination ? combination.count : 0;
-        const isCompleted = count >= 1;
+        if (isMissing) {
+          // Combination is missing (not completed)
+          cells.push({
+            difficulty,
+            terrain,
+            count: 0,
+            isCompleted: false
+          });
+        } else {
+          // Find the combination in completed_combinations_details
+          const combination = matrixResult.value.completed_combinations_details.find(
+            combo => combo.difficulty === difficulty && combo.terrain === terrain
+          );
 
-        cells.push({
-          difficulty,
-          terrain,
-          count,
-          isCompleted
-        });
+          const count = combination ? combination.count : 0;
+          const isCompleted = count >= 1;
+
+          cells.push({
+            difficulty,
+            terrain,
+            count,
+            isCompleted
+          });
+        }
       }
 
       rows.push({
