@@ -16,7 +16,7 @@ router = APIRouter(
 # --- ROUTES ---------------------------------------------------------------
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /user-stats (GET) à vérifier
 @router.get(
     "",
     response_model=UserStatsOut,

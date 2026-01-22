@@ -63,8 +63,7 @@ class MessageOut(BaseModel):
     message: str = Field(..., examples=["OK"])
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/register (POST) à vérifier
 @router.post(
     "/register",
     response_model=UserOut,
@@ -154,8 +153,7 @@ async def register(
     }
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/login (POST) à vérifier
 @router.post(
     "/login",
     response_model=TokenPair,
@@ -228,8 +226,7 @@ async def login(
     }
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/refresh (POST) à vérifier
 @router.post(
     "/refresh",
     response_model=TokenResponse,
@@ -285,8 +282,7 @@ def create_verification_code() -> str:
     return secrets.token_urlsafe(24)
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/verify-email (GET) à vérifier
 @router.get(
     "/verify-email",
     response_model=MessageOut,
@@ -335,8 +331,7 @@ async def verify_email(
     return {"message": "Email verified"}
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/verify-email (POST) à vérifier
 @router.post(
     "/verify-email",
     response_model=MessageOut,
@@ -364,8 +359,7 @@ async def verify_email_post(
     return verify_email(code=body.code, users=users)
 
 
-# TODO: [BACKLOG] Fonctionnement route à vérifier
-# TODO: [BACKLOG] Fonctionnement route à vérifier
+# TODO: [BACKLOG] Route /auth/resend-verification (POST) à vérifier
 @router.post(
     "/resend-verification",
     response_model=MessageOut,
