@@ -157,35 +157,31 @@ def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> U
     return current_user
 
 
-def validate_password_strength(password: str) -> bool:
+def validate_password_strength(password: str) -> tuple[bool, str]:
     """Valide la complexité du mot de passe.
-
-    Description:
-        Exige au minimum : 8 caractères, 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.
-        Lève une `HTTPException(400)` si la politique n’est pas respectée.
 
     Args:
         password (str): Mot de passe à contrôler.
 
     Returns:
-        None: Lève exception en cas d’échec.
-
-    Raises:
-        HTTPException: 400 si la politique de complexité n’est pas respectée.
+        tuple[bool, str]: (is_valid, error_message if not valid)
     """
-    if (
-        len(password) < 8
-        or not re.search(r"[A-Z]", password)
-        or not re.search(r"[a-z]", password)
-        or not re.search(r"[0-9]", password)
-        or not re.search(r"[\W_]", password)
-    ):  # caractère spécial
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password must be at least 8 characters and include uppercase, lowercase, number, and special character.",
-        )
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
 
-    return True
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must include at least one uppercase letter"
+
+    if not re.search(r"[a-z]", password):
+        return False, "Password must include at least one lowercase letter"
+
+    if not re.search(r"[0-9]", password):
+        return False, "Password must include at least one number"
+
+    if not re.search(r"[\W_]", password):  # caractère spécial
+        return False, "Password must include at least one special character"
+
+    return True, ""
 
 
 def generate_verification_code() -> str:
