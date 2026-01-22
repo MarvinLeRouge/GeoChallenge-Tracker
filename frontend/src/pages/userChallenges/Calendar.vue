@@ -187,7 +187,7 @@ const selectedCacheType = ref('')
 const selectedCacheSize = ref('')
 
 // Use the new composable for calendar data processing
-const { calendarData } = useCalendarData(calendarResult)
+const { calendarData, monthNames, getDaysInMonth } = useCalendarData(calendarResult)
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {

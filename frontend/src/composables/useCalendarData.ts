@@ -80,8 +80,14 @@ export function useCalendarData(calendarResult: Ref<CalendarResult | null>) {
     };
   });
 
+  const getDaysInMonth = (month: number): number => {
+    const daysInMonths = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // Max days considering leap year
+    return daysInMonths[month - 1];
+  };
+
   return {
     calendarData,
-    monthNames
+    monthNames,
+    getDaysInMonth
   };
 }
