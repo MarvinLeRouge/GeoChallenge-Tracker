@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes import routers
+from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
 from app.core.settings import get_settings
 from app.db.seed_data import seed_referentials
@@ -37,6 +38,9 @@ app.add_middleware(
     MaxBodySizeMiddleware,
     max_body_size=settings.max_upload_bytes,
 )
+
+# Enregistrement des gestionnaires d'exceptions globaux
+register_exception_handlers(app)
 
 # Inclusion des routes (comme avant)
 for r in routers:
