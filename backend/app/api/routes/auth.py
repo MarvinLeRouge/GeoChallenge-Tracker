@@ -102,8 +102,9 @@ async def register(
     username = (payload.username or "").strip()
     email = (payload.email or "").strip()
 
-    if not validate_password_strength(payload.password):
-        raise HTTPException(status_code=400, detail="Password too weak")
+    is_valid, error_msg = validate_password_strength(payload.password)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
 
     # Unicité insensible à la casse (sans champs *_lower)
     existing = await users.find_one(
