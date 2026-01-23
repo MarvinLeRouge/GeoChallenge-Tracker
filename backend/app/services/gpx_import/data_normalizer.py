@@ -183,8 +183,8 @@ class DataNormalizer:
         if import_mode == "found":
             return cache_data.get("found_date") is not None
 
-        # Pour mode 'caches', pas de restriction particulière
-        if import_mode == "caches":
+        # Pour mode 'all', pas de restriction particulière
+        if import_mode == "all":
             return True
 
         return False
