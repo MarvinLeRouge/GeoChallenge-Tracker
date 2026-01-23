@@ -69,9 +69,6 @@ pip-wheel-metadata/
 *.orig
 *.~*
 
-# Documents de travail
-documents/
-
 # Fichiers data
 /backend/data/*
 /backend/data/**/*
@@ -89,8 +86,7 @@ backups/
 !backups/**/.gitkeep
 
 # Documentation
-documentation/**/*.txt
-documentation/**/*.md
+documentation/work-in-progress
 
 # Logs
 backend/logs/*
