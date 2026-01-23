@@ -75,12 +75,17 @@ class GpxImportService:
             payload: Données du fichier (GPX ou ZIP).
             filename: Nom de fichier optionnel.
             user_id: ID de l'utilisateur (pour les trouvailles).
-            import_mode: Mode d'import ('both', 'caches', 'found').
+            import_mode: Mode d'import ('both', 'all', 'found').
             fetch_elevation: Enrichir avec les données d'élévation.
 
         Returns:
             dict: Statistiques d'import détaillées.
         """
+        # Valider que le mode d'import est valide
+        if import_mode not in ["all", "found", "both"]:
+            raise ValueError(
+                f"Invalid import mode: {import_mode}. Expected 'all', 'found', or 'both'"
+            )
         stats = {
             "nb_gpx_files": 0,
             "nb_inserted_caches": 0,
@@ -110,21 +115,21 @@ class GpxImportService:
             logger_import.info("Processing GPX files", extra={"step": "parsing"})
             caches_data, found_caches_data = await self._process_gpx_files(gpx_paths, import_mode)
 
-            stats["nb_total_items"] = len(caches_data) + len(found_caches_data)
+            stats["nb_total_items"] = len(caches_data)
 
             # Étape 4: Enrichissement élévation (optionnel)
             if fetch_elevation and caches_data:
                 logger_import.info("Fetching elevation data", extra={"step": "elevation"})
                 await self._enrich_with_elevation(caches_data)
 
-            # Étape 5: Persistance des caches
-            if caches_data and import_mode in ["both", "caches"]:
+            # Étape 5: Persistance des caches (dans tous les modes sauf si vide)
+            if caches_data and import_mode in ["both", "all", "found"]:
                 logger_import.info("Persisting caches", extra={"step": "cache_persistence"})
                 cache_stats = await self.cache_persister.persist_caches(caches_data)
                 stats["nb_inserted_caches"] = cache_stats["inserted"]
                 stats["nb_existing_caches"] = cache_stats["updated"]
 
-            # Étape 6: Persistance des trouvailles
+            # Étape 6: Persistance des trouvailles (seulement pour les modes appropriés)
             if found_caches_data and import_mode in ["both", "found"] and user_id:
                 logger_import.info("Persisting found caches", extra={"step": "found_persistence"})
                 found_stats = await self.cache_persister.persist_found_caches(
@@ -228,20 +233,32 @@ class GpxImportService:
         # Parser le fichier GPX
         gpx_parser = MultiFormatGPXParser(gpx_path)
         raw_items = gpx_parser.parse()
-
         caches_data = []
         found_caches_data = []
 
         for raw_item in raw_items:
             try:
-                # Filtrer selon le mode d'import
-                if not self.data_normalizer.is_valid_for_import_mode(raw_item, import_mode):
-                    continue
+                # Map field names for compatibility with data normalizer
+                # The parser provides 'GC' but the normalizer expects 'gc_code'
+                mapped_item = raw_item.copy()
+                if "GC" in mapped_item:
+                    mapped_item["gc_code"] = mapped_item["GC"]
 
                 # Extraire et normaliser les métadonnées de cache
-                cache_metadata = self.data_normalizer.extract_cache_metadata(raw_item)
+                cache_metadata = self.data_normalizer.extract_cache_metadata(mapped_item)
+
                 if not cache_metadata.get("GC"):
                     continue  # Ignorer si pas de code GC
+
+                # Extraire les données de trouvaille si présentes
+                found_metadata = self.data_normalizer.extract_found_metadata(raw_item)
+
+                # Maintenant que les métadonnées sont extraites, on peut filtrer selon le mode d'import
+                # On crée un objet combiné pour la validation
+                combined_data = {**cache_metadata, **(found_metadata or {})}
+
+                if not self.data_normalizer.is_valid_for_import_mode(combined_data, import_mode):
+                    continue
 
                 # Mapper les référentiels
                 cache_data = await self.referential_mapper.map_cache_referentials(cache_metadata)
@@ -249,8 +266,6 @@ class GpxImportService:
                 # Valider les données de cache
                 validated_cache = self.cache_validator.validate_cache_data(cache_data)
 
-                # Extraire les données de trouvaille si présentes
-                found_metadata = self.data_normalizer.extract_found_metadata(raw_item)
                 validated_found = None
 
                 if found_metadata:
@@ -264,7 +279,8 @@ class GpxImportService:
                 )
 
                 # Ajouter aux résultats
-                if import_mode in ["both", "caches"]:
+                # Les caches sont traitées dans tous les modes sauf si vide
+                if import_mode in ["both", "all", "found"]:
                     caches_data.append(validated_cache)
 
                 if validated_found and import_mode in ["both", "found"]:

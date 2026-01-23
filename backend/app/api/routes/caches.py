@@ -141,7 +141,7 @@ def _compact_lookups_and_project():
 # ------------------------- routes -------------------------
 
 
-# TODO: [BACKLOG] Route /caches/upload-gpx (POST) à vérifier
+# DONE: [BACKLOG] Route /caches/upload-gpx (POST) à vérifier
 @router.post(
     "/upload-gpx",
     summary="Importe des caches depuis un fichier GPX/ZIP",
@@ -164,9 +164,9 @@ async def upload_gpx(
     file: Annotated[
         UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
     ],
-    import_mode: Literal["caches", "finds"] = Query(
-        "caches",
-        description="Mode d'import: 'caches' (découvrir) ou 'finds' (mes trouvailles)",
+    import_mode: Literal["all", "found"] = Query(
+        "all",
+        description="Mode d'import: 'all' (toutes les caches) ou 'found' (mes trouvailles)",
     ),
     source_type: Literal["auto", "cgeo", "pocket_query"] = Query(
         "auto",
@@ -181,7 +181,7 @@ async def upload_gpx(
 
     Args:
         file (UploadFile): Fichier GPX ou ZIP à traiter.
-        import_mode (str): Mode d'import - 'caches' pour découvrir, 'finds' pour marquer comme trouvées.
+        import_mode (str): Mode d'import - 'all' pour importer toutes les caches, 'found' pour marquer comme trouvées.
         source_type (str): Format du fichier GPX - 'auto' pour détection automatique, 'cgeo' ou 'pocket_query'.
 
     Returns:

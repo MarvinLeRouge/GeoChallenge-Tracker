@@ -245,8 +245,13 @@ class MultiFormatGPXParser:
                     date += "Z"
                 return date
 
-        # Sinon, continuer avec la logique originale (cherche les logs de type "found")
-        for log in logs:
+        # Pour tous les formats, chercher les logs de type "found" de l'utilisateur
+        # dans l'ordre chronologique inverse (le plus récent en premier)
+        logs_sorted = sorted(
+            logs, key=lambda x: self.find_text_deep(x, "groundspeak:date"), reverse=True
+        )
+
+        for log in logs_sorted:
             log_type = self.find_text_deep(log, "groundspeak:type")
             if log_type and "found" in log_type.lower():
                 date = self.find_text_deep(log, "groundspeak:date")

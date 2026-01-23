@@ -37,17 +37,17 @@
           <input
             v-model="importMode"
             type="radio"
-            id="mode-caches"
-            value="caches"
+            id="mode-all"
+            value="all"
             class="justify-self-start"
           >
-          <label for="mode-caches" class="text-sm">Caches (découvrir)</label>
+          <label for="mode-all" class="text-sm">Toutes les caches</label>
 
           <input
             v-model="importMode"
             type="radio"
             id="mode-found"
-            value="finds"
+            value="found"
             class="justify-self-start"
           >
           <label for="mode-found" class="text-sm">Caches trouvées</label>
@@ -171,7 +171,7 @@ import type { ChallengeSyncStats, ImportResponse } from '@/types/challenges'
 import { isAxiosError } from 'axios'
 
 const file = ref<File | null>(null)
-const importMode = ref<'caches' | 'finds'>('caches')  // 'caches' par défaut
+const importMode = ref<'all' | 'found'>('all')  // 'all' par défaut
 const sourceType = ref<'auto' | 'cgeo' | 'pocket_query'>('auto')  // Valeur par défaut
 const loading = ref(false)
 const progress = ref(0)
