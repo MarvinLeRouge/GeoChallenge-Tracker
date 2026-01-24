@@ -8,6 +8,7 @@ from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.api.dto.calendar_verification import MatrixFilters, MatrixResult
+from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
 
 
 class MatrixVerificationService:
@@ -162,7 +163,7 @@ class MatrixVerificationService:
 
         # Calculate completion
         completed_count = len(completed_combinations_set.intersection(all_combinations_set))
-        completion_rate = completed_count / 81
+        completion_rate = completed_count / MATRIX_DT_TOTAL_COMBINATIONS
 
         # Find missing combinations
         missing_combinations_set = all_combinations_set - completed_combinations_set
@@ -189,13 +190,13 @@ class MatrixVerificationService:
         matrix_tours = 0
         next_round_completed_count = completed_count
         next_round_completion_rate = completion_rate
-        if completed_count == 81:
+        if completed_count == MATRIX_DT_TOTAL_COMBINATIONS:
             matrix_tours = int(min(item["count"] for item in completed_combinations))
             next_round_completed_count = 0
             next_round_completed_count = len(
                 [item for item in completed_combinations if item["count"] > matrix_tours]
             )
-            next_round_completion_rate = next_round_completed_count / 81
+            next_round_completion_rate = next_round_completed_count / MATRIX_DT_TOTAL_COMBINATIONS
 
         # Use the filter names directly (already resolved above)
         cache_type_name = filters.cache_type_name if cache_type_id else None

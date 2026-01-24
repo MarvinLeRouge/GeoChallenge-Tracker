@@ -1,6 +1,7 @@
 // src/composables/useMatrixData.ts
 import { ref, computed, type Ref } from 'vue';
 import type { MatrixResult } from '@/types/challenges';
+import { MATRIX_DT_TOTAL_COMBINATIONS } from '@/constants/matrix';
 
 export interface MatrixCell {
   difficulty: number;
@@ -81,9 +82,9 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
 
     return {
       rows,
-      completionRate: (matrixResult.value.completed_combinations / 81) * 100,
-      completedCombinations: matrixResult.value.completed_combinations,
-      totalCombinations: 81
+      completionRate: (matrixResult.value.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100,
+      completedCombinations: matrixResult.value.completed_combinations_count,
+      totalCombinations: MATRIX_DT_TOTAL_COMBINATIONS
     };
   });
 

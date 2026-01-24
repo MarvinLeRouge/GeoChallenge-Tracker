@@ -4,6 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
+
 
 class CalendarResult(BaseModel):
     """Result of calendar verification for a user."""
@@ -40,7 +42,7 @@ class MatrixResult(BaseModel):
     """Result of matrix D/T verification for a user."""
 
     # Matrix completion
-    total_combinations: int = 81  # 9x9 matrix (1.0-5.0 by 0.5)
+    total_combinations: int = MATRIX_DT_TOTAL_COMBINATIONS  # 9x9 matrix (difficulty 1.0-5.0 × terrain 1.0-5.0 by 0.5) - specific to matrix challenge
     completed_combinations_count: int
     completion_rate: float
     matrix_tours: int = 0

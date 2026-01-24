@@ -5,6 +5,7 @@ from bson import ObjectId
 
 from app.api.dto.calendar_verification import MatrixFilters
 from app.services.matrix_verification import MatrixVerificationService
+from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
 
 
 class TestMatrixVerificationService:
@@ -44,11 +45,13 @@ class TestMatrixVerificationService:
         return MockDB()
 
     def test_generate_all_dt_combinations(self, mock_db):
-        """Test generation of all 81 D/T combinations."""
+        """Test generation of all D/T combinations (9x9 matrix = 81 combinations)."""
         service = MatrixVerificationService(mock_db)
         combinations = service._generate_all_dt_combinations()
 
-        assert len(combinations) == 81  # 9x9 matrix
+        assert (
+            len(combinations) == MATRIX_DT_TOTAL_COMBINATIONS
+        )  # 9x9 matrix (9 difficulty levels × 9 terrain levels)
         assert (1.0, 1.0) in combinations  # Min D/T
         assert (5.0, 5.0) in combinations  # Max D/T
         assert (2.5, 3.5) in combinations  # Mid values
@@ -64,7 +67,9 @@ class TestMatrixVerificationService:
 
         assert result.completed_combinations == 0
         assert result.completion_rate == 0.0
-        assert len(result.missing_combinations) == 81
+        assert (
+            len(result.missing_combinations) == MATRIX_DT_TOTAL_COMBINATIONS
+        )  # All combinations missing when no caches found
         assert len(result.completed_combinations_details) == 0
 
         # Check that all difficulties are represented in missing combinations
@@ -91,7 +96,9 @@ class TestMatrixVerificationService:
 
         # Should have 3 unique combinations: (1.0,1.0), (1.0,1.5), (2.5,3.0)
         assert result.completed_combinations == 3
-        assert result.completion_rate == 3 / 81
+        assert (
+            result.completion_rate == 3 / MATRIX_DT_TOTAL_COMBINATIONS
+        )  # 3 out of total combinations completed
         assert len(result.missing_combinations) == 78
 
         # Check completed combinations details
@@ -138,7 +145,9 @@ class TestMatrixVerificationService:
         assert result.cache_type_filter == "Traditional Cache"
         assert result.cache_size_filter == "Regular"
         assert result.completed_combinations == 1
-        assert result.completion_rate == 1 / 81
+        assert (
+            result.completion_rate == 1 / MATRIX_DT_TOTAL_COMBINATIONS
+        )  # 1 out of total combinations completed
 
     @pytest.mark.asyncio
     async def test_verify_user_matrix_rounding(self, mock_db):
