@@ -63,10 +63,10 @@
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
         <h2 class="font-semibold mb-3">Résumé</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
-              {{ matrixResult.completed_combinations }}
+              {{ matrixResult.completed_combinations_count }}
             </div>
             <div class="text-sm text-green-600">
               Combinaisons complétées
@@ -74,7 +74,33 @@
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
-              {{ ((matrixResult.completed_combinations / 81) * 100).toFixed(1) }}%
+              {{ ((matrixResult.completed_combinations_count / 81) * 100).toFixed(1) }}%
+            </div>
+            <div class="text-sm text-blue-600">
+              Completion (sur 81 combinaisons)
+            </div>
+          </div>
+          <div class="bg-purple-50 p-3 rounded-lg">
+            <div class="text-2xl font-bold text-purple-800">
+              {{ matrixResult.matrix_tours }}
+            </div>
+            <div class="text-sm text-purple-600">
+              {{ matrixResult.matrix_tours > 1 ? 'Tours de matrice' : 'Tour de matrice' }}
+            </div>
+          </div>
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-green-50 p-3 rounded-lg">
+            <div class="text-2xl font-bold text-green-800">
+              {{ matrixResult.completed_combinations_count }}
+            </div>
+            <div class="text-sm text-green-600">
+              Combinaisons complétées
+            </div>
+          </div>
+          <div class="bg-blue-50 p-3 rounded-lg">
+            <div class="text-2xl font-bold text-blue-800">
+              {{ ((matrixResult.completed_combinations_count / 81) * 100).toFixed(1) }}%
             </div>
             <div class="text-sm text-blue-600">
               Completion (sur 81 combinaisons)
