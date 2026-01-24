@@ -44,6 +44,8 @@ class MatrixResult(BaseModel):
     completed_combinations_count: int
     completion_rate: float
     matrix_tours: int = 0
+    next_round_completed_count: int
+    next_round_completion_rate: float
 
     # Detailed data
     missing_combinations: list[dict]  # [{"difficulty": 1.0, "terrain": 2.0}, ...]
