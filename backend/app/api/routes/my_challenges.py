@@ -258,7 +258,7 @@ async def patch_uc(
     return updated_uc
 
 
-# TODO: [BACKLOG] Route /my/challenges/basics/calendar (GET) à vérifier
+# DONE: [BACKLOG] Route /my/challenges/basics/calendar (GET) à vérifier
 @router.get(
     "/basics/calendar",
     response_model=CalendarResult,
@@ -289,7 +289,7 @@ async def verify_calendar(
     return await service.verify_user_calendar(str(user_id), filters)
 
 
-# TODO: [BACKLOG] Route /my/challenges/basics/matrix (GET) à vérifier
+# DONE: [BACKLOG] Route /my/challenges/basics/matrix (GET) à vérifier
 @router.get(
     "/basics/matrix",
     response_model=MatrixResult,

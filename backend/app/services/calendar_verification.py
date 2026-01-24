@@ -170,6 +170,11 @@ class CalendarVerificationService:
             {"day": day, "count": found_dates_count[day]} for day in sorted(completed_days_set)
         ]
 
+        # Calendar tours
+        calendar_tours = 0
+        if completed_365 == 365:
+            calendar_tours = int(min(item["count"] for item in completed_days))
+
         # Use the filter names directly (already resolved above)
         cache_type_name = filters.cache_type_name if cache_type_id else None
         cache_size_name = filters.cache_size_name if cache_size_id else None
@@ -184,6 +189,7 @@ class CalendarVerificationService:
             completed_days=completed_days,
             cache_type_filter=cache_type_name,
             cache_size_filter=cache_size_name,
+            calendar_tours=calendar_tours,
         )
 
     def _generate_all_days(self, include_leap_day: bool = True) -> list[str]:
