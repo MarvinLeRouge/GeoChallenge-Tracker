@@ -22,6 +22,8 @@ export interface MatrixResult {
   completed_combinations_count: number
   completion_rate: number
   matrix_tours: number
+  next_round_completed_count: number
+  next_round_completion_rate: number
   missing_combinations: Array<{
     difficulty: number
     terrain: number
