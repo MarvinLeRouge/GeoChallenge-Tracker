@@ -238,10 +238,7 @@ async function fetchMatrix() {
   }
 }
 
-function getMatrixValue(difficulty: string, terrain: string): number {
-  const diff = parseFloat(difficulty)
-  const terr = parseFloat(terrain)
-
+function getMatrixValue(diff: number, terr: number): number {
   // Find the combination in the processed matrix data
   const row = matrixData.value.rows.find(r => r.difficulty === diff)
   if (!row) return 0
@@ -250,10 +247,7 @@ function getMatrixValue(difficulty: string, terrain: string): number {
   return cell ? cell.count : 0
 }
 
-function getCellClass(difficulty: string, terrain: string): string {
-  const diff = parseFloat(difficulty)
-  const terr = parseFloat(terrain)
-
+function getCellClass(diff: number, terr: number): string {
   // Find the combination in the processed matrix data
   const row = matrixData.value.rows.find(r => r.difficulty === diff)
   if (!row) return 'bg-red-100 text-red-800'
