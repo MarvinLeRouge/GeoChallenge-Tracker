@@ -12,6 +12,7 @@ class CalendarResult(BaseModel):
     total_days_365: int = 365
     completed_days_365: int
     completion_rate_365: float
+    calendar_tours: int = 0
 
     # 366 days validation (leap year)
     total_days_366: int = 366
@@ -40,8 +41,9 @@ class MatrixResult(BaseModel):
 
     # Matrix completion
     total_combinations: int = 81  # 9x9 matrix (1.0-5.0 by 0.5)
-    completed_combinations: int
+    completed_combinations_count: int
     completion_rate: float
+    matrix_tours: int = 0
 
     # Detailed data
     missing_combinations: list[dict]  # [{"difficulty": 1.0, "terrain": 2.0}, ...]

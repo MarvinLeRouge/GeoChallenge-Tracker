@@ -185,18 +185,24 @@ class MatrixVerificationService:
             for combo in sorted(completed_combinations_set)
         ]
 
+        # Matrix tours
+        matrix_tours = 0
+        if completed_count == 81:
+            matrix_tours = int(min(item["count"] for item in completed_combinations))
+
         # Use the filter names directly (already resolved above)
         cache_type_name = filters.cache_type_name if cache_type_id else None
         cache_size_name = filters.cache_size_name if cache_size_id else None
 
         return MatrixResult(
-            completed_combinations=completed_count,
+            completed_combinations_count=completed_count,
             completion_rate=completion_rate,
             missing_combinations=missing_combinations,
             missing_combinations_by_difficulty=missing_combinations_by_difficulty,
             completed_combinations_details=completed_combinations,
             cache_type_filter=cache_type_name,
             cache_size_filter=cache_size_name,
+            matrix_tours=matrix_tours,
         )
 
     def _generate_all_dt_combinations(self) -> list[tuple[float, float]]:
@@ -238,7 +244,7 @@ class MatrixVerificationService:
             missing_combinations_by_difficulty[difficulty_str].append({"terrain": combo["terrain"]})
 
         return MatrixResult(
-            completed_combinations=0,
+            completed_combinations_count=0,
             completion_rate=0.0,
             missing_combinations=missing_combinations,
             missing_combinations_by_difficulty=missing_combinations_by_difficulty,
