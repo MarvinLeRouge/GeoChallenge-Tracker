@@ -187,8 +187,15 @@ class MatrixVerificationService:
 
         # Matrix tours
         matrix_tours = 0
+        next_round_completed_count = completed_count
+        next_round_completion_rate = completion_rate
         if completed_count == 81:
             matrix_tours = int(min(item["count"] for item in completed_combinations))
+            next_round_completed_count = 0
+            next_round_completed_count = len(
+                [item for item in completed_combinations if item["count"] > matrix_tours]
+            )
+            next_round_completion_rate = next_round_completed_count / 81
 
         # Use the filter names directly (already resolved above)
         cache_type_name = filters.cache_type_name if cache_type_id else None
@@ -203,6 +210,8 @@ class MatrixVerificationService:
             cache_type_filter=cache_type_name,
             cache_size_filter=cache_size_name,
             matrix_tours=matrix_tours,
+            next_round_completed_count=next_round_completed_count,
+            next_round_completion_rate=next_round_completion_rate,
         )
 
     def _generate_all_dt_combinations(self) -> list[tuple[float, float]]:
@@ -251,4 +260,6 @@ class MatrixVerificationService:
             completed_combinations_details=[],
             cache_type_filter=filters.cache_type_name,
             cache_size_filter=filters.cache_size_name,
+            next_round_completed_count=0,
+            next_round_completion_rate=0,
         )
