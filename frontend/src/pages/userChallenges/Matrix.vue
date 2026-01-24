@@ -74,10 +74,10 @@
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
-              {{ ((matrixResult.completed_combinations_count / 81) * 100).toFixed(1) }}%
+              {{ ((matrixResult.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100).toFixed(1) }}%
             </div>
             <div class="text-sm text-blue-600">
-              Completion (sur 81 combinaisons)
+              Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons)
             </div>
           </div>
           <div class="bg-purple-50 p-3 rounded-lg">
@@ -93,7 +93,7 @@
               {{ (matrixResult.next_round_completion_rate * 100).toFixed(1) }}%
             </div>
             <div class="text-sm text-indigo-600">
-              Next round : {{ matrixResult.next_round_completed_count }}/81 combinaisons
+              Next round : {{ matrixResult.next_round_completed_count }}/{{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons
             </div>
           </div>
         </div>
@@ -108,10 +108,10 @@
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
-              {{ ((matrixResult.completed_combinations_count / 81) * 100).toFixed(1) }}%
+              {{ ((matrixResult.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100).toFixed(1) }}%
             </div>
             <div class="text-sm text-blue-600">
-              Completion (sur 81 combinaisons)
+              Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons)
             </div>
           </div>
         </div>
@@ -168,6 +168,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/api/http'
 import type { MatrixResult, CacheType, CacheSize } from '@/types/challenges'
 import { useMatrixData } from '@/composables/useMatrixData'
+import { MATRIX_DT_TOTAL_COMBINATIONS } from '@/constants/matrix'
 
 const loading = ref(false)
 const error = ref('')
