@@ -131,15 +131,16 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
             type_ids = [item["_id"] for item in type_counts if item["_id"] is not None]
 
             if type_ids:  # Vérifier qu'il y a des IDs à récupérer
-                cache_types = await cache_types_coll.find({"_id": {"$in": type_ids}}).to_list(
-                    length=None
-                )
+                cache_types = await cache_types_coll.find().to_list(length=None)
                 type_map = {ct["_id"]: ct for ct in cache_types}
 
                 # Créer les objets CacheTypeStats
+                all_caches_type_ids = {cache_type["_id"] for cache_type in cache_types}
+                found_caches_type_ids = set()
                 cache_types_stats = []
                 for tc in type_counts:
                     if tc["_id"] is not None and tc["_id"] in type_map:
+                        found_caches_type_ids.add(tc["_id"])
                         type_info = type_map[tc["_id"]]
                         cache_types_stats.append(
                             CacheTypeStats(
@@ -149,6 +150,19 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
                                 count=tc["count"],
                             )
                         )
+                not_found_type_ids = all_caches_type_ids - found_caches_type_ids
+                not_found_types = [type_map[type_id] for type_id in not_found_type_ids]
+                not_found_types = sorted(not_found_types, key=lambda x: x["name"])
+                for not_found_type in not_found_types:
+                    cache_types_stats.append(
+                        CacheTypeStats(
+                            type_id=not_found_type["_id"],
+                            type_label=not_found_type.get("name", "Unknown"),
+                            type_code=not_found_type.get("code", "UNKNOWN"),
+                            count=0,
+                        )
+                    )
+
     except Exception as e:
         # En cas d'erreur, on continue sans les statistiques par type
         print(f"Error calculating cache type stats: {e}")
