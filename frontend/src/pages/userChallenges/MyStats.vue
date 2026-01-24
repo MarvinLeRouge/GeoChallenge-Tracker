@@ -152,6 +152,45 @@
         </div>
       </div>
 
+      <!-- Statistiques par type de cache -->
+      <div v-if="stats.cache_types_stats && stats.cache_types_stats.length > 0" class="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <MapPinIcon class="h-5 w-5 mr-2 text-gray-600" />
+          Répartition par type de cache
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type de cache
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nombre trouvé
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Pourcentage
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-for="typeStat in stats.cache_types_stats" :key="typeStat.type_id">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm font-medium text-gray-900">{{ typeStat.type_label }}</div>
+                  <div class="text-sm text-gray-500">{{ typeStat.type_code }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ typeStat.count }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ ((typeStat.count / stats.total_caches_found) * 100).toFixed(1) }}%</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Message d'encouragement -->
       <div v-if="stats.total_caches_found === 0" class="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div class="flex">
@@ -161,7 +200,7 @@
             <p class="text-sm text-blue-700 mt-1">
               Importez vos premières caches via l'onglet "Caches" → "Importer GPX" pour voir vos statistiques évoluer !
             </p>
-            <RouterLink 
+            <RouterLink
               to="/caches/import-gpx"
               class="mt-2 inline-flex text-sm text-blue-800 underline hover:text-blue-900"
             >
