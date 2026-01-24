@@ -180,7 +180,7 @@
                   <div class="text-sm text-gray-500">{{ typeStat.type_code }}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm text-gray-900">{{ typeStat.count }}</div>
+                  <div class="text-sm text-gray-900">{{ typeStat.count.toLocaleString('fr-FR') }}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="text-sm text-gray-900">{{ ((typeStat.count / stats.total_caches_found) * 100).toFixed(1) }}%</div>
