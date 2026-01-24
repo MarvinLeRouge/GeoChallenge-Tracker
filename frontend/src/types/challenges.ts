@@ -19,8 +19,9 @@ export interface CacheSize {
 /** Résultat de vérification Matrix D/T */
 export interface MatrixResult {
   total_combinations: number
-  completed_combinations: number
+  completed_combinations_count: number
   completion_rate: number
+  matrix_tours: number
   missing_combinations: Array<{
     difficulty: number
     terrain: number
