@@ -1,12 +1,13 @@
 # backend/app/services/user_stats.py
 # Service pour calculer les statistiques synthétiques d'un utilisateur
 
-from typing import Optional
+from collections.abc import Mapping, Sequence
+from typing import Any, Optional, cast
 
 from bson import ObjectId
 from pymongo import ASCENDING, DESCENDING
 
-from app.api.dto.user_stats import UserStatsOut
+from app.api.dto.user_stats import CacheTypeStats, UserStatsOut
 from app.db.mongodb import get_collection
 
 
@@ -96,6 +97,62 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
     )
     last_challenge_created = last_challenge["created_at"] if last_challenge else None
 
+    # Statistiques par type de cache
+    cache_types_stats = None
+    try:
+        # Utiliser une aggregation MongoDB pour compter les caches trouvées par type
+        # La collection found_caches contient cache_id qui référence la collection caches
+        pipeline = [
+            {"$match": {"user_id": target_user_id}},
+            {
+                "$lookup": {
+                    "from": "caches",
+                    "localField": "cache_id",
+                    "foreignField": "_id",
+                    "as": "cache",
+                }
+            },
+            {"$unwind": "$cache"},
+            {
+                "$group": {
+                    "_id": "$cache.type_id",  # Regrouper par type_id de la cache
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"count": -1}},
+        ]
+
+        found_caches_agg = found_caches_coll.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
+        type_counts = await found_caches_agg.to_list(length=None)
+
+        if type_counts and type_counts[0]["_id"] is not None:  # Vérifier que les données existent
+            # Récupérer les détails des types de cache
+            cache_types_coll = await get_collection("cache_types")
+            type_ids = [item["_id"] for item in type_counts if item["_id"] is not None]
+
+            if type_ids:  # Vérifier qu'il y a des IDs à récupérer
+                cache_types = await cache_types_coll.find({"_id": {"$in": type_ids}}).to_list(
+                    length=None
+                )
+                type_map = {ct["_id"]: ct for ct in cache_types}
+
+                # Créer les objets CacheTypeStats
+                cache_types_stats = []
+                for tc in type_counts:
+                    if tc["_id"] is not None and tc["_id"] in type_map:
+                        type_info = type_map[tc["_id"]]
+                        cache_types_stats.append(
+                            CacheTypeStats(
+                                type_id=tc["_id"],
+                                type_label=type_info.get("name", "Unknown"),
+                                type_code=type_info.get("code", "UNKNOWN"),
+                                count=tc["count"],
+                            )
+                        )
+    except Exception as e:
+        # En cas d'erreur, on continue sans les statistiques par type
+        print(f"Error calculating cache type stats: {e}")
+
     # Calculer last_activity_at
     last_activity_candidates = [
         dt for dt in [last_cache_found_at, last_challenge_created] if dt is not None
@@ -113,6 +170,7 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
         last_cache_found_at=last_cache_found_at,
         created_at=created_at,
         last_activity_at=last_activity_at,
+        cache_types_stats=cache_types_stats,
     )
 
 
