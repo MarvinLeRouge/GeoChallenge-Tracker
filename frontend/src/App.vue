@@ -1,6 +1,6 @@
 <template>
-    <AppShell />
-    <BaseToast ref="toast" />
+  <AppShell />
+  <BaseToast ref="toast" />
 </template>
 
 <script setup lang="ts">

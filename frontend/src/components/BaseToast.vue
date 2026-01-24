@@ -1,19 +1,36 @@
 <template>
-    <transition name="fade">
-        <div v-if="visible" class="fixed bottom-4 right-4 z-[9999] bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3]" role="status" aria-live="polite">
-            <div class="flex items-start gap-3 py-3">
-                <component :is="icon" v-if="icon" class="w-10 h-10 shrink-0" />
-                <div class="min-w-0">
-                    <div class="font-medium leading-snug truncate toaster__title" :title="title">{{ title }}</div>
+  <transition name="fade">
+    <div
+      v-if="visible"
+      class="fixed bottom-4 right-4 z-[9999] bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3]"
+      role="status"
+      aria-live="polite"
+    >
+      <div class="flex items-start gap-3 py-3">
+        <component
+          :is="icon"
+          v-if="icon"
+          class="w-10 h-10 shrink-0"
+        />
+        <div class="min-w-0">
+          <div
+            class="font-medium leading-snug truncate toaster__title"
+            :title="title"
+          >
+            {{ title }}
+          </div>
 
-                    <!-- body (optionnel) -->
-                    <div v-if="body" class="text-sm mt-1 whitespace-pre-line break-words toaster__txt">
-                        {{ body }}
-                    </div>
-                </div>
-            </div>
+          <!-- body (optionnel) -->
+          <div
+            v-if="body"
+            class="text-sm mt-1 whitespace-pre-line break-words toaster__txt"
+          >
+            {{ body }}
+          </div>
         </div>
-    </transition>
+      </div>
+    </div>
+  </transition>
 </template>
 
 <script setup lang="ts">
