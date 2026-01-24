@@ -63,7 +63,7 @@
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
         <h2 class="font-semibold mb-3">Résumé</h2>
-        <div v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0" class="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
               {{ matrixResult.completed_combinations_count }}
@@ -86,6 +86,14 @@
             </div>
             <div class="text-sm text-purple-600">
               {{ matrixResult.matrix_tours > 1 ? 'Tours de matrice' : 'Tour de matrice' }}
+            </div>
+          </div>
+          <div class="bg-indigo-50 p-3 rounded-lg">
+            <div class="text-2xl font-bold text-indigo-800">
+              {{ (matrixResult.next_round_completion_rate * 100).toFixed(1) }}%
+            </div>
+            <div class="text-sm text-indigo-600">
+              Next round : {{ matrixResult.next_round_completed_count }}/81 combinaisons
             </div>
           </div>
         </div>
@@ -146,6 +154,9 @@
         <div class="mt-2 text-xs text-gray-500">
           <span class="inline-block w-4 h-4 bg-green-100 border mr-1"></span>Complété (≥1)
           <span class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3"></span>Non complété (0)
+          <span v-if="matrixResult?.matrix_tours && matrixResult.matrix_tours > 0">
+            <span class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3"></span>Next round
+          </span>
         </div>
       </div>
     </div>
@@ -249,6 +260,11 @@ function getCellClass(difficulty: string, terrain: string): string {
 
   const cell = row.cells.find(c => c.terrain === terr)
   if (!cell) return 'bg-red-100 text-red-800'
+
+  // Check if this cell is needed for the next round
+  if (matrixResult.value && matrixResult.value.matrix_tours > 0 && cell.count === matrixResult.value.matrix_tours) {
+    return 'bg-indigo-100 text-indigo-800'; // Color for next round target cells
+  }
 
   return cell.isCompleted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
 }
