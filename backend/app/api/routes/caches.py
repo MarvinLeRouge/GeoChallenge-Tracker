@@ -235,7 +235,7 @@ async def upload_gpx(
     return result
 
 
-# TODO: [BACKLOG] Route /caches/by-filter (POST) à vérifier
+# DONE: [BACKLOG] Route /caches/by-filter (POST) à vérifier
 @router.post(
     "/by-filter",
     summary="Recherche de caches par filtres",
@@ -381,7 +381,7 @@ async def by_filter(
     }
 
 
-# TODO: [BACKLOG] Route /caches/within-bbox (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/within-bbox (GET) à vérifier
 @router.get(
     "/within-bbox",
     summary="Caches dans une bounding box",
@@ -480,7 +480,7 @@ async def within_bbox(
     }
 
 
-# TODO: [BACKLOG] Route /caches/within-radius (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/within-radius (GET) à vérifier
 @router.get(
     "/within-radius",
     summary="Caches autour d’un point (rayon)",
@@ -585,7 +585,7 @@ async def within_radius(
     }
 
 
-# TODO: [BACKLOG] Route /caches/{gc} (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/{gc} (GET) à vérifier
 @router.get(
     "/{gc}",
     summary="Récupère une cache par code GC",
@@ -647,7 +647,7 @@ async def get_by_gc(
     return _doc(doc)
 
 
-# TODO: [BACKLOG] Route /caches/by-id/{id} (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/by-id/{id} (GET) à vérifier
 @router.get(
     "/by-id/{id}",
     summary="Récupère une cache par identifiant MongoDB",
