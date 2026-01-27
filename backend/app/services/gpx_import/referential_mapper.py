@@ -92,13 +92,13 @@ class ReferentialMapper:
     async def _load_attributes(self) -> None:
         """Charger tous les attributs de caches en cache."""
         coll_attributes = self.db.cache_attributes
-        cursor = coll_attributes.find({}, {"_id": 1, "gc_id": 1})
+        cursor = coll_attributes.find({}, {"_id": 1, "cache_attribute_id": 1})
 
         self._attributes_cache.clear()
         async for doc in cursor:
-            gc_id = doc.get("gc_id")
-            if gc_id is not None:
-                self._attributes_cache[int(gc_id)] = doc["_id"]
+            cache_attribute_id = doc.get("cache_attribute_id")
+            if cache_attribute_id is not None:
+                self._attributes_cache[int(cache_attribute_id)] = doc["_id"]
 
     @staticmethod
     def normalize_name(name: str | None) -> str:
@@ -275,8 +275,8 @@ class ReferentialMapper:
         if "attributes" in cache_data and isinstance(cache_data["attributes"], list):
             mapped_attributes = []
             for attr in cache_data["attributes"]:
-                if isinstance(attr, dict) and "gc_id" in attr:
-                    attr_id = self.get_attribute_by_gc_id(attr["gc_id"])
+                if isinstance(attr, dict) and "id" in attr:
+                    attr_id = self.get_attribute_by_gc_id(attr["id"])
                     if attr_id:
                         mapped_attr = {
                             "attribute_doc_id": attr_id,

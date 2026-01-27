@@ -124,7 +124,6 @@ class GpxImportService:
 
             # Étape 5: Persistance des caches (dans tous les modes sauf si vide)
             if caches_data and import_mode in ["both", "all", "found"]:
-                logger_import.info("Persisting caches", extra={"step": "cache_persistence"})
                 cache_stats = await self.cache_persister.persist_caches(caches_data)
                 stats["nb_inserted_caches"] = cache_stats["inserted"]
                 stats["nb_existing_caches"] = cache_stats["updated"]
@@ -150,6 +149,27 @@ class GpxImportService:
             logger_import.info(
                 "GPX import completed successfully", extra={"stats": stats, "step": "completed"}
             )
+
+            # Log détaillé des informations d'import dans le fichier JSON
+            _, _, data_logger = get_loggers()
+            total_attributes = 0
+            if caches_data:
+                total_attributes = sum(
+                    len(cache.get("attributes", []))
+                    for cache in caches_data
+                    if isinstance(cache, dict) and "attributes" in cache
+                )
+
+            import_summary = {
+                "filename": filename,
+                "file_size": len(payload),
+                "total_items": stats["nb_total_items"],
+                "total_caches": len(caches_data),
+                "total_attributes": total_attributes,
+                "response_summary": stats,
+            }
+
+            data_logger.log_data("gpx_import", import_summary)
 
         finally:
             # Nettoyage des fichiers temporaires
