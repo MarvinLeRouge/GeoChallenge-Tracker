@@ -33,7 +33,7 @@ backend/app/
 ### 3. Service Layer (`/services`)
 - **Responsabilité** : Logique métier complexe
 - **Organisation** : Par fonctionnalités ou sous-systèmes
-- **Exemples** : 
+- **Exemples** :
   - `gpx_import/` : Import de fichiers GPX
   - `user_profile/` : Gestion du profil utilisateur
   - `targets/` : Gestion des cibles de challenge
@@ -45,6 +45,15 @@ backend/app/
 ### 5. Database Layer (`/db`)
 - **Responsabilité** : Accès à MongoDB
 - **Technologies** : Motor (driver asynchrone)
+
+## Fonctionnalités spécifiques
+
+### Administration des attributs de caches
+- **Route** : `/admin/upload-gpx` (POST)
+- **Responsabilité** : Réimport des attributs des caches à partir d'un fichier GPX
+- **Utilité** : Permet de corriger les incohérences dans les attributs des caches dans la base de données
+- **Accès** : Réservé aux administrateurs
+- **Intégration** : Utilise les services d'import GPX existants pour traiter les attributs
 
 ## Principes architecturaux
 
