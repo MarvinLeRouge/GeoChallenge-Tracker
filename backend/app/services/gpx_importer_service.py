@@ -36,6 +36,7 @@ async def import_gpx_payload(
     fetch_elevation: bool = False,
     request: Any = None,  # Paramètre de compatibilité
     source_type: str | None = None,  # Paramètre de compatibilité
+    force_update_attributes: bool = False,  # Mise à jour forcée des attributs (admin seulement)
     **kwargs: Any,  # Autres paramètres de compatibilité
 ) -> dict[str, Any]:
     """Fonction de compatibilité - importer un payload GPX/ZIP.
@@ -57,4 +58,5 @@ async def import_gpx_payload(
         user_id=user_id,
         import_mode=import_mode,
         fetch_elevation=fetch_elevation,
+        force_update_attributes=force_update_attributes,
     )

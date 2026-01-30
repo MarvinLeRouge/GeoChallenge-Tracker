@@ -7,17 +7,26 @@ import secrets
 from collections.abc import Mapping, Sequence
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, Literal, cast
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from bson import ObjectId, json_util
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
 
 from app.core.config_backup import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
-from app.core.security import require_admin
+from app.core.security import CurrentUserId, require_admin
 from app.core.utils import utcnow
 from app.db.mongodb import db, get_collection
+from app.services.gpx_importer_service import import_gpx_payload
 
 # Cache en mémoire
 cleanup_cache: dict = {}
@@ -682,3 +691,85 @@ def write_json_zip(backup_data: dict, output_dir: str | Path, base_name: str) ->
         zf.writestr(json_name_in_zip, payload)
 
     return zip_path
+
+
+# TODO: [BACKLOG] Route /maintenance/import-gpx (POST) à vérifier
+@router.post(
+    "/upload-gpx",
+    summary="Import GPX avec mise à jour forcée des attributs",
+    description=(
+        "Importe un fichier GPX/ZIP et force la mise à jour des attributs pour toutes les caches.\n\n"
+        "**⚠️ RESTREINT AUX ADMINISTRATEURS**\n\n"
+        "Fonctionne comme l'import standard mais met à jour les attributs même s'ils existent déjà.\n"
+        "Supporte les mêmes formats que l'import standard (cgeo, pocket_query, etc.).\n"
+        "Retourne un résumé d'import et des statistiques liées aux challenges."
+    ),
+    responses={
+        200: {"description": "Import GPX réussi avec mise à jour forcée des attributs"},
+        400: {"description": "Fichier GPX/ZIP invalide"},
+        401: {"description": "Non authentifié"},
+        403: {"description": "Accès refusé (admin requis)"},
+    },
+)
+async def upload_gpx(
+    request: Request,
+    user_id: CurrentUserId,
+    file: Annotated[
+        UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
+    ],
+    import_mode: Literal["all", "found"] = Query(
+        "all",
+        description="Mode d'import: 'all' (toutes les caches) ou 'found' (mes trouvailles)",
+    ),
+    source_type: Literal["auto", "cgeo", "pocket_query"] = Query(
+        "auto",
+        description="Type de source GPX: 'auto' (détection automatique), 'cgeo', 'pocket_query'",
+    ),
+) -> dict[str, Any]:
+    """Import GPX avec mise à jour forcée des attributs.
+
+    Description:
+        Importe un fichier GPX/ZIP et force la mise à jour des attributs pour toutes les caches.
+        Cette fonctionnalité est réservée aux administrateurs.
+
+    Args:
+        file: Fichier GPX ou ZIP à traiter.
+        import_mode: Mode d'import ('all' pour toutes les caches, 'found' pour les trouvailles).
+        source_type: Type de source GPX ('auto', 'cgeo', 'pocket_query').
+
+    Returns:
+        dict: Résumé d'import et statistiques liées aux challenges.
+
+    Raises:
+        HTTPException 400: Si le fichier est invalide.
+        HTTPException 403: Si l'utilisateur n'est pas admin.
+    """
+    result: dict[str, Any] = {"summary": None, "challenge_stats": None}
+
+    # Lecture du fichier
+    chunks: list[bytes] = []
+    while True:
+        chunk = await file.read(1024 * 1024)  # 1MB chunks
+        if not chunk:
+            break
+        chunks.append(chunk)
+
+    await file.close()
+    payload = b"".join(chunks)
+
+    try:
+        result["summary"] = await import_gpx_payload(
+            payload=payload,
+            filename=file.filename or "upload.gpx",
+            import_mode=import_mode,
+            user_id=None,  # Pour l'import forcé, on pourrait spécifier un utilisateur spécifique ou laisser à None
+            request=request,
+            source_type=source_type,
+            force_update_attributes=True,  # Toujours vrai pour cette route
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Fichier GPX/ZIP invalide: {e}") from e
+
+    return result
