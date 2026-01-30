@@ -154,8 +154,10 @@ def _compact_lookups_and_project():
         "- Retourne un résumé d’import et des statistiques liées aux challenges"
     ),
     responses={
+        200: {"description": "Import GPX réussi"},
+        400: {"description": "Fichier GPX/ZIP invalide"},
+        401: {"description": "Non authentifié"},
         413: {"description": "Payload too large"},
-        400: {"description": "Fichier invalide"},
     },
 )
 async def upload_gpx(
@@ -217,6 +219,7 @@ async def upload_gpx(
             user_id=ObjectId(str(user_id)),
             request=request,
             source_type=source_type,
+            force_update_attributes=False,  # Toujours False dans la version standard
         )
     except HTTPException:
         raise

@@ -280,6 +280,10 @@ class DataNormalizer:
         if status in ["active", "disabled", "archived"]:
             metadata["status"] = status
 
+        # Attributs (s'ils existent)
+        if "attributes" in raw_data and isinstance(raw_data["attributes"], list):
+            metadata["attributes"] = raw_data["attributes"]
+
         return metadata
 
     @staticmethod

@@ -48,23 +48,6 @@ class GPXCacheParser:
         self.caches: list[dict] = []
         self.sanitizer = HTMLSanitizer()
 
-    def test(self):
-        """Lister tous les tags XML (debug).
-
-        Description:
-            Parse le fichier et itère sur tous les éléments pour imprimer
-            leurs `tag` (utilitaire de mise au point).
-
-        Args:
-            None
-
-        Returns:
-            None
-        """
-        tree = etree.parse(str(self.gpx_file))
-        for elem in tree.getroot().iter():
-            print(elem.tag)
-
     def parse(self) -> list[dict]:
         """Analyser le GPX et remplir `self.caches`.
 
@@ -158,9 +141,7 @@ class GPXCacheParser:
         Returns:
             bool: True si coordonnées corrigées détectées, sinon False.
         """
-        gsak_infos = wpt_elem.find("gsak:wptExtension", None)
-        if gsak_infos is not None:
-            print(gsak_infos)
+
         return wpt_elem.find("gsak:corrected", namespaces=self.namespaces) is not None
 
     def _has_found_log(self, cache_elem) -> bool:

@@ -1,58 +1,117 @@
 <template>
-    <div class="absolute inset-0">
-        <div class="absolute inset-0 z-0">
-            <MapBase ref="mapRef" @ready="onMapReady" @click="onMapClick" @pick="onMapPick"
-                @center-changed="onCenterChanged" />
-        </div>
-
-        <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
-            <div class="rounded-lg bg-white/95 border p-2 shadow">
-                <div class="flex items-center gap-2">
-                    <button type="button" class="border rounded px-3 py-3" aria-label="Choisir sur la carte"
-                        title="Choisir sur la carte" @click="startPick">
-                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                            <path
-                                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z" />
-                            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" strokeWidth="2" />
-                        </svg>
-                    </button>
-                    <input v-model.number="radiusKm" type="number" min="0.1" step="0.1"
-                        class="border rounded px-2 py-1 w-20">
-                    <span>km</span>
-                    <button type="button" class="relative border rounded px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed
-         hover:bg-gray-50 transition" :disabled="isDisabled" @click="search" :title="searchTitle"
-                        :aria-label="searchTitle">
-                        <!-- Icône principale -->
-                        <ArrowPathIcon v-if="loading" class="w-5 h-5 animate-spin" aria-hidden="true" />
-                        <NoSymbolIcon v-else-if="isDisabled" class="w-5 h-5" aria-hidden="true" />
-                        <MagnifyingGlassIcon v-else class="w-5 h-5" aria-hidden="true" />
-
-                        <!-- Badge d’état (facultatif) -->
-                        <span v-if="!loading && hasMore && currentPage > 1"
-                            class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
-                            aria-hidden="true">
-                            <PlusIcon class="w-3 h-3" />
-                        </span>
-                        <span v-else-if="!loading && !hasMore"
-                            class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
-                            aria-hidden="true">
-                            <CheckIcon class="w-3 h-3" />
-                        </span>
-                    </button>
-                </div>
-                <p v-if="picking" class="text-xs text-indigo-700 mt-1">
-                    Cliquez sur la carte pour choisir le centre…
-                </p>
-                <p v-if="center" class="text-xs text-gray-600 mt-1">
-                    Centre: {{ centerDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
-                </p>
-                <p v-if="isTest" data-testid="current-center">
-                    <!-- Test e2e item, not on prod -->
-                    Centre : {{ currentMapCenter.coords }}
-                </p>
-            </div>
-        </div>
+  <div class="absolute inset-0">
+    <div class="absolute inset-0 z-0">
+      <MapBase
+        ref="mapRef"
+        @ready="onMapReady"
+        @click="onMapClick"
+        @pick="onMapPick"
+        @center-changed="onCenterChanged"
+      />
     </div>
+
+    <div class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab">
+      <div class="rounded-lg bg-white/95 border p-2 shadow">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="border rounded px-3 py-3"
+            aria-label="Choisir sur la carte"
+            title="Choisir sur la carte"
+            @click="startPick"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              aria-hidden="true"
+            >
+              <path
+                d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+            </svg>
+          </button>
+          <input
+            v-model.number="radiusKm"
+            type="number"
+            min="0.1"
+            step="0.1"
+            class="border rounded px-2 py-1 w-20"
+          >
+          <span>km</span>
+          <button
+            type="button"
+            class="relative border rounded px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed
+         hover:bg-gray-50 transition"
+            :disabled="isDisabled"
+            :title="searchTitle"
+            :aria-label="searchTitle"
+            @click="search"
+          >
+            <!-- Icône principale -->
+            <ArrowPathIcon
+              v-if="loading"
+              class="w-5 h-5 animate-spin"
+              aria-hidden="true"
+            />
+            <NoSymbolIcon
+              v-else-if="isDisabled"
+              class="w-5 h-5"
+              aria-hidden="true"
+            />
+            <MagnifyingGlassIcon
+              v-else
+              class="w-5 h-5"
+              aria-hidden="true"
+            />
+
+            <!-- Badge d’état (facultatif) -->
+            <span
+              v-if="!loading && hasMore && currentPage > 1"
+              class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
+              aria-hidden="true"
+            >
+              <PlusIcon class="w-3 h-3" />
+            </span>
+            <span
+              v-else-if="!loading && !hasMore"
+              class="absolute -right-1 -bottom-1 grid place-items-center w-4 h-4 bg-white border rounded-full"
+              aria-hidden="true"
+            >
+              <CheckIcon class="w-3 h-3" />
+            </span>
+          </button>
+        </div>
+        <p
+          v-if="picking"
+          class="text-xs text-indigo-700 mt-1"
+        >
+          Cliquez sur la carte pour choisir le centre…
+        </p>
+        <p
+          v-if="center"
+          class="text-xs text-gray-600 mt-1"
+        >
+          Centre: {{ centerDM }}<span v-if="count !== null"> — {{ count }} cache(s)</span>
+        </p>
+        <p
+          v-if="isTest"
+          data-testid="current-center"
+        >
+          <!-- Test e2e item, not on prod -->
+          Centre : {{ currentMapCenter.coords }}
+        </p>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
