@@ -159,7 +159,7 @@ router = APIRouter(
 )
 
 
-# TODO: [BACKLOG] Route /maintenance (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance (GET) à vérifier
 @router.get("")
 async def maintenance_get_1() -> dict:
     result = {
@@ -172,7 +172,7 @@ async def maintenance_get_1() -> dict:
     return result
 
 
-# TODO: [BACKLOG] Route /maintenance (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance (POST) à vérifier
 @router.post("")
 async def maintenance_post_1() -> dict:
     result = {
@@ -194,7 +194,7 @@ async def maintenance_post_1() -> dict:
 # ============================================================================
 
 
-# TODO: [BACKLOG] Route /maintenance/db_cleanup (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup (GET) à vérifier
 @router.get("/db_cleanup")
 async def cleanup_analyze():
     """
@@ -333,7 +333,7 @@ async def cleanup_analyze():
     }
 
 
-# TODO: [BACKLOG] Route /maintenance/db_cleanup (DELETE) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup (DELETE) à vérifier
 @router.delete("/db_cleanup")
 async def cleanup_execute(key: str):
     """
@@ -434,7 +434,7 @@ async def cleanup_execute(key: str):
     }
 
 
-# TODO: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) à vérifier
 @router.get("/db_cleanup/backups")
 async def cleanup_list_backups():
     """Liste tous les fichiers de backup disponibles"""
@@ -464,7 +464,7 @@ async def cleanup_list_backups():
     return {"backups": backups, "total_backups": len(backups)}
 
 
-# TODO: [BACKLOG] Route /maintenance/backups/{filepath:path} (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/backups/{filepath:path} (GET) à vérifier
 @router.get("/backups/{filepath:path}")
 async def get_backup_file(filepath: str):
     """Télécharge un fichier de backup (db_cleanup, full_backup, etc.)."""
@@ -493,7 +493,7 @@ async def get_backup_file(filepath: str):
     )
 
 
-# TODO: [BACKLOG] Route /maintenance/db_full_backup (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_full_backup (POST) à vérifier
 @router.post("/db_full_backup")
 async def full_backup_create():
     """
@@ -547,7 +547,7 @@ async def full_backup_create():
     }
 
 
-# TODO: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) à vérifier
 @router.post("/db_full_restore/{filename}")
 async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing: bool = False):
     """
@@ -611,7 +611,7 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
     return response
 
 
-# TODO: [BACKLOG] Route /maintenance/db_backups (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_backups (GET) à vérifier
 @router.get("/db_backups")
 async def list_all_backups():
     """Liste tous les fichiers de backup (cleanup + full)"""
@@ -642,19 +642,30 @@ async def list_all_backups():
     # Backups complets
     for backup_file in sorted(FULL_BACKUP_DIR.glob("*.zip"), reverse=True):
         try:
-            with open(backup_file, encoding="utf-8") as f:
-                data = json.load(f)
-
-            backups["full_backups"].append(
-                {
-                    "filename": backup_file.name,
-                    "timestamp": data.get("timestamp", "unknown"),
-                    "total_collections": data.get("total_collections", 0),
-                    "total_documents": data.get("total_documents", 0),
-                    "size_mb": round(backup_file.stat().st_size / (1024 * 1024), 2),
-                    "type": "full",
-                }
-            )
+            with ZipFile(backup_file, "r") as zf:
+                # le JSON interne s'appelle f"{base_name}.json"
+                # si tu ne connais pas le nom, prends le premier .json
+                json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+                if json_name:
+                    data = json.loads(zf.read(json_name).decode("utf-8"))
+                    backups["full_backups"].append(
+                        {
+                            "filename": backup_file.name,
+                            "timestamp": data.get("timestamp", "unknown"),
+                            "total_collections": data.get("total_collections", 0),
+                            "total_documents": data.get("total_documents", 0),
+                            "size_mb": round(backup_file.stat().st_size / (1024 * 1024), 2),
+                            "type": "full",
+                        }
+                    )
+                else:
+                    # Si aucun fichier JSON n'est trouvé dans le ZIP
+                    backups["full_backups"].append(
+                        {
+                            "filename": backup_file.name,
+                            "error": "No JSON metadata file found in archive",
+                        }
+                    )
         except Exception as e:
             backups["full_backups"].append({"filename": backup_file.name, "error": str(e)})
 
