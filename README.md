@@ -185,10 +185,7 @@ L'application permet aux géocacheurs passionnés de :
 ### Élévation des caches (`/caches_elevation`)
 - `POST /caches_elevation/caches/elevation/backfill` - Backfill de l'altitude manquante (admin)
 
-### Administration (`/admin`)
-- `POST /admin/upload-gpx` - Réimport des attributs des caches à partir d'un fichier GPX (admin)
-
-### Maintenance (`/maintenance`)
+### Maintenance (`/maintenance`) <span style="color:white; background-color:#cc0000">&nbsp;Réservé admin&nbsp;</span>
 - `GET /maintenance/db_cleanup` - Analyse de la base de données pour orphelins
 - `DELETE /maintenance/db_cleanup` - Exécution du nettoyage des orphelins
 - `GET /maintenance/db_cleanup/backups` - Liste des sauvegardes de nettoyage
@@ -196,6 +193,7 @@ L'application permet aux géocacheurs passionnés de :
 - `POST /maintenance/db_full_backup` - Création d'une sauvegarde complète
 - `POST /maintenance/db_full_restore/{filename}` - Restauration depuis une sauvegarde
 - `GET /maintenance/db_backups` - Liste de tous les fichiers de sauvegarde
+- `POST /maintenance/upload-gpx` - Réimport des attributs des caches à partir d'un fichier GPX
 
 ---
 
