@@ -55,6 +55,16 @@ Le système d'import GPX est hautement modulaire :
 - **Traitement** : Dans `services/gpx_import/` (architecture en plusieurs modules)
 - **Modes** : 'all' pour toutes les caches, 'found' pour les caches trouvées par l'utilisateur
 
+## Administration des attributs de caches
+
+La route d'administration `/admin/upload-gpx` permet de réimporter les attributs des caches :
+
+- **Fonctionnalité** : Réimport des attributs des caches à partir d'un fichier GPX
+- **Accès** : Réservé aux administrateurs
+- **Utilité** : Correction des incohérences dans les attributs des caches dans la base de données
+- **Implémentation** : Réutilise les services d'import GPX existants
+- **Précautions** : Nécessite des droits d'administrateur, peut avoir un impact significatif sur la base de données
+
 ## Sécurité
 
 - **JWT** : Tokens d'authentification

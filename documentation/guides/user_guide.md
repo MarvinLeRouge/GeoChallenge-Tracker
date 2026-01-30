@@ -82,3 +82,11 @@ GeoChallenge Tracker est une application web complète pour les passionnés de g
 - Nettoyage des données orphelines
 - Sauvegarde et restauration de la base de données
 - Backfill des données d'altitude
+
+### Réimport des attributs de caches
+- **Accès** : Réservé aux administrateurs
+- **Fonctionnalité** : Réimport des attributs des caches à partir d'un fichier GPX
+- **Utilité** : Correction des incohérences dans les attributs des caches dans la base de données
+- **Procédure** : Utilisation de la route `/admin/upload-gpx` pour envoyer un fichier GPX
+- **Impact** : Met à jour les attributs des caches existants dans la base de données
+- **Précautions** : Cette opération peut avoir un impact significatif sur la base de données, à utiliser avec discernement
