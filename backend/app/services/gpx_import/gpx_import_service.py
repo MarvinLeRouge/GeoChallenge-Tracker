@@ -68,6 +68,7 @@ class GpxImportService:
         user_id: ObjectId | None = None,
         import_mode: str = "both",
         fetch_elevation: bool = False,
+        force_update_attributes: bool = False,
     ) -> dict[str, Any]:
         """Importer un payload GPX/ZIP complet.
 
@@ -77,6 +78,7 @@ class GpxImportService:
             user_id: ID de l'utilisateur (pour les trouvailles).
             import_mode: Mode d'import ('both', 'all', 'found').
             fetch_elevation: Enrichir avec les données d'élévation.
+            force_update_attributes: Forcer la mise à jour des attributs (admin seulement).
 
         Returns:
             dict: Statistiques d'import détaillées.
@@ -113,7 +115,9 @@ class GpxImportService:
 
             # Étape 3: Parsing et traitement
             logger_import.info("Processing GPX files", extra={"step": "parsing"})
-            caches_data, found_caches_data = await self._process_gpx_files(gpx_paths, import_mode)
+            caches_data, found_caches_data = await self._process_gpx_files(
+                gpx_paths, import_mode, force_update_attributes
+            )
 
             stats["nb_total_items"] = len(caches_data)
 
@@ -124,8 +128,9 @@ class GpxImportService:
 
             # Étape 5: Persistance des caches (dans tous les modes sauf si vide)
             if caches_data and import_mode in ["both", "all", "found"]:
-                logger_import.info("Persisting caches", extra={"step": "cache_persistence"})
-                cache_stats = await self.cache_persister.persist_caches(caches_data)
+                cache_stats = await self.cache_persister.persist_caches(
+                    caches_data, force_update_attributes=force_update_attributes
+                )
                 stats["nb_inserted_caches"] = cache_stats["inserted"]
                 stats["nb_existing_caches"] = cache_stats["updated"]
 
@@ -151,6 +156,27 @@ class GpxImportService:
                 "GPX import completed successfully", extra={"stats": stats, "step": "completed"}
             )
 
+            # Log détaillé des informations d'import dans le fichier JSON
+            _, _, data_logger = get_loggers()
+            total_attributes = 0
+            if caches_data:
+                total_attributes = sum(
+                    len(cache.get("attributes", []))
+                    for cache in caches_data
+                    if isinstance(cache, dict) and "attributes" in cache
+                )
+
+            import_summary = {
+                "filename": filename,
+                "file_size": len(payload),
+                "total_items": stats["nb_total_items"],
+                "total_caches": len(caches_data),
+                "total_attributes": total_attributes,
+                "response_summary": stats,
+            }
+
+            data_logger.log_data("gpx_import", import_summary)
+
         finally:
             # Nettoyage des fichiers temporaires
             if "gpx_paths" in locals():
@@ -174,12 +200,14 @@ class GpxImportService:
         self,
         gpx_paths: list[Path],
         import_mode: str,
+        force_update_attributes: bool = False,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Traiter tous les fichiers GPX.
 
         Args:
             gpx_paths: Liste des chemins des fichiers GPX.
             import_mode: Mode d'import.
+            force_update_attributes: Forcer la mise à jour des attributs (admin seulement).
 
         Returns:
             tuple: (caches_data, found_caches_data).
@@ -194,7 +222,9 @@ class GpxImportService:
             gpx_path: Path,
         ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
             async with semaphore:
-                return await self._process_single_gpx_file(gpx_path, import_mode)
+                return await self._process_single_gpx_file(
+                    gpx_path, import_mode, force_update_attributes
+                )
 
         # Lancer le traitement en parallèle
         tasks = [process_single_file(path) for path in gpx_paths]
@@ -217,12 +247,14 @@ class GpxImportService:
         self,
         gpx_path: Path,
         import_mode: str,
+        force_update_attributes: bool = False,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         """Traiter un fichier GPX individuel.
 
         Args:
             gpx_path: Chemin du fichier GPX.
             import_mode: Mode d'import.
+            force_update_attributes: Forcer la mise à jour des attributs (admin seulement).
 
         Returns:
             tuple: (caches_data, found_caches_data).

@@ -44,7 +44,7 @@ class MultiFormatGPXParser:
             if format_type in ["cgeo", "pocket_query"]:
                 self.format_type = format_type
             else:
-                print(f"Format {format_type} non supporté, utilisation de la détection automatique")
+                # Format non supporté, utilisation de la détection automatique
                 self.format_type = self._detect_format()
 
         # Définir les namespaces en fonction du format détecté ou spécifié
@@ -103,8 +103,9 @@ class MultiFormatGPXParser:
             elif "pocket query" in root_text:
                 return "pocket_query"
 
-        except Exception as e:
-            print(f"Erreur lors de la détection de format: {e}")
+        except Exception:
+            # Erreur lors de la détection de format, on continue avec la détection automatique
+            pass
 
         # Par défaut, supposer cgeo
         return "cgeo"
@@ -157,8 +158,6 @@ class MultiFormatGPXParser:
             if is_final:
                 # Extraire les données en fonction du format
                 cache = self._extract_cache_data(wpt, cache_elem)
-                if cache["GC"] == "GCAW0J4":
-                    print("cache", cache)
                 self.caches.append(cache)
 
         return self.caches
@@ -273,16 +272,17 @@ class MultiFormatGPXParser:
             list[dict]: Attributs normalisés (id / inc / libellé).
         """
         attrs = []
-        for attr in cache_elem.xpath(
+        attribute_elements = cache_elem.xpath(
             "groundspeak:attributes/groundspeak:attribute", namespaces=self.namespaces
-        ):
-            attrs.append(
-                {
-                    "id": int(attr.get("id")),
-                    "is_positive": attr.get("inc") == "1",
-                    "name": attr.text.strip() if attr.text else "",
-                }
-            )
+        )
+
+        for attr in attribute_elements:
+            attr_dict = {
+                "id": int(attr.get("id")),
+                "is_positive": attr.get("inc") == "1",
+                "name": attr.text.strip() if attr.text else "",
+            }
+            attrs.append(attr_dict)
 
         return attrs
 

@@ -1,41 +1,75 @@
 <!-- src/pages/userChallenges/List.vue -->
 <template>
-    <div class="p-4 space-y-4">
-        <!-- Filtres (boutons ronds) -->
-        <div class="flex flex-wrap gap-3 justify-center">
-            <button v-for="s in ['all', 'pending', 'accepted', 'dismissed', 'completed']" :key="s"
-                class="p-2 rounded-full border flex items-center justify-center w-10 h-10 transition"
-                :class="filterStatus === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 hover:bg-gray-50'"
-                @click="setFilter(s as any)" :title="statusLabels[s]" :aria-label="statusLabels[s]">
-                <component :is="s === 'all' ? AdjustmentsHorizontalIcon : statusIcons[s as keyof typeof statusIcons]"
-                    class="w-5 h-5" />
-            </button>
-        </div>
-
-        <!-- Etat / erreurs -->
-        <div v-if="error" class="text-center text-red-600 text-sm">{{ error }}</div>
-        <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
-
-        <!-- Liste -->
-        <div v-if="!loading" class="space-y-3">
-            <UserChallengeCard v-for="(ch, idx) in challenges" :key="ch.id" :challenge="ch" :zebra="idx % 2 !== 0"
-                @details="showDetails" @accept="acceptChallenge" @dismiss="dismissChallenge" @reset="resetChallenge"
-                @tasks="manageTasks" />
-
-            <!-- Pagination -->
-            <div class="flex justify-between items-center mt-4">
-                <button class="px-3 py-2 rounded border bg-white disabled:opacity-50" :disabled="!canPrev"
-                    @click="prevPage">
-                    Précédent
-                </button>
-                <span class="text-sm">Page {{ page }} / {{ nbPages }}</span>
-                <button class="px-3 py-2 rounded border bg-white disabled:opacity-50" :disabled="!canNext"
-                    @click="nextPage">
-                    Suivant
-                </button>
-            </div>
-        </div>
+  <div class="p-4 space-y-4">
+    <!-- Filtres (boutons ronds) -->
+    <div class="flex flex-wrap gap-3 justify-center">
+      <button
+        v-for="s in ['all', 'pending', 'accepted', 'dismissed', 'completed']"
+        :key="s"
+        class="p-2 rounded-full border flex items-center justify-center w-10 h-10 transition"
+        :class="filterStatus === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 hover:bg-gray-50'"
+        :title="statusLabels[s]"
+        :aria-label="statusLabels[s]"
+        @click="setFilter(s as any)"
+      >
+        <component
+          :is="s === 'all' ? AdjustmentsHorizontalIcon : statusIcons[s as keyof typeof statusIcons]"
+          class="w-5 h-5"
+        />
+      </button>
     </div>
+
+    <!-- Etat / erreurs -->
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-if="loading"
+      class="text-center text-gray-500"
+    >
+      Chargement…
+    </div>
+
+    <!-- Liste -->
+    <div
+      v-if="!loading"
+      class="space-y-3"
+    >
+      <UserChallengeCard
+        v-for="(ch, idx) in challenges"
+        :key="ch.id"
+        :challenge="ch"
+        :zebra="idx % 2 !== 0"
+        @details="showDetails"
+        @accept="acceptChallenge"
+        @dismiss="dismissChallenge"
+        @reset="resetChallenge"
+        @tasks="manageTasks"
+      />
+
+      <!-- Pagination -->
+      <div class="flex justify-between items-center mt-4">
+        <button
+          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
+          :disabled="!canPrev"
+          @click="prevPage"
+        >
+          Précédent
+        </button>
+        <span class="text-sm">Page {{ page }} / {{ nbPages }}</span>
+        <button
+          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
+          :disabled="!canNext"
+          @click="nextPage"
+        >
+          Suivant
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">

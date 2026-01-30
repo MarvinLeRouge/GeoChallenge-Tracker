@@ -3,14 +3,20 @@
     <!-- En-tête -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">Calendar Challenge</h1>
-        <p class="text-gray-600">Vérification de completion des 365/366 jours de l'année</p>
+        <h1 class="text-2xl font-bold">
+          Calendar Challenge
+        </h1>
+        <p class="text-gray-600">
+          Vérification de completion des 365/366 jours de l'année
+        </p>
       </div>
     </div>
 
     <!-- Filtres -->
     <div class="rounded-lg border bg-white p-4 shadow-sm">
-      <h2 class="font-semibold mb-3">Filtres</h2>
+      <h2 class="font-semibold mb-3">
+        Filtres
+      </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Type de cache</label>
@@ -19,7 +25,9 @@
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchCalendar"
           >
-            <option value="">Tous les types</option>
+            <option value="">
+              Tous les types
+            </option>
             <option 
               v-for="type in sortedCacheTypes" 
               :key="type._id" 
@@ -37,7 +45,9 @@
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchCalendar"
           >
-            <option value="">Toutes les tailles</option>
+            <option value="">
+              Toutes les tailles
+            </option>
             <option 
               v-for="size in sortedCacheSizes" 
               :key="size._id" 
@@ -51,18 +61,29 @@
     </div>
 
     <!-- Loading/Error -->
-    <div v-if="loading" class="text-center text-gray-500 py-8">
+    <div
+      v-if="loading"
+      class="text-center text-gray-500 py-8"
+    >
       Chargement du calendrier...
     </div>
-    <div v-if="error" class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg">
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg"
+    >
       {{ error }}
     </div>
 
     <!-- Résultats Calendar -->
-    <div v-if="calendarResult && !loading" class="space-y-4">
+    <div
+      v-if="calendarResult && !loading"
+      class="space-y-4"
+    >
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">Résumé</h2>
+        <h2 class="font-semibold mb-3">
+          Résumé
+        </h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
@@ -93,9 +114,15 @@
 
       <!-- Calendrier visuel -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">Calendrier annuel</h2>
+        <h2 class="font-semibold mb-3">
+          Calendrier annuel
+        </h2>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div v-for="month in 12" :key="month" class="border rounded-lg p-2">
+          <div
+            v-for="month in 12"
+            :key="month"
+            class="border rounded-lg p-2"
+          >
             <h3 class="text-sm font-medium text-center mb-2">
               {{ monthNames[month - 1] }}
             </h3>
@@ -112,7 +139,10 @@
               </div>
             </div>
             <!-- Jours manquants ce mois -->
-            <div v-if="getMissingDaysCount(month) > 0" class="text-xs text-red-600 mt-1">
+            <div
+              v-if="getMissingDaysCount(month) > 0"
+              class="text-xs text-red-600 mt-1"
+            >
               {{ getMissingDaysCount(month) }} jour{{ getMissingDaysCount(month) > 1 ? 's' : '' }} manquant{{ getMissingDaysCount(month) > 1 ? 's' : '' }}
             </div>
           </div>
@@ -121,15 +151,15 @@
         <!-- Légende -->
         <div class="mt-4 flex flex-wrap gap-4 text-xs">
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-green-200 rounded"></div>
+            <div class="w-4 h-4 bg-green-200 rounded" />
             <span>Jour complété</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-red-200 rounded"></div>
+            <div class="w-4 h-4 bg-red-200 rounded" />
             <span>Jour manquant</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-gray-100 rounded"></div>
+            <div class="w-4 h-4 bg-gray-100 rounded" />
             <span>Jour sans cache</span>
           </div>
         </div>
@@ -137,14 +167,18 @@
 
       <!-- Statistiques détaillées par mois -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">Détails par mois</h2>
+        <h2 class="font-semibold mb-3">
+          Détails par mois
+        </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div 
             v-for="month in 12" 
             :key="month"
             class="border rounded-lg p-3"
           >
-            <h3 class="font-medium">{{ monthNames[month - 1] }}</h3>
+            <h3 class="font-medium">
+              {{ monthNames[month - 1] }}
+            </h3>
             <div class="mt-2 space-y-1 text-sm">
               <div class="flex justify-between">
                 <span>Complétés:</span>

@@ -1,99 +1,151 @@
 <!-- src/pages/userChallenges/Tasks.vue -->
 <template>
-    <!-- Contexte UC -->
-    <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h1 class="font-semibold text-lg break-words flex items-center gap-2">
-            {{ uc?.challenge?.name || 'Challenge' }}
-            <span v-if="uc?.cache?.GC" class="text-sm text-gray-500">· GC: {{ uc.cache.GC }}</span>
-        </h1>
+  <!-- Contexte UC -->
+  <div class="rounded-lg border bg-white p-4 shadow-sm">
+    <h1 class="font-semibold text-lg break-words flex items-center gap-2">
+      {{ uc?.challenge?.name || 'Challenge' }}
+      <span
+        v-if="uc?.cache?.GC"
+        class="text-sm text-gray-500"
+      >· GC: {{ uc.cache.GC }}</span>
+    </h1>
 
-        <details class="mt-2">
-            <summary class="cursor-pointer text-sm text-blue-600 hover:underline">
-                Voir la description
-            </summary>
-            <div class="prose prose-sm max-w-none mt-2" v-html="safeDescription"></div>
-        </details>
+    <details class="mt-2">
+      <summary class="cursor-pointer text-sm text-blue-600 hover:underline">
+        Voir la description
+      </summary>
+      <div
+        class="prose prose-sm max-w-none mt-2"
+        v-html="safeDescription"
+      />
+    </details>
+  </div>
+  <div class="p-4 space-y-4">
+    <div class="flex items-center gap-2">
+      <button
+        class="inline-flex items-center gap-2 text-sm"
+        @click="router.back()"
+      >
+        <ArrowLeftIcon class="w-5 h-5" /> Retour
+      </button>
+
+      <div class="ml-auto flex items-center gap-2">
+        <button
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          :disabled="loading"
+          title="Valider la liste (sans enregistrer)"
+          @click="validateAll"
+        >
+          <ClipboardDocumentCheckIcon class="w-5 h-5" />
+          Valider
+        </button>
+        <button
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          :disabled="loading"
+          title="Enregistrer toutes les tâches"
+          @click="saveAll"
+        >
+          <ArrowUpOnSquareIcon class="w-5 h-5" />
+          Enregistrer
+        </button>
+        <button
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          :disabled="loading"
+          title="Ajouter une tâche"
+          @click="addTask"
+        >
+          <PlusIcon class="w-5 h-5" />
+          Ajouter
+        </button>
+      </div>
     </div>
-    <div class="p-4 space-y-4">
-        <div class="flex items-center gap-2">
-            <button class="inline-flex items-center gap-2 text-sm" @click="router.back()">
-                <ArrowLeftIcon class="w-5 h-5" /> Retour
+
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm"
+    >
+      {{ error }}
+    </div>
+    <div
+      v-if="loading"
+      class="text-center text-gray-500"
+    >
+      Chargement…
+    </div>
+
+    <!-- Liste ordonnable -->
+    <draggable
+      v-model="tasks"
+      item-key="id"
+      handle=".drag-handle"
+      class="space-y-3"
+    >
+      <template #item="{ element: t, index: i }">
+        <div
+          class="rounded-lg border shadow-sm p-3"
+          :class="i % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
+        >
+          <div class="flex items-start gap-3">
+            <button
+              class="drag-handle p-2 rounded border bg-white hover:bg-gray-50"
+              title="Glisser pour réordonner"
+            >
+              <Bars3Icon class="w-5 h-5" />
             </button>
 
-            <div class="ml-auto flex items-center gap-2">
+            <div class="flex-1 min-w-0 space-y-3">
+              <!-- Titre -->
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Titre</label>
+                <input
+                  v-model="t.title"
+                  type="text"
+                  class="w-full border rounded px-3 py-2"
+                  placeholder="Titre de la tâche"
+                >
+              </div>
+
+              <!-- Expression (textarea simple) -->
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Expression (JSON minimal)</label>
+                <textarea
+                  v-model="t.expression_json"
+                  class="w-full border rounded px-3 py-2 font-mono text-xs"
+                  rows="6"
+                  placeholder="{\n  &quot;kind&quot;: &quot;size_in&quot;,\n  &quot;sizes&quot;: [{ &quot;code&quot;: &quot;L&quot; }]\n}"
+                />
+                <p class="text-[11px] text-gray-500 mt-1">
+                  Saisir seulement l’objet <code>expression</code> (pas la tâche complète).
+                </p>
+              </div>
+
+              <!-- Min count (nombre) -->
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-500">Nombre minimal :</label>
+                <input
+                  v-model.number="t.min_count"
+                  type="number"
+                  min="0"
+                  class="w-24 border rounded px-2 py-1"
+                >
+              </div>
+
+              <!-- Actions par ligne -->
+              <div class="flex items-center gap-2">
                 <button
-                    class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
-                    :disabled="loading" @click="validateAll" title="Valider la liste (sans enregistrer)">
-                    <ClipboardDocumentCheckIcon class="w-5 h-5" />
-                    Valider
+                  class="p-2 rounded-full border bg-white hover:bg-red-50"
+                  title="Supprimer"
+                  @click="removeTask(i)"
+                >
+                  <TrashIcon class="w-5 h-5" />
                 </button>
-                <button
-                    class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
-                    :disabled="loading" @click="saveAll" title="Enregistrer toutes les tâches">
-                    <ArrowUpOnSquareIcon class="w-5 h-5" />
-                    Enregistrer
-                </button>
-                <button
-                    class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
-                    :disabled="loading" @click="addTask" title="Ajouter une tâche">
-                    <PlusIcon class="w-5 h-5" />
-                    Ajouter
-                </button>
+              </div>
             </div>
+          </div>
         </div>
-
-        <div v-if="error" class="text-center text-red-600 text-sm">{{ error }}</div>
-        <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
-
-        <!-- Liste ordonnable -->
-        <draggable v-model="tasks" item-key="id" handle=".drag-handle" class="space-y-3">
-            <template #item="{ element: t, index: i }">
-                <div class="rounded-lg border shadow-sm p-3" :class="i % 2 === 0 ? 'bg-white' : 'bg-gray-50'">
-                    <div class="flex items-start gap-3">
-                        <button class="drag-handle p-2 rounded border bg-white hover:bg-gray-50"
-                            title="Glisser pour réordonner">
-                            <Bars3Icon class="w-5 h-5" />
-                        </button>
-
-                        <div class="flex-1 min-w-0 space-y-3">
-                            <!-- Titre -->
-                            <div>
-                                <label class="block text-xs text-gray-500 mb-1">Titre</label>
-                                <input v-model="t.title" type="text" class="w-full border rounded px-3 py-2"
-                                    placeholder="Titre de la tâche" />
-                            </div>
-
-                            <!-- Expression (textarea simple) -->
-                            <div>
-                                <label class="block text-xs text-gray-500 mb-1">Expression (JSON minimal)</label>
-                                <textarea v-model="t.expression_json"
-                                    class="w-full border rounded px-3 py-2 font-mono text-xs" rows="6"
-                                    placeholder='{\n  "kind": "size_in",\n  "sizes": [{ "code": "L" }]\n}' />
-                                <p class="text-[11px] text-gray-500 mt-1">
-                                    Saisir seulement l’objet <code>expression</code> (pas la tâche complète).
-                                </p>
-                            </div>
-
-                            <!-- Min count (nombre) -->
-                            <div class="flex items-center gap-2">
-                                <label class="text-xs text-gray-500">Nombre minimal :</label>
-                                <input v-model.number="t.min_count" type="number" min="0"
-                                    class="w-24 border rounded px-2 py-1" />
-                            </div>
-
-                            <!-- Actions par ligne -->
-                            <div class="flex items-center gap-2">
-                                <button class="p-2 rounded-full border bg-white hover:bg-red-50" title="Supprimer"
-                                    @click="removeTask(i)">
-                                    <TrashIcon class="w-5 h-5" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </template>
-        </draggable>
-    </div>
+      </template>
+    </draggable>
+  </div>
 </template>
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
