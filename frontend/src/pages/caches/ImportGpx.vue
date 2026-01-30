@@ -35,22 +35,28 @@
         <label class="text-sm font-medium">Mode d'import</label>
         <div class="grid grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-2 items-center">
           <input
+            id="mode-all"
             v-model="importMode"
             type="radio"
-            id="mode-all"
             value="all"
             class="justify-self-start"
           >
-          <label for="mode-all" class="text-sm">Toutes les caches</label>
+          <label
+            for="mode-all"
+            class="text-sm"
+          >Toutes les caches</label>
 
           <input
+            id="mode-found"
             v-model="importMode"
             type="radio"
-            id="mode-found"
             value="found"
             class="justify-self-start"
           >
-          <label for="mode-found" class="text-sm">Caches trouvées</label>
+          <label
+            for="mode-found"
+            class="text-sm"
+          >Caches trouvées</label>
         </div>
         <p class="text-xs text-gray-500">
           Sélectionnez le mode d'import : découvrir de nouvelles caches ou ajouter des caches trouvées par vous.
@@ -64,9 +70,15 @@
           v-model="sourceType"
           class="w-full border rounded px-3 py-2 text-sm"
         >
-          <option value="auto">Détection automatique</option>
-          <option value="cgeo">c:geo (export GPX)</option>
-          <option value="pocket_query">Pocket Query</option>
+          <option value="auto">
+            Détection automatique
+          </option>
+          <option value="cgeo">
+            c:geo (export GPX)
+          </option>
+          <option value="pocket_query">
+            Pocket Query
+          </option>
         </select>
         <p class="text-xs text-gray-500">
           Choisissez le format du fichier GPX ou laissez "Détection automatique" pour laisser le système déterminer le format.

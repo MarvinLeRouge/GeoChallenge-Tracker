@@ -29,11 +29,14 @@ class CachePersister:
         """
         self.db = db
 
-    async def persist_caches(self, caches_data: list[dict[str, Any]]) -> dict[str, int]:
+    async def persist_caches(
+        self, caches_data: list[dict[str, Any]], force_update_attributes: bool = False
+    ) -> dict[str, int]:
         """Persister les caches en base avec upsert.
 
         Args:
             caches_data: Liste des données de caches à persister.
+            force_update_attributes: Forcer la mise à jour des attributs (admin seulement).
 
         Returns:
             dict: Statistiques de persistance {inserted, updated, errors}.
@@ -59,6 +62,10 @@ class CachePersister:
                     "created_at": current_time,
                 },
             }
+
+            # Si force_update_attributes est activé, on remplace les attributs même s'ils existent
+            if force_update_attributes and "attributes" in cache_data:
+                update_doc["$set"]["attributes"] = cache_data["attributes"]
 
             operations.append(UpdateOne(filter_query, update_doc, upsert=True))
 

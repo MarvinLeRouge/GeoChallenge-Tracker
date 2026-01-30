@@ -3,14 +3,20 @@
     <!-- En-tête -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">Matrix D/T Challenge</h1>
-        <p class="text-gray-600">Vérification de completion des combinaisons Difficulté/Terrain</p>
+        <h1 class="text-2xl font-bold">
+          Matrix D/T Challenge
+        </h1>
+        <p class="text-gray-600">
+          Vérification de completion des combinaisons Difficulté/Terrain
+        </p>
       </div>
     </div>
 
     <!-- Filtres -->
     <div class="rounded-lg border bg-white p-4 shadow-sm">
-      <h2 class="font-semibold mb-3">Filtres</h2>
+      <h2 class="font-semibold mb-3">
+        Filtres
+      </h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Type de cache</label>
@@ -19,7 +25,9 @@
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchMatrix"
           >
-            <option value="">Tous les types</option>
+            <option value="">
+              Tous les types
+            </option>
             <option 
               v-for="type in sortedCacheTypes" 
               :key="type._id" 
@@ -37,7 +45,9 @@
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchMatrix"
           >
-            <option value="">Toutes les tailles</option>
+            <option value="">
+              Toutes les tailles
+            </option>
             <option 
               v-for="size in sortedCacheSizes" 
               :key="size._id" 
@@ -51,19 +61,33 @@
     </div>
 
     <!-- Loading/Error -->
-    <div v-if="loading" class="text-center text-gray-500 py-8">
+    <div
+      v-if="loading"
+      class="text-center text-gray-500 py-8"
+    >
       Chargement de la matrice...
     </div>
-    <div v-if="error" class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg">
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg"
+    >
       {{ error }}
     </div>
 
     <!-- Résultats Matrix -->
-    <div v-if="matrixResult && !loading" class="space-y-4">
+    <div
+      v-if="matrixResult && !loading"
+      class="space-y-4"
+    >
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">Résumé</h2>
-        <div v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <h2 class="font-semibold mb-3">
+          Résumé
+        </h2>
+        <div
+          v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0"
+          class="grid grid-cols-1 md:grid-cols-4 gap-4"
+        >
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
               {{ matrixResult.completed_combinations_count }}
@@ -97,7 +121,10 @@
             </div>
           </div>
         </div>
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 gap-4"
+        >
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
               {{ matrixResult.completed_combinations_count }}
@@ -119,12 +146,16 @@
 
       <!-- Matrix Grid -->
       <div class="rounded-lg border bg-white p-4 shadow-sm overflow-x-auto">
-        <h2 class="font-semibold mb-3">Matrice Difficulté/Terrain</h2>
+        <h2 class="font-semibold mb-3">
+          Matrice Difficulté/Terrain
+        </h2>
         <div class="min-w-max">
           <table class="w-full border-collapse">
             <thead>
               <tr>
-                <th class="border p-2 bg-gray-50 text-sm">D\T</th>
+                <th class="border p-2 bg-gray-50 text-sm">
+                  D\T
+                </th>
                 <th 
                   v-for="terrain in terrainValues" 
                   :key="terrain"
@@ -135,7 +166,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="difficulty in difficultyValues" :key="difficulty">
+              <tr
+                v-for="difficulty in difficultyValues"
+                :key="difficulty"
+              >
                 <td class="border p-2 bg-gray-50 font-medium text-sm">
                   {{ difficulty }}
                 </td>
@@ -152,10 +186,10 @@
           </table>
         </div>
         <div class="mt-2 text-xs text-gray-500">
-          <span class="inline-block w-4 h-4 bg-green-100 border mr-1"></span>Complété (≥1)
-          <span class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3"></span>Non complété (0)
+          <span class="inline-block w-4 h-4 bg-green-100 border mr-1" />Complété (≥1)
+          <span class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3" />Non complété (0)
           <span v-if="matrixResult?.matrix_tours && matrixResult.matrix_tours > 0">
-            <span class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3"></span>Next round
+            <span class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3" />Next round
           </span>
         </div>
       </div>
