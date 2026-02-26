@@ -6,6 +6,7 @@ from .base import router as base_router
 from .caches import router as caches_router
 from .caches_elevation import router as caches_elevation_router
 from .challenges import router as challenges_router
+from .health import router as health_router
 from .maintenance import router as maintenance_router
 from .my_challenge_progress import router as my_challenge_progress_router
 from .my_challenge_targets import router as my_challenge_targets_router
@@ -15,6 +16,7 @@ from .my_profile import router as my_profile_router
 from .user_stats import router as user_stats_router
 
 routers = [
+    health_router,
     base_router,
     auth_router,
     caches_router,

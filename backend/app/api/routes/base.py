@@ -1,5 +1,4 @@
 # backend/app/api/routes/base.py
-# Routes de base (health check, version de l’API, etc.).
 
 from fastapi import APIRouter
 
@@ -36,22 +35,3 @@ async def get_cache_sizes():
         cache_size["_id"] = str(cache_size["_id"])
 
     return cache_sizes
-
-
-# DONE: [BACKLOG] Route /ping (GET) vérifiée
-@router.get(
-    "/ping",
-    tags=["Health"],
-    summary="Vérification de santé de l’API",
-    description="Retourne un message 'pong' permettant de tester que l’API répond.",
-)
-async def ping():
-    """Health-check API.
-
-    Description:
-        Route basique permettant de vérifier la disponibilité de l’API.
-
-    Returns:
-        dict: Statut et message de réponse.
-    """
-    return {"status": "ok", "message": "pong"}
