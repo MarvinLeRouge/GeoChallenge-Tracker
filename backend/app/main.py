@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     # rien pour le moment
 
 
-app = FastAPI(title="GeoChallenge API", lifespan=lifespan)
+app = FastAPI(title="GeoChallenge API", version=settings.api_version, lifespan=lifespan)
 # ⚠️ Ordre des middlewares = ordre d’ajout.
 # Mets la limite de taille tôt, avant (ou à côté de) CORS/GZip/etc.
 app.add_middleware(

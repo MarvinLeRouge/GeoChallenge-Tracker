@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # === App settings ===
     app_name: str = "GeoChallenge"
     environment: str = "development"  # or "production"
+    api_version: str = "0.1.0"
 
     # === MongoDB ===
     mongodb_user: str
