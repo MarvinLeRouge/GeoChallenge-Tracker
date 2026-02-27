@@ -247,6 +247,45 @@ npm run test:e2e
 
 ---
 
+## 🔨 Build & Déploiement
+
+### Build avec date de commit
+
+Le script `build.sh` met à jour automatiquement la date de build dans `.env` en utilisant la date du dernier commit Git.
+
+```bash
+# Mettre à jour BUILD_DATE et rebuilder l'image backend
+./build.sh
+
+# Puis lancer l'application
+docker-compose up
+```
+
+**Note** : La date de build est affichée dans l'endpoint `/version` :
+
+```bash
+curl http://localhost:8000/version
+
+# Réponse :
+{
+  "version": "0.1.0",
+  "environment": "development",
+  "build_date": "2026-02-27T18:42:15+01:00"
+}
+```
+
+### Workflow recommandé
+
+1. Développer et tester vos modifications
+2. Committer vos changements
+3. Lancer `./build.sh` pour mettre à jour la build date
+4. Tester l'application
+5. Push sur GitHub
+
+**TODO (Phase 4)** : Automatiser la build date via GitHub Actions lors du déploiement en production.
+
+---
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
@@ -506,6 +545,45 @@ cd frontend
 npm run test:unit
 npm run test:e2e
 ```
+
+---
+
+## 🔨 Build & Deployment
+
+### Build with commit date
+
+The `build.sh` script automatically updates the build date in `.env` using the last Git commit date.
+
+```bash
+# Update BUILD_DATE and rebuild backend image
+./build.sh
+
+# Then start the application
+docker-compose up
+```
+
+**Note**: The build date is displayed in the `/version` endpoint:
+
+```bash
+curl http://localhost:8000/version
+
+# Response:
+{
+  "version": "0.1.0",
+  "environment": "development",
+  "build_date": "2026-02-27T18:42:15+01:00"
+}
+```
+
+### Recommended workflow
+
+1. Develop and test your changes
+2. Commit your changes
+3. Run `./build.sh` to update the build date
+4. Test the application
+5. Push to GitHub
+
+**TODO (Phase 4)**: Automate build date via GitHub Actions during production deployment.
 
 ---
 

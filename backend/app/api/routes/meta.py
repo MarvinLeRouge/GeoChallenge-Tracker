@@ -3,13 +3,13 @@ from datetime import datetime
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
 
-from app.core.health_checks import check_email, check_mongodb
+from app.core.meta import check_email, check_mongodb
 from app.core.settings import get_settings
-from app.models.base.health import HealthCheck
+from app.models.meta import APIInfo, HealthCheck, VersionInfo
 
 settings = get_settings()
 
-router = APIRouter(tags=["Health"])
+router = APIRouter(tags=["Meta"])
 
 
 @router.get(
@@ -51,3 +51,29 @@ async def health() -> JSONResponse:
     )
 
     return JSONResponse(status_code=status_code, content=response.model_dump(mode="json"))
+
+
+@router.get("/version", response_model=VersionInfo)
+async def version():
+    """
+    Version de l'API
+    """
+    return {
+        "version": settings.api_version,
+        "environment": settings.environment,
+        "build_date": settings.build_date if hasattr(settings, "build_date") else None,
+    }
+
+
+@router.get("/info", response_model=APIInfo)
+async def api_info():
+    """
+    Informations générales sur l'API (optionnel)
+    """
+    return {
+        "name": settings.app_name + " API",
+        "version": settings.api_version,
+        "build_date": settings.build_date if hasattr(settings, "build_date") else None,
+        "documentation": "/documentation",
+        "support": settings.support_url if hasattr(settings, "support_url") else None,
+    }

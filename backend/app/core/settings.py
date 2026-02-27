@@ -3,9 +3,12 @@
 
 import logging
 import os
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich import print
 
@@ -36,6 +39,8 @@ class Settings(BaseSettings):
     app_name: str = "GeoChallenge"
     environment: str = "development"  # or "production"
     api_version: str = "0.1.0"
+    build_date: Optional[str] = None
+    support_url: str = ""
 
     # === MongoDB ===
     mongodb_user: str
@@ -79,6 +84,24 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("build_date", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        """Convertit string vide en None"""
+        if v == "":
+            return None
+        return v
+
+    @property
+    def build_date_parsed(self) -> Optional[datetime]:
+        """Parse la BUILD_DATE depuis l'env var"""
+        if self.build_date and self.build_date != "":
+            try:
+                return datetime.fromisoformat(self.build_date.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                pass
+        return None
 
     @property
     def mongodb_uri(self) -> str:
