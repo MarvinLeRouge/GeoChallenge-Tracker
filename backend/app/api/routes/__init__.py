@@ -6,8 +6,8 @@ from .base import router as base_router
 from .caches import router as caches_router
 from .caches_elevation import router as caches_elevation_router
 from .challenges import router as challenges_router
-from .health import router as health_router
 from .maintenance import router as maintenance_router
+from .meta import router as health_router
 from .my_challenge_progress import router as my_challenge_progress_router
 from .my_challenge_targets import router as my_challenge_targets_router
 from .my_challenge_tasks import router as my_challenge_tasks_router

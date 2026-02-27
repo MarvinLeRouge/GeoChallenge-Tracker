@@ -17,6 +17,7 @@ Thumbs.db
 *.csv
 *.tsv
 *.sh
+!/build.sh
 
 # Python
 *.egg-info/
