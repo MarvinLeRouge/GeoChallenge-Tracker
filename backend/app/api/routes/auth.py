@@ -48,7 +48,7 @@ from app.domain.models.user import (
 
 settings = get_settings()
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Auth"])
 
 # Case-insensitive collation (case-insensitive, accent-sensitive)
 COLLATION_CI = Collation(locale="en", strength=2)

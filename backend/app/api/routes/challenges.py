@@ -14,7 +14,7 @@ from app.core.security import get_current_user, require_admin
 from app.services.challenge_autocreate import create_challenges_from_caches
 
 router = APIRouter(
-    prefix="/challenges", tags=["challenges"], dependencies=[Depends(get_current_user)]
+    prefix="/challenges", tags=["Challenges"], dependencies=[Depends(get_current_user)]
 )
 
 

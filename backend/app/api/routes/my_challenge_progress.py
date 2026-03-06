@@ -21,7 +21,7 @@ from app.services.progress import (
 
 router = APIRouter(
     prefix="/my/challenges",
-    tags=["my-challenge-progress"],
+    tags=["My challenge progress"],
     dependencies=[Depends(get_current_user)],
 )
 

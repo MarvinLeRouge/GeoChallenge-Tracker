@@ -22,7 +22,9 @@ from app.services.targets_service import (
 )
 from app.services.user_profile_service import UserProfileService
 
-router = APIRouter(prefix="/my", tags=["targets"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/my", tags=["My challenge targets"], dependencies=[Depends(get_current_user)]
+)
 
 
 # ---------------------------

@@ -1,8 +1,8 @@
-# backend/app/api/routes/base.py
+# backend/app/api/routes/referentials.py
 
 from fastapi import APIRouter
 
-router = APIRouter()
+router = APIRouter(tags=["Referentials"])
 
 
 # DONE: [BACKLOG] Route /cache_types (GET) vérifiée

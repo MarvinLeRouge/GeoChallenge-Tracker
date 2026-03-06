@@ -39,7 +39,7 @@ from app.services.user_challenges_service import (
 
 router = APIRouter(
     prefix="/my/challenges",
-    tags=["my-challenges"],
+    tags=["My challenges"],
     dependencies=[Depends(get_current_user)],
 )
 

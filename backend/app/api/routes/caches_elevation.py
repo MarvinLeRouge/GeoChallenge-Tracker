@@ -14,7 +14,7 @@ from app.services.elevation_retrieval import fetch as fetch_elevations
 
 router = APIRouter(
     prefix="/caches_elevation",
-    tags=["caches_elevation"],
+    tags=["Caches elevation"],
     dependencies=[Depends(get_current_user)],
 )
 

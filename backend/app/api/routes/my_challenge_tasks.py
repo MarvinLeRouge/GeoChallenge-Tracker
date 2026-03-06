@@ -20,7 +20,7 @@ from app.services.user_challenge_tasks_service import list_tasks, put_tasks, val
 
 router = APIRouter(
     prefix="/my/challenges/{uc_id}/tasks",
-    tags=["my-challenge-tasks"],
+    tags=["My challenge tasks"],
     dependencies=[Depends(get_current_user)],
 )
 
