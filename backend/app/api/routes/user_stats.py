@@ -10,7 +10,7 @@ from app.core.security import CurrentUserId, get_current_user
 from app.services.user_stats import get_user_stats
 
 router = APIRouter(
-    prefix="/user-stats", tags=["user_stats"], dependencies=[Depends(get_current_user)]
+    prefix="/user-stats", tags=["User stats"], dependencies=[Depends(get_current_user)]
 )
 
 # --- ROUTES ---------------------------------------------------------------

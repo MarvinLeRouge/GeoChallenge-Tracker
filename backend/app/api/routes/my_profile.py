@@ -12,7 +12,7 @@ from app.domain.models.user import UserOut
 from app.services.user_profile_service import UserProfileService
 
 router = APIRouter(
-    prefix="/my/profile", tags=["my_profile"], dependencies=[Depends(get_current_user)]
+    prefix="/my/profile", tags=["My profile"], dependencies=[Depends(get_current_user)]
 )
 
 # --- ROUTES ---------------------------------------------------------------

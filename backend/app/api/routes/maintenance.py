@@ -155,7 +155,7 @@ def clean_expired_keys():
 
 
 router = APIRouter(
-    prefix="/maintenance", tags=["maintenance"], dependencies=[Depends(require_admin)]
+    prefix="/maintenance", tags=["Maintenance"], dependencies=[Depends(require_admin)]
 )
 
 

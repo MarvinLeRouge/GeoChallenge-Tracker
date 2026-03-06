@@ -33,7 +33,7 @@ from app.services.gpx_importer_service import import_gpx_payload
 
 settings = get_settings()
 
-router = APIRouter(prefix="/caches", tags=["caches"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/caches", tags=["Caches"], dependencies=[Depends(get_current_user)])
 
 # ------------------------- helpers -------------------------
 
