@@ -1,3 +1,7 @@
+# Fichier QWEN
+.qwen
+.qwen/*
+
 # Fichiers env
 .env
 .env.*
