@@ -19,11 +19,14 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # --- startup ---
-    await populate_mapping()
-    await ensure_indexes()
+    # Skip populate_mapping and ensure_indexes in test mode for faster tests
+    # These are already tested separately in unit/integration tests
+    if not os.getenv("TEST_MODE", "false").lower() == "true":
+        await populate_mapping()
+        await ensure_indexes()
 
-    if os.getenv("SEED_ON_STARTUP", "false").lower() == "true":
-        await seed_referentials()  # idempotent et léger; seed_referentials est async
+        if os.getenv("SEED_ON_STARTUP", "false").lower() == "true":
+            await seed_referentials()  # idempotent et léger; seed_referentials est async
 
     yield  # l'app tourne ici
 
