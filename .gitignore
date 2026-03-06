@@ -18,6 +18,7 @@ Thumbs.db
 *.tsv
 *.sh
 !/build.sh
+.coverage
 
 # Python
 *.egg-info/
@@ -40,6 +41,7 @@ pip-wheel-metadata/
 /backend/instance/
 /backend/uploads/
 /backend/tests/__pycache__/
+/backend/.coverage
 
 # Vue.js / Frontend
 /frontend/node_modules/
