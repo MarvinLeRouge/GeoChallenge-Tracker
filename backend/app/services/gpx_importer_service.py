@@ -7,7 +7,7 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 
 from .gpx_import.gpx_import_service import GpxImportService
 
@@ -23,6 +23,7 @@ def get_gpx_import_service() -> GpxImportService:
     """
     global _gpx_import_service
     if _gpx_import_service is None:
+        db = get_db()
         _gpx_import_service = GpxImportService(db)
     return _gpx_import_service
 

@@ -1,5 +1,9 @@
 # backend/app/db/mongodb.py
-# Initialise le client MongoDB à partir des settings et expose des helpers simples d’accès aux collections.
+"""
+Initialise le client MongoDB à partir des settings et expose des helpers simples d'accès aux collections.
+"""
+
+from typing import Optional
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 
@@ -7,8 +11,25 @@ from app.core.settings import get_settings
 
 settings = get_settings()
 
-client: AsyncIOMotorClient = AsyncIOMotorClient(settings.mongodb_uri)
-db: AsyncIOMotorDatabase = client[settings.mongodb_db]
+# Variables globales mais initialisées à None (lazy initialization)
+_client: Optional[AsyncIOMotorClient] = None
+_db: Optional[AsyncIOMotorDatabase] = None
+
+
+def get_client() -> AsyncIOMotorClient:
+    """Retourne le client MongoDB (lazy initialization)."""
+    global _client
+    if _client is None:
+        _client = AsyncIOMotorClient(settings.mongodb_uri)
+    return _client
+
+
+def get_db() -> AsyncIOMotorDatabase:
+    """Retourne la database MongoDB (lazy initialization)."""
+    global _db
+    if _db is None:
+        _db = get_client()[settings.mongodb_db]
+    return _db
 
 
 async def get_collection(name: str) -> AsyncIOMotorCollection:
@@ -24,7 +45,7 @@ async def get_collection(name: str) -> AsyncIOMotorCollection:
     Returns:
         AsyncIOMotorCollection: Instance de collection MongoDB asynchrone.
     """
-    return db[name]
+    return get_db()[name]
 
 
 async def get_column(collection_name: str, column_name: str) -> list:
@@ -41,6 +62,7 @@ async def get_column(collection_name: str, column_name: str) -> list:
     Returns:
         list: Liste des valeurs trouvées pour ce champ (peut contenir des `None` et des doublons).
     """
+    db = get_db()
     cursor = db[collection_name].find({}, {column_name: 1, "_id": 0})
     result = [item[column_name] async for item in cursor]
     return result
@@ -60,4 +82,14 @@ async def get_distinct(
         list: Valeurs distinctes (potentiellement de types hétérogènes selon le champ).
     """
     filter_query = filter_query or {}
+    db = get_db()
     return await db[collection_name].distinct(field_name, filter_query)
+
+
+async def close_mongodb_connection():
+    """Ferme la connexion MongoDB."""
+    global _client, _db
+    if _client:
+        _client.close()
+        _client = None
+        _db = None

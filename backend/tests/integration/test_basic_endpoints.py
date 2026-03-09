@@ -4,6 +4,7 @@ Tests d'intégration pour les endpoints de base.
 Organisation par tags Swagger :
 - Meta : /health, /version, /info
 - Referentials : /cache_types, /cache_sizes
+- Auth : /auth/*
 
 Ces tests vérifient :
 - Que l'API répond correctement
@@ -21,9 +22,10 @@ import pytest
 class TestMetaEndpoints:
     """Tests des endpoints Meta (health, version, info)."""
 
-    def test_health_endpoint(self, client):
+    @pytest.mark.asyncio
+    async def test_health_endpoint(self, client):
         """Test que /health répond (même si DB indisponible)."""
-        response = client.get("/health")
+        response = await client.get("/health")
 
         # Doit répondre (200 ou 503 si DB down)
         assert response.status_code in [200, 503]
@@ -31,18 +33,20 @@ class TestMetaEndpoints:
         assert "status" in data
         assert "checks" in data
 
-    def test_version_endpoint(self, client):
+    @pytest.mark.asyncio
+    async def test_version_endpoint(self, client):
         """Test que /version répond."""
-        response = client.get("/version")
+        response = await client.get("/version")
 
         assert response.status_code == 200
         data = response.json()
         assert "version" in data
         assert isinstance(data["version"], str)
 
-    def test_info_endpoint(self, client):
+    @pytest.mark.asyncio
+    async def test_info_endpoint(self, client):
         """Test que /info répond avec les informations de l'API."""
-        response = client.get("/info")
+        response = await client.get("/info")
 
         assert response.status_code == 200
         data = response.json()
@@ -59,26 +63,25 @@ class TestMetaEndpoints:
 class TestReferentialEndpoints:
     """Tests des endpoints Referentials (cache_types, cache_sizes)."""
 
-    def test_cache_types_endpoint(self, client):
+    @pytest.mark.asyncio
+    async def test_cache_types_endpoint(self, client):
         """Test que /cache_types répond."""
-        response = client.get("/cache_types")
+        response = await client.get("/cache_types")
 
-        # Peut être 200 (si DB connectée) ou 500 (si DB down)
-        assert response.status_code in [200, 500]
+        # Doit retourner 200 avec une liste
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
 
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, list)
-
-    def test_cache_sizes_endpoint(self, client):
+    @pytest.mark.asyncio
+    async def test_cache_sizes_endpoint(self, client):
         """Test que /cache_sizes répond."""
-        response = client.get("/cache_sizes")
+        response = await client.get("/cache_sizes")
 
-        assert response.status_code in [200, 500]
-
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, list)
+        # Doit retourner 200 avec une liste
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
 
 
 # =============================================================================
@@ -89,9 +92,10 @@ class TestReferentialEndpoints:
 class TestAuthEndpoints:
     """Tests des endpoints d'authentification."""
 
-    def test_login_with_test_admin(self, client, seeded_db):
+    @pytest.mark.asyncio
+    async def test_login_with_test_admin(self, client, seeded_db):
         """Test que l'admin de test peut se logger."""
-        response = client.post(
+        response = await client.post(
             "/auth/login", data={"username": "testadmin", "password": "Test123!"}
         )
 
@@ -100,17 +104,21 @@ class TestAuthEndpoints:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-    def test_login_with_invalid_credentials(self, client):
+    @pytest.mark.asyncio
+    async def test_login_with_invalid_credentials(self, client):
         """Test que des credentials invalides échouent."""
-        response = client.post(
+        response = await client.post(
             "/auth/login", data={"username": "testadmin", "password": "WrongPassword"}
         )
 
         assert response.status_code == 401
         data = response.json()
-        assert "detail" in data
+        assert "error" in data
+        assert data["error"]["code"] == "HTTP_401"
+        assert "message" in data["error"]
 
-    def test_register_new_user(self, client, clean_collections):
+    @pytest.mark.asyncio
+    async def test_register_new_user(self, client, clean_collections):
         """Test qu'on peut enregistrer un nouvel utilisateur."""
         import uuid
 
@@ -122,14 +130,15 @@ class TestAuthEndpoints:
             "password": "NewUser123!",
         }
 
-        response = client.post("/auth/register", json=user_data)
+        response = await client.post("/auth/register", json=user_data)
 
         assert response.status_code == 201
         data = response.json()
         assert "email" in data
         assert data["email"] == user_data["email"]
 
-    def test_register_duplicate_email(self, client, clean_collections):
+    @pytest.mark.asyncio
+    async def test_register_duplicate_email(self, client, clean_collections):
         """Test qu'on ne peut pas créer deux users avec le même email."""
         import uuid
 
@@ -142,12 +151,12 @@ class TestAuthEndpoints:
         }
 
         # Première inscription
-        response1 = client.post("/auth/register", json=user_data)
+        response1 = await client.post("/auth/register", json=user_data)
         assert response1.status_code == 201
 
         # Doublon
-        response2 = client.post("/auth/register", json=user_data)
-        assert response2.status_code == 400
+        response2 = await client.post("/auth/register", json=user_data)
+        assert response2.status_code == 409
 
 
 # =============================================================================

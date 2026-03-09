@@ -15,9 +15,10 @@ async def check_mongodb() -> str:
         "ok" si connecté, message d'erreur sinon
     """
     try:
-        from app.db.mongodb import db
+        from app.db.mongodb import get_db
 
         # Ping MongoDB
+        db = get_db()
         await db.command("ping")
         return "ok"
 

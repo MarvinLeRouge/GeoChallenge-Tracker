@@ -27,7 +27,7 @@ from app.api.dto.user_challenge_batch import (
 )
 from app.core.bson_utils import PyObjectId
 from app.core.security import CurrentUserId, get_current_user
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
 from app.services.user_challenges_service import (
@@ -285,6 +285,7 @@ async def verify_calendar(
     """
     filters = CalendarFilters(cache_type_name=cache_type, cache_size_name=cache_size)
 
+    db = get_db()
     service = CalendarVerificationService(db)
     return await service.verify_user_calendar(str(user_id), filters)
 
@@ -316,5 +317,6 @@ async def verify_matrix(
     """
     filters = MatrixFilters(cache_type_name=cache_type, cache_size_name=cache_size)
 
+    db = get_db()
     service = MatrixVerificationService(db)
     return await service.verify_user_matrix(str(user_id), filters)

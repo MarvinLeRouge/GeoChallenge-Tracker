@@ -2,6 +2,8 @@
 
 from fastapi import APIRouter
 
+from app.db.mongodb import get_collection
+
 router = APIRouter(tags=["Referentials"])
 
 
@@ -9,7 +11,6 @@ router = APIRouter(tags=["Referentials"])
 @router.get("/cache_types", summary="Get all cache types")
 async def get_cache_types():
     """Get all available cache types."""
-    from app.db.mongodb import get_collection
 
     cache_types_coll = await get_collection("cache_types")
     cache_types = await cache_types_coll.find({}).to_list(length=None)
@@ -25,7 +26,6 @@ async def get_cache_types():
 @router.get("/cache_sizes", summary="Get all cache sizes")
 async def get_cache_sizes():
     """Get all available cache sizes."""
-    from app.db.mongodb import get_collection
 
     cache_sizes_coll = await get_collection("cache_sizes")
     cache_sizes = await cache_sizes_coll.find({}).to_list(length=None)
