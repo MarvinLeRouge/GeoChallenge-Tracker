@@ -1,9 +1,20 @@
 """Tests de connectivité - Integration tests.
 
+Niveau : INFRASTRUCTURE
+
 Ces tests vérifient que l'application peut se connecter aux services externes :
-- MongoDB
+- MongoDB (connexion, accès bas niveau)
 - (Futur) Redis
 - (Futur) Services externes (email, elevation API)
+
+⚠️ Ce fichier teste l'INFRASTRUCTURE :
+   - "Est-ce que je peux me connecter à MongoDB ?"
+   - "Les objets de base de données sont-ils accessibles ?"
+   - Tests de connectivité pure, sans vérification du contenu métier
+
+📁 À distinguer de `test_database.py` qui teste le CONTENU MÉTIER :
+   - "Les données sont-elles présentes dans la DB ?"
+   - "Les collections ont-elles le bon contenu ?"
 
 Nécessite une base de données MongoDB configurée.
 """
