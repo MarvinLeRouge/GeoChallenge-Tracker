@@ -42,6 +42,24 @@ from app.core.security import create_access_token, hash_password  # noqa: E402
 from app.main import app  # noqa: E402
 
 
+@pytest.fixture(scope="session", autouse=True)
+def verify_test_database(test_settings):
+    """
+    Sécurité : vérifie qu'on est bien sur une DB de test.
+    Bloque l'exécution si la DB ne finit pas par _TEST.
+    """
+    if not test_settings.mongodb_db.endswith("_TEST"):
+        pytest.exit(
+            f"ERREUR CRITIQUE : Tests lancés sur '{test_settings.mongodb_db}' "
+            f"qui n'est PAS une base de test (_TEST manquant). "
+            f"Exécution bloquée pour éviter de corrompre les données de production.",
+            returncode=1,
+        )
+
+    # Afficher la DB utilisée pour confirmation
+    print(f"\n✓ Tests s'exécutent sur la base : {test_settings.mongodb_db}")
+
+
 @pytest.fixture(scope="session")
 def test_settings():
     """Return test settings from environment."""
@@ -54,9 +72,7 @@ def test_settings():
 def test_db_url(test_settings):
     """Return MongoDB test database URL."""
     # La DB de test est {MONGODB_DB}_TEST
-    return test_settings.mongodb_uri.replace(
-        test_settings.mongodb_db, f"{test_settings.mongodb_db}_TEST"
-    )
+    return test_settings.mongodb_uri
 
 
 # =============================================================================
@@ -99,8 +115,7 @@ async def mongo_client(test_db_url):
 @pytest.fixture(scope="function")
 def test_db(mongo_client, test_settings):
     """Get test database connection."""
-    test_db_name = f"{test_settings.mongodb_db}_TEST"
-    db = mongo_client[test_db_name]
+    db = mongo_client[test_settings.mongodb_db]
     yield db
 
 
