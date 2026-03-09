@@ -7,7 +7,7 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 
 from .user_challenges.user_challenge_service import UserChallengeService
 
@@ -23,6 +23,7 @@ def get_user_challenge_service() -> UserChallengeService:
     """
     global _user_challenge_service
     if _user_challenge_service is None:
+        db = get_db()
         _user_challenge_service = UserChallengeService(db)
     return _user_challenge_service
 

@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from app.core.config_backup import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.security import CurrentUserId, require_admin
 from app.core.utils import utcnow
-from app.db.mongodb import db, get_collection
+from app.db.mongodb import get_collection, get_db
 from app.services.gpx_importer_service import import_gpx_payload
 
 # Cache en mémoire
@@ -502,6 +502,7 @@ async def full_backup_create():
 
     ⚠️ Attention : peut être lourd sur de grosses bases de données.
     """
+    db = get_db()
     backup_data = {"timestamp": utcnow().isoformat(), "database": db.name, "collections": {}}
 
     total_documents = 0
@@ -574,6 +575,7 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
 
     restored = {}
     dropped = []
+    db = get_db()
 
     for collection_name, docs in backup_data.get("collections", {}).items():
         # Reconvertit les _id en ObjectId

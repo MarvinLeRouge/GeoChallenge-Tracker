@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, status
 
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
 from app.core.security import CurrentUser, CurrentUserId, get_current_user
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
 from app.services.user_profile_service import UserProfileService
 
@@ -50,6 +50,7 @@ async def put_my_location(
         dict: Message d’état (modifiée ou non).
     """
     # Utiliser le service pour gérer la localisation
+    db = get_db()
     user_profile_service = UserProfileService(db)
 
     try:
@@ -78,6 +79,7 @@ async def get_my_location(user_id: CurrentUserId):
     Returns:
         UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
     """
+    db = get_db()
     user_profile_service = UserProfileService(db)
 
     location_data = await user_profile_service.get_user_location_formatted(user_id)

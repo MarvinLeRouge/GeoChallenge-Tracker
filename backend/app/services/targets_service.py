@@ -7,7 +7,7 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 
 from .targets.target_service import TargetService
 
@@ -23,6 +23,7 @@ def get_target_service() -> TargetService:
     """
     global _target_service
     if _target_service is None:
+        db = get_db()
         _target_service = TargetService(db)
     return _target_service
 

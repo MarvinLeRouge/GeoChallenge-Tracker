@@ -13,7 +13,7 @@ from rich import print
 
 import app.core.security as security
 from app.core.utils import now
-from app.db.mongodb import db, get_collection
+from app.db.mongodb import get_collection, get_db
 from app.db.seed_indexes import ensure_indexes
 
 load_dotenv()
@@ -34,6 +34,7 @@ async def test_connection():
         None
     """
     try:
+        db = get_db()
         await db.command("ping")
         print("✅ Connexion à MongoDB réussie.")
     except ConnectionFailure:

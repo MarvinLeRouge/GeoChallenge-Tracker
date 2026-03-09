@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from app.api.dto.target import TargetListResponse
 from app.core.security import CurrentUserId, get_current_user
 from app.core.utils import utcnow
-from app.db.mongodb import db
+from app.db.mongodb import get_db
 from app.services.targets_service import (
     delete_targets_for_user_challenge,
     evaluate_targets_for_user_challenge,
@@ -125,6 +125,7 @@ async def evaluate_targets(
     if include_geo_filter:
         # si lat/lon non fournis, tenter depuis le profil
         if lat is None or lon is None:
+            db = get_db()
             user_profile_service = UserProfileService(db)
             location_data = await user_profile_service.get_user_location(user_id)
             if not location_data:
@@ -244,6 +245,7 @@ async def list_targets_uc_nearby(
     final_lon: float
 
     if lat is None or lon is None:
+        db = get_db()
         user_profile_service = UserProfileService(db)
         location_data = await user_profile_service.get_user_location(user_id)
         if not location_data:
@@ -360,6 +362,7 @@ async def list_targets_all_nearby(
     final_lon: float
 
     if lat is None or lon is None:
+        db = get_db()
         user_profile_service = UserProfileService(db)
         location_data = await user_profile_service.get_user_location(user_id)
         if not location_data:
