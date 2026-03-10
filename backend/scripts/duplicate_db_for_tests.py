@@ -93,7 +93,7 @@ async def duplicate_db():
         # Anonymiser les collections sensibles
         if coll_name == "users":
             for doc in docs:
-                doc["email"] = f"test_{doc['_id']}@test.local"
+                doc["email"] = f"test_{doc['_id']}@geochallenge.app"
                 doc["username"] = f"test_{str(doc['_id'])[:8]}"
                 # Garder password_hash pour les tests d'auth
             print(f"   🔒 {coll_name}: {len(docs)} documents (anonymisés)")
@@ -122,18 +122,44 @@ async def duplicate_db():
                 if idx.get("name") == "_id_":
                     continue
 
+                # Skip text indexes (causes issues with weights)
+                if idx.get("name", "").startswith("text_"):
+                    print(f"   ⚠️  {coll_name}: Skip text index '{idx.get('name')}'")
+                    continue
+
                 # Extraire les clés de l'index
                 key = idx.get("key", {})
                 keys = [(k, v) for k, v in key.items()]
 
                 if keys:
-                    await test_db[coll_name].create_index(
-                        keys,
-                        name=idx.get("name"),
-                        unique=idx.get("unique", False),
-                        background=idx.get("background", False),
+                    try:
+                        await test_db[coll_name].create_index(
+                            keys,
+                            name=idx.get("name"),
+                            unique=idx.get("unique", False),
+                            background=idx.get("background", False),
+                        )
+                        coll_indexes += 1
+                    except Exception as e:
+                        print(f"   ⚠️  {coll_name}: Skip index '{idx.get('name')}' ({e})")
+
+            # Force create 2dsphere index on caches.loc if missing
+            if coll_name == "caches":
+                try:
+                    # Vérifier si l'index 2dsphere existe déjà
+                    existing_indexes = await test_db.caches.list_indexes().to_list(length=None)
+                    has_2dsphere = any(
+                        "2dsphere" in str(idx.get("key", {})) for idx in existing_indexes
                     )
-                    coll_indexes += 1
+
+                    if not has_2dsphere:
+                        await test_db.caches.create_index(
+                            [("loc", "2dsphere")], name="loc_2dsphere"
+                        )
+                        coll_indexes += 1
+                        print(f"   ✓ {coll_name}: Created 2dsphere index on loc")
+                except Exception as e:
+                    print(f"   ⚠️  {coll_name}: Failed to create 2dsphere index ({e})")
 
             if coll_indexes > 0:
                 print(f"   ✓ {coll_name}: {coll_indexes} indexes")

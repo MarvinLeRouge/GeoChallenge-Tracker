@@ -59,7 +59,7 @@ class TestDatabaseConnectivity:
         admin = await test_db.users.find_one({"username": "testadmin"})
 
         assert admin is not None
-        assert admin["email"].endswith("@test.local")
+        assert admin["email"].endswith("@geochallenge.app")
         assert admin["role"] == "admin"
 
     @pytest.mark.asyncio
