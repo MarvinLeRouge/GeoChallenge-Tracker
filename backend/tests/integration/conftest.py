@@ -8,7 +8,6 @@ Fixtures pour tests d'intégration.
 """
 
 import asyncio
-import os
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -16,18 +15,33 @@ import pytest
 from bson import ObjectId
 from dotenv import load_dotenv
 
-from app.core.security import create_access_token, hash_password
-from app.main import app
-
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
-# Set TEST_MODE to skip lifespan initialization
-os.environ["TEST_MODE"] = "true"
+# noqa: E402 - Imports must come after env setup
+from app.core.security import create_access_token, hash_password  # noqa: E402
+from app.main import app  # noqa: E402
 
-# Override MongoDB DB to test database
-original_db = os.environ.get("MONGODB_DB", "geoChallenge_Tracker")
-if not original_db.endswith("_TEST"):
-    os.environ["MONGODB_DB"] = f"{original_db}_TEST"
+# Import de ton script de duplication
+from tests.utils.duplicate_db_for_tests import duplicate_db_with_indexes  # noqa: E402
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionstart(session):
+    """
+    Hook appelé avant le début de la session pytest.
+    Duplique la DB de prod vers la DB de test pour garantir que toutes les collections existent.
+    """
+    # Vérifier si -s (--capture=no) est activé
+    verbose = session.config.getoption("capture") == "no"
+    if verbose:
+        print("\n🔄 Préparation de la DB de test (duplication)...")
+    try:
+        asyncio.run(duplicate_db_with_indexes(verbose))
+    except Exception as e:
+        if verbose:
+            print(f"\n❌ ERREUR lors de la duplication de la DB : {e}")
+        raise
 
 
 # =============================================================================
@@ -89,33 +103,9 @@ def test_db(mongo_client, test_settings):
 
 
 @pytest.fixture(scope="function")
-async def clean_collections(test_db):
+async def seeded_admin(test_db):
     """
-    Clean all user-generated collections before each test.
-    """
-    user_collections = [
-        "users",
-        "caches",
-        "found_caches",
-        "challenges",
-        "user_challenges",
-        "user_challenge_tasks",
-        "progress",
-        "targets",
-        "api_quotas",
-    ]
-    for coll in user_collections:
-        if coll == "users":
-            await test_db[coll].delete_many({"username": {"$ne": "testadmin"}})
-        else:
-            await test_db[coll].drop()
-    yield test_db
-
-
-@pytest.fixture(scope="function")
-async def seeded_db(clean_collections, test_db):
-    """
-    Database seeded with admin user and referentials.
+    Database seeded with admin user.
     """
     from datetime import datetime
 
@@ -137,17 +127,13 @@ async def seeded_db(clean_collections, test_db):
 
 
 @pytest.fixture(scope="session")
-async def seeded_db_with_caches(test_db):
+async def seeded_caches(test_db):
     """
     Database seeded with sample caches via GPX.
     """
     from pathlib import Path
 
     from httpx import ASGITransport, AsyncClient
-
-    # Clean cache collections
-    await test_db.drop_collection("caches")
-    await test_db.drop_collection("found_caches")
 
     gpx_path = (
         Path(__file__).parent.parent.parent
@@ -203,6 +189,35 @@ def admin_token():
 @pytest.fixture(scope="function")
 def auth_headers(admin_token):
     return {"Authorization": f"Bearer {admin_token}"}
+
+
+# =============================================================================
+# CACHES ELEVATION
+# =============================================================================
+@pytest.fixture
+async def caches_without_elevation(test_db):
+    """
+    Met elevation à None pour les 2000 premières caches.
+    Utile pour tester les calculs d'élévation.
+    """
+    # Récupérer les 2000 premiers IDs
+    cursor = test_db.caches.find({}, {"_id": 1}).limit(2000)
+    cache_ids = [doc["_id"] async for doc in cursor]
+
+    # Mettre elevation à None
+    result = await test_db.caches.update_many(
+        {"_id": {"$in": cache_ids}}, {"$set": {"elevation": None}}
+    )
+
+    print(f"\n✓ {result.modified_count} caches mis à jour (elevation=None)")
+
+    yield test_db
+
+    # Optionnel : cleanup après le test si besoin
+    # await test_db.caches.update_many(
+    #     {"_id": {"$in": cache_ids}},
+    #     {"$unset": {"elevation": ""}}
+    # )
 
 
 # =============================================================================
