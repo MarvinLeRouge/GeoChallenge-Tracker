@@ -39,7 +39,7 @@ class TestCachesUploadGpx:
         assert response["error"]["code"] == "HTTP_401"
 
     @pytest.mark.asyncio
-    async def test_upload_gpx_success(self, auth_client, seeded_db):
+    async def test_upload_gpx_success(self, auth_client, seeded_admin):
         """Test que l'upload GPX fonctionne avec authentification."""
         # Utiliser un vrai fichier GPX de test
         gpx_path = (
@@ -106,7 +106,7 @@ class TestCachesByFilter:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_search_by_filter_empty(self, auth_client, seeded_db_with_caches):
+    async def test_search_by_filter_empty(self, auth_client, seeded_caches):
         """Test que la recherche par filtres retourne une structure valide."""
         response = await auth_client.post(
             "/caches/by-filter", json={"page": 1, "page_size": 10, "compact": True}
@@ -124,7 +124,7 @@ class TestCachesByFilter:
             assert data["total"] > data["page_size"] and len(data["items"]) == data["page_size"]
 
     @pytest.mark.asyncio
-    async def test_search_by_filter_date(self, auth_client, seeded_db_with_caches):
+    async def test_search_by_filter_date(self, auth_client, seeded_caches):
         """Test que la recherche par filtres retourne une structure valide."""
         response = await auth_client.post(
             "/caches/by-filter",
@@ -184,7 +184,7 @@ class TestCachesWithinBbox:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_search_within_bbox_valid(self, auth_client, seeded_db_with_caches):
+    async def test_search_within_bbox_valid(self, auth_client, seeded_caches):
         """Test que la recherche par bbox retourne une structure valide."""
         response = await auth_client.get(
             "/caches/within-bbox",
@@ -227,7 +227,7 @@ class TestCachesWithinRadius:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_search_within_radius_valid(self, auth_client, seeded_db_with_caches):
+    async def test_search_within_radius_valid(self, auth_client, seeded_caches):
         """Test que la recherche par rayon retourne une structure valide."""
         response = await auth_client.get(
             "/caches/within-radius",
@@ -268,7 +268,7 @@ class TestCachesByGcCode:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_by_gc_not_found(self, auth_client, seeded_db_with_caches):
+    async def test_get_by_gc_not_found(self, auth_client, seeded_caches):
         """Test que la récupération d'une GC inexistante retourne une erreur."""
         response = await auth_client.get("/caches/GC_NON_EXISTENT")
 
@@ -284,7 +284,7 @@ class TestCachesByGcCode:
         print(data)
 
     @pytest.mark.asyncio
-    async def test_get_by_gc_found(self, auth_client, seeded_db_with_caches):
+    async def test_get_by_gc_found(self, auth_client, seeded_caches):
         """Test que la récupération d'une GC existante retourne la cache."""
         response = await auth_client.get("/caches/GCQTP6")
 
@@ -311,7 +311,7 @@ class TestCachesById:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_get_by_id_invalid_format(self, auth_client, seeded_db_with_caches):
+    async def test_get_by_id_invalid_format(self, auth_client, seeded_caches):
         """Test que la récupération avec un ID invalide retourne une erreur."""
         response = await auth_client.get("/caches/by-id/invalid_id")
 
@@ -327,7 +327,7 @@ class TestCachesById:
         )
 
     @pytest.mark.asyncio
-    async def test_get_by_id_not_found(self, auth_client, seeded_db_with_caches):
+    async def test_get_by_id_not_found(self, auth_client, seeded_caches):
         """Test que la récupération d'un ID inexistant retourne une erreur."""
         # Utiliser un ObjectId valide mais inexistant
         response = await auth_client.get("/caches/by-id/123456789012345678901234")
@@ -343,11 +343,11 @@ class TestCachesById:
         )
 
     @pytest.mark.asyncio
-    async def test_get_by_id_found(self, auth_client, seeded_db_with_caches):
+    async def test_get_by_id_found(self, auth_client, seeded_caches):
         """Test que la récupération d'un ID inexistant retourne une erreur."""
         # Récupérer UN cache au hasard avec $sample
         pipeline = [{"$sample": {"size": 1}}]
-        cursor = seeded_db_with_caches.caches.aggregate(pipeline)
+        cursor = seeded_caches.caches.aggregate(pipeline)
         caches = await cursor.to_list(length=1)
         ref = caches[0]
         cache_id = str(ref["_id"])

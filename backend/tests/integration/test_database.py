@@ -54,7 +54,7 @@ class TestDatabaseConnectivity:
             assert count > 0, f"Referential {coll_name} is empty"
 
     @pytest.mark.asyncio
-    async def test_test_db_has_test_admin(self, test_db):
+    async def test_test_db_has_test_admin(self, test_db, seeded_admin):
         """Test que l'admin de test existe."""
         admin = await test_db.users.find_one({"username": "testadmin"})
 

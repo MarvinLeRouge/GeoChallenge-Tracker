@@ -24,7 +24,7 @@ class TestAuthEndpoints:
     """Tests des endpoints d'authentification."""
 
     @pytest.mark.asyncio
-    async def test_login_with_test_admin(self, client, seeded_db):
+    async def test_login_with_test_admin(self, client, seeded_admin):
         """Test que l'admin de test peut se logger."""
         response = await client.post(
             "/auth/login", data={"username": "testadmin", "password": "Test123!"}
@@ -49,7 +49,7 @@ class TestAuthEndpoints:
         assert "message" in data["error"]
 
     @pytest.mark.asyncio
-    async def test_register_new_user(self, client, clean_collections):
+    async def test_register_new_user(self, client):
         """Test qu'on peut enregistrer un nouvel utilisateur."""
         import uuid
 
@@ -69,7 +69,7 @@ class TestAuthEndpoints:
         assert data["email"] == user_data["email"]
 
     @pytest.mark.asyncio
-    async def test_register_duplicate_email(self, client, clean_collections):
+    async def test_register_duplicate_email(self, client):
         """Test qu'on ne peut pas créer deux users avec le même email."""
         import uuid
 
@@ -99,7 +99,7 @@ class TestAuthRefreshToken:
     """Tests des endpoints de refresh token."""
 
     @pytest.mark.asyncio
-    async def test_refresh_token_valid(self, client, seeded_db):
+    async def test_refresh_token_valid(self, client, seeded_admin):
         """Test qu'un refresh token valide génère un nouvel access token."""
         # D'abord, se connecter pour obtenir un refresh token
         login_response = await client.post(
@@ -127,7 +127,7 @@ class TestAuthRefreshToken:
         assert "error" in data
 
     @pytest.mark.asyncio
-    async def test_refresh_token_expired(self, client, seeded_db):
+    async def test_refresh_token_expired(self, client, seeded_admin):
         """Test qu'un refresh token expiré est rejeté."""
         # Créer un token expiré pour l'admin de test
         expired_token = create_refresh_token(
