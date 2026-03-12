@@ -64,3 +64,21 @@ class TestCachesElevationBackfill:
             and "batches" in data
             and data["batches"] * params["page_size"] >= params["limit"]
         )
+
+    @pytest.mark.asyncio
+    async def test_backfill_real(self, auth_client, seeded_admin, caches_without_elevation):
+        """Test que le backfill en mode dry_run fonctionne."""
+        params = {"limit": 1000, "page_size": 500, "dry_run": False}
+        response = await auth_client.post(
+            "/caches_elevation/caches/elevation/backfill", params=params
+        )
+
+        # 200 (succès)
+        # L'important est que l'endpoint soit accessible
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            "scanned" in data
+            and "batches" in data
+            and data["batches"] * params["page_size"] >= params["limit"]
+        )
