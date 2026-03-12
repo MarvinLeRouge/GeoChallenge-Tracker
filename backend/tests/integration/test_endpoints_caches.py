@@ -69,24 +69,57 @@ class TestCachesUploadGpx:
             > 0
         )
 
-        with open(gpx_path, "rb") as f:
-            response = await auth_client.post(
-                "/caches/upload-gpx",
-                files={"file": ("test.gpx", f, "application/gpx+xml")},
-                params={"import_mode": "all", "source_type": "auto"},
-            )
+    @pytest.mark.asyncio
+    async def test_upload_gpx_invalid_file(self, auth_client, seeded_admin):
+        """Test qu'un fichier GPX invalide est rejeté."""
+        # Fichier XML mais pas un GPX valide
+        invalid_gpx = b"""<?xml version="1.0" encoding="UTF-8"?>
+<notgpx>
+  <invalid>This is not a GPX file</invalid>
+</notgpx>"""
 
-        # 200 (succès), 400 (GPX invalide)
-        assert response.status_code in [200, 400]
-        response = response.json()
-        assert "summary" in response and "nb_gpx_files" in response["summary"]
-        assert response["summary"]["nb_gpx_files"] == 1
-        assert "nb_inserted_caches" in response["summary"]
-        assert "nb_existing_caches" in response["summary"]
-        assert (
-            response["summary"]["nb_inserted_caches"] + response["summary"]["nb_existing_caches"]
-            > 0
+        response = await auth_client.post(
+            "/caches/upload-gpx",
+            files={"file": ("invalid.gpx", invalid_gpx, "application/gpx+xml")},
+            params={"import_mode": "all", "source_type": "auto"},
         )
+
+        # 400 (GPX invalide)
+        assert response.status_code == 400
+        data = response.json()
+        assert "error" in data
+        assert (
+            "invalid" in data["error"].get("message", "").lower()
+            or "gpx" in data["error"].get("message", "").lower()
+        )
+
+    @pytest.mark.asyncio
+    async def test_upload_gpx_file_too_big(self, auth_client, seeded_admin):
+        """Test qu'un fichier trop lourd est rejeté (limite 20 Mo)."""
+        # Créer un fichier GPX de plus de 20 Mo (21 Mo)
+        # En-tête GPX valide
+        gpx_header = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0" creator="Test">
+"""
+        gpx_footer = b"</gpx>"
+
+        # Créer un contenu de 21 Mo
+        target_size = 21 * 1024 * 1024  # 21 Mo
+        padding_size = target_size - len(gpx_header) - len(gpx_footer)
+        padding = b" " * padding_size
+
+        too_big_gpx = gpx_header + padding + gpx_footer
+
+        response = await auth_client.post(
+            "/caches/upload-gpx",
+            files={"file": ("huge.gpx", too_big_gpx, "application/gpx+xml")},
+            params={"import_mode": "all", "source_type": "auto"},
+        )
+
+        # 413 (Payload too large)
+        assert response.status_code == 413
+        data = response.json()
+        assert "error" in data
 
 
 # =============================================================================
@@ -125,7 +158,7 @@ class TestCachesByFilter:
 
     @pytest.mark.asyncio
     async def test_search_by_filter_date(self, auth_client, seeded_caches):
-        """Test que la recherche par filtres retourne une structure valide."""
+        """Test que la recherche par filtres temporels fonctionne."""
         response = await auth_client.post(
             "/caches/by-filter",
             json={
@@ -163,6 +196,258 @@ class TestCachesByFilter:
                 nb_caches_before_2005 = data_before_2005["total"]
                 # On doit avoir moins de caches d'avant 2005 que d'avant 2025
                 assert nb_caches_before_2005 < nb_caches_before_2025
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_non_compact(self, auth_client, seeded_caches):
+        """Test que la recherche par filtres en mode non-compact retourne des données complètes."""
+        response = await auth_client.post(
+            "/caches/by-filter",
+            json={"page": 1, "page_size": 5, "compact": False},  # Non-compact
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "items" in data
+        if len(data["items"]) > 0:
+            # En mode non-compact, les items doivent avoir plus de champs
+            item = data["items"][0]
+            assert "description_html" in item or "description" in item
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_difficulty_terrain(self, auth_client, seeded_caches):
+        """Test que les filtres difficulty et terrain fonctionnent."""
+        # Filtrer par difficulté entre 1 et 3
+        response = await auth_client.post(
+            "/caches/by-filter",
+            json={
+                "difficulty": {"min": 1.0, "max": 3.0},
+                "page": 1,
+                "page_size": 10,
+                "compact": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "total" in data
+
+        # Filtrer par terrain entre 1 et 2
+        response = await auth_client.post(
+            "/caches/by-filter",
+            json={
+                "terrain": {"min": 1.0, "max": 2.0},
+                "page": 1,
+                "page_size": 10,
+                "compact": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_bbox(self, auth_client, seeded_caches):
+        """Test que le filtre bbox fonctionne."""
+        # Bbox autour de Paris (les caches du fichier GPX sont en France)
+        response = await auth_client.post(
+            "/caches/by-filter",
+            json={
+                "bbox": [2.0, 44.0, 6.0, 48.0],  # [min_lon, min_lat, max_lon, max_lat]
+                "page": 1,
+                "page_size": 10,
+                "compact": True,
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_text(self, auth_client, seeded_caches):
+        """Test que le filtre text (recherche plein texte) fonctionne."""
+        # D'abord, récupérer une cache existante pour connaître son titre
+        cache_doc = await seeded_caches.caches.find_one({"title": {"$exists": True, "$ne": ""}})
+        if cache_doc:
+            # Utiliser un mot du titre pour la recherche text
+            search_text = (
+                cache_doc["title"].split()[0] if " " in cache_doc["title"] else cache_doc["title"]
+            )
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "q": search_text,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_type_id(self, auth_client, seeded_caches):
+        """Test que le filtre type_id fonctionne."""
+        # D'abord, récupérer un type_id valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one({"type_id": {"$exists": True, "$ne": None}})
+        if cache_doc:
+            type_id = str(cache_doc["type_id"])
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "type_id": type_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_size_id(self, auth_client, seeded_caches):
+        """Test que le filtre size_id fonctionne."""
+        # D'abord, récupérer un size_id valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one({"size_id": {"$exists": True, "$ne": None}})
+        if cache_doc:
+            size_id = str(cache_doc["size_id"])
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "size_id": size_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_country_id(self, auth_client, seeded_caches):
+        """Test que le filtre country_id fonctionne."""
+        # D'abord, récupérer un country_id valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one(
+            {"country_id": {"$exists": True, "$ne": None}}
+        )
+        if cache_doc:
+            country_id = str(cache_doc["country_id"])
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "country_id": country_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_state_id(self, auth_client, seeded_caches):
+        """Test que le filtre state_id fonctionne."""
+        # D'abord, récupérer un state_id valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one(
+            {"state_id": {"$exists": True, "$ne": None}}
+        )
+        if cache_doc:
+            state_id = str(cache_doc["state_id"])
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "state_id": state_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_placed_after(self, auth_client, seeded_caches):
+        """Test que le filtre placed_after fonctionne."""
+        # D'abord, récupérer une date de placement valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one(
+            {"placed_at": {"$exists": True, "$ne": None}}
+        )
+        if cache_doc:
+            # Utiliser une date avant la date de la cache
+            placed_after = "2000-01-01T00:00:00.000Z"
+
+            response = await auth_client.post(
+                "/caches/by-filter",
+                json={
+                    "placed_after": placed_after,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_by_filter_with_attributes(self, auth_client, seeded_caches):
+        """Test que les filtres attr_pos et attr_neg fonctionnent."""
+        # D'abord, récupérer un attribute_doc_id valide depuis les caches existantes
+        cache_doc = await seeded_caches.caches.find_one(
+            {"attributes": {"$elemMatch": {"attribute_doc_id": {"$exists": True, "$ne": None}}}}
+        )
+        if cache_doc and cache_doc.get("attributes"):
+            # Trouver un attribut avec is_positive pour tester les deux filtres
+            for attr in cache_doc["attributes"]:
+                if attr.get("attribute_doc_id"):
+                    attr_id = str(attr["attribute_doc_id"])
+                    is_positive = attr.get("is_positive", True)
+
+                    # Tester avec attr_pos ou attr_neg selon l'attribut trouvé
+                    filter_key = "attr_pos" if is_positive else "attr_neg"
+
+                    response = await auth_client.post(
+                        "/caches/by-filter",
+                        json={
+                            filter_key: [attr_id],
+                            "page": 1,
+                            "page_size": 10,
+                            "compact": True,
+                        },
+                    )
+
+                    assert response.status_code == 200
+                    data = response.json()
+                    assert isinstance(data, dict)
+                    assert "total" in data
+                    break
 
 
 # =============================================================================
@@ -208,6 +493,84 @@ class TestCachesWithinBbox:
             assert isinstance(data, dict)
             assert data["total"] > 0
 
+    @pytest.mark.asyncio
+    async def test_search_within_bbox_non_compact(self, auth_client, seeded_caches):
+        """Test que la recherche par bbox en mode non-compact retourne des données complètes."""
+        response = await auth_client.get(
+            "/caches/within-bbox",
+            params={
+                "min_lat": 48.0,
+                "min_lon": 2.0,
+                "max_lat": 49.0,
+                "max_lon": 3.0,
+                "page": 1,
+                "page_size": 5,
+                "compact": False,  # Non-compact
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, dict)
+        if data.get("total", 0) > 0 and len(data.get("items", [])) > 0:
+            # En mode non-compact, les items doivent avoir plus de champs
+            item = data["items"][0]
+            assert "description_html" in item or "description" in item
+
+    @pytest.mark.asyncio
+    async def test_search_within_bbox_with_type_id(self, auth_client, seeded_caches):
+        """Test que la recherche par bbox avec type_id fonctionne."""
+        # D'abord, récupérer un type_id valide depuis la DB
+        type_doc = await seeded_caches.cache_types.find_one()
+        if type_doc:
+            type_id = str(type_doc["_id"])
+
+            response = await auth_client.get(
+                "/caches/within-bbox",
+                params={
+                    "min_lat": 44.0,
+                    "min_lon": 2.0,
+                    "max_lat": 48.0,
+                    "max_lon": 6.0,
+                    "type_id": type_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_within_bbox_with_size_id(self, auth_client, seeded_caches):
+        """Test que la recherche par bbox avec size_id fonctionne."""
+        # D'abord, récupérer un size_id valide depuis la DB
+        size_doc = await seeded_caches.cache_sizes.find_one()
+        if size_doc:
+            size_id = str(size_doc["_id"])
+
+            response = await auth_client.get(
+                "/caches/within-bbox",
+                params={
+                    "min_lat": 44.0,
+                    "min_lon": 2.0,
+                    "max_lat": 48.0,
+                    "max_lon": 6.0,
+                    "size_id": size_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
 
 # =============================================================================
 # TAG: CACHES - Search within Radius
@@ -250,6 +613,58 @@ class TestCachesWithinRadius:
             # Doit retourner une liste ou structure paginée
             assert isinstance(data, dict)
             assert data["total"] > 0
+
+    @pytest.mark.asyncio
+    async def test_search_within_radius_with_type_id(self, auth_client, seeded_caches):
+        """Test que la recherche par rayon avec type_id fonctionne."""
+        # D'abord, récupérer un type_id valide depuis la DB
+        type_doc = await seeded_caches.cache_types.find_one()
+        if type_doc:
+            type_id = str(type_doc["_id"])
+
+            response = await auth_client.get(
+                "/caches/within-radius",
+                params={
+                    "lat": 45.0,
+                    "lon": 3.0,
+                    "radius_km": 100.0,
+                    "type_id": type_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
+
+    @pytest.mark.asyncio
+    async def test_search_within_radius_with_size_id(self, auth_client, seeded_caches):
+        """Test que la recherche par rayon avec size_id fonctionne."""
+        # D'abord, récupérer un size_id valide depuis la DB
+        size_doc = await seeded_caches.cache_sizes.find_one()
+        if size_doc:
+            size_id = str(size_doc["_id"])
+
+            response = await auth_client.get(
+                "/caches/within-radius",
+                params={
+                    "lat": 45.0,
+                    "lon": 3.0,
+                    "radius_km": 100.0,
+                    "size_id": size_id,
+                    "page": 1,
+                    "page_size": 10,
+                    "compact": True,
+                },
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "total" in data
 
 
 # =============================================================================

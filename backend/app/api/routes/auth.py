@@ -357,7 +357,7 @@ async def verify_email_post(
     Returns:
         MessageOut: Message confirmant la vérification.
     """
-    return verify_email(code=body.code, users=users)
+    return await verify_email(code=body.code, users=users)
 
 
 # DONE: [BACKLOG] Route /auth/resend-verification (POST) vérifiée
