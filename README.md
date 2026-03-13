@@ -1,19 +1,10 @@
-# 🧭 GeoChallenge Tracker
-
-[Go to English version](#english-version) | [Aller à la version française](#french-version)
+[🇫🇷 Version française](#version-française) | [🇬🇧 English version](#english-version)
 
 ---
 
-## Navigation
-- [Version française](#french-version)
-- [English version](#english-version)
-
----
-
-<a id="french-version"></a>
 # Version Française
 
-## 🚀 Présentation
+# 🧭 GeoChallenge Tracker
 
 GeoChallenge Tracker est une application web complète conçue pour les passionnés de géocaching. Elle permet de suivre les challenges personnalisés, d'importer les trouvailles au format GPX, de visualiser la progression sur carte et d'obtenir des statistiques sur la complétion des défis.
 
@@ -308,14 +299,11 @@ Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
 Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
 ---
+---
 
-***
-
-
-<a id="english-version"></a>
 # English Version
 
-## 🚀 Overview
+# 🧭 GeoChallenge Tracker
 
 GeoChallenge Tracker is a comprehensive web application designed for geocaching enthusiasts. It allows tracking custom challenges, importing finds from GPX files, visualizing progress on maps, and getting completion statistics for challenges.
 
