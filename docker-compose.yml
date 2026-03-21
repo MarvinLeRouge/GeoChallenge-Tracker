@@ -1,6 +1,12 @@
 # ---------------------------
 # 🧱 docker-compose.yml (optimisé dev/prod)
 # ---------------------------
+#
+# ⚠️  BASE DE DONNÉES : MongoDB Atlas (externe)
+#     Ce projet utilise MongoDB Atlas — aucun service mongo n'est déclaré ici.
+#     Configurer MONGODB_URI_TPL, MONGODB_USER et MONGODB_PASSWORD dans .env
+#     avant de démarrer les services.
+#
 services:
   backend:
     build:
