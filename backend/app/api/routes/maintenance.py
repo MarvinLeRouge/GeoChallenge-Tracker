@@ -23,7 +23,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUserId, require_admin
-from app.core.config_backup import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
+from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.gpx_importer_service import import_gpx_payload

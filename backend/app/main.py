@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import routers
+from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
 from app.core.settings import get_settings
@@ -23,6 +24,7 @@ async def lifespan(app: FastAPI):
     # --- startup ---
     # Skip populate_mapping and ensure_indexes in test mode for faster tests
     # These are already tested separately in unit/integration tests
+    ensure_backup_dirs()
     if not os.getenv("TEST_MODE", "false").lower() == "true":
         await populate_mapping()
         await ensure_indexes()

@@ -14,11 +14,11 @@ def _default_backup_root() -> Path:
         return Path("/backups")
 
     # 3) Dev HORS Docker: repo_root/backups
-    # (__file__ = app/core/config_backup.py -> repo_root = parents[3])
+    # (__file__ = app/core/backup_config.py -> repo_root = parents[3])
     # repo_root/
     # ├── backend/
     # │   └── app/
-    # │       └── core/config_backup.py  <-- ici
+    # │       └── core/backup_config.py  <-- ici
     # └── backups/   (cible)
     return Path(__file__).resolve().parents[3] / "backups"
 
@@ -37,7 +37,3 @@ def ensure_backup_dirs():
     # Vérifie les permissions
     if not os.access(CLEANUP_BACKUP_DIR, os.W_OK):
         raise PermissionError(f"Cannot write to backup directory: {CLEANUP_BACKUP_DIR}")
-
-
-# Initialise au démarrage
-ensure_backup_dirs()
