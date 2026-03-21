@@ -21,13 +21,13 @@
 
     <!-- Etat / erreurs -->
     <div
-      v-if="error"
+      v-if="store.error"
       class="text-center text-red-600 text-sm"
     >
-      {{ error }}
+      {{ store.error }}
     </div>
     <div
-      v-if="loading"
+      v-if="store.loading"
       class="text-center text-gray-500"
     >
       Chargement…
@@ -35,11 +35,11 @@
 
     <!-- Liste -->
     <div
-      v-if="!loading"
+      v-if="!store.loading"
       class="space-y-3"
     >
       <UserChallengeCard
-        v-for="(ch, idx) in challenges"
+        v-for="(ch, idx) in store.items"
         :key="ch.id"
         :challenge="ch"
         :zebra="idx % 2 !== 0"
@@ -59,7 +59,7 @@
         >
           Précédent
         </button>
-        <span class="text-sm">Page {{ page }} / {{ nbPages }}</span>
+        <span class="text-sm">Page {{ store.page }} / {{ store.nbPages }}</span>
         <button
           class="px-3 py-2 rounded border bg-white disabled:opacity-50"
           :disabled="!canNext"
@@ -73,16 +73,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from ‘vue’
+import { computed, onMounted, watch, ref } from ‘vue’
 import api from ‘@/api/http’
 import { useRouter, useRoute } from ‘vue-router’
-import { ref } from ‘vue’
 import UserChallengeCard from ‘@/components/userChallenges/UserChallengeCard.vue’
-import { useUserChallenges } from ‘@/composables/useUserChallenges’
+import { useChallengesStore } from ‘@/store/challenges’
 import { useApiErrorHandler } from ‘@/composables/useApiErrorHandler’
 import type { UserChallengeListItem } from ‘@/types/challenges’
 
-// Heroicons 24/outline (cohérent avec ta home)
 import {
     CheckCircleIcon,
     XCircleIcon,
@@ -94,15 +92,14 @@ import {
 const router = useRouter()
 const route = useRoute()
 const { handleApiError } = useApiErrorHandler()
-
-const { challenges, page, pageSize, nbPages, loading, error, fetchChallenges } = useUserChallenges()
+const store = useChallengesStore()
 
 type UCStatus = UserChallengeListItem[‘status’]
 
 const filterStatus = ref<’all’ | UCStatus>(
     (route.query.status as ‘all’ | UCStatus) || ‘all’
 )
-page.value = route.query.page ? parseInt(route.query.page as string, 10) : 1
+store.page = route.query.page ? parseInt(route.query.page as string, 10) : 1
 
 const statusIcons: Record<UCStatus, unknown> = {
     pending: ClockIcon,
@@ -117,45 +114,46 @@ const statusLabels: Record<string, string> = {
     dismissed: ‘Refusés’,
     completed: ‘Complétés’,
 }
-const canPrev = computed(() => page.value > 1)
-const canNext = computed(() => page.value < nbPages.value && nbPages.value > 0)
+const canPrev = computed(() => store.page > 1)
+const canNext = computed(() => store.page < store.nbPages && store.nbPages > 0)
 
 function updateUrl() {
     const query: Record<string, string> = {}
     if (filterStatus.value !== ‘all’) query.status = filterStatus.value
-    if (page.value > 1) query.page = page.value.toString()
+    if (store.page > 1) query.page = store.page.toString()
     router.replace({ query })
 }
 
-watch([filterStatus, page], () => {
+watch([filterStatus, () => store.page], () => {
     updateUrl()
-    fetchChallenges(filterStatus.value)
+    store.fetchList(filterStatus.value)
 })
 
-onMounted(() => fetchChallenges(filterStatus.value))
+onMounted(() => store.fetchList(filterStatus.value))
 
 function setFilter(status: ‘all’ | UCStatus) {
     if (filterStatus.value === status) return
     filterStatus.value = status
-    page.value = 1
+    store.page = 1
 }
 
-function prevPage() { if (canPrev.value) page.value -= 1 }
-function nextPage() { if (canNext.value) page.value += 1 }
+function prevPage() { if (canPrev.value) store.page -= 1 }
+function nextPage() { if (canNext.value) store.page += 1 }
 
 function showDetails(ch: UserChallengeListItem) {
     router.push({ name: ‘userChallengeDetails’, params: { id: ch.id } })
 }
 
 async function patchChallenge(ch: UserChallengeListItem, status: UCStatus) {
-    loading.value = true
+    store.loading = true
     try {
         await api.patch(`/my/challenges/${ch.id}`, { status })
-        await fetchChallenges(filterStatus.value)
+        store.updateItem(ch.id, { status })
+        await store.fetchList(filterStatus.value)
     } catch (e: unknown) {
-        error.value = handleApiError(e).message
+        store.error = handleApiError(e).message
     } finally {
-        loading.value = false
+        store.loading = false
     }
 }
 
