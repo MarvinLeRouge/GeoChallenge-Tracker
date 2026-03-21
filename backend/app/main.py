@@ -1,5 +1,6 @@
 # backend/app/main.py
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -16,6 +17,7 @@ from app.db.seed_data import seed_referentials
 from app.db.seed_indexes import ensure_indexes
 from app.services.referentials_cache import populate_mapping
 
+log = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -26,6 +28,14 @@ async def lifespan(app: FastAPI):
     # These are already tested separately in unit/integration tests
     ensure_backup_dirs()
     if not os.getenv("TEST_MODE", "false").lower() == "true":
+        workers = int(os.getenv("WEB_CONCURRENCY", "1"))
+        if workers > 1:
+            log.warning(
+                "referentials_cache is in-memory and NOT shared across %d workers. "
+                "Each worker maintains its own copy. Consider an external cache (Redis) "
+                "if cross-worker consistency is required.",
+                workers,
+            )
         await populate_mapping()
         await ensure_indexes()
 

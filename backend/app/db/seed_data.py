@@ -7,7 +7,6 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from pymongo.errors import ConnectionFailure
 from rich import print
 
@@ -16,7 +15,6 @@ from app.core.utils import now
 from app.db.mongodb import get_collection, get_db
 from app.db.seed_indexes import ensure_indexes
 
-load_dotenv()
 SEEDS_FOLDER = Path(__file__).resolve().parents[2] / "data" / "seeds"
 
 
@@ -42,13 +40,18 @@ async def test_connection():
         sys.exit(1)
 
 
-async def seed_collection(file_path: str, collection_name: str, force: bool = False):
+async def seed_collection(
+    file_path: str,
+    collection_name: str,
+    unique_field: str = "code",
+    force: bool = False,
+):
     """Remplit une collection depuis un fichier JSON.
 
     Description:
         Charge le contenu JSON de `file_path` et insère/met à jour les documents dans `collection_name`.
         - Si `force=True`, vide la collection puis insère toutes les données.
-        - Si `force=False` et la collection existe, effectue un upsert :
+        - Si `force=False` et la collection existe, effectue un upsert sur `unique_field` :
           compare les documents existants avec les seeds et ne met à jour que ceux qui diffèrent,
           tout en insérant les nouveaux documents. Les documents existants non présents dans
           les seeds sont conservés pour préserver les références entre collections.
@@ -56,6 +59,7 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
     Args:
         file_path (str): Chemin du fichier JSON (UTF-8).
         collection_name (str): Nom de la collection MongoDB cible.
+        unique_field (str): Champ servant de clé d’upsert. Par défaut ``"code"``.
         force (bool, optional): Forcer la réinitialisation de la collection. Par défaut `False`.
 
     Returns:
@@ -73,14 +77,14 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
 
     if force:
         await collection_obj.delete_many({})
-        print(f"♻️ Collection '{collection_name}' vidée (force=True).")
+        print(f"♻️ Collection ‘{collection_name}’ vidée (force=True).")
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        print(f"✅ {len(seed_data)} documents insérés dans ‘{collection_name}’.")
         return
 
     if count == 0:
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        print(f"✅ {len(seed_data)} documents insérés dans ‘{collection_name}’.")
         return
 
     # Upsert logic: update documents that differ, insert new ones, keep existing ones
@@ -88,48 +92,27 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
     inserted_count = 0
 
     for seed_doc in seed_data:
-        # Try to find a unique identifier in the seed document
-        unique_field = None
-        unique_value = None
+        unique_value = seed_doc.get(unique_field)
 
-        # Check for common ID field names in the seed document
-        for field in ["_id", "id", "code", "cache_type_id", "cache_size_id"]:
-            if field in seed_doc:
-                unique_field = field
-                unique_value = seed_doc[field]
-                break
-
-        if unique_field is None:
-            # If no unique field is found, we can't do upsert, so skip
-            print(
-                f"⚠️  Document in {file_path} does not have a unique identifier field. Skipping upsert."
-            )
+        if unique_value is None:
+            print(f"⚠️  Document in {file_path} is missing ‘{unique_field}’. Skipping upsert.")
             continue
 
-        # Find existing document with the same unique value
-        if unique_field == "_id":
-            existing_doc = await collection_obj.find_one({"_id": unique_value})
-        else:
-            # For other unique fields, we need to find by that field
-            existing_doc = await collection_obj.find_one({unique_field: unique_value})
+        existing_doc = await collection_obj.find_one({unique_field: unique_value})
 
         if existing_doc:
-            # Compare the documents (excluding _id field from comparison)
             existing_for_comparison = {k: v for k, v in existing_doc.items() if k != "_id"}
             seed_for_comparison = {k: v for k, v in seed_doc.items() if k != "_id"}
 
             if existing_for_comparison != seed_for_comparison:
-                # Update the existing document (preserving the _id)
                 await collection_obj.update_one({unique_field: unique_value}, {"$set": seed_doc})
                 updated_count += 1
-            # else: documents are the same, no update needed
         else:
-            # Insert new document
             await collection_obj.insert_one(seed_doc)
             inserted_count += 1
 
     print(
-        f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans '{collection_name}'."
+        f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans ‘{collection_name}’."
     )
     print("ℹ️  Les documents existants non présents dans le seed ont été conservés.")
 
@@ -193,9 +176,18 @@ async def seed_referentials(force: bool = False):
     Returns:
         None
     """
-    await seed_collection(f"{SEEDS_FOLDER}/cache_types.json", "cache_types", force=force)
-    await seed_collection(f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", force=force)
-    await seed_collection(f"{SEEDS_FOLDER}/cache_attributes.json", "cache_attributes", force=force)
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_types.json", "cache_types", unique_field="code", force=force
+    )
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", unique_field="code", force=force
+    )
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_attributes.json",
+        "cache_attributes",
+        unique_field="code",
+        force=force,
+    )
     await seed_admin_user(force=force)
 
 

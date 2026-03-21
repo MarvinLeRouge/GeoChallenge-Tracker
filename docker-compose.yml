@@ -33,7 +33,6 @@ services:
       - ./backups:/backups
       - ./uploads:/uploads
       - ./backend/data/samples:/app/data/samples
-      - ./.env:/app/.env
     restart: unless-stopped
 
   maildev:

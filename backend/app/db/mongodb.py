@@ -48,8 +48,8 @@ async def get_collection(name: str) -> AsyncIOMotorCollection:
     return get_db()[name]
 
 
-async def get_column(collection_name: str, column_name: str) -> list:
-    """Extrait toutes les valeurs d'un champ dans une collection.
+async def get_column(collection_name: str, column_name: str, limit: int = 0) -> list:
+    """Extrait les valeurs d'un champ dans une collection.
 
     Description:
         Fait un find() projeté sur `column_name` (sans `_id`) puis retourne la liste des valeurs.
@@ -58,12 +58,15 @@ async def get_column(collection_name: str, column_name: str) -> list:
     Args:
         collection_name (str): Nom de la collection source.
         column_name (str): Nom du champ/colonne à extraire.
+        limit (int): Nombre maximum de documents à retourner (0 = pas de limite).
 
     Returns:
         list: Liste des valeurs trouvées pour ce champ (peut contenir des `None` et des doublons).
     """
     db = get_db()
     cursor = db[collection_name].find({}, {column_name: 1, "_id": 0})
+    if limit > 0:
+        cursor = cursor.limit(limit)
     result = [item[column_name] async for item in cursor]
     return result
 
