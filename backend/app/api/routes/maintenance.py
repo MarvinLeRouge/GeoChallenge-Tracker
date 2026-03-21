@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 from collections.abc import Mapping, Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -28,10 +28,38 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.gpx_importer_service import import_gpx_payload
 
-# Cache en mémoire
-cleanup_cache: dict = {}
 # Durée de validité de la clé de confirmation (en minutes)
 CONFIRMATION_KEY_TTL = 10
+
+# Répertoire de persistance des analyses en attente de confirmation
+PENDING_CLEANUP_DIR = BACKUP_ROOT_DIR / "pending_cleanups"
+
+
+def _pending_key_path(key: str) -> Path:
+    """Retourne le chemin du fichier JSON associé à une clé de confirmation."""
+    return PENDING_CLEANUP_DIR / f"{key}.json"
+
+
+def save_cleanup_pending(key: str, orphans: dict, expires_at: datetime) -> None:
+    """Persiste une analyse d'orphelins en attente de confirmation dans un fichier JSON."""
+    PENDING_CLEANUP_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_pending_key_path(key), "w", encoding="utf-8") as f:
+        json.dump({"orphans": orphans, "expires_at": expires_at.isoformat()}, f)
+
+
+def load_cleanup_pending(key: str) -> dict | None:
+    """Charge une analyse en attente depuis le fichier JSON. Retourne None si introuvable."""
+    p = _pending_key_path(key)
+    if not p.exists():
+        return None
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def delete_cleanup_pending(key: str) -> None:
+    """Supprime le fichier JSON d'une analyse en attente."""
+    _pending_key_path(key).unlink(missing_ok=True)
+
 
 # Order matters for deletion: most central to most dependent (to prevent creating new orphans during cleanup)
 COLLECTION_DEPENDENCY_ORDER = [
@@ -146,12 +174,19 @@ def serialize_mongo_doc(doc):
     return json.loads(json_util.dumps(doc))
 
 
-def clean_expired_keys():
-    """Nettoie les clés de confirmation expirées du cache"""
+def clean_expired_keys() -> None:
+    """Supprime les fichiers de confirmation dont la date d'expiration est dépassée."""
+    if not PENDING_CLEANUP_DIR.exists():
+        return
     now = utcnow()
-    expired = [k for k, v in cleanup_cache.items() if v["expires_at"] < now]
-    for key in expired:
-        del cleanup_cache[key]
+    for p in PENDING_CLEANUP_DIR.glob("*.json"):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            if datetime.fromisoformat(data["expires_at"]) < now:
+                p.unlink(missing_ok=True)
+        except Exception:
+            p.unlink(missing_ok=True)
 
 
 router = APIRouter(
@@ -321,8 +356,8 @@ async def cleanup_analyze():
     confirmation_key = secrets.token_urlsafe(16)
     expires_at = utcnow() + timedelta(minutes=CONFIRMATION_KEY_TTL)
 
-    # Stocke en cache
-    cleanup_cache[confirmation_key] = {"orphans": orphans, "expires_at": expires_at}
+    # Persiste l'analyse dans un fichier partagé entre workers
+    save_cleanup_pending(confirmation_key, orphans, expires_at)
 
     return {
         "orphans_found": orphans,
@@ -347,12 +382,12 @@ async def cleanup_execute(key: str):
     clean_expired_keys()
 
     # Vérifie la clé
-    if key not in cleanup_cache:
+    cached_data = load_cleanup_pending(key)
+    if cached_data is None:
         raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
 
-    cached_data = cleanup_cache[key]
-    if utcnow() > cached_data["expires_at"]:
-        del cleanup_cache[key]
+    if utcnow() > datetime.fromisoformat(cached_data["expires_at"]):
+        delete_cleanup_pending(key)
         raise HTTPException(
             status_code=410, detail="Confirmation key expired. Please request a new analysis."
         )
@@ -421,8 +456,8 @@ async def cleanup_execute(key: str):
 
     file_size_mb = round(backup_file.stat().st_size / (1024 * 1024), 2)
 
-    # Nettoie le cache
-    del cleanup_cache[key]
+    # Supprime le fichier de confirmation
+    delete_cleanup_pending(key)
 
     return {
         "message": f"Successfully deleted {backup_data['total_deleted']} orphan(s)",
