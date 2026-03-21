@@ -9,8 +9,9 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends
 from pydantic import BaseModel, Field
 
+from app.api.deps import require_admin
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user, require_admin
+from app.core.security import get_current_user
 from app.services.challenge_autocreate import create_challenges_from_caches
 
 router = APIRouter(

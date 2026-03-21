@@ -8,6 +8,7 @@ from typing import Annotated
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.user_challenge_task import (
     TasksListResponse,
     TasksPutIn,
@@ -15,7 +16,7 @@ from app.api.dto.user_challenge_task import (
     TasksValidateResponse,
 )
 from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.services.user_challenge_tasks_service import list_tasks, put_tasks, validate_only
 
 router = APIRouter(

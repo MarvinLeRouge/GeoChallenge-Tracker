@@ -8,8 +8,9 @@ from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.target import TargetListResponse
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.core.utils import utcnow
 from app.db.mongodb import get_db
 from app.services.targets_service import (

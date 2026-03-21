@@ -24,8 +24,9 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from pymongo import ASCENDING, DESCENDING
 
+from app.api.deps import CurrentUserId
 from app.api.dto.cache_query import CacheFilterIn
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches

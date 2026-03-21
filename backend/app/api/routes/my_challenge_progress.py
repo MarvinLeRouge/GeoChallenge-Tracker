@@ -10,9 +10,10 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
 
+from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.progress import ProgressEvaluateResponse, ProgressGetResponse
 from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.services.progress import (
     evaluate_new_progress,
     evaluate_progress,

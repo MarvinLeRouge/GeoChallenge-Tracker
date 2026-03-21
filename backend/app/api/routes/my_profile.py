@@ -5,8 +5,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
+from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
-from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
 from app.services.user_profile_service import UserProfileService

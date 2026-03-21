@@ -151,12 +151,6 @@ def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]
     return user_id
 
 
-def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> User:
-    if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
-    return current_user
-
-
 def validate_password_strength(password: str) -> tuple[bool, str]:
     """Valide la complexité du mot de passe.
 
@@ -196,8 +190,3 @@ def generate_verification_code() -> str:
     result = str(uuid4())
 
     return result
-
-
-# Type aliases pour faciliter l'usage
-CurrentUser = Annotated[User, Depends(get_current_user)]
-CurrentUserId = Annotated[PyObjectId, Depends(get_current_user_id)]
