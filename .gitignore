@@ -1,6 +1,8 @@
-# Fichier QWEN
+# Fichier QWEN / Claude
 .qwen
 .qwen/*
+CLAUDE.md
+roadmap-corrections.md
 
 # Fichiers env
 .env
