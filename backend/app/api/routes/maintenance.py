@@ -600,13 +600,16 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    backup_file = CLEANUP_BACKUP_DIR.parent / filename
+    backup_file = FULL_BACKUP_DIR / filename
 
     if not backup_file.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
 
-    with open(backup_file, encoding="utf-8") as f:
-        backup_data = json.load(f)
+    with ZipFile(backup_file, "r") as zf:
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            raise HTTPException(status_code=400, detail="No JSON found in backup archive")
+        backup_data = json.loads(zf.read(json_name).decode("utf-8"))
 
     restored = {}
     dropped = []
