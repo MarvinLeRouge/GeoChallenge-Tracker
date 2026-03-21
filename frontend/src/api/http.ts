@@ -3,7 +3,7 @@ import { useAuthStore } from '@/store/auth'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
-  withCredentials: false,
+  withCredentials: true,
 })
 
 let refreshPromise: Promise<void> | null = null
@@ -46,11 +46,6 @@ api.interceptors.response.use(
       }
 
       const auth = useAuthStore()
-      if (!auth.refreshToken) {
-        auth.logout()
-        return Promise.reject(error)
-      }
-
       original._retry = true
 
       if (!refreshPromise) {

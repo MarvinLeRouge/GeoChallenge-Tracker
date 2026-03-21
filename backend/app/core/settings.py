@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     elevation_provider_rate_delay_s: int
     elevation_enabled: bool
 
+    # === CORS ===
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     # UPLOAD
     one_mb: int
     max_upload_mb: int

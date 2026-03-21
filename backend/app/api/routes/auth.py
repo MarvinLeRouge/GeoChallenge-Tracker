@@ -13,10 +13,12 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Body,
+    Cookie,
     Depends,
     HTTPException,
     Query,
     Request,
+    Response,
     status,
 )
 from jose import JWTError, jwt
@@ -38,9 +40,7 @@ from app.core.settings import get_settings
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.domain.models.user import (
-    RefreshTokenRequest,
     ResendVerificationRequest,
-    TokenPair,
     TokenResponse,
     UserInRegister,
     UserOut,
@@ -157,17 +157,19 @@ async def register(
 # DONE: [BACKLOG] Route /auth/login (POST) vérifiée
 @router.post(
     "/login",
-    response_model=TokenPair,
+    response_model=TokenResponse,
     summary="Connexion d’un utilisateur",
     description=(
         "Authentifie via formulaire OAuth2 **ou** JSON (username/email + password).\n\n"
-        "- Retourne un couple de jetons (access + refresh)\n"
+        "- Retourne un access token dans le JSON\n"
+        "- Émet le refresh token dans un cookie HttpOnly (7 jours)\n"
         "- Le compte doit être vérifié\n"
         "- 401 si identifiants invalides ou compte non vérifié"
     ),
 )
 async def login(
     request: Request,
+    response: Response,
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
     """Connexion utilisateur.
@@ -220,11 +222,16 @@ async def login(
     sub = str(user["_id"])
     access_token = create_access_token(data={"sub": sub})
     refresh_token = create_refresh_token(data={"sub": sub})
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-    }
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
+        max_age=7 * 24 * 3600,
+        path="/auth/refresh",
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # DONE: [BACKLOG] Route /auth/refresh (POST) vérifiée
@@ -233,32 +240,34 @@ async def login(
     response_model=TokenResponse,
     summary="Renouvellement du token d’accès",
     description=(
-        "Génère un nouveau token d’accès à partir d’un refresh token valide.\n\n"
+        "Génère un nouveau token d’accès à partir du refresh token (cookie HttpOnly).\n\n"
         "- Vérifie la validité du refresh token\n"
         "- Vérifie que l’utilisateur est actif\n"
         "- Retourne un nouvel access token"
     ),
 )
 async def refresh_token(
-    payload: Annotated[RefreshTokenRequest, Body(..., description="Refresh token JWT valide.")],
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    refresh_token: Annotated[str | None, Cookie()] = None,
 ):
     """Rafraîchissement du token d’accès.
 
     Description:
-        Décode un refresh token JWT valide, contrôle l’existence et l’état de l’utilisateur,
+        Lit le refresh token depuis le cookie HttpOnly, contrôle l’existence et l’état de l’utilisateur,
         puis génère un nouvel access token.
 
     Args:
-        payload (RefreshTokenRequest): Refresh token à valider.
         users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        refresh_token (str | None): Refresh token lu depuis le cookie HttpOnly.
 
     Returns:
         TokenResponse: Nouveau jeton d’accès.
     """
+    if not refresh_token:
+        raise HTTPException(status_code=401, detail="No refresh token")
     try:
         data = jwt.decode(
-            payload.refresh_token,
+            refresh_token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )

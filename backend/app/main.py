@@ -4,6 +4,7 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import routers
 from app.core.exception_handlers import register_exception_handlers
@@ -37,7 +38,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name + " API", version=settings.api_version, lifespan=lifespan)
 # ⚠️ Ordre des middlewares = ordre d’ajout.
-# Mets la limite de taille tôt, avant (ou à côté de) CORS/GZip/etc.
+# CORS en premier pour que les requêtes OPTIONS (preflight) ne soient pas bloquées.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(
     MaxBodySizeMiddleware,
     max_body_size=settings.max_upload_bytes,

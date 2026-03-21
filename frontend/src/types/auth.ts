@@ -1,9 +1,9 @@
 // src/types/auth.ts
 
-/** Jetons retournés par /auth/login et /auth/refresh */
-export type Tokens = {
+/** Jeton retourné par /auth/login et /auth/refresh (refresh token géré via cookie HttpOnly) */
+export type TokenResponse = {
     access_token: string
-    refresh_token?: string
+    token_type: string
 }
 
 /** Payload attendu par /auth/login côté frontend */
