@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.meta import check_email, check_mongodb
 from app.core.settings import get_settings
-from app.models.meta import APIInfo, HealthCheck, VersionInfo
+from app.domain.models.meta import APIInfo, HealthCheck, VersionInfo
 
 settings = get_settings()
 
