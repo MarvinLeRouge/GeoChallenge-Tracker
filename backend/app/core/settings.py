@@ -78,9 +78,6 @@ class Settings(BaseSettings):
     one_mb: int
     max_upload_mb: int
 
-    # === TEST ===
-    test: str
-
     model_config = SettingsConfigDict(
         env_file=_resolve_env_file(),
         env_file_encoding="utf-8",

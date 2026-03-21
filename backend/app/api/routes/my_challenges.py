@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
 from app.api.deps import CurrentUserId
 from app.api.dto.calendar_verification import (
@@ -27,7 +27,6 @@ from app.api.dto.user_challenge_batch import (
     BatchPatchResultItem,
 )
 from app.core.bson_utils import PyObjectId
-from app.core.security import get_current_user
 from app.db.mongodb import get_db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
@@ -41,7 +40,6 @@ from app.services.user_challenges_service import (
 router = APIRouter(
     prefix="/my/challenges",
     tags=["My challenges"],
-    dependencies=[Depends(get_current_user)],
 )
 
 
