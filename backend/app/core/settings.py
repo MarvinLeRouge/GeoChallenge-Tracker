@@ -16,7 +16,7 @@ log = logging.getLogger("settings")
 
 def _resolve_env_file() -> Path:
     # backend/ comme racine par défaut
-    backend_root = Path(__file__).resolve().parents[1]
+    backend_root = Path(__file__).resolve().parents[2]
     default_env = backend_root / ".env"
     env_file = os.getenv("ENV_FILE")
     env_path = Path(env_file).resolve() if env_file else default_env
