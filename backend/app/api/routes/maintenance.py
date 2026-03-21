@@ -824,3 +824,47 @@ async def upload_gpx(
         raise HTTPException(status_code=400, detail=f"Fichier GPX/ZIP invalide: {e}") from e
 
     return result
+
+
+@router.delete(
+    "/expired-verifications",
+    summary="Nettoyer les codes de vérification expirés",
+    description=(
+        "Supprime les champs `verification_code` et `verification_expires_at` "
+        "des comptes non vérifiés dont le code a expiré.\n\n"
+        "**⚠️ RESTREINT AUX ADMINISTRATEURS**\n\n"
+        "N'efface pas les comptes, uniquement les champs de vérification obsolètes."
+    ),
+    responses={
+        200: {"description": "Nettoyage effectué"},
+        401: {"description": "Non authentifié"},
+        403: {"description": "Accès refusé (admin requis)"},
+    },
+)
+async def cleanup_expired_verifications(
+    _: Annotated[Any, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Nettoie les codes de vérification expirés des comptes non vérifiés.
+
+    Description:
+        Recherche tous les utilisateurs non vérifiés dont `verification_expires_at`
+        est antérieur à l'heure courante, et supprime les champs `verification_code`
+        et `verification_expires_at` (sans supprimer le compte).
+
+    Args:
+        _: Dépendance d'autorisation admin (non utilisée directement).
+
+    Returns:
+        dict: Nombre de documents mis à jour.
+    """
+    coll_users = await get_collection("users")
+    result = await coll_users.update_many(
+        {
+            "is_verified": False,
+            "verification_expires_at": {"$lt": utcnow()},
+        },
+        {
+            "$unset": {"verification_code": "", "verification_expires_at": ""},
+        },
+    )
+    return {"cleaned": result.modified_count}

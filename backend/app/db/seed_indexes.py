@@ -245,6 +245,12 @@ async def ensure_indexes() -> None:
     # Non-unique helpers
     await ensure_index("users", [("is_active", ASCENDING)])
     await ensure_index("users", [("is_verified", ASCENDING)])
+    await ensure_index(
+        "users",
+        [("verification_expires_at", ASCENDING)],
+        name="idx_users_verification_expires",
+        partial={"verification_expires_at": {"$type": "date"}},
+    )
     await ensure_index("users", [("location", "2dsphere")], name="geo_user_location_2dsphere")
 
     # ---------- countries ----------
