@@ -2,11 +2,14 @@
 import { ref, computed } from 'vue'
 import api from '@/api/http'
 import DOMPurify from 'dompurify'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
+import type { UserChallengeDetail } from '@/types/challenges'
 
 export function useUserChallenge(ucId: string) {
-    const uc = ref<any | null>(null)
+    const uc = ref<UserChallengeDetail | null>(null)
     const loadingDetail = ref(false)
     const errorDetail = ref<string | null>(null)
+    const { handleApiError } = useApiErrorHandler()
 
     const safeDescription = computed(() => {
         const html = uc.value?.challenge?.description ?? ''
@@ -19,8 +22,8 @@ export function useUserChallenge(ucId: string) {
         try {
             const { data } = await api.get(`/my/challenges/${ucId}`)
             uc.value = data
-        } catch (e: any) {
-            errorDetail.value = e?.message ?? 'Erreur de chargement'
+        } catch (e: unknown) {
+            errorDetail.value = handleApiError(e).message
         } finally {
             loadingDetail.value = false
         }

@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import api from '@/api/http'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 import type { UserProfileOut, UserLocationIn, UserLocationOut } from '@/types/index'
 
 export function useUserProfile() {
@@ -9,6 +10,7 @@ export function useUserProfile() {
   const error = ref<string | null>(null)
   const saving = ref(false)
   const saveError = ref<string | null>(null)
+  const { handleApiError } = useApiErrorHandler()
 
   const loadProfile = async () => {
     loading.value = true
@@ -30,11 +32,7 @@ export function useUserProfile() {
         location.value = null
       }
     } catch (err: unknown) {
-      console.error('Error loading user profile:', err)
-      const errorMessage = err && typeof err === 'object' && 'response' in err 
-        ? (err as any).response?.data?.detail || 'Erreur lors du chargement du profil'
-        : 'Erreur lors du chargement du profil'
-      error.value = errorMessage
+      error.value = handleApiError(err).message
     } finally {
       loading.value = false
     }
@@ -43,16 +41,12 @@ export function useUserProfile() {
   const loadLocation = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await api.get('/my/profile/location')
       location.value = response.data
     } catch (err: unknown) {
-      console.error('Error loading user location:', err)
-      const errorMessage = err && typeof err === 'object' && 'response' in err 
-        ? (err as any).response?.data?.detail || 'Erreur lors du chargement de la localisation'
-        : 'Erreur lors du chargement de la localisation'
-      error.value = errorMessage
+      error.value = handleApiError(err).message
     } finally {
       loading.value = false
     }
@@ -67,11 +61,7 @@ export function useUserProfile() {
       profile.value = response.data
       return response.data
     } catch (err: unknown) {
-      console.error('Error updating user profile:', err)
-      const errorMessage = err && typeof err === 'object' && 'response' in err 
-        ? (err as any).response?.data?.detail || 'Erreur lors de la mise à jour du profil'
-        : 'Erreur lors de la mise à jour du profil'
-      saveError.value = errorMessage
+      saveError.value = handleApiError(err).message
       throw err
     } finally {
       saving.value = false
@@ -96,11 +86,7 @@ export function useUserProfile() {
       }
       return location.value
     } catch (err: unknown) {
-      console.error('Error updating user location:', err)
-      const errorMessage = err && typeof err === 'object' && 'response' in err 
-        ? (err as any).response?.data?.detail || 'Erreur lors de la mise à jour de la localisation'
-        : 'Erreur lors de la mise à jour de la localisation'
-      saveError.value = errorMessage
+      saveError.value = handleApiError(err).message
       throw err
     } finally {
       saving.value = false

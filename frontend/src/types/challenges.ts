@@ -1,5 +1,35 @@
 // src/types/challenges.ts
 
+/** Snapshot de progression d'un UserChallenge */
+export interface UserChallengeProgress {
+  percent: number | null
+  tasks_done: number | null
+  tasks_total: number | null
+  checked_at: string | null
+}
+
+/** Élément de liste UC (GET /my/challenges) */
+export interface UserChallengeListItem {
+  id: string
+  status: 'pending' | 'accepted' | 'dismissed' | 'completed'
+  computed_status: string | null
+  effective_status: 'pending' | 'accepted' | 'dismissed' | 'completed'
+  progress: UserChallengeProgress | null
+  updated_at: string | null
+  challenge: { id: string; name: string }
+  cache: { id: string; GC: string; difficulty?: number | null; terrain?: number | null }
+}
+
+/** Détail complet UC (GET /my/challenges/:id) */
+export interface UserChallengeDetail extends UserChallengeListItem {
+  created_at: string | null
+  manual_override: boolean | null
+  override_reason: string | null
+  overridden_at: string | null
+  notes: string | null
+  challenge: { id: string; name: string; description?: string | null }
+}
+
 /** Statistiques renvoyées par /my/challenges/sync */
 export type ChallengeSyncStats = Record<string, number>
 
