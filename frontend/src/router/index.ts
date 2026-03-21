@@ -63,6 +63,18 @@ const challengesRoutes = [
     meta: { title: 'Mes challenges - Liste' },
   },
   {
+    path: '/my/challenges/basics/matrix',
+    name: 'userChallengeMatrix',
+    component: () => import('@/pages/userChallenges/Matrix.vue'),
+    meta: { title: 'Matrix D/T Challenge' },
+  },
+  {
+    path: '/my/challenges/basics/calendar',
+    name: 'userChallengeCalendar',
+    component: () => import('@/pages/userChallenges/Calendar.vue'),
+    meta: { title: 'Calendar Challenge' },
+  },
+  {
     path: '/my/challenges/:id',
     name: 'userChallengeDetails',
     component: () => import('@/pages/userChallenges/Details.vue'),
@@ -89,18 +101,6 @@ const challengesRoutes = [
     props: { title: 'Targets du challenge', message: 'Carte à venir.', helpTo: '/help/targets' },
     meta: { dense: true, noFabPadding: true, title: 'Mes challenges - Targets' },
     // planned: component: () => import('@/pages/challenges/UCTargets.vue')
-  },
-  {
-    path: '/my/challenges/basics/matrix',
-    name: 'userChallengeMatrix',
-    component: () => import('@/pages/userChallenges/Matrix.vue'),
-    meta: { title: 'Matrix D/T Challenge' },
-  },
-  {
-    path: '/my/challenges/basics/calendar', 
-    name: 'userChallengeCalendar',
-    component: () => import('@/pages/userChallenges/Calendar.vue'),
-    meta: { title: 'Calendar Challenge' },
   },
   {
     path: '/my/stats',
