@@ -10,7 +10,6 @@ from typing import Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from rich import print
 
 log = logging.getLogger("settings")
 
@@ -128,4 +127,4 @@ def get_settings() -> Settings:
     return Settings()
 
 
-print("--- Settings loaded ---")
+log.info("Settings loaded from: %s", _resolve_env_file())

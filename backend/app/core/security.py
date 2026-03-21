@@ -95,7 +95,7 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
     to_encode = data.copy()
     expire = now() + (expires_delta or dt.timedelta(days=7))  # refresh token plus long
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm="HS256")
+    encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
     return encoded_jwt
 
