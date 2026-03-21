@@ -137,13 +137,6 @@ const routes = [
   ...authRoutes, ...cachesRoutes, ...challengesRoutes,
 
   {
-    path: '/protected',
-    name: 'protected',
-    component: () => import('@/pages/auth/Protected.vue'),
-    meta: { title: 'Zone réservée' },
-  }, // pour tests
-
-  {
     path: '/:pathMatch(.*)*',
     name: '404',
     component: () => import('@/pages/404.vue'),

@@ -36,13 +36,7 @@ export const useAuthStore = defineStore('auth', {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       })
       this.setTokens(data)
-      // Enchaînement : profil de base puis localisation (indépendants)
-      try { await this.fetchProfileBase() } catch (e: unknown) {
-        if (isAxiosError(e)) console.warn('fetchProfileBase failed:', e.response?.status)
-      }
-      try { await this.fetchLocation() } catch (e: unknown) {
-        if (isAxiosError(e)) console.warn('fetchLocation failed:', e.response?.status)
-      }
+      await Promise.allSettled([this.fetchProfileBase(), this.fetchLocation()])
     },
     async refresh() {
       const { data } = await api.post<TokenResponse>('/auth/refresh')
