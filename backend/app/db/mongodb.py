@@ -20,7 +20,11 @@ def get_client() -> AsyncIOMotorClient:
     """Retourne le client MongoDB (lazy initialization)."""
     global _client
     if _client is None:
-        _client = AsyncIOMotorClient(settings.mongodb_uri)
+        _client = AsyncIOMotorClient(
+            settings.mongodb_uri,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=3000,
+        )
     return _client
 
 

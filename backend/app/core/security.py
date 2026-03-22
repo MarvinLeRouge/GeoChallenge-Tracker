@@ -4,7 +4,6 @@
 import datetime as dt
 import re
 from typing import Annotated
-from uuid import uuid4
 
 from bson import ObjectId
 from fastapi import Depends, HTTPException, status
@@ -176,17 +175,3 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
         return False, "Password must include at least one special character"
 
     return True, ""
-
-
-def generate_verification_code() -> str:
-    """Génère un code de vérification.
-
-    Description:
-        Produit un identifiant aléatoire (UUID4) à usage temporaire pour les workflows de confirmation.
-
-    Returns:
-        str: Code de vérification.
-    """
-    result = str(uuid4())
-
-    return result

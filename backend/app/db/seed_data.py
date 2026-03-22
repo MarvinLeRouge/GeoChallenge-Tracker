@@ -3,17 +3,19 @@
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 
 from pymongo.errors import ConnectionFailure
-from rich import print
 
 import app.core.security as security
 from app.core.utils import now
 from app.db.mongodb import get_collection, get_db
 from app.db.seed_indexes import ensure_indexes
+
+log = logging.getLogger(__name__)
 
 SEEDS_FOLDER = Path(__file__).resolve().parents[2] / "data" / "seeds"
 
@@ -77,14 +79,14 @@ async def seed_collection(
 
     if force:
         await collection_obj.delete_many({})
-        print(f"♻️ Collection ‘{collection_name}’ vidée (force=True).")
+        log.info("Collection ‘%s’ vidée (force=True).", collection_name)
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans ‘{collection_name}’.")
+        log.info("%d documents insérés dans ‘%s’.", len(seed_data), collection_name)
         return
 
     if count == 0:
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans ‘{collection_name}’.")
+        log.info("%d documents insérés dans ‘%s’.", len(seed_data), collection_name)
         return
 
     # Upsert logic: update documents that differ, insert new ones, keep existing ones
@@ -95,7 +97,7 @@ async def seed_collection(
         unique_value = seed_doc.get(unique_field)
 
         if unique_value is None:
-            print(f"⚠️  Document in {file_path} is missing ‘{unique_field}’. Skipping upsert.")
+            log.warning("Document in %s is missing ‘%s’. Skipping upsert.", file_path, unique_field)
             continue
 
         existing_doc = await collection_obj.find_one({unique_field: unique_value})
@@ -111,10 +113,13 @@ async def seed_collection(
             await collection_obj.insert_one(seed_doc)
             inserted_count += 1
 
-    print(
-        f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans ‘{collection_name}’."
+    log.info(
+        "%d documents mis à jour, %d documents insérés dans ‘%s’.",
+        updated_count,
+        inserted_count,
+        collection_name,
     )
-    print("ℹ️  Les documents existants non présents dans le seed ont été conservés.")
+    log.info("Les documents existants non présents dans le seed ont été conservés.")
 
 
 async def seed_admin_user(force: bool = False):
@@ -160,7 +165,7 @@ async def seed_admin_user(force: bool = False):
         },
         upsert=True,
     )
-    print("✅ Admin user seeded/updated.")
+    log.info("Admin user seeded/updated.")
 
 
 async def seed_referentials(force: bool = False):

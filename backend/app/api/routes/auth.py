@@ -54,6 +54,13 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 COLLATION_CI = Collation(locale="en", strength=2)
 
 
+def create_verification_code() -> str:
+    """Crée un code de vérification aléatoire et unique."""
+    import secrets
+
+    return secrets.token_urlsafe(24)
+
+
 async def users_coll() -> AsyncIOMotorCollection:
     """Retourne la collection MongoDB `users`."""
     return await get_collection("users")
@@ -285,13 +292,6 @@ async def refresh_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-def create_verification_code() -> str:
-    """Crée un code de vérification aléatoire et unique."""
-    import secrets
-
-    return secrets.token_urlsafe(24)
-
-
 # DONE: [BACKLOG] Route /auth/verify-email (GET) vérifiée
 @router.get(
     "/verify-email",
@@ -334,7 +334,7 @@ async def verify_email(
     await users.update_one(
         {"_id": user["_id"]},
         {
-            "$set": {"is_verified": True, "updated_at": now()},
+            "$set": {"is_verified": True, "updated_at": now_ts},
             "$unset": {"verification_code": "", "verification_expires_at": ""},
         },
     )
