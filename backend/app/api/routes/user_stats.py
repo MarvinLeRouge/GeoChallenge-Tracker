@@ -1,12 +1,13 @@
 # backend/app/api/routes/user_stats.py
-# Route pour obtenir des statistiques synthétiques sur un utilisateur
+# Route to retrieve summary statistics for a user
 
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.user_stats import UserStatsOut
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.services.user_stats import get_user_stats
 
 router = APIRouter(
@@ -16,49 +17,47 @@ router = APIRouter(
 # --- ROUTES ---------------------------------------------------------------
 
 
-# DONE: [BACKLOG] Route /user-stats (GET) à vérifier
+# DONE: [BACKLOG] Route /user-stats (GET) verified
 @router.get(
     "",
     response_model=UserStatsOut,
     status_code=status.HTTP_200_OK,
-    summary="Obtenir les statistiques d'un utilisateur",
+    summary="Get user statistics",
     description=(
-        "Retourne les statistiques synthétiques de l'utilisateur courant "
-        "ou d'un autre utilisateur (username en query param, nécessite droits admin).\n\n"
-        "**Métriques incluses :**\n"
-        "- Nombre total de caches trouvées\n"
-        "- Nombre de challenges (total, actifs, terminés)\n"
-        "- Dates de première/dernière cache trouvée\n"
-        "- Date de création du compte\n"
-        "- Dernière activité (cache ou challenge)\n\n"
-        "**Accès :**\n"
-        "- Sans paramètre : statistiques de l'utilisateur courant\n"
-        "- Avec `username` : nécessite le rôle admin"
+        "Returns summary statistics for the current user "
+        "or another user (username as query param, requires admin role).\n\n"
+        "**Included metrics:**\n"
+        "- Total number of found caches\n"
+        "- Number of challenges (total, active, completed)\n"
+        "- First/last found cache dates\n"
+        "- Account creation date\n"
+        "- Last activity (cache or challenge)\n\n"
+        "**Access:**\n"
+        "- Without parameter: current user's statistics\n"
+        "- With `username`: requires admin role"
     ),
 )
 async def get_user_statistics(
     user_id: CurrentUserId,
-    username: Optional[str] = Query(
-        None, description="Username de l'utilisateur cible (admin seulement)"
-    ),
+    username: Optional[str] = Query(None, description="Target username (admin only)"),
 ) -> UserStatsOut:
-    """Obtenir les statistiques d'un utilisateur.
+    """Get user statistics.
 
     Description:
-        Calcule et retourne les statistiques synthétiques pour l'utilisateur courant
-        ou un utilisateur spécifique (si droits admin).
+        Computes and returns summary statistics for the current user
+        or a specific user (if admin rights).
 
     Args:
-        user_id (CurrentUserId): ID de l'utilisateur courant.
-        username (str | None): Username cible (optionnel, admin seulement).
+        user_id (CurrentUserId): Current user ID.
+        username (str | None): Target username (optional, admin only).
 
     Returns:
-        UserStatsOut: Statistiques calculées.
+        UserStatsOut: Computed statistics.
 
     Raises:
-        HTTPException 403: Si username fourni sans droits admin.
-        HTTPException 404: Si username cible non trouvé.
-        HTTPException 500: Si erreur de calcul.
+        HTTPException 403: If username provided without admin rights.
+        HTTPException 404: If target username not found.
+        HTTPException 500: If a computation error occurs.
     """
     try:
         stats = await get_user_stats(user_id, username)

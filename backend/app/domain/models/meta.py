@@ -7,7 +7,7 @@ from app.core.utils import utcnow
 
 
 class HealthCheck(BaseModel):
-    """Modèle de réponse health check"""
+    """Health check response model."""
 
     status: str = Field(..., description="Overall status: ok, degraded, error")
     timestamp: datetime = Field(default_factory=utcnow)
@@ -26,11 +26,11 @@ class HealthCheck(BaseModel):
 
 
 class VersionInfo(BaseModel):
-    """Informations de version"""
+    """Version information."""
 
-    version: str = Field(..., description="Version de l'API (semver)")
-    environment: str = Field(..., description="Environnement (dev, staging, prod)")
-    build_date: Optional[datetime] = Field(None, description="Date de build")
+    version: str = Field(..., description="API version (semver)")
+    environment: str = Field(..., description="Environment (dev, staging, prod)")
+    build_date: Optional[datetime] = Field(None, description="Build date")
 
     class Config:
         json_schema_extra = {
@@ -43,10 +43,10 @@ class VersionInfo(BaseModel):
 
 
 class APIInfo(BaseModel):
-    """Informations générales sur l'API"""
+    """General API information."""
 
     name: str
     version: str
-    build_date: Optional[datetime] = Field(None, description="Date de build")
+    build_date: Optional[datetime] = Field(None, description="Build date")
     documentation: str
     support: str

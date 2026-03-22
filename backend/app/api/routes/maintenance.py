@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 from collections.abc import Mapping, Sequence
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -22,16 +22,44 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 
-from app.core.config_backup import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
-from app.core.security import CurrentUserId, require_admin
+from app.api.deps import CurrentUserId, require_admin
+from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.gpx_importer_service import import_gpx_payload
 
-# Cache en mémoire
-cleanup_cache: dict = {}
-# Durée de validité de la clé de confirmation (en minutes)
+# Confirmation key validity duration (in minutes)
 CONFIRMATION_KEY_TTL = 10
+
+# Directory for persisting pending cleanup analyses awaiting confirmation
+PENDING_CLEANUP_DIR = BACKUP_ROOT_DIR / "pending_cleanups"
+
+
+def _pending_key_path(key: str) -> Path:
+    """Returns the path to the JSON file associated with a confirmation key."""
+    return PENDING_CLEANUP_DIR / f"{key}.json"
+
+
+def save_cleanup_pending(key: str, orphans: dict, expires_at: datetime) -> None:
+    """Persists an orphan analysis pending confirmation into a JSON file."""
+    PENDING_CLEANUP_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_pending_key_path(key), "w", encoding="utf-8") as f:
+        json.dump({"orphans": orphans, "expires_at": expires_at.isoformat()}, f)
+
+
+def load_cleanup_pending(key: str) -> dict | None:
+    """Loads a pending analysis from the JSON file. Returns None if not found."""
+    p = _pending_key_path(key)
+    if not p.exists():
+        return None
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def delete_cleanup_pending(key: str) -> None:
+    """Deletes the JSON file of a pending analysis."""
+    _pending_key_path(key).unlink(missing_ok=True)
+
 
 # Order matters for deletion: most central to most dependent (to prevent creating new orphans during cleanup)
 COLLECTION_DEPENDENCY_ORDER = [
@@ -137,21 +165,28 @@ async def find_nested_array_orphans(collection_name: str, field_path: str, ref_c
 
 
 # ============================================================================
-# UTILITAIRES
+# UTILITIES
 # ============================================================================
 
 
 def serialize_mongo_doc(doc):
-    """Convertit un document Mongo (avec ObjectId) en dict JSON-serializable"""
+    """Converts a Mongo document (containing ObjectId) to a JSON-serializable dict."""
     return json.loads(json_util.dumps(doc))
 
 
-def clean_expired_keys():
-    """Nettoie les clés de confirmation expirées du cache"""
+def clean_expired_keys() -> None:
+    """Deletes confirmation files whose expiration date has passed."""
+    if not PENDING_CLEANUP_DIR.exists():
+        return
     now = utcnow()
-    expired = [k for k, v in cleanup_cache.items() if v["expires_at"] < now]
-    for key in expired:
-        del cleanup_cache[key]
+    for p in PENDING_CLEANUP_DIR.glob("*.json"):
+        try:
+            with open(p, encoding="utf-8") as f:
+                data = json.load(f)
+            if datetime.fromisoformat(data["expires_at"]) < now:
+                p.unlink(missing_ok=True)
+        except Exception:
+            p.unlink(missing_ok=True)
 
 
 router = APIRouter(
@@ -159,7 +194,7 @@ router = APIRouter(
 )
 
 
-# DONE: [BACKLOG] Route /maintenance (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance (GET) verified
 @router.get("")
 async def maintenance_get_1() -> dict:
     result = {
@@ -172,7 +207,7 @@ async def maintenance_get_1() -> dict:
     return result
 
 
-# DONE: [BACKLOG] Route /maintenance (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance (POST) verified
 @router.post("")
 async def maintenance_post_1() -> dict:
     result = {
@@ -190,18 +225,18 @@ async def maintenance_post_1() -> dict:
 # ============================================================================
 
 # ============================================================================
-# ANALYSE DES ORPHELINS
+# ORPHAN ANALYSIS
 # ============================================================================
 
 
-# DONE: [BACKLOG] Route /maintenance/db_cleanup (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup (GET) verified
 @router.get("/db_cleanup")
 async def cleanup_analyze():
     """
-    Analyse la base de données pour détecter les enregistrements orphelins.
-    Analyse du plus central vers le plus périphérique pour détecter les orphelins directs et indirects.
-    Simule le processus de suppression pour détecter tous les orphelins potentiels.
-    Retourne un rapport et une clé de confirmation pour le nettoyage.
+    Analyzes the database to detect orphaned records.
+    Scans from most central to most peripheral to detect direct and indirect orphans.
+    Simulates the deletion process to detect all potential orphans.
+    Returns a report and a confirmation key for the cleanup.
     """
     clean_expired_keys()
 
@@ -317,12 +352,12 @@ async def cleanup_analyze():
             "total_orphans": 0,
         }
 
-    # Génère une clé de confirmation sécurisée
+    # Generate a secure confirmation key
     confirmation_key = secrets.token_urlsafe(16)
     expires_at = utcnow() + timedelta(minutes=CONFIRMATION_KEY_TTL)
 
-    # Stocke en cache
-    cleanup_cache[confirmation_key] = {"orphans": orphans, "expires_at": expires_at}
+    # Persist the analysis in a file shared across workers
+    save_cleanup_pending(confirmation_key, orphans, expires_at)
 
     return {
         "orphans_found": orphans,
@@ -333,31 +368,31 @@ async def cleanup_analyze():
     }
 
 
-# DONE: [BACKLOG] Route /maintenance/db_cleanup (DELETE) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup (DELETE) verified
 @router.delete("/db_cleanup")
 async def cleanup_execute(key: str):
     """
-    Exécute le nettoyage des enregistrements orphelins après confirmation.
-    Sauvegarde les données supprimées dans un fichier JSON horodaté.
+    Executes cleanup of orphaned records after confirmation.
+    Saves deleted data to a timestamped JSON file.
     Process collections in dependency order (most central first) to prevent creating new orphans.
 
     Args:
-        key: Clé de confirmation obtenue via GET /db_cleanup
+        key: Confirmation key obtained via GET /db_cleanup
     """
     clean_expired_keys()
 
-    # Vérifie la clé
-    if key not in cleanup_cache:
+    # Verify the key
+    cached_data = load_cleanup_pending(key)
+    if cached_data is None:
         raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
 
-    cached_data = cleanup_cache[key]
-    if utcnow() > cached_data["expires_at"]:
-        del cleanup_cache[key]
+    if utcnow() > datetime.fromisoformat(cached_data["expires_at"]):
+        delete_cleanup_pending(key)
         raise HTTPException(
             status_code=410, detail="Confirmation key expired. Please request a new analysis."
         )
 
-    # Prépare les données de backup
+    # Prepare backup data
     backup_data = {"timestamp": utcnow().isoformat(), "deleted_by_collection": {}, "data": {}}
 
     deleted_count = {}
@@ -383,14 +418,14 @@ async def cleanup_execute(key: str):
         for _, orphan_ids in collection_orphans.items():
             all_orphan_ids.update(orphan_ids)
 
-        # Convertit les IDs en ObjectId
+        # Convert IDs to ObjectId
         object_ids = [ObjectId(oid) for oid in all_orphan_ids]
 
-        # Récupère les documents complets AVANT suppression
+        # Retrieve full documents BEFORE deletion
         collection_obj = await get_collection(collection_name)
         docs_to_delete = await collection_obj.find({"_id": {"$in": object_ids}}).to_list(None)
 
-        # Ajoute au backup
+        # Add to backup
         if collection_name not in backup_data["data"]:
             backup_data["data"][collection_name] = []
 
@@ -398,11 +433,11 @@ async def cleanup_execute(key: str):
             [serialize_mongo_doc(doc) for doc in docs_to_delete]
         )
 
-        # Supprime les documents
+        # Delete the documents
         collection_obj = await get_collection(collection_name)
         result = await collection_obj.delete_many({"_id": {"$in": object_ids}})
 
-        # Agrège les compteurs par collection
+        # Aggregate counters per collection
         if collection_name not in deleted_count:
             deleted_count[collection_name] = 0
         deleted_count[collection_name] += result.deleted_count
@@ -411,7 +446,7 @@ async def cleanup_execute(key: str):
 
     backup_data["total_deleted"] = sum(deleted_count.values())
 
-    # Sauvegarde le fichier JSON avec horodatage
+    # Save the JSON file with timestamp
     timestamp_str = utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     output_dir = CLEANUP_BACKUP_DIR
     base_name = f"{timestamp_str}_cleanup"
@@ -421,8 +456,8 @@ async def cleanup_execute(key: str):
 
     file_size_mb = round(backup_file.stat().st_size / (1024 * 1024), 2)
 
-    # Nettoie le cache
-    del cleanup_cache[key]
+    # Delete the confirmation file
+    delete_cleanup_pending(key)
 
     return {
         "message": f"Successfully deleted {backup_data['total_deleted']} orphan(s)",
@@ -434,17 +469,17 @@ async def cleanup_execute(key: str):
     }
 
 
-# DONE: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) verified
 @router.get("/db_cleanup/backups")
 async def cleanup_list_backups():
-    """Liste tous les fichiers de backup disponibles"""
+    """Lists all available backup files."""
     backups = []
 
     for backup_file in sorted(CLEANUP_BACKUP_DIR.glob("*_cleanup.zip"), reverse=True):
         try:
             with ZipFile(backup_file, "r") as zf:
-                # le JSON interne s’appelle f"{base_name}.json"
-                # si tu ne connais pas le nom, prends le premier .json
+                # the internal JSON is named f"{base_name}.json"
+                # if the name is unknown, take the first .json entry
                 json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
                 if json_name:
                     data = json.loads(zf.read(json_name).decode("utf-8"))
@@ -458,26 +493,26 @@ async def cleanup_list_backups():
                         }
                     )
         except Exception as e:
-            # En cas d'erreur de lecture, on l'indique mais on ne crash pas
+            # On read error, report it but do not crash
             backups.append({"filename": backup_file.name, "error": str(e)})
 
     return {"backups": backups, "total_backups": len(backups)}
 
 
-# DONE: [BACKLOG] Route /maintenance/backups/{filepath:path} (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/backups/{filepath:path} (GET) verified
 @router.get("/backups/{filepath:path}")
 async def get_backup_file(filepath: str):
-    """Télécharge un fichier de backup (db_cleanup, full_backup, etc.)."""
+    """Downloads a backup file (db_cleanup, full_backup, etc.)."""
     requested_path = (BACKUP_ROOT_DIR / filepath).resolve()
 
-    # 🔒 Sécurité : empêche toute sortie du répertoire racine
+    # Security: prevent any path traversal outside the root directory
     if not str(requested_path).startswith(str(BACKUP_ROOT_DIR)):
         raise HTTPException(status_code=400, detail="Invalid file path")
 
     if not requested_path.exists() or not requested_path.is_file():
         raise HTTPException(status_code=404, detail="Backup file not found")
 
-    # 🔍 Détection du type de fichier
+    # Detect file type
     ext = requested_path.suffix.lower()
     media_type = {
         ".zip": "application/zip",
@@ -485,7 +520,7 @@ async def get_backup_file(filepath: str):
         ".gz": "application/gzip",
     }.get(ext, "application/octet-stream")
 
-    # 📦 Renvoi du fichier avec headers corrects
+    # Return the file with correct headers
     return FileResponse(
         path=str(requested_path),
         media_type=media_type,
@@ -493,42 +528,42 @@ async def get_backup_file(filepath: str):
     )
 
 
-# DONE: [BACKLOG] Route /maintenance/db_full_backup (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_full_backup (POST) verified
 @router.post("/db_full_backup")
 async def full_backup_create():
     """
-    Crée un backup complet de toute la base de données.
-    Sauvegarde toutes les collections dans un fichier JSON horodaté.
+    Creates a full backup of the entire database.
+    Saves all collections to a timestamped JSON file.
 
-    ⚠️ Attention : peut être lourd sur de grosses bases de données.
+    Warning: may be large on big databases.
     """
     db = get_db()
     backup_data = {"timestamp": utcnow().isoformat(), "database": db.name, "collections": {}}
 
     total_documents = 0
 
-    # Récupère la liste de toutes les collections
+    # Retrieve the list of all collections
     collection_names = await db.list_collection_names()
 
-    # Pour chaque collection
+    # For each collection
     for collection_name in collection_names:
-        # Skip les collections système de MongoDB
+        # Skip MongoDB system collections
         if collection_name.startswith("system."):
             continue
 
-        # Récupère tous les documents de la collection
+        # Retrieve all documents from the collection
         cursor = db[collection_name].find()
         docs = await cursor.to_list(length=None)
 
         if docs:
-            # Sérialise les documents (gère les ObjectId)
+            # Serialize documents (handles ObjectId)
             backup_data["collections"][collection_name] = [serialize_mongo_doc(doc) for doc in docs]
             total_documents += len(docs)
 
     backup_data["total_collections"] = len(backup_data["collections"])
     backup_data["total_documents"] = total_documents
 
-    # Crée le fichier de backup
+    # Create the backup file
     timestamp_str = utcnow().strftime("%Y-%m-%d_%H-%M-%S")
     output_dir = FULL_BACKUP_DIR
     base_name = f"{timestamp_str}_full_backup"
@@ -548,30 +583,33 @@ async def full_backup_create():
     }
 
 
-# DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) verified
 @router.post("/db_full_restore/{filename}")
 async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing: bool = False):
     """
-    Restaure une base de données complète depuis un backup.
+    Restores a complete database from a backup.
 
     Args:
-        filename: Nom du fichier de backup complet
-        dry_run: Si True, simule la restauration sans insérer (défaut: True)
-        drop_existing: Si True, vide les collections avant restauration (défaut: False)
+        filename: Name of the full backup file
+        dry_run: If True, simulates the restore without inserting (default: True)
+        drop_existing: If True, clears collections before restoring (default: False)
 
-    ⚠️ DANGER : drop_existing=True supprime toutes les données existantes !
+    WARNING: drop_existing=True deletes all existing data!
     """
-    # Sécurité
+    # Security check
     if ".." in filename or "/" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
-    backup_file = CLEANUP_BACKUP_DIR.parent / filename
+    backup_file = FULL_BACKUP_DIR / filename
 
     if not backup_file.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
 
-    with open(backup_file, encoding="utf-8") as f:
-        backup_data = json.load(f)
+    with ZipFile(backup_file, "r") as zf:
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            raise HTTPException(status_code=400, detail="No JSON found in backup archive")
+        backup_data = json.loads(zf.read(json_name).decode("utf-8"))
 
     restored = {}
     dropped = []
@@ -584,12 +622,12 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
                 doc["_id"] = ObjectId(doc["_id"]["$oid"])
 
         if not dry_run:
-            # Supprime la collection existante si demandé
+            # Drop the existing collection if requested
             if drop_existing:
                 await db[collection_name].delete_many({})
                 dropped.append(collection_name)
 
-            # Insertion réelle
+            # Actual insertion
             if docs:
                 result = await db[collection_name].insert_many(docs)
                 restored[collection_name] = len(result.inserted_ids)
@@ -613,18 +651,18 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
     return response
 
 
-# DONE: [BACKLOG] Route /maintenance/db_backups (GET) à vérifier
+# DONE: [BACKLOG] Route /maintenance/db_backups (GET) verified
 @router.get("/db_backups")
 async def list_all_backups():
-    """Liste tous les fichiers de backup (cleanup + full)"""
+    """Lists all backup files (cleanup + full)."""
     backups = {"cleanup_backups": [], "full_backups": []}
 
-    # Backups de cleanup
+    # Cleanup backups
     for backup_file in sorted(CLEANUP_BACKUP_DIR.glob("*.zip"), reverse=True):
         try:
             with ZipFile(backup_file, "r") as zf:
-                # le JSON interne s’appelle f"{base_name}.json"
-                # si tu ne connais pas le nom, prends le premier .json
+                # the internal JSON is named f"{base_name}.json"
+                # if the name is unknown, take the first .json entry
                 json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
                 if json_name:
                     data = json.loads(zf.read(json_name).decode("utf-8"))
@@ -641,12 +679,12 @@ async def list_all_backups():
         except Exception as e:
             backups["cleanup_backups"].append({"filename": backup_file.name, "error": str(e)})
 
-    # Backups complets
+    # Full backups
     for backup_file in sorted(FULL_BACKUP_DIR.glob("*.zip"), reverse=True):
         try:
             with ZipFile(backup_file, "r") as zf:
-                # le JSON interne s'appelle f"{base_name}.json"
-                # si tu ne connais pas le nom, prends le premier .json
+                # the internal JSON is named f"{base_name}.json"
+                # if the name is unknown, take the first .json entry
                 json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
                 if json_name:
                     data = json.loads(zf.read(json_name).decode("utf-8"))
@@ -661,7 +699,7 @@ async def list_all_backups():
                         }
                     )
                 else:
-                    # Si aucun fichier JSON n'est trouvé dans le ZIP
+                    # If no JSON file is found in the ZIP
                     backups["full_backups"].append(
                         {
                             "filename": backup_file.name,
@@ -680,15 +718,15 @@ async def list_all_backups():
 
 def write_json_zip(backup_data: dict, output_dir: str | Path, base_name: str) -> Path:
     """
-    Écrit un fichier ZIP contenant un JSON unique directement depuis un objet Python.
+    Writes a ZIP file containing a single JSON file directly from a Python object.
 
     Args:
-        backup_data: Données à sauvegarder (dict, list, etc.)
-        output_dir: Dossier de destination.
-        base_name: Nom de base du fichier (sans extension).
+        backup_data: Data to save (dict, list, etc.)
+        output_dir: Destination directory.
+        base_name: Base filename (without extension).
 
     Returns:
-        Path: chemin complet du fichier ZIP créé.
+        Path: Full path to the created ZIP file.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -696,70 +734,70 @@ def write_json_zip(backup_data: dict, output_dir: str | Path, base_name: str) ->
     zip_path = output_dir / f"{base_name}.zip"
     json_name_in_zip = f"{base_name}.json"
 
-    # Convertir les données en JSON (en mémoire)
+    # Convert data to JSON (in memory)
     payload = json.dumps(backup_data, ensure_ascii=False, indent=2)
 
-    # Écrire directement le ZIP
+    # Write the ZIP directly
     with ZipFile(zip_path, mode="w", compression=ZIP_DEFLATED) as zf:
         zf.writestr(json_name_in_zip, payload)
 
     return zip_path
 
 
-# TODO: [BACKLOG] Route /maintenance/import-gpx (POST) à vérifier
+# TODO: [BACKLOG] Route /maintenance/import-gpx (POST) to verify
 @router.post(
     "/upload-gpx",
-    summary="Import GPX avec mise à jour forcée des attributs",
+    summary="Import GPX with forced attribute update",
     description=(
-        "Importe un fichier GPX/ZIP et force la mise à jour des attributs pour toutes les caches.\n\n"
-        "**⚠️ RESTREINT AUX ADMINISTRATEURS**\n\n"
-        "Fonctionne comme l'import standard mais met à jour les attributs même s'ils existent déjà.\n"
-        "Supporte les mêmes formats que l'import standard (cgeo, pocket_query, etc.).\n"
-        "Retourne un résumé d'import et des statistiques liées aux challenges."
+        "Imports a GPX/ZIP file and forces attribute updates for all caches.\n\n"
+        "**RESTRICTED TO ADMINISTRATORS**\n\n"
+        "Works like the standard import but updates attributes even if they already exist.\n"
+        "Supports the same formats as the standard import (cgeo, pocket_query, etc.).\n"
+        "Returns an import summary and challenge-related statistics."
     ),
     responses={
-        200: {"description": "Import GPX réussi avec mise à jour forcée des attributs"},
-        400: {"description": "Fichier GPX/ZIP invalide"},
-        401: {"description": "Non authentifié"},
-        403: {"description": "Accès refusé (admin requis)"},
+        200: {"description": "GPX import successful with forced attribute update"},
+        400: {"description": "Invalid GPX/ZIP file"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Access denied (admin required)"},
     },
 )
 async def upload_gpx(
     request: Request,
     user_id: CurrentUserId,
     file: Annotated[
-        UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
+        UploadFile, File(..., description="GPX file to import (or ZIP containing a GPX).")
     ],
     import_mode: Literal["all", "found"] = Query(
         "all",
-        description="Mode d'import: 'all' (toutes les caches) ou 'found' (mes trouvailles)",
+        description="Import mode: 'all' (all caches) or 'found' (my finds)",
     ),
     source_type: Literal["auto", "cgeo", "pocket_query"] = Query(
         "auto",
-        description="Type de source GPX: 'auto' (détection automatique), 'cgeo', 'pocket_query'",
+        description="GPX source type: 'auto' (automatic detection), 'cgeo', 'pocket_query'",
     ),
 ) -> dict[str, Any]:
-    """Import GPX avec mise à jour forcée des attributs.
+    """Import GPX with forced attribute update.
 
     Description:
-        Importe un fichier GPX/ZIP et force la mise à jour des attributs pour toutes les caches.
-        Cette fonctionnalité est réservée aux administrateurs.
+        Imports a GPX/ZIP file and forces attribute updates for all caches.
+        This feature is reserved for administrators.
 
     Args:
-        file: Fichier GPX ou ZIP à traiter.
-        import_mode: Mode d'import ('all' pour toutes les caches, 'found' pour les trouvailles).
-        source_type: Type de source GPX ('auto', 'cgeo', 'pocket_query').
+        file: GPX or ZIP file to process.
+        import_mode: Import mode ('all' for all caches, 'found' for finds only).
+        source_type: GPX source type ('auto', 'cgeo', 'pocket_query').
 
     Returns:
-        dict: Résumé d'import et statistiques liées aux challenges.
+        dict: Import summary and challenge-related statistics.
 
     Raises:
-        HTTPException 400: Si le fichier est invalide.
-        HTTPException 403: Si l'utilisateur n'est pas admin.
+        HTTPException 400: If the file is invalid.
+        HTTPException 403: If the user is not an admin.
     """
     result: dict[str, Any] = {"summary": None, "challenge_stats": None}
 
-    # Lecture du fichier
+    # Read the file
     chunks: list[bytes] = []
     while True:
         chunk = await file.read(1024 * 1024)  # 1MB chunks
@@ -775,14 +813,58 @@ async def upload_gpx(
             payload=payload,
             filename=file.filename or "upload.gpx",
             import_mode=import_mode,
-            user_id=None,  # Pour l'import forcé, on pourrait spécifier un utilisateur spécifique ou laisser à None
+            user_id=None,  # For forced import, a specific user could be provided or left as None
             request=request,
             source_type=source_type,
-            force_update_attributes=True,  # Toujours vrai pour cette route
+            force_update_attributes=True,  # Always true for this route
         )
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Fichier GPX/ZIP invalide: {e}") from e
+        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP file: {e}") from e
 
     return result
+
+
+@router.delete(
+    "/expired-verifications",
+    summary="Clean up expired verification codes",
+    description=(
+        "Removes the `verification_code` and `verification_expires_at` fields "
+        "from unverified accounts whose code has expired.\n\n"
+        "**RESTRICTED TO ADMINISTRATORS**\n\n"
+        "Does not delete accounts — only removes stale verification fields."
+    ),
+    responses={
+        200: {"description": "Cleanup completed"},
+        401: {"description": "Not authenticated"},
+        403: {"description": "Access denied (admin required)"},
+    },
+)
+async def cleanup_expired_verifications(
+    _: Annotated[Any, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Cleans up expired verification codes from unverified accounts.
+
+    Description:
+        Finds all unverified users whose `verification_expires_at` is before
+        the current time, and removes the `verification_code` and
+        `verification_expires_at` fields (without deleting the account).
+
+    Args:
+        _: Admin authorization dependency (not used directly).
+
+    Returns:
+        dict: Number of updated documents.
+    """
+    coll_users = await get_collection("users")
+    result = await coll_users.update_many(
+        {
+            "is_verified": False,
+            "verification_expires_at": {"$lt": utcnow()},
+        },
+        {
+            "$unset": {"verification_code": "", "verification_expires_at": ""},
+        },
+    )
+    return {"cleaned": result.modified_count}

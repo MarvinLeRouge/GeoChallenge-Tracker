@@ -1,5 +1,5 @@
 # backend/app/models/target_dto.py
-# Schémas de sortie pour les endpoints de targets (listes, per-task, global).
+# Output schemas for target endpoints (lists, per-task, global).
 
 from __future__ import annotations
 
@@ -7,11 +7,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-# ---- Types communs ----
+# ---- Common types ----
 
 
 class LocOut(BaseModel):
-    """Coordonnées décimales.
+    """Decimal coordinates.
 
     Attributes:
         lat (float): Latitude.
@@ -22,36 +22,36 @@ class LocOut(BaseModel):
     lng: float
 
 
-# ---- Sorties "list" pour les routes GET /targets ----
+# ---- List outputs for GET /targets routes ----
 
 
 class TargetListItemOut(BaseModel):
-    """Élément de liste « target ».
+    """Target list item.
 
     Description:
-        Représente une cache candidate qui satisfait ≥1 tâche. `distance_km` n’est présent
-        que pour les endpoints « nearby ».
+        Represents a candidate cache that satisfies ≥1 task. `distance_km` is only present
+        for "nearby" endpoints.
 
     Attributes:
-        id (str): Id du document target.
-        user_challenge_id (str): UC concerné.
-        cache_id (str): Cache ciblée.
-        GC (str | None): Code GC (si jointure).
-        name (str | None): Nom de la cache (si jointure).
-        loc (LocOut | None): Coordonnées (si jointure).
-        matched_task_ids (list[str]): Tâches satisfaites.
-        primary_task_id (str | None): Tâche principale.
-        score (float): Score de tri.
-        reasons (list[str]): Raisons textuelles.
-        pinned (bool): Épinglée.
-        distance_km (float | None): Distance (si mode nearby).
+        id (str): Target document id.
+        user_challenge_id (str): Relevant UserChallenge.
+        cache_id (str): Targeted cache.
+        GC (str | None): GC code (if joined).
+        name (str | None): Cache name (if joined).
+        loc (LocOut | None): Coordinates (if joined).
+        matched_task_ids (list[str]): Matched tasks.
+        primary_task_id (str | None): Primary task.
+        score (float): Sort score.
+        reasons (list[str]): Textual reasons.
+        pinned (bool): Pinned.
+        distance_km (float | None): Distance (if nearby mode).
     """
 
-    id: str  # id du document target
+    id: str  # target document id
     user_challenge_id: str
     cache_id: str
 
-    # Résumé cache (optionnel selon la jointure effectuée côté service)
+    # Cache summary (optional depending on the join performed by the service)
     GC: str | None = None
     name: str | None = None
     loc: LocOut | None = None
@@ -63,18 +63,18 @@ class TargetListItemOut(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     pinned: bool = False
 
-    distance_km: float | None = None  # si recherche 'nearby'
+    distance_km: float | None = None  # if ‘nearby’ search
 
 
 class TargetListResponse(BaseModel):
-    """Réponse liste paginée de targets.
+    """Paginated target list response.
 
     Attributes:
-        items (list[TargetListItemOut]): Résultats.
-        nb_items (int): Nb items trouvés.
-        page (int): Page courante.
-        page_size (int): Taille de page.
-        nb_pages (int): Nombre de pages.
+        items (list[TargetListItemOut]): Results.
+        nb_items (int): Total items found.
+        page (int): Current page.
+        page_size (int): Page size.
+        nb_pages (int): Total pages.
     """
 
     items: list[TargetListItemOut]
@@ -84,15 +84,15 @@ class TargetListResponse(BaseModel):
     nb_pages: int
 
 
-# ---- (Optionnel) DTO de preview "par tâche" ----
+# ---- (Optional) "per-task" preview DTO ----
 
 
 class MatchRef(BaseModel):
-    """Référence (UC, Task) couverte.
+    """Covered (UC, Task) reference.
 
     Attributes:
-        uc_id (str): UC visé.
-        task_id (str): Tâche couverte.
+        uc_id (str): Target UserChallenge.
+        task_id (str): Covered task.
     """
 
     uc_id: str
@@ -100,24 +100,24 @@ class MatchRef(BaseModel):
 
 
 class TargetOut(BaseModel):
-    """Target enrichie (preview).
+    """Enriched target (preview).
 
     Description:
-        Vue détaillée optionnelle si les services réalisent des jointures/agrégations.
+        Optional detailed view when services perform joins/aggregations.
 
     Attributes:
-        cache_id (str): Id cache.
-        name (str): Nom cache.
-        loc (LocOut): Coordonnées.
+        cache_id (str): Cache id.
+        name (str): Cache name.
+        loc (LocOut): Coordinates.
         type_id (str | None): Type.
         difficulty (float | None): D.
         terrain (float | None): T.
-        matched (list[MatchRef]): Couvertures.
+        matched (list[MatchRef]): Coverages.
         score (float): Score.
-        reasons (list[str]): Raisons.
+        reasons (list[str]): Reasons.
         distance_km (float | None): Distance (nearby).
-        already_found (bool): Déjà trouvée.
-        pinned (bool): Épinglée.
+        already_found (bool): Already found.
+        pinned (bool): Pinned.
     """
 
     cache_id: str
@@ -135,13 +135,13 @@ class TargetOut(BaseModel):
 
 
 class PerTaskBucket(BaseModel):
-    """Grappe de candidats par tâche.
+    """Candidate bucket per task.
 
     Attributes:
-        uc_id (str): UC.
-        task_id (str): Tâche.
-        needed (int): Restant à couvrir.
-        candidates (list[TargetOut]): Sélection proposée.
+        uc_id (str): UserChallenge.
+        task_id (str): Task.
+        needed (int): Remaining to cover.
+        candidates (list[TargetOut]): Proposed selection.
     """
 
     uc_id: str
@@ -151,12 +151,12 @@ class PerTaskBucket(BaseModel):
 
 
 class TargetsPreviewPerTaskResponse(BaseModel):
-    """Réponse de preview « par tâche ».
+    """Per-task preview response.
 
     Attributes:
-        mode (Literal['per_task']): Indicateur de mode.
-        buckets (list[PerTaskBucket]): Groupes par tâche.
-        meta (dict): Métadonnées libres.
+        mode (Literal['per_task']): Mode indicator.
+        buckets (list[PerTaskBucket]): Buckets per task.
+        meta (dict): Free-form metadata.
     """
 
     mode: Literal["per_task"] = "per_task"
@@ -164,16 +164,16 @@ class TargetsPreviewPerTaskResponse(BaseModel):
     meta: dict[str, Any] = Field(default_factory=dict)
 
 
-# ---- (Optionnel) DTO de preview "global" ----
+# ---- (Optional) "global" preview DTO ----
 
 
 class CoverageGap(BaseModel):
-    """Manque de couverture.
+    """Coverage gap.
 
     Attributes:
-        uc_id (str): UC.
-        task_id (str): Tâche.
-        remaining (int): Reste à couvrir.
+        uc_id (str): UserChallenge.
+        task_id (str): Task.
+        remaining (int): Remaining to cover.
     """
 
     uc_id: str
@@ -182,14 +182,14 @@ class CoverageGap(BaseModel):
 
 
 class TargetsPreviewGlobalResponse(BaseModel):
-    """Réponse de preview « global ».
+    """Global preview response.
 
     Attributes:
-        mode (Literal['global']): Indicateur de mode.
-        selection (list[TargetOut]): Sélection globale.
-        covered_pairs (int): Couples (UC,Task) couverts.
-        remaining (list[CoverageGap]): Manques restants.
-        meta (dict): Métadonnées libres.
+        mode (Literal['global']): Mode indicator.
+        selection (list[TargetOut]): Global selection.
+        covered_pairs (int): Covered (UC, Task) pairs.
+        remaining (list[CoverageGap]): Remaining gaps.
+        meta (dict): Free-form metadata.
     """
 
     mode: Literal["global"] = "global"

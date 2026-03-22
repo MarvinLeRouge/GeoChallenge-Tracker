@@ -1,5 +1,5 @@
 # backend/app/models/target.py
-# Représente une cache candidate (target) pour un UserChallenge, avec scoring, géo et diagnostics.
+# Represents a candidate cache (target) for a UserChallenge, with scoring, geo data and diagnostics.
 
 from __future__ import annotations
 
@@ -15,31 +15,29 @@ from app.core.utils import utcnow
 
 
 class TargetDiagnosticsSubscores(BaseModel):
-    """Sous-scores de diagnostic (0–1).
+    """Diagnostic sub-scores (0–1).
 
     Attributes:
-        tasks (float): Part des tâches non terminées couvertes.
-        urgency (float): Urgence (max ratio remaining/min_count).
-        geo (float): Facteur distance (1 si pas de contrainte géo).
+        tasks (float): Share of incomplete tasks covered.
+        urgency (float): Urgency (max ratio remaining/min_count).
+        geo (float): Distance factor (1 if no geo constraint).
     """
 
-    tasks: float = Field(ge=0.0, le=1.0)  # part des tasks non-done couvertes par la cache
-    urgency: float = Field(
-        ge=0.0, le=1.0
-    )  # max ratio (remaining/min_count) parmi les tasks couvertes
-    geo: float = Field(ge=0.0, le=1.0)  # facteur distance (1/(1+d/D0)) ou 1 si pas de géo
+    tasks: float = Field(ge=0.0, le=1.0)  # share of non-done tasks covered by this cache
+    urgency: float = Field(ge=0.0, le=1.0)  # max ratio (remaining/min_count) among covered tasks
+    geo: float = Field(ge=0.0, le=1.0)  # distance factor (1/(1+d/D0)) or 1 if no geo constraint
 
 
 class TargetDiagnostics(BaseModel):
-    """Bloc de diagnostic complet.
+    """Full diagnostic block.
 
     Description:
-        Détaille les tâches satisfaites et les sous-scores utilisés pour le tri/scoring.
+        Details the matched tasks and sub-scores used for sorting/scoring.
 
     Attributes:
-        matched (list[dict]): Détails des correspondances (internes debug).
-        subscores (TargetDiagnosticsSubscores): Sous-scores de la target.
-        evaluated_at (datetime): Timestamp UTC du calcul.
+        matched (list[dict]): Match details (internal debug).
+        subscores (TargetDiagnosticsSubscores): Target sub-scores.
+        evaluated_at (datetime): UTC computation timestamp.
     """
 
     matched: list[dict[str, Any]] = Field(default_factory=list)
@@ -49,25 +47,25 @@ class TargetDiagnostics(BaseModel):
     model_config = ConfigDict(json_encoders={PyObjectId: str})
 
 
-# Schéma Mongo "targets"
-# - 1 document par (user_challenge_id, cache_id)
-# - dénormalisation minimale de la position (GeoJSON Point) pour $geoNear
+# "targets" Mongo schema
+# - 1 document per (user_challenge_id, cache_id)
+# - minimal position denormalization (GeoJSON Point) for $geoNear
 
 
 class TargetCreate(BaseModel):
-    """Payload d’upsert d’une target.
+    """Target upsert payload.
 
     Attributes:
-        user_id (PyObjectId): Réf. utilisateur.
-        user_challenge_id (PyObjectId): Réf. UC.
-        cache_id (PyObjectId): Réf. cache candidate.
-        primary_task_id (PyObjectId): Tâche principalement satisfaite.
-        satisfies_task_ids (list[PyObjectId]): Autres tâches satisfaites.
-        score (float | None): Score de tri.
-        reasons (list[str] | None): Raisons textuelles.
-        pinned (bool): Épinglée par l’utilisateur.
+        user_id (PyObjectId): User reference.
+        user_challenge_id (PyObjectId): UC reference.
+        cache_id (PyObjectId): Candidate cache reference.
+        primary_task_id (PyObjectId): Primarily matched task.
+        satisfies_task_ids (list[PyObjectId]): Other matched tasks.
+        score (float | None): Sort score.
+        reasons (list[str] | None): Textual reasons.
+        pinned (bool): Pinned by the user.
         loc (dict | None): GeoJSON Point `[lon, lat]`.
-        diagnostics (TargetDiagnostics | None): Diagnostic interne.
+        diagnostics (TargetDiagnostics | None): Internal diagnostic.
     """
 
     user_id: PyObjectId
@@ -84,7 +82,7 @@ class TargetCreate(BaseModel):
     # GeoJSON Point: {"type": "Point", "coordinates": [lon, lat]}
     loc: dict[str, Any] | None = None
 
-    # utile en debug, jamais exposé côté API publique
+    # useful for debug, never exposed via the public API
     diagnostics: TargetDiagnostics | None = None
 
     model_config = ConfigDict(
@@ -95,16 +93,16 @@ class TargetCreate(BaseModel):
 
 
 class TargetUpdate(BaseModel):
-    """Payload de mise à jour d’une target.
+    """Target update payload.
 
     Attributes:
-        satisfies_task_ids (list[PyObjectId] | None): Ajustements de couverture.
-        score (float | None): Nouveau score.
-        reasons (list[str] | None): Nouvelles raisons.
-        pinned (bool | None): Épinglage.
-        loc (dict | None): Point GeoJSON.
+        satisfies_task_ids (list[PyObjectId] | None): Coverage adjustments.
+        score (float | None): New score.
+        reasons (list[str] | None): New reasons.
+        pinned (bool | None): Pinned flag.
+        loc (dict | None): GeoJSON Point.
         diagnostics (TargetDiagnostics | None): Diagnostic.
-        updated_at (datetime | None): Timestamp MAJ.
+        updated_at (datetime | None): Update timestamp.
     """
 
     satisfies_task_ids: list[PyObjectId] | None = None
@@ -123,24 +121,24 @@ class TargetUpdate(BaseModel):
 
 
 class Target(MongoBaseModel):
-    """Document Mongo d’une target.
+    """Target Mongo document.
 
     Description:
-        1 document par couple (user_challenge_id, cache_id). Dénormalise la position pour les requêtes géo.
+        1 document per (user_challenge_id, cache_id) pair. Denormalizes position for geo queries.
 
     Attributes:
-        user_id (PyObjectId): Réf. utilisateur.
-        user_challenge_id (PyObjectId): Réf. UC.
-        cache_id (PyObjectId): Réf. cache.
-        primary_task_id (PyObjectId): Tâche principale.
-        satisfies_task_ids (list[PyObjectId]): Tâches couvertes.
+        user_id (PyObjectId): User reference.
+        user_challenge_id (PyObjectId): UC reference.
+        cache_id (PyObjectId): Cache reference.
+        primary_task_id (PyObjectId): Primary task.
+        satisfies_task_ids (list[PyObjectId]): Covered tasks.
         score (float | None): Score.
-        reasons (list[str] | None): Raisons.
-        pinned (bool): Épinglée.
+        reasons (list[str] | None): Reasons.
+        pinned (bool): Pinned.
         loc (dict | None): GeoJSON Point.
         diagnostics (TargetDiagnostics | None): Diagnostic.
-        created_at (datetime): Création (UTC).
-        updated_at (datetime | None): MAJ (UTC).
+        created_at (datetime): Creation time (UTC).
+        updated_at (datetime | None): Last update (UTC).
     """
 
     user_id: PyObjectId

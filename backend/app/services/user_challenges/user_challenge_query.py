@@ -1,5 +1,5 @@
 # backend/app/services/user_challenges/user_challenge_query.py
-# Service de requêtes optimisées pour les UserChallenges.
+# Optimized query service for UserChallenges.
 
 from __future__ import annotations
 
@@ -12,18 +12,18 @@ from .status_calculator import StatusCalculator
 
 
 class UserChallengeQuery:
-    """Service de requêtes pour UserChallenges.
+    """Query service for UserChallenges.
 
     Description:
-        Responsable des requêtes complexes avec jointures,
-        pagination et filtrage pour les UserChallenges.
+        Responsible for complex queries with joins, pagination,
+        and filtering for UserChallenges.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service de requêtes.
+        """Initialize the query service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self.status_calculator = StatusCalculator()
@@ -35,21 +35,21 @@ class UserChallengeQuery:
         page: int = 1,
         page_size: int = 50,
     ) -> dict[str, Any]:
-        """Lister les UserChallenges avec pagination et filtrage.
+        """List UserChallenges with pagination and filtering.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            status_filter: Filtre de statut effectif.
-            page: Numéro de page (1-based).
-            page_size: Taille de page.
+            user_id: User identifier.
+            status_filter: Effective status filter.
+            page: Page number (1-based).
+            page_size: Page size.
 
         Returns:
-            dict: Résultats paginés avec metadata.
+            dict: Paginated results with metadata.
         """
-        # Construire le pipeline de base
+        # Build the base pipeline
         pipeline = self._build_list_pipeline(user_id, status_filter)
 
-        # Compter le total
+        # Count total
         total_count = await self._count_filtered_user_challenges(user_id, status_filter)
 
         # Pagination
@@ -61,21 +61,21 @@ class UserChallengeQuery:
             ]
         )
 
-        # Exécuter la requête
+        # Execute the query
         coll_ucs = self.db.user_challenges
         cursor = coll_ucs.aggregate(pipeline)
         items = []
 
         async for doc in cursor:
-            # Calculer le statut effectif
+            # Calculate the effective status
             doc["effective_status"] = self.status_calculator.calculate_effective_status(
                 doc.get("status"), doc.get("computed_status")
             )
-            # Convertir _id en string
+            # Convert _id to string
             doc["id"] = str(doc.pop("_id"))
             items.append(doc)
 
-        # Calculer la pagination
+        # Calculate pagination
         nb_pages = (total_count + page_size - 1) // page_size
 
         return {
@@ -83,25 +83,25 @@ class UserChallengeQuery:
             "page": page,
             "page_size": page_size,
             "nb_pages": nb_pages,
-            "total": total_count,
+            "nb_items": total_count,
         }
 
     async def get_user_challenge_detail(
         self, user_id: ObjectId, uc_id: ObjectId
     ) -> dict[str, Any] | None:
-        """Récupérer le détail complet d'un UserChallenge.
+        """Retrieve the full detail of a UserChallenge.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            dict | None: Détail enrichi ou None si non trouvé.
+            dict | None: Enriched detail or None if not found.
         """
         pipeline: list[dict[str, Any]] = [
-            # Matcher l'UC spécifique
+            # Match the specific UC
             {"$match": {"_id": uc_id, "user_id": user_id}},
-            # Joindre avec le challenge
+            # Join with challenge
             {
                 "$lookup": {
                     "from": "challenges",
@@ -111,7 +111,7 @@ class UserChallengeQuery:
                 }
             },
             {"$unwind": "$challenge"},
-            # Joindre avec la cache
+            # Join with cache
             {
                 "$lookup": {
                     "from": "caches",
@@ -121,7 +121,7 @@ class UserChallengeQuery:
                 }
             },
             {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
-            # Projection complète
+            # Full projection
             {
                 "$project": {
                     "_id": 1,
@@ -160,11 +160,11 @@ class UserChallengeQuery:
 
         try:
             doc = await cursor.next()
-            # Calculer le statut effectif
+            # Calculate the effective status
             doc["effective_status"] = self.status_calculator.calculate_effective_status(
                 doc.get("status"), doc.get("computed_status")
             )
-            # Convertir _id en string
+            # Convert _id to string
             doc["id"] = str(doc.pop("_id"))
             return doc
         except StopAsyncIteration:
@@ -173,28 +173,28 @@ class UserChallengeQuery:
     def _build_list_pipeline(
         self, user_id: ObjectId, status_filter: str | None
     ) -> list[dict[str, Any]]:
-        """Construire le pipeline de base pour la liste.
+        """Build the base pipeline for the list query.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            status_filter: Filtre de statut.
+            user_id: User identifier.
+            status_filter: Status filter.
 
         Returns:
-            list: Pipeline MongoDB.
+            list: MongoDB pipeline.
         """
         pipeline: list[dict[str, Any]] = [
             {"$match": {"user_id": user_id}},
         ]
 
-        # Ajouter le filtre de statut si spécifié
+        # Add the status filter if specified
         if status_filter:
             status_stages = self.status_calculator.build_status_filter_pipeline(status_filter)
             pipeline.extend(status_stages)
 
-        # Jointures avec challenge et cache
+        # Joins with challenge and cache
         pipeline.extend(
             [
-                # Joindre avec challenge
+                # Join with challenge
                 {
                     "$lookup": {
                         "from": "challenges",
@@ -204,7 +204,7 @@ class UserChallengeQuery:
                     }
                 },
                 {"$unwind": "$challenge"},
-                # Joindre avec cache
+                # Join with cache
                 {
                     "$lookup": {
                         "from": "caches",
@@ -214,7 +214,7 @@ class UserChallengeQuery:
                     }
                 },
                 {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
-                # Projection pour la liste
+                # List projection
                 {
                     "$project": {
                         "_id": 1,
@@ -240,7 +240,7 @@ class UserChallengeQuery:
                         },
                     }
                 },
-                # Tri par updated_at desc par défaut
+                # Default sort by updated_at descending
                 {"$sort": {"updated_at": -1}},
             ]
         )
@@ -250,25 +250,25 @@ class UserChallengeQuery:
     async def _count_filtered_user_challenges(
         self, user_id: ObjectId, status_filter: str | None
     ) -> int:
-        """Compter les UserChallenges avec filtrage.
+        """Count UserChallenges with filtering.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            status_filter: Filtre de statut.
+            user_id: User identifier.
+            status_filter: Status filter.
 
         Returns:
-            int: Nombre de résultats.
+            int: Number of results.
         """
         pipeline: list[dict[str, Any]] = [
             {"$match": {"user_id": user_id}},
         ]
 
-        # Ajouter le filtre de statut si spécifié
+        # Add the status filter if specified
         if status_filter:
             status_stages = self.status_calculator.build_status_filter_pipeline(status_filter)
             pipeline.extend(status_stages)
 
-        # Compter
+        # Count
         pipeline.append({"$count": "total"})
 
         coll_ucs = self.db.user_challenges

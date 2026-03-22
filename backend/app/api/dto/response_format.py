@@ -6,7 +6,7 @@ T = TypeVar("T")
 
 
 class SuccessResponse(BaseModel, Generic[T]):
-    """Format standardisé pour les réponses de succès."""
+    """Standardized format for success responses."""
 
     success: bool = True
     data: Optional[T] = None
@@ -14,14 +14,14 @@ class SuccessResponse(BaseModel, Generic[T]):
 
 
 class ErrorResponse(BaseModel):
-    """Format standardisé pour les réponses d'erreur."""
+    """Standardized format for error responses."""
 
     success: bool = False
     error: dict[str, Any]
 
     @classmethod
     def from_detail(cls, detail: Union[str, dict[str, Any]], code: str = "VALIDATION_ERROR"):
-        """Créer une réponse d'erreur à partir d'un détail."""
+        """Create an error response from a detail value."""
         if isinstance(detail, str):
             return cls(error={"code": code, "message": detail})
         return cls(error={"code": code, **detail})

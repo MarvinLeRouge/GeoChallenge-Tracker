@@ -1,13 +1,14 @@
 # backend/app/api/routes/my_challenges.py
-# Routes "mes challenges" : synchronisation, listing, patch en lot, détail et patch unitaire d’un UserChallenge.
+# "My challenges" routes: sync, listing, batch patch, detail, and individual patch of a UserChallenge.
 
 from __future__ import annotations
 
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, HTTPException, Path, Query, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.calendar_verification import (
     CalendarFilters,
     CalendarResult,
@@ -26,7 +27,6 @@ from app.api.dto.user_challenge_batch import (
     BatchPatchResultItem,
 )
 from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUserId, get_current_user
 from app.db.mongodb import get_db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
@@ -40,45 +40,44 @@ from app.services.user_challenges_service import (
 router = APIRouter(
     prefix="/my/challenges",
     tags=["My challenges"],
-    dependencies=[Depends(get_current_user)],
 )
 
 
-# TODO: [BACKLOG] Route /my/challenges/sync (POST) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/sync (POST) to verify
 @router.post(
     "/sync",
     status_code=200,
-    summary="Synchroniser les UserChallenges manquants",
+    summary="Synchronize missing UserChallenges",
     description=(
-        "Crée les UserChallenges **manquants** pour l’utilisateur courant (statut `pending`).\n\n"
-        "- N’altère pas ceux déjà existants\n"
-        "- Retourne des statistiques de synchronisation"
+        "Creates **missing** UserChallenges for the current user (status `pending`).\n\n"
+        "- Does not alter existing ones\n"
+        "- Returns synchronization statistics"
     ),
 )
 async def sync(user_id: CurrentUserId):
-    """Synchroniser les UserChallenges.
+    """Synchronizes UserChallenges.
 
     Description:
-        Crée les UserChallenges manquants (status initial `pending`) en fonction des challenges disponibles.
+        Creates missing UserChallenges (initial status `pending`) based on available challenges.
 
     Args:
 
     Returns:
-        dict: Statistiques (créations, ignorés, etc.).
+        dict: Statistics (created, skipped, etc.).
     """
     stats = await sync_user_challenges(user_id)
     return stats
 
 
-# TODO: [BACKLOG] Route /my/challenges (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges (GET) to verify
 @router.get(
     "",
     response_model=UserChallengeListResponse,
-    summary="Lister mes UserChallenges",
+    summary="List my UserChallenges",
     description=(
-        "Retourne la liste paginée des UserChallenges de l’utilisateur.\n\n"
-        "- Filtre optionnel `status` (pending|accepted|dismissed|completed)\n"
-        "- Pagination via `page` et `page_size` (max 200)"
+        "Returns the paginated list of UserChallenges for the current user.\n\n"
+        "- Optional `status` filter (pending|accepted|dismissed|completed)\n"
+        "- Pagination via `page` and `page_size` (max 200)"
     ),
 )
 async def list_uc(
@@ -86,35 +85,35 @@ async def list_uc(
     status: str | None = Query(
         default=None,
         enum=["pending", "accepted", "dismissed", "completed"],
-        description="Filtrer par statut du UserChallenge.",
+        description="Filter by UserChallenge status.",
     ),
-    page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
+    page: int = Query(1, ge=1, description="Page number (≥1)."),
+    page_size: int = Query(50, ge=1, le=200, description="Page size (1–200)."),
 ):
-    """Lister mes UserChallenges (paginé).
+    """List my UserChallenges (paginated).
 
     Description:
-        Permet de filtrer par statut et de paginer la liste des UserChallenges.
+        Allows filtering by status and paginating the list of UserChallenges.
 
     Args:
-        status (str | None): Statut à filtrer.
-        page (int): Numéro de page (≥1).
-        page_size (int): Taille de page (1–200).
+        status (str | None): Status to filter by.
+        page (int): Page number (≥1).
+        page_size (int): Page size (1–200).
 
     Returns:
-        UserChallengeListResponse: Items et informations de pagination.
+        UserChallengeListResponse: Items and pagination information.
     """
     return await list_user_challenges(user_id, status, page, page_size)
 
 
-# TODO: [BACKLOG] Route /my/challenges (PATCH) à vérifier
+# TODO: [BACKLOG] Route /my/challenges (PATCH) to verify
 @router.patch(
     "",
     response_model=BatchPatchResponse,
-    summary="Patch en lot de plusieurs UserChallenges",
+    summary="Batch patch multiple UserChallenges",
     description=(
-        "Modifie en **lot** le statut/notes/override_reason de plusieurs UserChallenges.\n\n"
-        "- Non transactionnel (best-effort)\n"
+        "Updates the status/notes/override_reason of multiple UserChallenges in **batch**.\n\n"
+        "- Non-transactional (best-effort)\n"
         "- Max 200 items"
     ),
 )
@@ -123,27 +122,27 @@ async def patch_uc_batch(
         list[BatchPatchItem],
         Body(
             ...,
-            description="Tableau d’ordres de patch (uc_id, status?, notes?, override_reason?).",
+            description="Array of patch instructions (uc_id, status?, notes?, override_reason?).",
         ),
     ],
     user_id: CurrentUserId,
 ):
-    """Patch en lot de UserChallenges.
+    """Batch patch UserChallenges.
 
     Description:
-        Applique des mises à jour itemisées sur plusieurs UserChallenges. Chaque item est validé et produit un résultat
-        distinct (succès/erreur), sans échec global si un item échoue.
+        Applies itemized updates to multiple UserChallenges. Each item is validated and produces a distinct
+        result (success/error) without failing the entire batch if a single item fails.
 
     Args:
-        items (list[BatchPatchItem]): Liste d’ordres de patch.
+        items (list[BatchPatchItem]): List of patch instructions.
 
     Returns:
-        BatchPatchResponse: Résultats détaillés par item et nombre de mises à jour.
+        BatchPatchResponse: Detailed results per item and update count.
     """
     if not items:
         return BatchPatchResponse(updated_count=0, total=0, results=[])
 
-    # garde-fou
+    # safety guard
     if len(items) > 200:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -174,7 +173,7 @@ async def patch_uc_batch(
             updated += 1
             results.append(BatchPatchResultItem(uc_id=it.uc_id, ok=True))
         except HTTPException as e:
-            # propage les 404 du service en résultat itemisé plutôt qu’en échec global
+            # propagate 404s from the service as itemized results rather than a global failure
             results.append(BatchPatchResultItem(uc_id=it.uc_id, ok=False, error=str(e.detail)))
         except Exception as e:
             results.append(BatchPatchResultItem(uc_id=it.uc_id, ok=False, error=str(e)))
@@ -182,27 +181,27 @@ async def patch_uc_batch(
     return BatchPatchResponse(updated_count=updated, total=len(items), results=results)
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id} (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id} (GET) to verify
 @router.get(
     "/{uc_id}",
     response_model=DetailResponse,
-    summary="Détail d’un UserChallenge",
-    description="Retourne le détail d’un UserChallenge appartenant à l’utilisateur.",
+    summary="UserChallenge detail",
+    description="Returns the detail of a UserChallenge belonging to the current user.",
 )
 async def get_uc(
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     user_id: CurrentUserId,
 ):
-    """Détail d’un UserChallenge.
+    """UserChallenge detail.
 
     Description:
-        Récupère le UserChallenge s’il appartient à l’utilisateur courant, sinon renvoie 404.
+        Retrieves the UserChallenge if it belongs to the current user, otherwise returns 404.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
+        uc_id (PyObjectId): UserChallenge identifier.
 
     Returns:
-        DetailResponse: Détail du UserChallenge.
+        DetailResponse: UserChallenge detail.
     """
     doc = await get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
     if not doc:
@@ -210,34 +209,34 @@ async def get_uc(
     return doc
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id} (PATCH) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id} (PATCH) to verify
 @router.patch(
     "/{uc_id}",
     response_model=PatchResponse,
-    summary="Modifier statut/notes d’un UserChallenge",
+    summary="Update status/notes of a UserChallenge",
     description=(
-        "Met à jour un UserChallenge : statut (`pending|accepted|dismissed|completed`), notes et `override_reason`."
+        "Updates a UserChallenge: status (`pending|accepted|dismissed|completed`), notes, and `override_reason`."
     ),
 )
 async def patch_uc(
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     payload: Annotated[
         PatchUCIn,
-        Body(..., description="Champs modifiables : `status`, `notes`, `override_reason`."),
+        Body(..., description="Editable fields: `status`, `notes`, `override_reason`."),
     ],
     user_id: CurrentUserId,
 ):
-    """Patch d’un UserChallenge.
+    """Patch a UserChallenge.
 
     Description:
-        Met à jour le statut et/ou les notes (et le `override_reason`) d’un UserChallenge appartenant à l’utilisateur.
+        Updates the status and/or notes (and `override_reason`) of a UserChallenge belonging to the current user.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
-        payload (PatchUCIn): Données de mise à jour.
+        uc_id (PyObjectId): UserChallenge identifier.
+        payload (PatchUCIn): Update data.
 
     Returns:
-        PatchResponse: UserChallenge après mise à jour.
+        PatchResponse: UserChallenge after update.
     """
     success, error, updated_uc = await patch_user_challenge(
         user_id=user_id,
@@ -258,7 +257,7 @@ async def patch_uc(
     return updated_uc
 
 
-# DONE: [BACKLOG] Route /my/challenges/basics/calendar (GET) à vérifier
+# DONE: [BACKLOG] Route /my/challenges/basics/calendar (GET) verified
 @router.get(
     "/basics/calendar",
     response_model=CalendarResult,
@@ -290,7 +289,7 @@ async def verify_calendar(
     return await service.verify_user_calendar(str(user_id), filters)
 
 
-# DONE: [BACKLOG] Route /my/challenges/basics/matrix (GET) à vérifier
+# DONE: [BACKLOG] Route /my/challenges/basics/matrix (GET) verified
 @router.get(
     "/basics/matrix",
     response_model=MatrixResult,

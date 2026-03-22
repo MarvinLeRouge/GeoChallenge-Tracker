@@ -1,5 +1,5 @@
 # backend/app/models/challenge.py
-# Représentation d’un challenge et de ses métadonnées (cache d’origine, description, analytics).
+# Representation of a challenge and its metadata (source cache, description, analytics).
 
 from __future__ import annotations
 
@@ -12,16 +12,16 @@ from app.core.utils import now
 
 
 class ChallengeMeta(BaseModel):
-    """Méta-statistiques d’un challenge.
+    """Challenge meta-statistics.
 
     Description:
-        Données analytiques facultatives destinées aux écrans de stats.
+        Optional analytics data intended for stats screens.
 
     Attributes:
-        avg_days_to_complete (float | None): Jours moyens pour compléter.
-        avg_caches_involved (float | None): Nombre moyen de caches impliquées.
-        completions (int | None): Count de complétions.
-        acceptance_rate (float | None): Taux d’acceptation.
+        avg_days_to_complete (float | None): Average days to complete.
+        avg_caches_involved (float | None): Average number of caches involved.
+        completions (int | None): Completion count.
+        acceptance_rate (float | None): Acceptance rate.
     """
 
     avg_days_to_complete: float | None = None
@@ -31,45 +31,45 @@ class ChallengeMeta(BaseModel):
 
 
 class ChallengeBase(BaseModel):
-    """Champs de base d’un challenge.
+    """Base challenge fields.
 
     Description:
-        Fait référence à la cache « mère » et porte le nom/description et méta.
+        References the "parent" cache and carries the name, description and metadata.
 
     Attributes:
-        cache_id (PyObjectId): Réf. `caches._id`.
-        name (str): Nom du challenge.
-        description (str | None): Description textuelle.
-        meta (ChallengeMeta | None): Méta-statistiques optionnelles.
+        cache_id (PyObjectId): Ref to `caches._id`.
+        name (str): Challenge name.
+        description (str | None): Text description.
+        meta (ChallengeMeta | None): Optional meta-statistics.
     """
 
-    cache_id: PyObjectId  # ref -> caches._id (cache "mère")
+    cache_id: PyObjectId  # ref -> caches._id ("parent" cache)
     name: str
     description: str | None = None
     meta: ChallengeMeta | None = None
 
 
 class ChallengeCreate(ChallengeBase):
-    """Payload de création d’un challenge.
+    """Challenge creation payload.
 
     Description:
-        Identique à `ChallengeBase` ; sert d’entrée pour l’API d’admin.
+        Identical to `ChallengeBase`; used as input for the admin API.
     """
 
     pass
 
 
 class ChallengeUpdate(BaseModel):
-    """Payload de mise à jour d’un challenge.
+    """Challenge update payload.
 
     Description:
-        Mise à jour partielle des champs.
+        Partial field update.
 
     Attributes:
-        cache_id (PyObjectId | None): Nouvelle cache « mère ».
-        name (str | None): Nouveau nom.
-        description (str | None): Nouvelle description.
-        meta (ChallengeMeta | None): Nouvelles méta-statistiques.
+        cache_id (PyObjectId | None): New "parent" cache.
+        name (str | None): New name.
+        description (str | None): New description.
+        meta (ChallengeMeta | None): New meta-statistics.
     """
 
     cache_id: PyObjectId | None = None
@@ -79,10 +79,10 @@ class ChallengeUpdate(BaseModel):
 
 
 class Challenge(MongoBaseModel, ChallengeBase):
-    """Document Mongo d’un challenge.
+    """Challenge Mongo document.
 
     Description:
-        Étend `ChallengeBase` avec _id, created_at, updated_at.
+        Extends `ChallengeBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

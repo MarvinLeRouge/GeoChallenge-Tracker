@@ -1,5 +1,5 @@
 # backend/app/api/routes/my_challenge_progress.py
-# Routes "mon avancée" : lecture du dernier snapshot + historique, et évaluation (immédiate ou initiale) du progrès sur un UserChallenge.
+# "My progress" routes: read the latest snapshot + history, and evaluate (immediate or initial) progress on a UserChallenge.
 
 from __future__ import annotations
 
@@ -10,9 +10,10 @@ from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
 
+from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.progress import ProgressEvaluateResponse, ProgressGetResponse
 from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.services.progress import (
     evaluate_new_progress,
     evaluate_progress,
@@ -26,41 +27,41 @@ router = APIRouter(
 )
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress (GET) to verify
 @router.get(
     "/{uc_id}/progress",
     response_model=ProgressGetResponse,
-    summary="Obtenir le dernier snapshot et l’historique court",
+    summary="Get the latest snapshot and short history",
     description=(
-        "Retourne le **dernier snapshot** de progression d’un UserChallenge et un **mini-historique** (limité).\n\n"
-        "- 404 si le UserChallenge n’appartient pas à l’utilisateur ou n’existe pas\n"
-        "- L’historique peut être restreint via `before` et `limit`"
+        "Returns the **latest progress snapshot** of a UserChallenge and a **mini-history** (limited).\n\n"
+        "- 404 if the UserChallenge does not belong to the user or does not exist\n"
+        "- History can be restricted via `before` and `limit`"
     ),
 )
 async def get_progress_route(
     user_id: CurrentUserId,
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     before: Annotated[
         datetime | None,
-        Query(description="Ne renvoyer que l’historique **antérieur** à ce timestamp."),
+        Query(description="Only return history **before** this timestamp."),
     ] = None,
     limit: Annotated[
-        int, Query(ge=1, le=50, description="Nombre d’entrées d’historique à renvoyer (1–50).")
+        int, Query(ge=1, le=50, description="Number of history entries to return (1–50).")
     ] = 10,
 ):
-    """Récupérer le dernier snapshot et l’historique court.
+    """Retrieve the latest snapshot and short history.
 
     Description:
-        Cette route retourne le dernier snapshot de progression pour un UserChallenge donné ainsi qu’un
-        historique court, paginé par un simple curseur temporel (`before`) et limité par `limit`.
+        Returns the latest progress snapshot for a given UserChallenge along with a short
+        history, paginated by a simple time cursor (`before`) and bounded by `limit`.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
-        limit (int): Nombre maximal d’entrées d’historique (1–50).
-        before (datetime | None): Curseur temporel pour lister l’historique antérieur.
+        uc_id (PyObjectId): UserChallenge identifier.
+        limit (int): Maximum number of history entries (1–50).
+        before (datetime | None): Time cursor for listing earlier history.
 
     Returns:
-        ProgressGetResponse: Dernier snapshot et mini-historique.
+        ProgressGetResponse: Latest snapshot and mini-history.
     """
     out = get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
     if out is None:
@@ -68,37 +69,37 @@ async def get_progress_route(
     return out
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress/evaluate (POST) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/progress/evaluate (POST) to verify
 @router.post(
     "/{uc_id}/progress/evaluate",
     response_model=ProgressEvaluateResponse,
-    summary="Évaluer et enregistrer un snapshot immédiat",
+    summary="Evaluate and record an immediate snapshot",
     description=(
-        "Force une **évaluation immédiate** de la progression et **insère** un nouveau snapshot.\n\n"
-        "- Paramètre `force` réservé aux administrateurs\n"
-        "- Retourne le snapshot résultant"
+        "Forces an **immediate evaluation** of progress and **inserts** a new snapshot.\n\n"
+        "- The `force` parameter is reserved for administrators\n"
+        "- Returns the resulting snapshot"
     ),
 )
 async def evaluate_progress_route(
     user: CurrentUser,
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     force: bool = Query(
         False,
-        description="Forcer le recalcul même si aucun changement détecté (admin-only).",
+        description="Force recalculation even if no changes are detected (admin-only).",
     ),
 ):
-    """Évaluer et insérer un snapshot immédiat.
+    """Evaluate and insert an immediate snapshot.
 
     Description:
-        Déclenche un recalcul de la progression pour le UserChallenge visé et enregistre un snapshot.
-        L’option `force` permet d’ignorer les heuristiques de non-changement (réservé aux administrateurs).
+        Triggers a progress recalculation for the target UserChallenge and records a snapshot.
+        The `force` option allows bypassing no-change heuristics (reserved for administrators).
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
-        force (bool): Forcer le recalcul même sans changement détecté (admin-only).
+        uc_id (PyObjectId): UserChallenge identifier.
+        force (bool): Force recalculation even without detected changes (admin-only).
 
     Returns:
-        ProgressEvaluateResponse: Snapshot évalué et persisté.
+        ProgressEvaluateResponse: Evaluated and persisted snapshot.
     """
     if force and user.role != "admin":
         raise HTTPException(
@@ -118,36 +119,36 @@ class EvaluateNewPayload(BaseModel):
     since: datetime | None = None
 
 
-# TODO: [BACKLOG] Route /my/challenges/new/progress (POST) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/new/progress (POST) to verify
 @router.post(
     "/new/progress",
-    summary="Évaluer le premier snapshot pour les challenges sans progression",
+    summary="Evaluate the first snapshot for challenges without progress",
     description=(
-        "Évalue un **premier snapshot** pour les UserChallenges **acceptés** sans progression existante.\n\n"
-        "- Option `include_pending` pour inclure les `pending`\n"
-        "- Paramètres `limit` et `since` pour borner le traitement"
+        "Evaluates a **first snapshot** for **accepted** UserChallenges with no existing progress.\n\n"
+        "- `include_pending` option to also include `pending` ones\n"
+        "- `limit` and `since` parameters to bound the processing scope"
     ),
 )
 async def evaluate_new_progress_route(
     payload: Annotated[
         EvaluateNewPayload | None,
         Body(
-            description="Options d’évaluation initiale : `include_pending`, `limit`, `since`.",
+            description="Initial evaluation options: `include_pending`, `limit`, `since`.",
         ),
     ],
     user_id: CurrentUserId,
 ):
-    """Évaluer le premier snapshot pour les challenges sans progression.
+    """Evaluate the first snapshot for challenges without progress.
 
     Description:
-        Parcourt les UserChallenges éligibles (par défaut: `accepted` sans progression) et effectue une première
-        évaluation. Peut inclure les `pending`, être borné en volume (`limit`) et en date (`since`).
+        Iterates over eligible UserChallenges (by default: `accepted` with no progress) and performs an initial
+        evaluation. Can include `pending` ones, and be bounded by volume (`limit`) and date (`since`).
 
     Args:
-        payload (EvaluateNewPayload): Options d’initialisation.
+        payload (EvaluateNewPayload): Initialization options.
 
     Returns:
-        dict: Statistiques et compte-rendu (créés/ignorés, etc.).
+        dict: Statistics and report (created/skipped, etc.).
     """
     if payload is None:
         payload = EvaluateNewPayload()

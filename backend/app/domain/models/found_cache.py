@@ -1,5 +1,5 @@
 # backend/app/models/found_cache.py
-# Association (user, cache) avec date de trouvaille et notes facultatives.
+# (User, cache) association with find date and optional notes.
 
 from __future__ import annotations
 
@@ -12,42 +12,42 @@ from app.core.utils import now
 
 
 class FoundCacheBase(BaseModel):
-    """Trouvaille de cache par un utilisateur.
+    """Cache find by a user.
 
     Attributes:
-        user_id (PyObjectId): Réf. `users._id`.
-        cache_id (PyObjectId): Réf. `caches._id`.
-        found_date (date): Date (jour) du log.
-        notes (str | None): Notes facultatives.
+        user_id (PyObjectId): Ref to `users._id`.
+        cache_id (PyObjectId): Ref to `caches._id`.
+        found_date (date): Log date (specific day).
+        notes (str | None): Optional notes.
     """
 
-    user_id: PyObjectId  # référence à users._id
-    cache_id: PyObjectId  # référence à caches._id
-    found_date: dt.date  # date de log (jour précis)
+    user_id: PyObjectId  # reference to users._id
+    cache_id: PyObjectId  # reference to caches._id
+    found_date: dt.date  # log date (specific day)
     notes: str | None = None
 
 
 class FoundCacheCreate(FoundCacheBase):
-    """Payload de création d’une trouvaille."""
+    """Cache find creation payload."""
 
     pass
 
 
 class FoundCacheUpdate(BaseModel):
-    """Payload de mise à jour d’une trouvaille.
+    """Cache find update payload.
 
     Attributes:
-        notes (str | None): Nouvelles notes.
+        notes (str | None): New notes.
     """
 
     notes: str | None = None
 
 
 class FoundCache(MongoBaseModel, FoundCacheBase):
-    """Document Mongo d’une trouvaille.
+    """Cache find Mongo document.
 
     Description:
-        Étend `FoundCacheBase` avec _id, created_at, updated_at.
+        Extends `FoundCacheBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

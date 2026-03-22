@@ -1,5 +1,5 @@
 # backend/app/models/country.py
-# Référentiel minimal des pays (nom + code ISO).
+# Minimal country reference data (name + ISO code).
 
 import datetime as dt
 
@@ -10,29 +10,29 @@ from app.core.utils import now
 
 
 class CountryBase(BaseModel):
-    """Pays (référentiel).
+    """Country (reference data).
 
     Attributes:
-        name (str): Nom (ex. "France").
-        code (str | None): Code ISO 3166-1 alpha-2 (ex. "FR").
+        name (str): Name (e.g. "France").
+        code (str | None): ISO 3166-1 alpha-2 code (e.g. "FR").
     """
 
-    name: str  # ex: "France"
-    code: str | None = None  # ex: "FR", "DE", ISO 3166-1 alpha-2
+    name: str  # e.g. "France"
+    code: str | None = None  # e.g. "FR", "DE", ISO 3166-1 alpha-2
 
 
 class CountryCreate(CountryBase):
-    """Payload de création d’un pays (référentiel)."""
+    """Country creation payload (reference data)."""
 
     pass
 
 
 class CountryUpdate(BaseModel):
-    """Payload de mise à jour d’un pays.
+    """Country update payload.
 
     Attributes:
-        name (str | None): Nouveau nom.
-        code (str | None): Nouveau code.
+        name (str | None): New name.
+        code (str | None): New code.
     """
 
     name: str | None
@@ -40,10 +40,10 @@ class CountryUpdate(BaseModel):
 
 
 class Country(MongoBaseModel, CountryBase):
-    """Document Mongo d’un pays (référentiel).
+    """Country Mongo document (reference data).
 
     Description:
-        Étend `CountryBase` avec _id, created_at, updated_at.
+        Extends `CountryBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

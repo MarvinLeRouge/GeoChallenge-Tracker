@@ -1,5 +1,5 @@
 # backend/app/services/parsers/GPXCacheParser.py
-# Parse un fichier GPX (ouvert depuis un chemin) pour extraire des géocaches structurées (métadonnées, attributs).
+# Parses a GPX file (from a file path) to extract structured geocaches (metadata, attributes).
 
 import html
 from pathlib import Path
@@ -11,30 +11,30 @@ from app.services.parsers.HTMLSanitizer import HTMLSanitizer
 
 
 class GPXCacheParser:
-    """Parseur GPX de géocaches.
+    """GPX geocache parser.
 
     Description:
-        Lit un fichier GPX (schémas `gpx`, `groundspeak`, `gsak`) et en extrait une
-        liste de caches prêtes pour l’import : code GC, titre, coordonnées, type,
-        taille, propriétaire, D/T, pays/état, description HTML (sanitisée), favoris,
-        notes, dates (placement / found), attributs, etc.
+        Reads a GPX file (schemas `gpx`, `groundspeak`, `gsak`) and extracts a
+        list of caches ready for import: GC code, title, coordinates, type,
+        size, owner, D/T, country/state, sanitized HTML description, favorites,
+        notes, dates (placed / found), attributes, etc.
 
     Attributes:
-        gpx_file (Path): Chemin du fichier GPX.
-        namespaces (dict): Préfixes d’espaces de noms XML utilisés pour les requêtes XPath.
-        caches (list[dict]): Résultats accumulés après `parse()`.
-        sanitizer (HTMLSanitizer): Sanitizeur HTML pour la description longue.
+        gpx_file (Path): Path to the GPX file.
+        namespaces (dict): XML namespace prefixes used for XPath queries.
+        caches (list[dict]): Results accumulated after `parse()`.
+        sanitizer (HTMLSanitizer): HTML sanitizer for the long description.
     """
 
     def __init__(self, gpx_file: Path):
-        """Initialiser le parseur GPX.
+        """Initialize the GPX parser.
 
         Description:
-            Conserve le chemin vers le GPX, initialise les espaces de noms attendus
-            et prépare les structures internes (liste `caches`, sanitizeur HTML).
+            Stores the path to the GPX file, initializes the expected namespaces,
+            and prepares internal structures (cache list, HTML sanitizer).
 
         Args:
-            gpx_file (Path): Chemin du fichier GPX à analyser.
+            gpx_file (Path): Path to the GPX file to parse.
 
         Returns:
             None
@@ -49,20 +49,20 @@ class GPXCacheParser:
         self.sanitizer = HTMLSanitizer()
 
     def parse(self) -> list[dict]:
-        """Analyser le GPX et remplir `self.caches`.
+        """Parse the GPX file and populate `self.caches`.
 
         Description:
-            - Parcourt les waypoints `//gpx:wpt` et cherche le sous-élément `groundspeak:cache`.\n
-            - Pour chaque cache finale (`_is_final_waypoint`), extrait les champs utiles
-              (GC, titre, coords, type, taille, owner, D/T, pays/état, description HTML
-              nettoyée, favoris GSAK, notes, dates, attributs via `_parse_attributes`).\n
-            - Empile chaque dict dans `self.caches`.
+            - Iterates over `//gpx:wpt` waypoints and looks for the `groundspeak:cache` sub-element.\n
+            - For each final cache (`_is_final_waypoint`), extracts useful fields
+              (GC, title, coords, type, size, owner, D/T, country/state, sanitized HTML
+              description, GSAK favorites, notes, dates, attributes via `_parse_attributes`).\n
+            - Appends each dict to `self.caches`.
 
         Args:
             None
 
         Returns:
-            list[dict]: Liste de caches structurées prêtes à l’import.
+            list[dict]: List of structured caches ready for import.
         """
         tree = etree.parse(str(self.gpx_file))
         nodes: Any = tree.xpath("//gpx:wpt", namespaces=self.namespaces)
@@ -102,17 +102,17 @@ class GPXCacheParser:
         return self.caches
 
     def _parse_attributes(self, cache_elem) -> list[dict]:
-        """Extraire la liste des attributs depuis `<groundspeak:attributes>`.
+        """Extract the attribute list from `<groundspeak:attributes>`.
 
         Description:
-            Parcourt les nœuds `groundspeak:attribute` et retourne des objets
-            `{id: int, is_positive: bool, name: str}`.
+            Iterates over `groundspeak:attribute` nodes and returns
+            `{id: int, is_positive: bool, name: str}` objects.
 
         Args:
-            cache_elem: Élément XML `<groundspeak:cache>` parent.
+            cache_elem: Parent `<groundspeak:cache>` XML element.
 
         Returns:
-            list[dict]: Attributs normalisés (id / inc / libellé).
+            list[dict]: Normalized attributes (id / inc / label).
         """
         attrs = []
         for attr in cache_elem.xpath(
@@ -129,32 +129,32 @@ class GPXCacheParser:
         return attrs
 
     def _has_corrected_coordinates(self, wpt_elem) -> bool:
-        """Indiquer si la cache a des coordonnées corrigées (placeholder).
+        """Indicate whether the cache has corrected coordinates (placeholder).
 
         Description:
-            Détecteur de coordonnées corrigées (ex. mystère résolue). Implémentation
-            laissée volontairement minimale ; le retour peut être affiné selon besoin.
+            Detector for corrected coordinates (e.g. a solved mystery cache). Implementation
+            is intentionally minimal; the return value can be refined as needed.
 
         Args:
-            wpt_elem: Élément XML `<gpx:wpt>`.
+            wpt_elem: `<gpx:wpt>` XML element.
 
         Returns:
-            bool: True si coordonnées corrigées détectées, sinon False.
+            bool: True if corrected coordinates are detected, otherwise False.
         """
 
         return wpt_elem.find("gsak:corrected", namespaces=self.namespaces) is not None
 
     def _has_found_log(self, cache_elem) -> bool:
-        """Vérifier la présence d’un log « Found it ».
+        """Check for the presence of a "Found it" log entry.
 
         Description:
-            Cherche un nœud `groundspeak:log` dont le `type` (texte) vaut « Found it ».
+            Searches for a `groundspeak:log` node whose `type` text equals "Found it".
 
         Args:
-            cache_elem: Élément XML `<groundspeak:cache>`.
+            cache_elem: `<groundspeak:cache>` XML element.
 
         Returns:
-            bool: True si au moins un log « Found it » est présent, sinon False.
+            bool: True if at least one "Found it" log is present, otherwise False.
         """
         for log in cache_elem.xpath("groundspeak:logs/groundspeak:log", namespaces=self.namespaces):
             log_type = self._text(log.find("groundspeak:type", namespaces=self.namespaces))
@@ -163,86 +163,86 @@ class GPXCacheParser:
         return False
 
     def _was_found(self, wpt_elem) -> bool:
-        """Déterminer si la cache a un indicateur GSAK « UserFound ».
+        """Determine whether the cache has a GSAK "UserFound" indicator.
 
         Description:
-            Vérifie la présence d’un champ `gsak:UserFound`/`gsak:userfound` indiquant
-            que la cache a été loguée trouvée par l’utilisateur côté GSAK.
+            Checks for the presence of a `gsak:UserFound`/`gsak:userfound` field indicating
+            that the cache was logged as found by the user on the GSAK side.
 
         Args:
-            wpt_elem: Élément XML `<gpx:wpt>`.
+            wpt_elem: `<gpx:wpt>` XML element.
 
         Returns:
-            bool: True si indicateur présent, sinon False.
+            bool: True if the indicator is present, otherwise False.
         """
         return wpt_elem.find("gsak:userfound", namespaces=self.namespaces) is not None
 
     def _is_final_waypoint(self, cache_elem) -> bool:
-        """Filtrer les waypoints finaux (placeholder).
+        """Filter final waypoints (placeholder).
 
         Description:
-            Point d’extension pour n’extraire que certains waypoints (ex. finals).
-            Implémentation actuelle retourne systématiquement True.
+            Extension point to extract only certain waypoints (e.g. finals).
+            Current implementation always returns True.
 
         Args:
-            cache_elem: Élément XML `<groundspeak:cache>`.
+            cache_elem: `<groundspeak:cache>` XML element.
 
         Returns:
-            bool: True si le waypoint doit être conservé.
+            bool: True if the waypoint should be kept.
         """
         return True
 
     def _text(self, element, default: str = "") -> str:
-        """Lire le texte d’un élément (strip), avec défaut.
+        """Read the text of an element (stripped), with a default value.
 
         Args:
-            element: Élément XML ou None.
-            default (str): Valeur par défaut si texte absent.
+            element: XML element or None.
+            default (str): Default value if text is absent.
 
         Returns:
-            str: Contenu textuel nettoyé.
+            str: Stripped text content.
         """
         return element.text.strip() if element is not None and element.text else default
 
     def _html(self, element, default: str = "") -> str:
-        """Lire du HTML (texte) et le déséchapper.
+        """Read HTML text and unescape it.
 
         Description:
-            Retourne `html.unescape(element.text.strip())` si présent.
+            Returns `html.unescape(element.text.strip())` if the element is present.
 
         Args:
-            element: Élément XML ou None.
-            default (str): Valeur par défaut si vide.
+            element: XML element or None.
+            default (str): Default value if empty.
 
         Returns:
-            str: HTML déséchappé (ou chaîne vide).
+            str: Unescaped HTML (or empty string).
         """
         return html.unescape(element.text.strip()) if element is not None and element.text else ""
 
     def get_caches(self) -> list[dict]:
-        """Récupérer la liste des caches déjà extraites.
+        """Retrieve the list of already-extracted caches.
 
         Args:
             None
 
         Returns:
-            list[dict]: Valeur actuelle de `self.caches`.
+            list[dict]: Current value of `self.caches`.
         """
         return self.caches
 
     def find_text_deep(self, element, tag: str) -> str:
-        """Trouver du texte via XPath relatif (`.//{tag}`).
+        """Find text via relative XPath (`.//{tag}`).
 
         Description:
-            Exécute `element.xpath(f".//{tag}", namespaces=self.namespaces)` et retourne
-            le premier texte trouvé (strip) ou une chaîne vide.
+            Executes `element.xpath(f".//{tag}", namespaces=self.namespaces)` and returns
+            the first text found (stripped) or an empty string.
 
         Args:
-            element: Élément de départ pour la recherche.
-            tag (str): Tag XPath qualifié par préfixe (ex. `gpx:name`).
+            element: Starting element for the search.
+            tag (str): Prefix-qualified XPath tag (e.g. `gpx:name`).
 
         Returns:
-            str: Texte trouvé, sinon chaîne vide.
+            str: Text found, or empty string.
         """
         found = element.xpath(f".//{tag}", namespaces=self.namespaces)
         return found[0].text.strip() if found and len(found) and found[0].text else ""

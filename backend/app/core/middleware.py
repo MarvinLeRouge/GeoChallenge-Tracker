@@ -15,7 +15,7 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
         self.exclude_paths = exclude_paths
 
     async def dispatch(self, request, call_next):
-        # Optionnel: exclure certaines routes (ex. /health)
+        # Optional: exclude certain routes (e.g. /health)
         for p in self.exclude_paths:
             if request.url.path.startswith(p):
                 return await call_next(request)
@@ -31,6 +31,6 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
                         status_code=413,
                     )
             except ValueError:
-                # Content-Length invalide → on laisse passer, la route fera le contrôle en streaming
+                # Invalid Content-Length — let it pass; the route will handle size checking during streaming
                 pass
         return await call_next(request)

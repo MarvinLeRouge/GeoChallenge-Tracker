@@ -1,5 +1,5 @@
 # backend/app/services/user_challenge_tasks/task_expression_normalizer.py
-# Normalisation des expressions - PRESERVATION EXACTE DE LA LOGIQUE
+# AST expression normalization — exact preservation of the logic.
 
 from __future__ import annotations
 
@@ -20,53 +20,54 @@ from app.services.referentials_cache import (
 
 
 class TaskExpressionNormalizer:
-    """Normalisateur d'expressions AST.
+    """AST expression normalizer.
 
     Description:
-        Préservation EXACTE de la logique existante de _normalize_code_to_id et _legacy_fixup_expression.
-        Aucune modification comportementale - juste réorganisation du code.
+        Exact preservation of the existing _normalize_code_to_id and
+        _legacy_fixup_expression logic.
+        No behavioral changes — purely code reorganization.
     """
 
     @staticmethod
     def normalize_code_to_id(expr: TaskExpression, *, index_for_errors: int) -> TaskExpression:
-        """Normaliser les codes/labels en ObjectId dans l'AST.
+        """Normalize codes/labels to ObjectIds in the AST.
 
-        FONCTION IDENTIQUE À L'ORIGINALE _normalize_code_to_id.
+        FUNCTION IDENTICAL TO THE ORIGINAL _normalize_code_to_id.
 
         Description:
-            - Attributs: `code` → `cache_attribute_doc_id` (+ `cache_attribute_id`).
+            - Attributes: `code` → `cache_attribute_doc_id` (+ `cache_attribute_id`).
             - Type: `cache_type_code` → `cache_type_doc_id`.
-            - Taille: `code`/`name` → `cache_size_doc_id`.
-            - Pays/État: résolution par nom/code avec erreurs explicites.
+            - Size: `code`/`name` → `cache_size_doc_id`.
+            - Country/State: resolved by name/code with explicit errors.
 
         Args:
-            expr: Expression validée.
-            index_for_errors: Index de la tâche (pour messages d'erreur).
+            expr: Validated expression.
+            index_for_errors: Task index (for error messages).
 
         Returns:
-            TaskExpression: Expression enrichie d'identifiants.
+            TaskExpression: Expression enriched with identifiers.
         """
 
         def _norm(node: Any) -> Any:
             if isinstance(node, dict):
                 k = node.get("kind")
 
-                # --- attributes: code -> cache_attribute_doc_id (+ cache_attribute_id si connu)
+                # --- attributes: code -> cache_attribute_doc_id (+ cache_attribute_id if known)
                 if k == "attributes" and isinstance(node.get("attributes"), list):
                     new_attrs = []
                     for a in node["attributes"]:
                         a = dict(a)
                         code = a.get("code")
-                        # NOTE: le modèle AST attend 'cache_attribute_doc_id'
+                        # NOTE: the AST model expects 'cache_attribute_doc_id'
                         if code and not a.get("cache_attribute_doc_id"):
-                            res = resolve_attribute_code(code)  # doit renvoyer (oid, numeric_id)
+                            res = resolve_attribute_code(code)  # must return (oid, numeric_id)
                             if not res:
                                 raise ValueError(
                                     f"index {index_for_errors}: attribute code not found '{code}'"
                                 )
                             doc_id, num_id = res
                             a["cache_attribute_doc_id"] = doc_id
-                            # ne pas écraser si déjà présent
+                            # do not overwrite if already present
                             a.setdefault("cache_attribute_id", num_id)
                         new_attrs.append(a)
                     node = {**node, "attributes": new_attrs}
@@ -79,7 +80,7 @@ class TaskExpressionNormalizer:
                         if t.get("cache_type_code") and not t.get("cache_type_doc_id"):
                             found = resolve_type_code(
                                 t["cache_type_code"]
-                            )  # retourne l'OID du doc type
+                            )  # returns the OID of the type doc
                             if not found:
                                 raise ValueError(
                                     f"index {index_for_errors}: type code not found '{t['cache_type_code']}'"
@@ -108,7 +109,7 @@ class TaskExpressionNormalizer:
                         new_sizes.append(s)
                     node = {**node, "sizes": new_sizes}
 
-                # --- country_is: accepter {"country": {"code" | "name"}} et conserver les champs lisibles
+                # --- country_is: accept {"country": {"code" | "name"}} and keep readable fields
                 elif k == "country_is":
                     c = dict(node.get("country") or {})
                     if not node.get("country_id"):
@@ -121,45 +122,46 @@ class TaskExpressionNormalizer:
                                 f"country_is: country not found '{label}' (index {index_for_errors})"
                             )
                         node["country_id"] = cid
-                    # conserver le bloc 'country' tel que fourni (lisibilité GET)
+                    # keep the 'country' block as provided (for GET readability)
                     node["country"] = c or node.get("country") or {}
 
-                # --- state_in: accepter {"states":[{"name": ...}]} (et/ou "state_names": [...])
-                #               nécessite le country du même AND (tu as déjà une validation côté validate_task_expression)
+                # --- state_in: accept {"states":[{"name": ...}]} (and/or "state_names": [...])
+                #               requires the country from the same AND
+                #               (already validated by validate_task_expression)
                 elif k == "state_in":
-                    # on collecte des ids à partir de plusieurs formes acceptées
+                    # collect ids from multiple accepted forms
                     state_ids = list(node.get("state_ids") or [])
-                    # compat courte: state_names: ["X","Y"]
+                    # short compat form: state_names: ["X","Y"]
                     for nm in node.get("state_names") or []:
-                        sid = resolve_state_name(
+                        state_id, _ = resolve_state_name(
                             nm,
                             country_id=node.get("country_id")
                             or (node.get("country") or {}).get("country_id"),
                         )
-                        if not sid:
+                        if not state_id:
                             raise ValueError(
                                 f"state_in: state not found '{nm}' (index {index_for_errors})"
                             )
-                        state_ids.append(sid)
-                    # forme riche: states: [{"name": ...}]
+                        state_ids.append(state_id)
+                    # rich form: states: [{"name": ...}]
                     for s in node.get("states") or []:
                         s = dict(s)
-                        sid = s.get("state_id")
-                        if not sid and s.get("name"):
-                            sid = resolve_state_name(
+                        state_id = s.get("state_id")
+                        if not state_id and s.get("name"):
+                            state_id, _ = resolve_state_name(
                                 s["name"],
-                                context_country_id=node.get("country_id")
+                                country_id=node.get("country_id")
                                 or (node.get("country") or {}).get("country_id"),
                             )
-                        if not sid:
+                        if not state_id:
                             label = s.get("name") or "<?>"
                             raise ValueError(
                                 f"state_in: state not found '{label}' (index {index_for_errors})"
                             )
-                        state_ids.append(sid)
+                        state_ids.append(state_id)
                     if state_ids:
                         node["state_ids"] = list(dict.fromkeys(state_ids))  # dedup
-                    # conserver 'states' et/ou 'state_names' (lisibilité GET)
+                    # keep 'states' and/or 'state_names' for GET readability
 
                 # recurse
                 for key, val in list(node.items()):
@@ -176,19 +178,19 @@ class TaskExpressionNormalizer:
 
     @staticmethod
     def legacy_fixup_expression(exp: Any) -> Any:
-        """Adapter d'anciennes formes courtes vers la forme canonique.
+        """Adapt old short forms to the canonical form.
 
-        FONCTION IDENTIQUE À L'ORIGINALE _legacy_fixup_expression.
+        FUNCTION IDENTICAL TO THE ORIGINAL _legacy_fixup_expression.
 
         Description:
-            Ex.: `type_in.codes -> type_in.types[{cache_type_code}]`,
+            E.g.: `type_in.codes -> type_in.types[{cache_type_code}]`,
             `size_in.codes -> size_in.sizes[{code}]`.
 
         Args:
-            exp: Expression brute.
+            exp: Raw expression.
 
         Returns:
-            Any: Expression transformée non destructivement.
+            Any: Non-destructively transformed expression.
         """
 
         def _fix(node: Any) -> Any:

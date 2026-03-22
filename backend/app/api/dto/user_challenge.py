@@ -1,5 +1,5 @@
 # backend/app/models/user_challenge_dto.py
-# Schémas I/O pour les routes « mes challenges » (liste, détail, patch).
+# I/O schemas for "my challenges" routes (list, detail, patch).
 
 from __future__ import annotations
 
@@ -12,27 +12,27 @@ from app.core.bson_utils import PyObjectId
 
 
 class PatchUCIn(BaseModel):
-    """Entrée de patch d’un UserChallenge.
+    """Patch input for a UserChallenge.
 
     Attributes:
-        status (str | None): Nouveau statut (`pending|accepted|dismissed|completed`).
+        status (str | None): New status (`pending|accepted|dismissed|completed`).
         notes (str | None): Notes.
-        override_reason (str | None): Raison d’override (si `status=completed` manuel).
+        override_reason (str | None): Override reason (if `status=completed` manual override).
     """
 
     status: str | None = Field(default=None, description="pending|accepted|dismissed|completed")
     notes: str | None = None
     override_reason: str | None = Field(
-        default=None, description="Optionnel si status=completed (override manuel)"
+        default=None, description="Optional if status=completed (manual override)"
     )
 
 
 class ChallengeMini(BaseModel):
-    """Mini-référence challenge.
+    """Minimal challenge reference.
 
     Attributes:
-        id (PyObjectId): Id du challenge.
-        name (str): Nom du challenge.
+        id (PyObjectId): Challenge id.
+        name (str): Challenge name.
     """
 
     id: PyObjectId
@@ -40,17 +40,17 @@ class ChallengeMini(BaseModel):
 
 
 class UserChallengeListItemOut(BaseModel):
-    """Élément de liste UC.
+    """UserChallenge list item.
 
     Attributes:
-        id (PyObjectId): Id UC.
-        status (str): Statut déclaré.
-        computed_status (str | None): Statut calculé.
-        effective_status (str): Statut effectif.
-        progress (dict | None): Snapshot simplifié.
-        updated_at (datetime | None): MAJ.
-        challenge (ChallengeMini): Réf. challenge.
-        cache (CacheDetail): Réf. cache liée.
+        id (PyObjectId): UserChallenge id.
+        status (str): Declared status.
+        computed_status (str | None): Computed status.
+        effective_status (str): Effective status.
+        progress (dict | None): Simplified snapshot.
+        updated_at (datetime | None): Last update.
+        challenge (ChallengeMini): Challenge reference.
+        cache (CacheDetail): Linked cache reference.
     """
 
     id: PyObjectId
@@ -64,14 +64,14 @@ class UserChallengeListItemOut(BaseModel):
 
 
 class UserChallengeListResponse(BaseModel):
-    """Réponse de liste paginée UC.
+    """Paginated UserChallenge list response.
 
     Attributes:
-        items (list[UserChallengeListItemOut]): Résultats.
-        nb_items (int): Nb items trouvés.
-        page (int): Page courante.
-        nb_pages (int): Nombre de pages.
-        page_size (int): Taille de page.
+        items (list[UserChallengeListItemOut]): Results.
+        nb_items (int): Total items found.
+        page (int): Current page.
+        nb_pages (int): Total pages.
+        page_size (int): Page size.
     """
 
     items: list[UserChallengeListItemOut]
@@ -82,11 +82,11 @@ class UserChallengeListResponse(BaseModel):
 
 
 class CacheDetail(BaseModel):
-    """Détail minimal cache.
+    """Minimal cache detail.
 
     Attributes:
-        id (PyObjectId): Id cache.
-        GC (str): Code GC.
+        id (PyObjectId): Cache id.
+        GC (str): GC code.
     """
 
     id: PyObjectId
@@ -96,11 +96,11 @@ class CacheDetail(BaseModel):
 
 
 class ChallengeDetail(BaseModel):
-    """Détail minimal challenge.
+    """Minimal challenge detail.
 
     Attributes:
-        id (PyObjectId): Id challenge.
-        name (str): Nom.
+        id (PyObjectId): Challenge id.
+        name (str): Name.
         description (str | None): Description.
     """
 
@@ -110,22 +110,22 @@ class ChallengeDetail(BaseModel):
 
 
 class DetailResponse(BaseModel):
-    """Réponse détail UC.
+    """UserChallenge detail response.
 
     Attributes:
-        id (PyObjectId): Id UC.
-        status (str): Statut déclaré.
-        computed_status (str | None): Statut calculé.
-        effective_status (str): Statut effectif.
-        progress (dict | None): Snapshot simplifié.
-        updated_at (datetime | None): MAJ.
-        created_at (datetime | None): Création.
-        manual_override (bool | None): Override actif.
-        override_reason (str | None): Raison.
-        overridden_at (datetime | None): Date override.
+        id (PyObjectId): UserChallenge id.
+        status (str): Declared status.
+        computed_status (str | None): Computed status.
+        effective_status (str): Effective status.
+        progress (dict | None): Simplified snapshot.
+        updated_at (datetime | None): Last update.
+        created_at (datetime | None): Creation date.
+        manual_override (bool | None): Active override.
+        override_reason (str | None): Override reason.
+        overridden_at (datetime | None): Override date.
         notes (str | None): Notes.
-        challenge (ChallengeDetail): Détail challenge.
-        cache (CacheDetail): Détail cache.
+        challenge (ChallengeDetail): Challenge detail.
+        cache (CacheDetail): Cache detail.
     """
 
     id: PyObjectId
@@ -144,18 +144,18 @@ class DetailResponse(BaseModel):
 
 
 class PatchResponse(BaseModel):
-    """Réponse au patch UC.
+    """UserChallenge patch response.
 
     Attributes:
-        id (PyObjectId): Id UC.
-        status (str): Statut déclaré.
-        computed_status (str | None): Statut calculé.
-        effective_status (str): Statut effectif.
-        manual_override (bool | None): Override actif.
-        override_reason (str | None): Raison.
-        overridden_at (datetime | None): Date override.
+        id (PyObjectId): UserChallenge id.
+        status (str): Declared status.
+        computed_status (str | None): Computed status.
+        effective_status (str): Effective status.
+        manual_override (bool | None): Active override.
+        override_reason (str | None): Override reason.
+        overridden_at (datetime | None): Override date.
         notes (str | None): Notes.
-        updated_at (datetime | None): MAJ.
+        updated_at (datetime | None): Last update.
     """
 
     id: PyObjectId

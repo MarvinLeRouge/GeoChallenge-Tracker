@@ -1,31 +1,31 @@
 # backend/app/db/seed_data.py
-# Outils de remplissage initial : ping Mongo, seed des référentiels et création/MAJ du compte admin.
+# Initial seeding utilities: MongoDB ping, referential seeding, and admin account creation/update.
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from pymongo.errors import ConnectionFailure
-from rich import print
 
 import app.core.security as security
 from app.core.utils import now
 from app.db.mongodb import get_collection, get_db
 from app.db.seed_indexes import ensure_indexes
 
-load_dotenv()
+log = logging.getLogger(__name__)
+
 SEEDS_FOLDER = Path(__file__).resolve().parents[2] / "data" / "seeds"
 
 
 async def test_connection():
-    """Teste la connexion à MongoDB (ping).
+    """Tests the MongoDB connection (ping).
 
     Description:
-        Envoie une commande `ping` à la base et affiche le résultat. En cas d’échec,
-        logue un message et termine le processus avec un code d’erreur (sys.exit).
+        Sends a `ping` command to the database and prints the result. On failure,
+        logs a message and exits the process with an error code (sys.exit).
 
     Args:
         None
@@ -42,28 +42,34 @@ async def test_connection():
         sys.exit(1)
 
 
-async def seed_collection(file_path: str, collection_name: str, force: bool = False):
-    """Remplit une collection depuis un fichier JSON.
+async def seed_collection(
+    file_path: str,
+    collection_name: str,
+    unique_field: str = "code",
+    force: bool = False,
+):
+    """Seeds a collection from a JSON file.
 
     Description:
-        Charge le contenu JSON de `file_path` et insère/met à jour les documents dans `collection_name`.
-        - Si `force=True`, vide la collection puis insère toutes les données.
-        - Si `force=False` et la collection existe, effectue un upsert :
-          compare les documents existants avec les seeds et ne met à jour que ceux qui diffèrent,
-          tout en insérant les nouveaux documents. Les documents existants non présents dans
-          les seeds sont conservés pour préserver les références entre collections.
+        Loads the JSON content of `file_path` and inserts/updates documents in `collection_name`.
+        - If `force=True`, clears the collection then inserts all data.
+        - If `force=False` and the collection already exists, performs an upsert on `unique_field`:
+          compares existing documents against seeds and only updates those that differ,
+          while inserting new documents. Existing documents absent from the seed are preserved
+          to maintain references across collections.
 
     Args:
-        file_path (str): Chemin du fichier JSON (UTF-8).
-        collection_name (str): Nom de la collection MongoDB cible.
-        force (bool, optional): Forcer la réinitialisation de la collection. Par défaut `False`.
+        file_path (str): Path to the JSON file (UTF-8).
+        collection_name (str): Target MongoDB collection name.
+        unique_field (str): Field used as the upsert key. Defaults to ``"code"``.
+        force (bool, optional): Force collection reset before insertion. Defaults to `False`.
 
     Returns:
         None
 
     Raises:
-        FileNotFoundError: Si le fichier n’existe pas.
-        json.JSONDecodeError: Si le JSON est invalide.
+        FileNotFoundError: If the file does not exist.
+        json.JSONDecodeError: If the JSON is invalid.
     """
     collection_obj = await get_collection(collection_name)
     count = await collection_obj.count_documents({})
@@ -73,14 +79,14 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
 
     if force:
         await collection_obj.delete_many({})
-        print(f"♻️ Collection '{collection_name}' vidée (force=True).")
+        log.info("Collection ‘%s’ cleared (force=True).", collection_name)
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
         return
 
     if count == 0:
         await collection_obj.insert_many(seed_data)
-        print(f"✅ {len(seed_data)} documents insérés dans '{collection_name}'.")
+        log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
         return
 
     # Upsert logic: update documents that differ, insert new ones, keep existing ones
@@ -88,67 +94,49 @@ async def seed_collection(file_path: str, collection_name: str, force: bool = Fa
     inserted_count = 0
 
     for seed_doc in seed_data:
-        # Try to find a unique identifier in the seed document
-        unique_field = None
-        unique_value = None
+        unique_value = seed_doc.get(unique_field)
 
-        # Check for common ID field names in the seed document
-        for field in ["_id", "id", "code", "cache_type_id", "cache_size_id"]:
-            if field in seed_doc:
-                unique_field = field
-                unique_value = seed_doc[field]
-                break
-
-        if unique_field is None:
-            # If no unique field is found, we can't do upsert, so skip
-            print(
-                f"⚠️  Document in {file_path} does not have a unique identifier field. Skipping upsert."
-            )
+        if unique_value is None:
+            log.warning("Document in %s is missing ‘%s’. Skipping upsert.", file_path, unique_field)
             continue
 
-        # Find existing document with the same unique value
-        if unique_field == "_id":
-            existing_doc = await collection_obj.find_one({"_id": unique_value})
-        else:
-            # For other unique fields, we need to find by that field
-            existing_doc = await collection_obj.find_one({unique_field: unique_value})
+        existing_doc = await collection_obj.find_one({unique_field: unique_value})
 
         if existing_doc:
-            # Compare the documents (excluding _id field from comparison)
             existing_for_comparison = {k: v for k, v in existing_doc.items() if k != "_id"}
             seed_for_comparison = {k: v for k, v in seed_doc.items() if k != "_id"}
 
             if existing_for_comparison != seed_for_comparison:
-                # Update the existing document (preserving the _id)
                 await collection_obj.update_one({unique_field: unique_value}, {"$set": seed_doc})
                 updated_count += 1
-            # else: documents are the same, no update needed
         else:
-            # Insert new document
             await collection_obj.insert_one(seed_doc)
             inserted_count += 1
 
-    print(
-        f"✅ {updated_count} documents mis à jour, {inserted_count} documents insérés dans '{collection_name}'."
+    log.info(
+        "%d documents updated, %d documents inserted into ‘%s’.",
+        updated_count,
+        inserted_count,
+        collection_name,
     )
-    print("ℹ️  Les documents existants non présents dans le seed ont été conservés.")
+    log.info("Existing documents not present in the seed were preserved.")
 
 
 async def seed_admin_user(force: bool = False):
-    """Crée ou met à jour l’utilisateur administrateur.
+    """Creates or updates the administrator user.
 
     Description:
-        Lit `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` depuis l’environnement.
-        Calcule le hash du mot de passe, upsert l’utilisateur avec rôle `admin`, `is_active=True`, `is_verified=True`.
+        Reads `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` from the environment.
+        Hashes the password and upserts the user with role `admin`, `is_active=True`, `is_verified=True`.
 
     Args:
-        force (bool, optional): Paramètre sans effet direct ici (cohérence d’API).
+        force (bool, optional): Parameter with no direct effect here (API consistency).
 
     Returns:
         None
 
     Raises:
-        ValueError: Si une des variables d’environnement admin est absente.
+        ValueError: If any admin environment variable is missing.
     """
     coll_users = await get_collection("users")
 
@@ -177,25 +165,34 @@ async def seed_admin_user(force: bool = False):
         },
         upsert=True,
     )
-    print("✅ Admin user seeded/updated.")
+    log.info("Admin user seeded/updated.")
 
 
 async def seed_referentials(force: bool = False):
-    """Seed des collections de référentiels et de l’admin.
+    """Seeds referential collections and the admin account.
 
     Description:
-        Alimente `cache_types`, `cache_sizes`, `cache_attributes` depuis des fichiers JSON
-        et appelle `seed_admin_user()` pour garantir la présence du compte admin.
+        Populates `cache_types`, `cache_sizes`, `cache_attributes` from JSON files
+        and calls `seed_admin_user()` to ensure the admin account is present.
 
     Args:
-        force (bool, optional): Si vrai, réinitialise les collections avant insertion.
+        force (bool, optional): If true, resets collections before insertion.
 
     Returns:
         None
     """
-    await seed_collection(f"{SEEDS_FOLDER}/cache_types.json", "cache_types", force=force)
-    await seed_collection(f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", force=force)
-    await seed_collection(f"{SEEDS_FOLDER}/cache_attributes.json", "cache_attributes", force=force)
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_types.json", "cache_types", unique_field="code", force=force
+    )
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_sizes.json", "cache_sizes", unique_field="code", force=force
+    )
+    await seed_collection(
+        f"{SEEDS_FOLDER}/cache_attributes.json",
+        "cache_attributes",
+        unique_field="code",
+        force=force,
+    )
     await seed_admin_user(force=force)
 
 

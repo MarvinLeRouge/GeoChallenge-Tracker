@@ -1,5 +1,5 @@
 # backend/app/services/gpx_import/cache_persister.py
-# Service de persistance optimisée pour les caches et trouvailles.
+# Optimized persistence service for caches and found caches.
 
 from __future__ import annotations
 
@@ -14,32 +14,32 @@ from app.core.utils import now
 
 
 class CachePersister:
-    """Service de persistance optimisée pour les caches et trouvailles.
+    """Optimized persistence service for caches and found caches.
 
     Description:
-        Responsable de la persistance en masse des données de caches
-        et de trouvailles avec gestion des erreurs et des conflits.
+        Responsible for bulk persistence of cache and found-cache data
+        with error handling and conflict management.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service de persistance.
+        """Initialize the persistence service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
 
     async def persist_caches(
         self, caches_data: list[dict[str, Any]], force_update_attributes: bool = False
     ) -> dict[str, int]:
-        """Persister les caches en base avec upsert.
+        """Persist caches to the database using upsert.
 
         Args:
-            caches_data: Liste des données de caches à persister.
-            force_update_attributes: Forcer la mise à jour des attributs (admin seulement).
+            caches_data: List of cache data to persist.
+            force_update_attributes: Force attribute update (admin only).
 
         Returns:
-            dict: Statistiques de persistance {inserted, updated, errors}.
+            dict: Persistence statistics {inserted, updated, errors}.
         """
         if not caches_data:
             return {"inserted": 0, "updated": 0, "errors": 0}
@@ -49,10 +49,10 @@ class CachePersister:
         current_time = now()
 
         for cache_data in caches_data:
-            # Préparer l'opération d'upsert
+            # Prepare the upsert operation
             filter_query = {"GC": cache_data["GC"]}
 
-            # Données à insérer/mettre à jour
+            # Data to insert/update
             update_doc = {
                 "$set": {
                     **cache_data,
@@ -63,13 +63,13 @@ class CachePersister:
                 },
             }
 
-            # Si force_update_attributes est activé, on remplace les attributs même s'ils existent
+            # When force_update_attributes is enabled, replace attributes even if they exist
             if force_update_attributes and "attributes" in cache_data:
                 update_doc["$set"]["attributes"] = cache_data["attributes"]
 
             operations.append(UpdateOne(filter_query, update_doc, upsert=True))
 
-        # Exécuter les opérations en lot
+        # Execute operations in bulk
         try:
             result = await coll_caches.bulk_write(operations, ordered=False)
             return {
@@ -78,7 +78,7 @@ class CachePersister:
                 "errors": 0,
             }
         except BulkWriteError as e:
-            # Gérer les erreurs partielles
+            # Handle partial errors
             inserted = e.details.get("nUpserted", 0)
             updated = e.details.get("nModified", 0)
             errors = len(e.details.get("writeErrors", []))
@@ -92,14 +92,14 @@ class CachePersister:
     async def persist_found_caches(
         self, found_caches_data: list[dict[str, Any]], user_id: ObjectId
     ) -> dict[str, int]:
-        """Persister les trouvailles en base avec upsert.
+        """Persist found caches to the database using upsert.
 
         Args:
-            found_caches_data: Liste des données de trouvailles.
-            user_id: ID de l'utilisateur qui a trouvé les caches.
+            found_caches_data: List of found cache data.
+            user_id: ID of the user who found the caches.
 
         Returns:
-            dict: Statistiques de persistance {inserted, updated, errors}.
+            dict: Persistence statistics {inserted, updated, errors}.
         """
         if not found_caches_data:
             return {"inserted": 0, "updated": 0, "errors": 0}
@@ -109,18 +109,18 @@ class CachePersister:
         current_time = now()
 
         for found_data in found_caches_data:
-            # Rechercher l'ID de la cache par code GC
+            # Look up the cache ID by GC code
             cache_id = await self._get_cache_id_by_gc(found_data["GC"])
             if not cache_id:
-                continue  # Ignorer si cache non trouvée
+                continue  # Skip if cache not found
 
-            # Préparer l'opération d'upsert
+            # Prepare the upsert operation
             filter_query = {
                 "user_id": user_id,
                 "cache_id": cache_id,
             }
 
-            # Données à insérer/mettre à jour
+            # Data to insert/update
             update_doc = {
                 "$setOnInsert": {
                     "found_date": found_data["found_date"],
@@ -131,7 +131,7 @@ class CachePersister:
                 },
             }
 
-            # Gérer les notes (optionnelles)
+            # Handle notes (optional)
             if "notes" in found_data:
                 if found_data["notes"] is None:
                     update_doc["$unset"] = {"notes": ""}
@@ -140,7 +140,7 @@ class CachePersister:
 
             operations.append(UpdateOne(filter_query, update_doc, upsert=True))
 
-        # Exécuter les opérations en lot
+        # Execute operations in bulk
         try:
             result = await coll_found.bulk_write(operations, ordered=False)
             return {
@@ -149,7 +149,7 @@ class CachePersister:
                 "errors": 0,
             }
         except BulkWriteError as e:
-            # Gérer les erreurs partielles
+            # Handle partial errors
             inserted = e.details.get("nUpserted", 0)
             updated = e.details.get("nModified", 0)
             errors = len(e.details.get("writeErrors", []))
@@ -161,26 +161,26 @@ class CachePersister:
             }
 
     async def _get_cache_id_by_gc(self, gc_code: str) -> ObjectId | None:
-        """Récupérer l'ID d'une cache par son code GC.
+        """Retrieve the cache ID by GC code.
 
         Args:
-            gc_code: Code GC de la cache.
+            gc_code: Cache GC code.
 
         Returns:
-            ObjectId | None: ID de la cache ou None si non trouvée.
+            ObjectId | None: Cache ID or None if not found.
         """
         coll_caches = self.db.caches
         cache_doc = await coll_caches.find_one({"GC": gc_code}, {"_id": 1})
         return cache_doc["_id"] if cache_doc else None
 
     async def get_existing_caches_by_gc(self, gc_codes: list[str]) -> dict[str, ObjectId]:
-        """Récupérer les IDs des caches existantes par codes GC.
+        """Retrieve IDs of existing caches by GC codes.
 
         Args:
-            gc_codes: Liste des codes GC à chercher.
+            gc_codes: List of GC codes to look up.
 
         Returns:
-            dict: Mapping GC_code -> ObjectId pour les caches existantes.
+            dict: Mapping of GC_code -> ObjectId for existing caches.
         """
         if not gc_codes:
             return {}
@@ -195,19 +195,19 @@ class CachePersister:
         return result
 
     async def count_existing_found_caches(self, user_id: ObjectId, gc_codes: list[str]) -> int:
-        """Compter les trouvailles existantes pour un utilisateur.
+        """Count existing found caches for a user.
 
         Args:
-            user_id: ID de l'utilisateur.
-            gc_codes: Liste des codes GC à vérifier.
+            user_id: User ID.
+            gc_codes: List of GC codes to check.
 
         Returns:
-            int: Nombre de trouvailles existantes.
+            int: Number of existing found caches.
         """
         if not gc_codes:
             return 0
 
-        # Récupérer les IDs des caches
+        # Retrieve cache IDs
         cache_ids_map = await self.get_existing_caches_by_gc(gc_codes)
         cache_ids = list(cache_ids_map.values())
 
@@ -223,10 +223,10 @@ class CachePersister:
         )
 
     async def get_referential_counts(self) -> dict[str, int]:
-        """Récupérer les compteurs de référentiels pour statistiques.
+        """Retrieve referential counts for statistics.
 
         Returns:
-            dict: Compteurs par collection.
+            dict: Counts per collection.
         """
         results = {}
 
@@ -240,11 +240,11 @@ class CachePersister:
         return results
 
     async def cleanup_temp_data(self, gc_codes: list[str]) -> None:
-        """Nettoyer les données temporaires si nécessaire.
+        """Clean up temporary data if needed.
 
         Args:
-            gc_codes: Codes GC traités (pour logs/debug).
+            gc_codes: Processed GC codes (for logging/debug).
         """
-        # Pour l'instant, pas de nettoyage spécifique
-        # Peut être étendu pour gérer des collections temporaires
+        # No specific cleanup at this time.
+        # Can be extended to handle temporary collections.
         pass

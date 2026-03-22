@@ -21,13 +21,13 @@
 
     <!-- Etat / erreurs -->
     <div
-      v-if="error"
+      v-if="store.error"
       class="text-center text-red-600 text-sm"
     >
-      {{ error }}
+      {{ store.error }}
     </div>
     <div
-      v-if="loading"
+      v-if="store.loading"
       class="text-center text-gray-500"
     >
       Chargement…
@@ -35,11 +35,11 @@
 
     <!-- Liste -->
     <div
-      v-if="!loading"
+      v-if="!store.loading"
       class="space-y-3"
     >
       <UserChallengeCard
-        v-for="(ch, idx) in challenges"
+        v-for="(ch, idx) in store.items"
         :key="ch.id"
         :challenge="ch"
         :zebra="idx % 2 !== 0"
@@ -59,7 +59,7 @@
         >
           Précédent
         </button>
-        <span class="text-sm">Page {{ page }} / {{ nbPages }}</span>
+        <span class="text-sm">Page {{ store.page }} / {{ store.nbPages }}</span>
         <button
           class="px-3 py-2 rounded border bg-white disabled:opacity-50"
           :disabled="!canNext"
@@ -73,175 +73,95 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import api from '@/api/http'
-import { useRouter, useRoute } from 'vue-router'
+import { computed, onMounted, watch, ref } from ‘vue’
+import api from ‘@/api/http’
+import { useRouter, useRoute } from ‘vue-router’
+import UserChallengeCard from ‘@/components/userChallenges/UserChallengeCard.vue’
+import { useChallengesStore } from ‘@/store/challenges’
+import { useApiErrorHandler } from ‘@/composables/useApiErrorHandler’
+import type { UserChallengeListItem } from ‘@/types/challenges’
 
-const router = useRouter()
-const route = useRoute()
-
-import UserChallengeCard from '@/components/userChallenges/UserChallengeCard.vue'
-
-// Heroicons 24/outline (cohérent avec ta home)
 import {
     CheckCircleIcon,
     XCircleIcon,
     ClockIcon,
     TrophyIcon,
     AdjustmentsHorizontalIcon,
-} from '@heroicons/vue/24/outline'
+} from ‘@heroicons/vue/24/outline’
 
-type Progress = {
-    percent: number | null
-    tasks_done: number | null
-    tasks_total: number | null
-    checked_at: string | null
-}
-type UserChallenge = {
-    id: string
-    status: 'pending' | 'accepted' | 'dismissed' | 'completed'
-    computed_status: string | null
-    effective_status: 'pending' | 'accepted' | 'dismissed' | 'completed'
-    progress: Progress | null
-    updated_at: string
-    challenge: { id: string; name: string }
-    cache: { id: string; GC: string }
-}
+const router = useRouter()
+const route = useRoute()
+const { handleApiError } = useApiErrorHandler()
+const store = useChallengesStore()
 
-const challenges = ref<UserChallenge[]>([])
-const pageSize = ref(20)
-const nbPages = ref(1)
-const nbItems = ref(0)
-const loading = ref(false)
-const error = ref<string | null>(null)
-const filterStatus = ref<'all' | UserChallenge['status']>(
-    (route.query.status as any) || 'all'
+type UCStatus = UserChallengeListItem[‘status’]
+
+const filterStatus = ref<’all’ | UCStatus>(
+    (route.query.status as ‘all’ | UCStatus) || ‘all’
 )
-const page = ref(
-    route.query.page ? parseInt(route.query.page as string, 10) : 1
-)
-const statusIcons: Record<UserChallenge['status'], any> = {
+store.page = route.query.page ? parseInt(route.query.page as string, 10) : 1
+
+const statusIcons: Record<UCStatus, unknown> = {
     pending: ClockIcon,
     accepted: CheckCircleIcon,
     dismissed: XCircleIcon,
     completed: TrophyIcon,
 }
 const statusLabels: Record<string, string> = {
-    all: 'Tous',
-    pending: 'En attente',
-    accepted: 'Acceptés',
-    dismissed: 'Refusés',
-    completed: 'Complétés',
+    all: ‘Tous’,
+    pending: ‘En attente’,
+    accepted: ‘Acceptés’,
+    dismissed: ‘Refusés’,
+    completed: ‘Complétés’,
 }
-const canPrev = computed(() => page.value > 1)
-const canNext = computed(() => page.value < nbPages.value && nbPages.value > 0)
+const canPrev = computed(() => store.page > 1)
+const canNext = computed(() => store.page < store.nbPages && store.nbPages > 0)
 
-async function fetchChallenges() {
-    loading.value = true
-    error.value = null
-    try {
-        const params: Record<string, any> = {
-            page: page.value,
-            page_size: pageSize.value,
-        }
-        if (filterStatus.value !== 'all') params.status = filterStatus.value
-
-        const { data } = await api.get('/my/challenges', { params })
-        challenges.value = data.items ?? []
-        nbItems.value = data.nb_items ?? challenges.value.length
-        // Si l’API peut renvoyer nb_pages, on le prend, sinon on calcule.
-        nbPages.value = data.nb_pages ?? Math.max(1, Math.ceil((data.nb_items ?? 0) / (data.page_size ?? pageSize.value)))
-    } catch (e: any) {
-        error.value = e?.message ?? 'Erreur de chargement'
-    } finally {
-        loading.value = false
-    }
-}
-
-// Mise à jour de l'URL quand les filtres changent
 function updateUrl() {
     const query: Record<string, string> = {}
-    if (filterStatus.value !== 'all') query.status = filterStatus.value
-    if (page.value > 1) query.page = page.value.toString()
-
+    if (filterStatus.value !== ‘all’) query.status = filterStatus.value
+    if (store.page > 1) query.page = store.page.toString()
     router.replace({ query })
 }
 
-// Watch pour synchroniser URL ↔ état
-watch([filterStatus, page], () => {
+watch([filterStatus, () => store.page], () => {
     updateUrl()
-    fetchChallenges()
+    store.fetchList(filterStatus.value)
 })
 
-onMounted(fetchChallenges)
+onMounted(() => store.fetchList(filterStatus.value))
 
-function setFilter(status: 'all' | UserChallenge['status']) {
+function setFilter(status: ‘all’ | UCStatus) {
     if (filterStatus.value === status) return
     filterStatus.value = status
-    page.value = 1
+    store.page = 1
 }
 
-function prevPage() {
-    if (!canPrev.value) return
-    page.value -= 1
+function prevPage() { if (canPrev.value) store.page -= 1 }
+function nextPage() { if (canNext.value) store.page += 1 }
+
+function showDetails(ch: UserChallengeListItem) {
+    router.push({ name: ‘userChallengeDetails’, params: { id: ch.id } })
 }
 
-function nextPage() {
-    if (!canNext.value) return
-    page.value += 1
-}
-
-// Actions (branche tes endpoints si dispo)
-async function showDetails(ch: UserChallenge) {
-    router.push({ name: 'userChallengeDetails', params: { id: ch.id } })
-}
-async function acceptChallenge(ch: UserChallenge) {
+async function patchChallenge(ch: UserChallengeListItem, status: UCStatus) {
+    store.loading = true
     try {
-        loading.value = true
-        await api.patch(`/my/challenges/${ch.id}`, {
-            status: 'accepted',
-        })
-        await fetchChallenges()
-    } catch (e: any) {
-        console.error('Erreur accept:', e)
-        error.value = e?.message ?? 'Erreur accept'
+        await api.patch(`/my/challenges/${ch.id}`, { status })
+        store.updateItem(ch.id, { status })
+        await store.fetchList(filterStatus.value)
+    } catch (e: unknown) {
+        store.error = handleApiError(e).message
     } finally {
-        loading.value = false
+        store.loading = false
     }
 }
 
-async function dismissChallenge(ch: UserChallenge) {
-    try {
-        loading.value = true
-        await api.patch(`/my/challenges/${ch.id}`, {
-            status: 'dismissed',
-        })
-        await fetchChallenges()
-    } catch (e: any) {
-        console.error('Erreur dismiss:', e)
-        error.value = e?.message ?? 'Erreur dismiss'
-    } finally {
-        loading.value = false
-    }
-}
+function acceptChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘accepted’) }
+function dismissChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘dismissed’) }
+function resetChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘pending’) }
 
-async function resetChallenge(ch: UserChallenge) {
-    try {
-        loading.value = true
-        await api.patch(`/my/challenges/${ch.id}`, {
-            status: 'pending',
-        })
-        await fetchChallenges()
-    } catch (e: any) {
-        console.error('Erreur reset:', e)
-        error.value = e?.message ?? 'Erreur reset'
-    } finally {
-        loading.value = false
-    }
-}
-
-async function manageTasks(ch: UserChallenge) {
-    console.log("tasks", ch.id)
-    router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
+function manageTasks(ch: UserChallengeListItem) {
+    router.push({ name: ‘userChallengeTasks’, params: { id: ch.id } })
 }
 </script>

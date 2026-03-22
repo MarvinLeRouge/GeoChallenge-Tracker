@@ -1,11 +1,14 @@
 # backend/app/main.py
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import routers
+from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
 from app.core.settings import get_settings
@@ -14,6 +17,7 @@ from app.db.seed_data import seed_referentials
 from app.db.seed_indexes import ensure_indexes
 from app.services.referentials_cache import populate_mapping
 
+log = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -22,7 +26,16 @@ async def lifespan(app: FastAPI):
     # --- startup ---
     # Skip populate_mapping and ensure_indexes in test mode for faster tests
     # These are already tested separately in unit/integration tests
+    ensure_backup_dirs()
     if not os.getenv("TEST_MODE", "false").lower() == "true":
+        workers = int(os.getenv("WEB_CONCURRENCY", "1"))
+        if workers > 1:
+            log.warning(
+                "referentials_cache is in-memory and NOT shared across %d workers. "
+                "Each worker maintains its own copy. Consider an external cache (Redis) "
+                "if cross-worker consistency is required.",
+                workers,
+            )
         await populate_mapping()
         await ensure_indexes()
 
@@ -37,7 +50,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=settings.app_name + " API", version=settings.api_version, lifespan=lifespan)
 # ⚠️ Ordre des middlewares = ordre d’ajout.
-# Mets la limite de taille tôt, avant (ou à côté de) CORS/GZip/etc.
+# CORS en premier pour que les requêtes OPTIONS (preflight) ne soient pas bloquées.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.add_middleware(
     MaxBodySizeMiddleware,
     max_body_size=settings.max_upload_bytes,

@@ -1,5 +1,5 @@
 # backend/app/models/state.py
-# Référentiel d’états/régions, relié à un pays. En France, une "région" ; aux USA, un "état"
+# Reference data for states/regions, linked to a country. A "région" in France; a "state" in the USA.
 
 from __future__ import annotations
 
@@ -12,32 +12,32 @@ from app.core.utils import now
 
 
 class StateBase(BaseModel):
-    """Champs de base d’un État/région.
+    """Base state/region fields.
 
     Attributes:
-        name (str): Nom de l’État/région.
-        code (str | None): Code court (ex. INSEE / abréviation).
-        country_id (PyObjectId): Référence vers `Country`.
+        name (str): State/region name.
+        code (str | None): Short code (e.g. INSEE code / abbreviation).
+        country_id (PyObjectId): Reference to `Country`.
     """
 
     name: str
-    code: str | None = None  # ex: code INSEE / abbr
+    code: str | None = None  # e.g. INSEE code / abbreviation
     country_id: PyObjectId  # ref -> Country
 
 
 class StateCreate(StateBase):
-    """Payload de création d’un État/région."""
+    """State/region creation payload."""
 
     pass
 
 
 class StateUpdate(BaseModel):
-    """Payload de mise à jour d’un État/région.
+    """State/region update payload.
 
     Attributes:
-        name (str | None): Nouveau nom.
-        code (str | None): Nouveau code.
-        country_id (PyObjectId | None): Nouveau pays référencé.
+        name (str | None): New name.
+        code (str | None): New code.
+        country_id (PyObjectId | None): New referenced country.
     """
 
     name: str | None = None
@@ -46,10 +46,10 @@ class StateUpdate(BaseModel):
 
 
 class State(MongoBaseModel, StateBase):
-    """Document Mongo d’un État/région.
+    """State/region Mongo document.
 
     Description:
-        Étend `StateBase` avec les champs de traçabilité (`_id`, `created_at`, `updated_at`).
+        Extends `StateBase` with audit fields (`_id`, `created_at`, `updated_at`).
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

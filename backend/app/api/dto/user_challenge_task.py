@@ -1,5 +1,5 @@
 # backend/app/models/user_challenge_task_dto.py
-# Schémas d’entrée/sortie pour gérer/valider les tâches d’un UserChallenge.
+# Input/output schemas for managing and validating UserChallenge tasks.
 
 from __future__ import annotations
 
@@ -14,14 +14,14 @@ from app.domain.models.challenge_ast import TaskExpression
 
 
 class TaskIn(BaseModel):
-    """Entrée pour une tâche.
+    """Task input.
 
     Attributes:
-        id (PyObjectId | None): Id de tâche (si update).
-        title (str | None): Titre (≤ 200).
-        expression (TaskExpression): AST de la tâche.
-        constraints (dict[str, Any]): Contraintes (ex. {'min_count': 4}).
-        status (str | None): 'todo' | 'in_progress' | 'done' (optionnel).
+        id (PyObjectId | None): Task id (if updating).
+        title (str | None): Title (≤ 200).
+        expression (TaskExpression): Task AST.
+        constraints (dict[str, Any]): Constraints (e.g. {'min_count': 4}).
+        status (str | None): 'todo' | 'in_progress' | 'done' (optional).
     """
 
     id: PyObjectId | None = Field(default=None, description="Task id if updating")
@@ -35,40 +35,40 @@ class TaskIn(BaseModel):
 
 
 class TasksPutIn(BaseModel):
-    """Entrée PUT pour remplacer la liste complète de tâches.
+    """PUT input to replace the complete task list.
 
     Attributes:
-        tasks (conlist[TaskIn]): Liste de 0 à 50 tâches.
+        tasks (conlist[TaskIn]): List of 0 to 50 tasks.
     """
 
     tasks: list[TaskIn] = Field(min_length=0, max_length=50, default_factory=list)
 
 
 class TasksValidateIn(BaseModel):
-    """Entrée POST de validation de tâches (sans persistance).
+    """POST input for task validation (without persistence).
 
     Attributes:
-        tasks (conlist[TaskIn]): Liste de 0 à 50 tâches à valider.
+        tasks (conlist[TaskIn]): List of 0 to 50 tasks to validate.
     """
 
     tasks: list[TaskIn] = Field(min_length=0, max_length=50, default_factory=list)
 
 
 class TaskOut(BaseModel):
-    """Sortie d’une tâche.
+    """Task output.
 
     Attributes:
-        id (PyObjectId): Id de tâche.
-        order (int): Ordre.
-        title (str): Titre.
+        id (PyObjectId): Task id.
+        order (int): Order.
+        title (str): Title.
         expression (TaskExpression): AST.
-        constraints (dict[str, Any]): Contraintes.
-        status (str | None): Statut manuel.
-        metrics (dict[str, Any] | None): Métriques.
-        progress (dict[str, Any] | None): Snapshot courant.
-        last_evaluated_at (datetime | None): Dernière évaluation.
-        updated_at (datetime | None): MAJ.
-        created_at (datetime | None): Création.
+        constraints (dict[str, Any]): Constraints.
+        status (str | None): Manual status.
+        metrics (dict[str, Any] | None): Metrics.
+        progress (dict[str, Any] | None): Current snapshot.
+        last_evaluated_at (datetime | None): Last evaluation.
+        updated_at (datetime | None): Last update.
+        created_at (datetime | None): Creation date.
     """
 
     id: PyObjectId
@@ -88,23 +88,23 @@ class TaskOut(BaseModel):
 
 
 class TasksListResponse(BaseModel):
-    """Réponse: liste de tâches.
+    """Response: task list.
 
     Attributes:
-        tasks (list[TaskOut]): Tâches ordonnées.
+        tasks (list[TaskOut]): Ordered tasks.
     """
 
     tasks: list[TaskOut]
 
 
 class ValidationErrorItem(BaseModel):
-    """Erreur de validation (itemisée).
+    """Itemized validation error.
 
     Attributes:
-        index (int): Index dans la liste d’entrée.
-        field (str): Champ concerné.
-        code (str): Code d’erreur.
-        message (str): Message lisible.
+        index (int): Index in the input list.
+        field (str): Affected field.
+        code (str): Error code.
+        message (str): Human-readable message.
     """
 
     index: int
@@ -114,11 +114,11 @@ class ValidationErrorItem(BaseModel):
 
 
 class TasksValidateResponse(BaseModel):
-    """Résultat de validation.
+    """Validation result.
 
     Attributes:
-        ok (bool): True si aucune erreur.
-        errors (list[ValidationErrorItem]): Erreurs détaillées.
+        ok (bool): True if no errors.
+        errors (list[ValidationErrorItem]): Detailed errors.
     """
 
     ok: bool

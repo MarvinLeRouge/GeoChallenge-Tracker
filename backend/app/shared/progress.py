@@ -1,5 +1,5 @@
 # backend/app/models/_shared.py
-# Types communs utilisés par plusieurs modèles (ex. ProgressSnapshot).
+# Common types used by multiple models (e.g. ProgressSnapshot).
 
 from __future__ import annotations
 
@@ -12,20 +12,20 @@ from app.core.utils import now
 
 
 class ProgressSnapshot(BaseModel):
-    """Snapshot agrégé de progression.
+    """Aggregated progress snapshot.
 
     Description:
-        Représente l’état courant d’un ensemble de tâches (pour un challenge ou une tâche),
-        avec pourcentage global, nombre de tâches terminées et total.
+        Represents the current state of a set of tasks (for a challenge or a task),
+        with overall percentage, number of completed tasks, and total count.
 
     Attributes:
-        percent (float): Avancement global (0–100).
-        tasks_done (int): Nombre de tâches terminées.
-        tasks_total (int): Nombre total de tâches.
-        checked_at (datetime): Timestamp de calcul (local).
+        percent (float): Overall progress (0–100).
+        tasks_done (int): Number of completed tasks.
+        tasks_total (int): Total number of tasks.
+        checked_at (datetime): Calculation timestamp (local).
 
     Returns:
-        ProgressSnapshot: Objet prêt à sérialiser (encodage ObjectId géré).
+        ProgressSnapshot: Object ready to serialize (ObjectId encoding handled).
     """
 
     percent: float = 0.0

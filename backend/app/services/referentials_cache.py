@@ -1,5 +1,5 @@
 # backend/app/services/referentials_cache.py
-# Maintient en mémoire des index {code|name|numeric_id -> ObjectId} pour accélérer les validations/résolutions.
+# Maintains in-memory indexes {code|name|numeric_id -> ObjectId} to speed up validations/resolutions.
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from bson import ObjectId
 from app.db.mongodb import get_collection
 
 collections_mapping: dict[str, dict[str, Any]] = {}
-# Verrou asynchrone pour éviter des reconstructions concurrentes du cache
+# Async lock to prevent concurrent cache rebuilds
 _mapping_lock = asyncio.Lock()
 _mapping_ready = False
 
@@ -24,30 +24,30 @@ async def _map_collection(
     extra_numeric_id_field: str | None = None,
     aliases_field: str | None = None,
 ) -> None:
-    """Indexer une collection référentielle en mémoire.
+    """Index a reference collection in memory.
 
     Description:
-        Construit `collections_mapping[collection_name]` avec:
-        - `ids`: set d’ObjectId présents
-        - `code`: map `lower(value)` → ObjectId (si `code_field`)
-        - `name`: map `lower(value)` → ObjectId (si `name_field`)
-        - `aliases`: map `lower(value)` → ObjectId (si `aliases_field`)
-        - `numeric_ids`: set d’ints (si `extra_numeric_id_field`)
-        - `doc_by_id`: map ObjectId → doc partiel (projection)
+        Builds `collections_mapping[collection_name]` with:
+        - `ids`: set of present ObjectIds
+        - `code`: map `lower(value)` → ObjectId (if `code_field`)
+        - `name`: map `lower(value)` → ObjectId (if `name_field`)
+        - `aliases`: map `lower(value)` → ObjectId (if `aliases_field`)
+        - `numeric_ids`: set of ints (if `extra_numeric_id_field`)
+        - `doc_by_id`: map ObjectId → partial doc (projection)
 
     Args:
-        collection_name: Nom de la collection Mongo.
-        code_field: Clé à indexer par « code » (optionnel).
-        name_field: Clé à indexer par « nom » (optionnel).
-        extra_numeric_id_field: Clé numérique supplémentaire (optionnel).
-        aliases_field: Clé à indexer par « alias » (optionnel).
+        collection_name: Mongo collection name.
+        code_field: Key to index by "code" (optional).
+        name_field: Key to index by "name" (optional).
+        extra_numeric_id_field: Additional numeric key (optional).
+        aliases_field: Key to index by "alias" (optional).
 
     Returns:
         None
     """
     collection_obj = await get_collection(collection_name)
 
-    # Construire la projection dynamiquement pour éviter les clés None
+    # Build the projection dynamically to avoid None keys
     projection: dict[str, int] = {"_id": 1}
     if code_field:
         projection[code_field] = 1
@@ -102,11 +102,11 @@ async def _map_collection(
 
 
 async def _map_collection_states() -> None:
-    """Indexer la collection `states` par pays.
+    """Index the `states` collection by country.
 
     Description:
-        Alimente `collections_mapping["states"]` avec:
-        - `ids`: set des ObjectId
+        Populates `collections_mapping["states"]` with:
+        - `ids`: set of ObjectIds
         - `by_country`: `{str(country_id): {lower(state_name): ObjectId}}`
 
     Args:
@@ -136,11 +136,11 @@ async def _map_collection_states() -> None:
 
 
 async def populate_mapping() -> None:
-    """(Ré)initialiser tous les index en mémoire.
+    """(Re)initialize all in-memory indexes.
 
     Description:
-        Recharge les mappings pour `cache_attributes`, `cache_types`, `cache_sizes`,
-        `countries` et `states`.
+        Reloads mappings for `cache_attributes`, `cache_types`, `cache_sizes`,
+        `countries` and `states`.
 
     Args:
         None
@@ -159,7 +159,7 @@ async def populate_mapping() -> None:
         await _map_collection("cache_types", code_field="code")
         await _map_collection(
             "cache_sizes", code_field="code", name_field="name", aliases_field="aliases"
-        )  # si "name" existe
+        )  # if "name" exists
         await _map_collection("countries", name_field="name")
         await _map_collection_states()
         global _mapping_ready
@@ -167,10 +167,10 @@ async def populate_mapping() -> None:
 
 
 async def refresh_referentials_cache() -> None:
-    """Forcer un rafraîchissement des référentiels en mémoire.
+    """Force a refresh of in-memory reference data.
 
     Description:
-        À appeler après un seed/import pour prendre en compte les derniers référentiels.
+        Call after a seed/import to pick up the latest reference data.
 
     Args:
         None
@@ -187,14 +187,14 @@ async def refresh_referentials_cache() -> None:
 
 
 def exists_id(coll_name: str, oid: ObjectId) -> bool:
-    """Tester l’existence d’un ObjectId dans un référentiel.
+    """Check whether an ObjectId exists in a reference collection.
 
     Args:
-        coll_name: Nom de la collection référentielle.
-        oid: Identifiant à vérifier.
+        coll_name: Reference collection name.
+        oid: Identifier to check.
 
     Returns:
-        bool: True si l’ObjectId est connu par le cache, sinon False.
+        bool: True if the ObjectId is known to the cache, False otherwise.
     """
     try:
         oid = oid if isinstance(oid, ObjectId) else ObjectId(str(oid))
@@ -205,13 +205,13 @@ def exists_id(coll_name: str, oid: ObjectId) -> bool:
 
 
 def exists_attribute_id(attr_id: int) -> bool:
-    """Vérifier l’existence d’un identifiant numérique d’attribut.
+    """Check whether a numeric attribute identifier exists.
 
     Args:
-        attr_id: `cache_attribute_id` numérique.
+        attr_id: Numeric `cache_attribute_id`.
 
     Returns:
-        bool: True si l’ID numérique est connu, sinon False.
+        bool: True if the numeric ID is known, False otherwise.
     """
     entry = collections_mapping.get("cache_attributes") or {}
     try:
@@ -226,15 +226,15 @@ def exists_attribute_id(attr_id: int) -> bool:
 
 
 def _resolve_code_to_id(collection: str, field: str, value: str) -> ObjectId | None:
-    """Résoudre un code/nom vers un ObjectId via le cache.
+    """Resolve a code/name to an ObjectId via the cache.
 
     Args:
-        collection: Nom de collection.
-        field: `code`, `name`, ou `aliases`.
-        value: Valeur fournie (insensible à la casse).
+        collection: Collection name.
+        field: `code`, `name`, or `aliases`.
+        value: Provided value (case-insensitive).
 
     Returns:
-        ObjectId | None: Référence trouvée ou None.
+        ObjectId | None: Found reference or None.
     """
     entry = collections_mapping.get(collection) or {}
     if field == "aliases":
@@ -248,19 +248,19 @@ def _resolve_code_to_id(collection: str, field: str, value: str) -> ObjectId | N
 
 
 def resolve_attribute_code(code: str) -> tuple[ObjectId, int | None] | None:
-    """Résoudre un attribut par code/texte.
+    """Resolve an attribute by code/text.
 
     Description:
-        Tente d’abord `code`, puis `txt`, et renvoie (ObjectId, `cache_attribute_id`).
+        Tries `code` first, then `txt`, and returns (ObjectId, `cache_attribute_id`).
 
     Args:
-        code: Code ou identifiant texte (ex. "dogs_allowed").
+        code: Code or text identifier (e.g. "dogs_allowed").
 
     Returns:
-        tuple[ObjectId, int|None] | None: Référence et ID numérique, ou None si introuvable.
+        tuple[ObjectId, int|None] | None: Reference and numeric ID, or None if not found.
     """
     entry = collections_mapping.get("cache_attributes") or {}
-    # on tente par code, puis par 'txt' (rangé dans name_map)
+    # try by code, then by ‘txt’ (stored in name_map)
     oid = (entry.get("code", {}) or {}).get(code.lower())
     if oid is None:
         oid = (entry.get("name", {}) or {}).get(code.lower())
@@ -272,37 +272,37 @@ def resolve_attribute_code(code: str) -> tuple[ObjectId, int | None] | None:
 
 
 def resolve_type_code(code: str) -> ObjectId | None:
-    """Résoudre un type de cache par code.
+    """Resolve a cache type by code.
 
     Args:
-        code: Code de type (ex. "TR").
+        code: Type code (e.g. "TR").
 
     Returns:
-        ObjectId | None: Référence du type.
+        ObjectId | None: Type reference.
     """
     return _resolve_code_to_id("cache_types", "code", code)
 
 
 def resolve_size_code(code: str) -> ObjectId | None:
-    """Résoudre une taille de cache par code.
+    """Resolve a cache size by code.
 
     Args:
-        code: Code de taille (ex. "S").
+        code: Size code (e.g. "S").
 
     Returns:
-        ObjectId | None: Référence de taille.
+        ObjectId | None: Size reference.
     """
     return _resolve_code_to_id("cache_sizes", "code", code)
 
 
 def resolve_size_name(name: str) -> ObjectId | None:
-    """Résoudre une taille de cache par nom.
+    """Resolve a cache size by name.
 
     Args:
-        name: Nom (ex. "Micro").
+        name: Name (e.g. "Micro").
 
     Returns:
-        ObjectId | None: Référence de taille.
+        ObjectId | None: Size reference.
     """
     # First check the name field
     result = _resolve_code_to_id("cache_sizes", "name", name)
@@ -314,25 +314,25 @@ def resolve_size_name(name: str) -> ObjectId | None:
 
 
 def resolve_size_alias(alias: str) -> ObjectId | None:
-    """Résoudre une taille de cache par alias.
+    """Resolve a cache size by alias.
 
     Args:
-        alias: Alias (ex. "nano" for Micro).
+        alias: Alias (e.g. "nano" for Micro).
 
     Returns:
-        ObjectId | None: Référence de taille.
+        ObjectId | None: Size reference.
     """
     return _resolve_code_to_id("cache_sizes", "aliases", alias)
 
 
 def resolve_country_name(name: str) -> ObjectId | None:
-    """Résoudre un pays par nom.
+    """Resolve a country by name.
 
     Args:
-        name: Nom de pays (ex. "France").
+        name: Country name (e.g. "France").
 
     Returns:
-        ObjectId | None: Référence de pays.
+        ObjectId | None: Country reference.
     """
     return _resolve_code_to_id("countries", "name", name)
 
@@ -340,19 +340,19 @@ def resolve_country_name(name: str) -> ObjectId | None:
 def resolve_state_name(
     state_name: str, *, country_id: ObjectId | None = None
 ) -> tuple[ObjectId | None, str | None]:
-    """Résoudre un État/région par nom (optionnellement borné à un pays).
+    """Resolve a state/region by name (optionally scoped to a country).
 
     Description:
-        Si `country_id` n’est pas fourni, gère les ambiguïtés:
-        - 0 hit → message « not found »
-        - >1 hit → message « ambiguous »
+        If `country_id` is not provided, handles ambiguities:
+        - 0 hits → "not found" message
+        - >1 hit → "ambiguous" message
 
     Args:
-        state_name: Nom d’État/région.
-        country_id: Filtre pays (ObjectId) pour désambiguïser.
+        state_name: State/region name.
+        country_id: Country filter (ObjectId) for disambiguation.
 
     Returns:
-        tuple[ObjectId|None, str|None]: (state_id, message d’erreur ou None).
+        tuple[ObjectId|None, str|None]: (state_id, error message or None).
     """
     entry = collections_mapping.get("states") or {}
     by_country = entry.get("by_country", {})
@@ -361,9 +361,9 @@ def resolve_state_name(
     if country_id:
         key = str(country_id if isinstance(country_id, ObjectId) else ObjectId(str(country_id)))
         sid = (by_country.get(key) or {}).get(target)
-        return (sid, None) if sid else (None, f"state not found '{state_name}' in country '{key}'")
+        return (sid, None) if sid else (None, f"state not found ‘{state_name}’ in country ‘{key}’")
 
-    # pas de pays fourni → ambiguïtés possibles
+    # no country provided → possible ambiguities
     hits = []
     for _cid, states in by_country.items():
         if target in states:

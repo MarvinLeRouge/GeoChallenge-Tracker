@@ -1,5 +1,5 @@
 # backend/app/services/targets/target_service.py
-# Service principal de gestion des targets avec injection de dépendances.
+# Main target management service with dependency injection.
 
 from __future__ import annotations
 
@@ -17,19 +17,18 @@ from .target_scorer import TargetScorer
 
 
 class TargetService:
-    """Service principal de gestion des targets de caches.
+    """Main cache target management service.
 
     Description:
-        Service principal qui orchestre l'évaluation, le scoring,
-        la persistance et la récupération des targets de caches
-        pour les UserChallenges.
+        Orchestrates the evaluation, scoring, persistence,
+        and retrieval of cache targets for UserChallenges.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service.
+        """Initialize the service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self.evaluator = TargetEvaluator(db)
@@ -45,27 +44,27 @@ class TargetService:
         evaluated_at: datetime | None = None,
         force: bool = False,
     ) -> dict[str, Any]:
-        """Évaluer et persister les targets d'un UserChallenge.
+        """Evaluate and persist targets for a UserChallenge.
 
         Args:
-            user_id: Utilisateur propriétaire.
-            uc_id: UserChallenge ciblé.
-            limit_per_task: Cap par tâche.
-            hard_limit_total: Cap global d'agrégation.
-            geo_ctx: Contexte géo {lat, lon, radius_km}.
-            evaluated_at: Timestamp d'évaluation.
-            force: Forcer le recalcul même si targets existent.
+            user_id: Owning user identifier.
+            uc_id: Target UserChallenge identifier.
+            limit_per_task: Per-task result cap.
+            hard_limit_total: Global aggregation cap.
+            geo_ctx: Geographic context {lat, lon, radius_km}.
+            evaluated_at: Evaluation timestamp.
+            force: Force recalculation even if targets already exist.
 
         Returns:
             dict: {ok, inserted, updated, total, skipped?}.
 
         Raises:
-            PermissionError: Si l'UC n'existe pas ou n'appartient pas au user.
+            PermissionError: If the UC does not exist or is not owned by the user.
         """
-        # Validation de l'ownership
+        # Validate ownership
         await self._validate_user_challenge_ownership(user_id, uc_id)
 
-        # Court-circuit si pas de force et assez de targets
+        # Short-circuit if not forcing and enough targets already exist
         if not force:
             existing_count = await self._count_existing_targets(user_id, uc_id)
             threshold = min(hard_limit_total, limit_per_task * 5)
@@ -78,12 +77,12 @@ class TargetService:
                     "skipped": True,
                 }
 
-        # Récupération des données nécessaires
+        # Retrieve required data
         username = await self.evaluator.get_username(user_id)
         tasks = await self.evaluator.get_user_challenge_tasks(uc_id)
         progress_map = await self.evaluator.get_latest_progress_task_map(uc_id)
 
-        # Évaluation des caches candidates
+        # Evaluate candidate caches
         candidates = await self.evaluator.evaluate_cache_candidates(
             tasks=tasks,
             progress_map=progress_map,
@@ -94,7 +93,7 @@ class TargetService:
             hard_limit_total=hard_limit_total,
         )
 
-        # Scoring et persistance
+        # Score and persist
         result = await self._score_and_persist_targets(
             candidates=candidates,
             user_id=user_id,
@@ -115,14 +114,14 @@ class TargetService:
         page_size: int = 50,
         sort: str = "-score",
     ) -> dict[str, Any]:
-        """Lister les targets d'un UserChallenge (paginé).
+        """List targets for a UserChallenge (paginated).
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
-            page: Numéro de page.
-            page_size: Taille de page.
-            sort: Clé de tri.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            page: Page number.
+            page_size: Page size.
+            sort: Sort key.
 
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
@@ -145,17 +144,17 @@ class TargetService:
         page_size: int = 50,
         sort: str = "distance",
     ) -> dict[str, Any]:
-        """Lister les targets proches pour un UserChallenge.
+        """List nearby targets for a UserChallenge.
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
             lat: Latitude.
             lon: Longitude.
-            radius_km: Rayon en km.
-            page: Numéro de page.
-            page_size: Taille de page.
-            sort: Clé de tri.
+            radius_km: Radius in km.
+            page: Page number.
+            page_size: Page size.
+            sort: Sort key.
 
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
@@ -178,19 +177,19 @@ class TargetService:
         page_size: int = 50,
         sort: str = "-score",
     ) -> dict[str, Any]:
-        """Lister toutes les targets d'un utilisateur.
+        """List all targets for a user.
 
         Args:
-            user_id: Utilisateur.
-            status_filter: Filtre de statut UC.
-            page: Numéro de page.
-            page_size: Taille de page.
-            sort: Clé de tri.
+            user_id: User identifier.
+            status_filter: UC status filter.
+            page: Page number.
+            page_size: Page size.
+            sort: Sort key.
 
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
         """
-        # Construire les filtres avec jointure sur user_challenges
+        # Build filters with join on user_challenges
         return await self._list_targets_for_user_with_status_filter(
             user_id=user_id,
             status_filter=status_filter,
@@ -210,22 +209,22 @@ class TargetService:
         page_size: int = 50,
         sort: str = "distance",
     ) -> dict[str, Any]:
-        """Lister les targets proches pour tous les challenges d'un utilisateur.
+        """List nearby targets for all challenges of a user.
 
         Args:
-            user_id: Utilisateur.
-            lat: Latitude (ou None pour utiliser la localisation user).
-            lon: Longitude (ou None pour utiliser la localisation user).
-            radius_km: Rayon en km.
-            status_filter: Filtre de statut UC.
-            page: Numéro de page.
-            page_size: Taille de page.
-            sort: Clé de tri.
+            user_id: User identifier.
+            lat: Latitude (or None to use the user's saved location).
+            lon: Longitude (or None to use the user's saved location).
+            radius_km: Radius in km.
+            status_filter: UC status filter.
+            page: Page number.
+            page_size: Page size.
+            sort: Sort key.
 
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
         """
-        # Résoudre la localisation si nécessaire
+        # Resolve location if needed
         if lat is None or lon is None:
             user_location = await get_user_location(user_id)
             if not user_location:
@@ -248,11 +247,11 @@ class TargetService:
     async def delete_targets_for_user_challenge(
         self, user_id: ObjectId, uc_id: ObjectId
     ) -> dict[str, Any]:
-        """Supprimer toutes les targets d'un UserChallenge.
+        """Delete all targets for a UserChallenge.
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
             dict: {ok, deleted}.
@@ -270,17 +269,17 @@ class TargetService:
             "deleted": result.deleted_count,
         }
 
-    # --- Méthodes privées ---
+    # --- Private methods ---
 
     async def _validate_user_challenge_ownership(self, user_id: ObjectId, uc_id: ObjectId):
-        """Valider que l'UC appartient bien à l'utilisateur."""
+        """Validate that the UC belongs to the user."""
         coll_uc = self.db.user_challenges
         uc = await coll_uc.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
         if not uc:
             raise PermissionError("UserChallenge not found or not owned by user")
 
     async def _count_existing_targets(self, user_id: ObjectId, uc_id: ObjectId) -> int:
-        """Compter les targets existantes."""
+        """Count existing targets."""
         coll_targets = self.db.targets
         return await coll_targets.count_documents(
             {
@@ -299,13 +298,13 @@ class TargetService:
         geo_ctx: dict[str, Any] | None,
         evaluated_at: datetime,
     ) -> dict[str, Any]:
-        """Scorer et persister les targets."""
+        """Score and persist targets."""
         coll_targets = self.db.targets
         now = utcnow()
         inserted = 0
         updated = 0
 
-        # Calculer le nombre total de tâches non terminées
+        # Count the total number of incomplete tasks
         total_incomplete_tasks = sum(
             1 for task in tasks if progress_map.get(task["_id"], {}).get("percent", 0) < 100
         )
@@ -314,7 +313,7 @@ class TargetService:
             cache_data = candidate["cache"]
             matched_tasks = candidate["matched_tasks"]
 
-            # Calculer les scores
+            # Calculate scores
             distance_m = cache_data.get("distance_m")
             radius_km = geo_ctx.get("radius_km") if geo_ctx else None
 
@@ -325,10 +324,10 @@ class TargetService:
                 radius_km=radius_km,
             )
 
-            # Choisir la tâche principale
+            # Choose the primary task
             primary_task_id = self.scorer.choose_primary_task_by_ratio(matched_tasks)
 
-            # Document à insérer/mettre à jour
+            # Document to insert/update
             doc = {
                 "cache_id": cache_id,
                 "cache_GC": cache_data.get("GC"),
@@ -349,7 +348,7 @@ class TargetService:
                 "updated_at": now,
             }
 
-            # Ajouter les infos géo si disponibles
+            # Add geo info if available
             if distance_m is not None:
                 doc["distance_m"] = distance_m
 
@@ -365,7 +364,7 @@ class TargetService:
             elif result.modified_count > 0:
                 updated += 1
 
-        # Compter le total final
+        # Count the final total
         total = await self._count_existing_targets(user_id, uc_id)
 
         return {
@@ -382,17 +381,17 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """Utilitaire de pagination générique pour les targets."""
+        """Generic pagination utility for targets."""
         coll_targets = self.db.targets
 
-        # Compter le total
+        # Count total
         total_count = await coll_targets.count_documents(filters)
 
         # Pagination
         skip = (page - 1) * page_size
         nb_pages = (total_count + page_size - 1) // page_size
 
-        # Construire le sort
+        # Build sort spec
         sort_spec = []
         for sort_key in sort.split(","):
             sort_key = sort_key.strip()
@@ -401,7 +400,7 @@ class TargetService:
             else:
                 sort_spec.append((sort_key, 1))
 
-        # Récupérer les items
+        # Retrieve items
         cursor = coll_targets.find(filters).sort(sort_spec).skip(skip).limit(page_size)
         items = await cursor.to_list(length=None)
 
@@ -423,9 +422,9 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """Lister les targets avec filtre géographique."""
-        # Pour l'instant, implémentation simple sans $geoNear
-        # TODO: Optimiser avec aggregation pipeline géographique
+        """List targets with a geographic filter."""
+        # Simple implementation without $geoNear for now
+        # TODO: Optimize with a geographic aggregation pipeline
         return await self._list_targets_with_pagination(
             filters=base_filters,
             page=page,
@@ -441,13 +440,13 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """Lister les targets avec filtre de statut UC."""
+        """List targets with a UC status filter."""
         base_filters = {"user_id": user_id}
 
         if status_filter:
-            # Jointure avec user_challenges pour filtrer par statut
-            # Pour l'instant, implémentation simple
-            # TODO: Optimiser avec aggregation pipeline
+            # Join with user_challenges to filter by status
+            # Simple implementation for now
+            # TODO: Optimize with an aggregation pipeline
             pass
 
         return await self._list_targets_with_pagination(
@@ -468,9 +467,9 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """Lister les targets proches avec filtre de statut UC."""
-        # Combinaison des filtres géo + statut
-        # Pour l'instant, implémentation simple
+        """List nearby targets with a UC status filter."""
+        # Combined geo + status filters
+        # Simple implementation for now
         base_filters = {"user_id": user_id}
 
         return await self._list_targets_nearby(

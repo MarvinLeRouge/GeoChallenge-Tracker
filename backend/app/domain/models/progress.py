@@ -1,5 +1,5 @@
 # backend/app/models/progress.py
-# Modèles de snapshot de progression (global + par tâche) pour un UserChallenge, horodatés.
+# Progress snapshot models (global + per task) for a UserChallenge, with timestamps.
 
 from __future__ import annotations
 
@@ -26,19 +26,19 @@ Progress data model - clarification
 
 
 class TaskProgressItem(BaseModel):
-    """Snapshot par tâche à l’instant t.
+    """Per-task snapshot at time t.
 
     Description:
-        Capture l’état d’une tâche au moment du calcul (statut, compteurs, diagnostics)
-        afin d’alimenter les vues détaillées et l’agrégat global.
+        Captures the state of a task at computation time (status, counters, diagnostics)
+        to feed detailed views and the global aggregate.
 
     Attributes:
-        task_id (PyObjectId): Réf. de la tâche.
-        status (Literal['todo','in_progress','done']): État courant.
-        progress (ProgressSnapshot): Sous-agrégat/percent pour cette tâche.
-        metrics (dict[str, Any]): Compteurs/valeurs calculées (ex. `current_count`).
-        constraints (dict[str, Any] | None): Contraintes copiées à des fins d’audit.
-        aggregate (AggregateProgress | None): Agrégat dédié (ex. unités spécifiques).
+        task_id (PyObjectId): Task reference.
+        status (Literal[‘todo’,’in_progress’,’done’]): Current state.
+        progress (ProgressSnapshot): Sub-aggregate/percent for this task.
+        metrics (dict[str, Any]): Computed counters/values (e.g. `current_count`).
+        constraints (dict[str, Any] | None): Constraints copied for audit purposes.
+        aggregate (AggregateProgress | None): Dedicated aggregate (e.g. specific units).
     """
 
     task_id: PyObjectId
@@ -56,20 +56,20 @@ class TaskProgressItem(BaseModel):
 
 
 class Progress(MongoBaseModel):
-    """Snapshot complet d’un UserChallenge à l’instant t.
+    """Full snapshot of a UserChallenge at time t.
 
     Description:
-        Document immuable décrivant l’état agrégé du challenge et l’état de chaque tâche,
-        utilisé pour les graphiques et l’historique.
+        Immutable document describing the aggregated state of the challenge and each task,
+        used for charts and history.
 
     Attributes:
-        user_challenge_id (PyObjectId): Réf. UC concerné.
-        checked_at (datetime): Horodatage du calcul (axe temps).
-        aggregate (ProgressSnapshot): Agrégat global (toutes tâches supportées).
-        tasks (list[TaskProgressItem]): Détails par tâche.
-        message (str | None): Annotation éventuelle.
-        engine_version (str | None): Version du moteur d’évaluation.
-        created_at (datetime): Date de création (append-only).
+        user_challenge_id (PyObjectId): Relevant UC reference.
+        checked_at (datetime): Computation timestamp (time axis).
+        aggregate (ProgressSnapshot): Global aggregate (all supported tasks).
+        tasks (list[TaskProgressItem]): Per-task details.
+        message (str | None): Optional annotation.
+        engine_version (str | None): Evaluation engine version.
+        created_at (datetime): Creation date (append-only).
     """
 
     user_challenge_id: PyObjectId
@@ -92,17 +92,17 @@ class Progress(MongoBaseModel):
 
 
 class AggregateProgress(BaseModel):
-    """Agrégat simple (valeur/objectif/unité).
+    """Simple aggregate (value/target/unit).
 
     Attributes:
-        total (float): Valeur courante.
-        target (float): Objectif attendu.
-        unit (str): Unité (ex. "points", "meters").
+        total (float): Current value.
+        target (float): Expected target.
+        unit (str): Unit (e.g. "points", "meters").
     """
 
     total: float = 0.0
     target: float = 0.0
-    unit: str = "points"  # ou "meters" pour altitude
+    unit: str = "points"  # or "meters" for altitude
 
     model_config = ConfigDict(
         populate_by_name=True,

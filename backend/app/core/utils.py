@@ -1,30 +1,30 @@
 # backend/app/core/utils.py
-# Fonctions temporelles basiques (naive local et aware UTC).
+# Basic time utilities (naive local and timezone-aware UTC).
 
 import datetime as dt
 
 
 def now():
-    """Date/heure locale (naive).
+    """Local date/time (naive).
 
     Description:
-        Retourne `datetime.now()` sans timezone attachée. Pratique pour usages locaux
-        mais à éviter pour les comparaisons cross-TZ (préférer `utcnow()`).
+        Returns `datetime.now()` with no timezone attached. Convenient for local use
+        but should be avoided for cross-timezone comparisons (prefer `utcnow()`).
 
     Returns:
-        datetime.datetime: Timestamp local (naive).
+        datetime.datetime: Local timestamp (naive).
     """
     return dt.datetime.now()
 
 
 def utcnow():
-    """Date/heure UTC (timezone-aware).
+    """UTC date/time (timezone-aware).
 
     Description:
-        Retourne `datetime.now(timezone.utc)` avec timezone UTC attachée. Recommandé
-        pour les horodatages persistés et les comparaisons.
+        Returns `datetime.now(timezone.utc)` with the UTC timezone attached. Recommended
+        for persisted timestamps and comparisons.
 
     Returns:
-        datetime.datetime: Timestamp UTC (aware).
+        datetime.datetime: UTC timestamp (aware).
     """
     return dt.datetime.now(dt.timezone.utc)

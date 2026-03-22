@@ -1,5 +1,5 @@
 # backend/app/models/user_challenge.py
-# État d’un challenge pour un utilisateur (statuts déclarés/calculés, logique UC, notes, progress).
+# State of a challenge for a user (declared/computed statuses, UC logic, notes, progress).
 
 from __future__ import annotations
 
@@ -15,36 +15,36 @@ from app.shared.progress import ProgressSnapshot
 
 
 class UserChallenge(MongoBaseModel):
-    """Document Mongo « UserChallenge ».
+    """UserChallenge Mongo document.
 
     Description:
-        Lie un utilisateur à un challenge, stocke le statut utilisateur (déclaratif) et le
-        statut calculé (évaluation UC logic), ainsi que l’override manuel et un snapshot courant.
+        Links a user to a challenge, stores the user-declared status and the
+        computed status (UC logic evaluation), along with the manual override and a current snapshot.
 
     Attributes:
-        user_id (PyObjectId): Réf. utilisateur.
-        challenge_id (PyObjectId): Réf. challenge.
-        status (Literal['pending','accepted','dismissed','completed']): Statut déclaré.
-        computed_status (Literal[...] | None): Statut calculé.
-        manual_override (bool): Override manuel actif.
-        override_reason (str | None): Justification d’override.
-        overridden_at (datetime | None): Date override.
-        logic (UCLogic | None): Logique d’agrégation des tasks.
-        progress (ProgressSnapshot | None): Snapshot global courant.
-        notes (str | None): Notes libres.
-        created_at (datetime): Création (local).
-        updated_at (datetime | None): MAJ.
+        user_id (PyObjectId): User reference.
+        challenge_id (PyObjectId): Challenge reference.
+        status (Literal[‘pending’,’accepted’,’dismissed’,’completed’]): Declared status.
+        computed_status (Literal[...] | None): Computed status.
+        manual_override (bool): Active manual override.
+        override_reason (str | None): Override justification.
+        overridden_at (datetime | None): Override date.
+        logic (UCLogic | None): Task aggregation logic.
+        progress (ProgressSnapshot | None): Current global snapshot.
+        notes (str | None): Free-form notes.
+        created_at (datetime): Creation time (local).
+        updated_at (datetime | None): Last update.
     """
 
     user_id: PyObjectId
     challenge_id: PyObjectId
-    # Déclaration UTILISATEUR (peut être "completed" même si non satisfaisant algorithmiquement)
+    # USER declaration (may be "completed" even if algorithmically not satisfied)
     status: Literal["pending", "accepted", "dismissed", "completed"] = "pending"
 
-    # Statut CALCULÉ par l’évaluation (UCLogic sur les tasks)
+    # COMPUTED status from evaluation (UCLogic over tasks)
     computed_status: Literal["pending", "accepted", "dismissed", "completed"] | None = None
 
-    # Traçabilité de l’override
+    # Override audit trail
     manual_override: bool = False
     override_reason: str | None = None
     overridden_at: dt.datetime | None = None

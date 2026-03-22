@@ -1,5 +1,5 @@
 # backend/app/core/bson_utils.py
-# Helpers Pydantic v2 pour ObjectId + base model Mongo, avec JSON Schema propre pour OpenAPI.
+# Pydantic v2 helpers for ObjectId and a Mongo base model, with a clean JSON Schema for OpenAPI.
 from __future__ import annotations
 
 from typing import Any
@@ -11,13 +11,13 @@ from pydantic_core import core_schema
 
 
 class PyObjectId(ObjectId):
-    """ObjectId compatible Pydantic v2 et OpenAPI.
+    """ObjectId compatible with Pydantic v2 and OpenAPI.
 
     Description:
-        Étend `bson.ObjectId` avec les hooks Pydantic v2 pour:
-        - accepter une chaîne hex de 24 caractères **ou** un `ObjectId`
-        - sérialiser en chaîne dans les réponses
-        - exposer un schéma OpenAPI clair (`type: string`, `format: objectid`)
+        Extends `bson.ObjectId` with Pydantic v2 hooks to:
+        - accept a 24-character hex string **or** an existing `ObjectId`
+        - serialize as a string in responses
+        - expose a clean OpenAPI schema (`type: string`, `format: objectid`)
 
     """
 
@@ -25,17 +25,17 @@ class PyObjectId(ObjectId):
     def __get_pydantic_core_schema__(
         cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> core_schema.CoreSchema:
-        """Hook Pydantic v2: schéma de validation/serialization côté core.
+        """Pydantic v2 hook: core-side validation/serialization schema.
 
         Description:
-            Définit l’acceptation JSON (str) et Python (validator), avec sérialisation en str.
+            Defines JSON acceptance (str) and Python validation, with serialization to str.
 
         Args:
-            source_type (Any): Type source vu par Pydantic.
-            handler (GetCoreSchemaHandler): Gestionnaire de schémas core.
+            source_type (Any): Source type as seen by Pydantic.
+            handler (GetCoreSchemaHandler): Core schema handler.
 
         Returns:
-            core_schema.CoreSchema: Schéma de validation/serialization.
+            core_schema.CoreSchema: Validation/serialization schema.
         """
         return core_schema.json_or_python_schema(
             json_schema=core_schema.str_schema(),
@@ -47,18 +47,18 @@ class PyObjectId(ObjectId):
     def __get_pydantic_json_schema__(
         cls, core_schema_obj: core_schema.CoreSchema, handler: GetJsonSchemaHandler
     ) -> JsonSchemaValue:
-        """Hook Pydantic v2: schéma JSON pour OpenAPI.
+        """Pydantic v2 hook: JSON schema for OpenAPI.
 
         Description:
-            Génère un schéma JSON propre (string + pattern ObjectId) afin d’éviter les warnings
-            et d’améliorer l’UX Swagger.
+            Generates a clean JSON schema (string + ObjectId pattern) to avoid warnings
+            and improve the Swagger UI experience.
 
         Args:
-            core_schema_obj (core_schema.CoreSchema): Schéma core.
-            handler (GetJsonSchemaHandler): Gestionnaire de schémas JSON.
+            core_schema_obj (core_schema.CoreSchema): Core schema.
+            handler (GetJsonSchemaHandler): JSON schema handler.
 
         Returns:
-            JsonSchemaValue: Schéma JSON compatible OpenAPI.
+            JsonSchemaValue: OpenAPI-compatible JSON schema.
         """
         json_schema = handler(core_schema_obj)
         # Keep it simple and explicit for Swagger UI
@@ -74,20 +74,20 @@ class PyObjectId(ObjectId):
 
     @classmethod
     def _validate(cls, v: Any, info: core_schema.ValidationInfo) -> ObjectId:
-        """Valide et convertit en ObjectId.
+        """Validates and converts a value to ObjectId.
 
         Description:
-            Accepte un `ObjectId` déjà typé ou une chaîne valide (24 hex). Lève `TypeError` sinon.
+            Accepts an already-typed `ObjectId` or a valid 24-hex string. Raises `TypeError` otherwise.
 
         Args:
-            v (Any): Valeur à convertir.
-            info (core_schema.ValidationInfo): Contexte de validation Pydantic.
+            v (Any): Value to convert.
+            info (core_schema.ValidationInfo): Pydantic validation context.
 
         Returns:
-            ObjectId: Instance validée.
+            ObjectId: Validated instance.
 
         Raises:
-            TypeError: Si la valeur n’est pas un ObjectId valide.
+            TypeError: If the value is not a valid ObjectId.
         """
         if isinstance(v, ObjectId):
             return v
@@ -97,11 +97,11 @@ class PyObjectId(ObjectId):
 
 
 class MongoBaseModel(BaseModel):
-    """BaseModel Pydantic pour documents Mongo.
+    """Pydantic BaseModel for Mongo documents.
 
     Description:
-        - Champ `_id` exposé via l’alias `id` (type `PyObjectId`)
-        - Encoders/Config adaptés à Mongo (aliases, `arbitrary_types_allowed`, encodage ObjectId->str)
+        - The `_id` field is exposed via the `id` alias (type `PyObjectId`)
+        - Encoders/config adapted for Mongo (aliases, `arbitrary_types_allowed`, ObjectId->str encoding)
     """
 
     id: PyObjectId | None = Field(default=None, alias="_id")
@@ -115,33 +115,33 @@ class MongoBaseModel(BaseModel):
 
 # Convenience helpers
 def dump_mongo(model: BaseModel, *, exclude_none: bool = True) -> dict:
-    """Dump d’un modèle pour Mongo (dict).
+    """Dumps a model for Mongo (dict).
 
     Description:
-        Sérialise en dict prêt pour Mongo, en respectant les alias (`_id`) et
-        en excluant les champs `None` par défaut.
+        Serializes to a dict ready for Mongo, respecting aliases (`_id`) and
+        excluding `None` fields by default.
 
     Args:
-        model (BaseModel): Modèle Pydantic à sérialiser.
-        exclude_none (bool): Exclure les champs None.
+        model (BaseModel): Pydantic model to serialize.
+        exclude_none (bool): Exclude None fields.
 
     Returns:
-        dict: Document sérialisé prêt à insérer/mettre à jour.
+        dict: Serialized document ready to insert or update.
     """
     return model.model_dump(by_alias=True, exclude_none=exclude_none)
 
 
 def dump_mongo_json(model: BaseModel, *, exclude_none: bool = True) -> str:
-    """Dump d’un modèle pour Mongo (JSON string).
+    """Dumps a model for Mongo (JSON string).
 
     Description:
-        Équivalent JSON de `dump_mongo`, utile pour du logging/debug.
+        JSON equivalent of `dump_mongo`, useful for logging/debugging.
 
     Args:
-        model (BaseModel): Modèle Pydantic à sérialiser.
-        exclude_none (bool): Exclure les champs None.
+        model (BaseModel): Pydantic model to serialize.
+        exclude_none (bool): Exclude None fields.
 
     Returns:
-        str: Chaîne JSON du document sérialisé.
+        str: JSON string of the serialized document.
     """
     return model.model_dump_json(by_alias=True, exclude_none=exclude_none)

@@ -1,5 +1,5 @@
 # backend/app/api/routes/my_challenge_tasks.py
-# Routes "mes tâches de challenge" : lire, remplacer (ordre inclus) et valider des tâches pour un UserChallenge.
+# "My challenge tasks" routes: read, replace (including order), and validate tasks for a UserChallenge.
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from typing import Annotated
 from bson import ObjectId
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.user_challenge_task import (
     TasksListResponse,
     TasksPutIn,
@@ -15,7 +16,7 @@ from app.api.dto.user_challenge_task import (
     TasksValidateResponse,
 )
 from app.core.bson_utils import PyObjectId
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.services.user_challenge_tasks_service import list_tasks, put_tasks, validate_only
 
 router = APIRouter(
@@ -25,58 +26,58 @@ router = APIRouter(
 )
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks (GET) to verify
 @router.get(
     "",
     response_model=TasksListResponse,
-    summary="Lister les tâches d’un UserChallenge",
-    description="Retourne la liste **ordonnée** des tâches associées au UserChallenge.",
+    summary="List the tasks of a UserChallenge",
+    description="Returns the **ordered** list of tasks associated with the UserChallenge.",
 )
 async def get_tasks(
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     user_id: CurrentUserId,
 ):
-    """Lister les tâches d’un UserChallenge.
+    """List the tasks of a UserChallenge.
 
     Description:
-        Récupère la liste ordonnée des tâches du challenge de l’utilisateur.
+        Retrieves the ordered list of tasks for the user’s challenge.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
+        uc_id (PyObjectId): UserChallenge identifier.
 
     Returns:
-        TasksListResponse: Tâches ordonnées.
+        TasksListResponse: Ordered tasks.
     """
     tasks = await list_tasks(user_id, ObjectId(str(uc_id)))
 
     return {"tasks": tasks}
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks (PUT) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks (PUT) to verify
 @router.put(
     "",
     response_model=TasksListResponse,
-    summary="Remplacer toutes les tâches d’un UserChallenge",
-    description="Remplace **l’intégralité** des tâches (avec leur ordre) pour le UserChallenge.",
+    summary="Replace all tasks of a UserChallenge",
+    description="Replaces **all** tasks (including their order) for the UserChallenge.",
 )
 async def put_tasks_route(
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
     payload: Annotated[
-        TasksPutIn, Body(..., description="Liste complète de tâches à appliquer (ordre inclus).")
+        TasksPutIn, Body(..., description="Complete list of tasks to apply (order included).")
     ],
     user_id: CurrentUserId,
 ):
-    """Remplacer l’ensemble des tâches (ordre inclus).
+    """Replace all tasks (order included).
 
     Description:
-        Écrase la liste courante des tâches par la nouvelle liste fournie, en respectant l’ordre.
+        Overwrites the current task list with the provided new list, preserving order.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
-        payload (TasksPutIn): Nouvelles tâches (liste complète).
+        uc_id (PyObjectId): UserChallenge identifier.
+        payload (TasksPutIn): New tasks (full list).
 
     Returns:
-        TasksListResponse: Tâches persistées après remplacement.
+        TasksListResponse: Tasks persisted after replacement.
     """
     try:
         tasks = await put_tasks(
@@ -91,29 +92,29 @@ async def put_tasks_route(
     return {"tasks": tasks}
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks/validate (POST) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/tasks/validate (POST) to verify
 @router.post(
     "/validate",
     response_model=TasksValidateResponse,
-    summary="Valider une liste de tâches (sans persistance)",
-    description="Valide la cohérence d’une liste de tâches **sans l’enregistrer**.",
+    summary="Validate a task list (without persisting)",
+    description="Validates the consistency of a task list **without saving it**.",
 )
 async def validate_tasks_route(
-    uc_id: Annotated[PyObjectId, Path(..., description="Identifiant du UserChallenge.")],
-    payload: Annotated[TasksValidateIn, Body(..., description="Liste de tâches à valider.")],
+    uc_id: Annotated[PyObjectId, Path(..., description="UserChallenge identifier.")],
+    payload: Annotated[TasksValidateIn, Body(..., description="List of tasks to validate.")],
     user_id: CurrentUserId,
 ):
-    """Valider une liste de tâches (sans persistance).
+    """Validate a task list (without persisting).
 
     Description:
-        Exécute les contrôles de cohérence sur la liste de tâches fournie pour le UserChallenge.
+        Runs consistency checks on the provided task list for the UserChallenge.
 
     Args:
-        uc_id (PyObjectId): Identifiant du UserChallenge.
-        payload (TasksValidateIn): Tâches à valider.
+        uc_id (PyObjectId): UserChallenge identifier.
+        payload (TasksValidateIn): Tasks to validate.
 
     Returns:
-        TasksValidateResponse: Détails de validation (erreurs, avertissements, etc.).
+        TasksValidateResponse: Validation details (errors, warnings, etc.).
     """
     res = validate_only(
         user_id,

@@ -1,8 +1,8 @@
 # backend/app/api/routes/caches.py
-# Routes liées aux géocaches :
-# - Upload GPX et import
-# - Recherche par filtres, bbox ou rayon
-# - Récupération par identifiant ou code GC
+# Routes related to geocaches:
+# - GPX upload and import
+# - Search by filters, bbox, or radius
+# - Retrieval by identifier or GC code
 
 from __future__ import annotations
 
@@ -24,8 +24,9 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from pymongo import ASCENDING, DESCENDING
 
+from app.api.deps import CurrentUserId
 from app.api.dto.cache_query import CacheFilterIn
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
@@ -39,12 +40,12 @@ router = APIRouter(prefix="/caches", tags=["Caches"], dependencies=[Depends(get_
 
 
 def _doc(d: dict[str, Any]) -> dict[str, Any]:
-    """Encode un document MongoDB (ObjectId -> str)."""
+    """Encodes a MongoDB document (ObjectId -> str)."""
     return jsonable_encoder(d, custom_encoder={ObjectId: str})
 
 
 def _oid(v: str | ObjectId | None) -> ObjectId | None:
-    """Convertit une valeur en ObjectId MongoDB ou lève HTTP 400 si invalide."""
+    """Converts a value to a MongoDB ObjectId, or raises HTTP 400 if invalid."""
     if v is None:
         return None
     if isinstance(v, ObjectId):
@@ -57,7 +58,7 @@ def _oid(v: str | ObjectId | None) -> ObjectId | None:
 
 # ------------------------- compact helpers -------------------------
 
-# Collections et champs d'étiquette (ajuste "name" si ton schéma diffère)
+# Collections and label fields (adjust "name" if your schema differs)
 TYPE_COLLECTION = "cache_types"
 SIZE_COLLECTION = "cache_sizes"
 
@@ -67,7 +68,7 @@ TYPE_CODE_FIELD = "code"
 SIZE_LABEL_FIELD = "name"
 SIZE_CODE_FIELD = "code"
 
-# Liste des champs à retourner en mode "compact"
+# Fields to return in "compact" mode
 COMPACT_FIELDS = {
     "_id": 1,
     "GC": 1,
@@ -82,7 +83,7 @@ COMPACT_FIELDS = {
 
 
 def _compact_lookups_and_project():
-    """Stades $lookup/$project pour enrichir type/size (label+code) et projeter les champs compacts."""
+    """$lookup/$project stages to enrich type/size (label+code) and project compact fields."""
     return [
         {
             "$lookup": {
@@ -100,7 +101,7 @@ def _compact_lookups_and_project():
                 "as": "_size",
             }
         },
-        # on prend les 1ers éléments et on fabrique des objets {label, code}
+        # take the first elements and build {label, code} objects
         {
             "$addFields": {
                 "type": {
@@ -133,7 +134,7 @@ def _compact_lookups_and_project():
                 },
             }
         },
-        # on retire les tableaux temporaires
+        # remove temporary arrays
         {"$project": {**COMPACT_FIELDS, "type": 1, "size": 1}},
     ]
 
@@ -141,22 +142,22 @@ def _compact_lookups_and_project():
 # ------------------------- routes -------------------------
 
 
-# DONE: [BACKLOG] Route /caches/upload-gpx (POST) à vérifier
+# DONE: [BACKLOG] Route /caches/upload-gpx (POST) verified
 @router.post(
     "/upload-gpx",
-    summary="Importe des caches depuis un fichier GPX/ZIP",
+    summary="Import caches from a GPX/ZIP file",
     description=(
-        "Charge un fichier GPX (ou ZIP contenant un GPX) et importe les géocaches associées.\n\n"
-        "- Optionnellement, marque les caches comme trouvées (création de `found_caches`)\n"
-        "- Tente ensuite une création automatique de challenges à partir des caches importées\n"
-        f"- **Limite de taille** : {settings.max_upload_mb} Mo\n"
-        "- Supporte plusieurs formats de GPX (cgeo, pocket_query)\n"
-        "- Retourne un résumé d’import et des statistiques liées aux challenges"
+        "Loads a GPX file (or a ZIP containing a GPX) and imports the associated geocaches.\n\n"
+        "- Optionally marks caches as found (creates `found_caches` records)\n"
+        "- Then attempts to auto-create challenges from the imported caches\n"
+        f"- **Size limit**: {settings.max_upload_mb} MB\n"
+        "- Supports multiple GPX formats (cgeo, pocket_query)\n"
+        "- Returns an import summary and challenge-related statistics"
     ),
     responses={
-        200: {"description": "Import GPX réussi"},
-        400: {"description": "Fichier GPX/ZIP invalide"},
-        401: {"description": "Non authentifié"},
+        200: {"description": "GPX import successful"},
+        400: {"description": "Invalid GPX/ZIP file"},
+        401: {"description": "Unauthenticated"},
         413: {"description": "Payload too large"},
     },
 )
@@ -164,34 +165,34 @@ async def upload_gpx(
     request: Request,
     user_id: CurrentUserId,
     file: Annotated[
-        UploadFile, File(..., description="Fichier GPX à importer (ou ZIP contenant un GPX).")
+        UploadFile, File(..., description="GPX file to import (or ZIP containing a GPX).")
     ],
     import_mode: Literal["all", "found"] = Query(
         "all",
-        description="Mode d'import: 'all' (toutes les caches) ou 'found' (mes trouvailles)",
+        description="Import mode: ‘all’ (all caches) or ‘found’ (my finds)",
     ),
     source_type: Literal["auto", "cgeo", "pocket_query"] = Query(
         "auto",
-        description="Type de source GPX: 'auto' (détection automatique), 'cgeo', 'pocket_query'",
+        description="GPX source type: ‘auto’ (auto-detect), ‘cgeo’, ‘pocket_query’",
     ),
 ):
-    """Importe un fichier GPX/ZIP et déclenche la création de challenges.
+    """Imports a GPX/ZIP file and triggers challenge creation.
 
     Description:
-        Cette route lit un fichier GPX (ou un ZIP qui contient un GPX), importe les caches dans la base,
-        puis lance un traitement pour auto-créer des challenges basés sur les caches nouvellement importées.
+        Reads a GPX file (or a ZIP containing a GPX), imports the caches into the database,
+        then triggers processing to auto-create challenges from the newly imported caches.
 
     Args:
-        file (UploadFile): Fichier GPX ou ZIP à traiter.
-        import_mode (str): Mode d'import - 'all' pour importer toutes les caches, 'found' pour marquer comme trouvées.
-        source_type (str): Format du fichier GPX - 'auto' pour détection automatique, 'cgeo' ou 'pocket_query'.
+        file (UploadFile): GPX or ZIP file to process.
+        import_mode (str): Import mode - ‘all’ to import all caches, ‘found’ to mark as found.
+        source_type (str): GPX file format - ‘auto’ for auto-detection, ‘cgeo’, or ‘pocket_query’.
 
     Returns:
-        dict: Objet contenant le récapitulatif d'import (`summary`) et des statistiques liées aux challenges (`challenges_stats`).
+        dict: Object containing the import summary (`summary`) and challenge-related statistics (`challenges_stats`).
     """
 
     result = {}
-    # lecture streaming avec limite de taille
+    # streaming read with size limit
     read_bytes = 0
     chunks: list[bytes] = []
     while True:
@@ -200,7 +201,7 @@ async def upload_gpx(
             break
         read_bytes += len(chunk)
         if read_bytes > settings.max_upload_bytes:
-            # Important: fermer le fichier et renvoyer 413
+            # Important: close the file and return 413
             await file.close()
             raise HTTPException(
                 status_code=413,
@@ -219,7 +220,7 @@ async def upload_gpx(
             user_id=ObjectId(str(user_id)),
             request=request,
             source_type=source_type,
-            force_update_attributes=False,  # Toujours False dans la version standard
+            force_update_attributes=False,  # Always False in the standard version
         )
     except HTTPException:
         raise
@@ -227,9 +228,9 @@ async def upload_gpx(
         raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}") from e
 
     try:
-        # Variante simple (scan global optimisé: ne traite que les nouvelles caches challenge)
+        # Simple variant (optimized global scan: only processes new challenge caches)
         challenges_stats = await create_new_challenges_from_caches()
-        # Variante optimisée si tu as la liste des _id caches importées :
+        # Optimized variant if you have the list of imported cache _ids:
         # challenge_stats = create_new_challenges_from_caches(cache_ids=upserted_cache_ids)
     except Exception as e:
         challenges_stats = {"error": str(e)}
@@ -238,17 +239,17 @@ async def upload_gpx(
     return result
 
 
-# DONE: [BACKLOG] Route /caches/by-filter (POST) à vérifier
+# DONE: [BACKLOG] Route /caches/by-filter (POST) verified
 @router.post(
     "/by-filter",
-    summary="Recherche de caches par filtres",
+    summary="Search caches by filters",
     description=(
-        "Retourne une liste paginée de géocaches selon des filtres combinables :\n"
-        "- Texte (`$text`), type, taille, pays/état\n"
-        "- Difficulté/terrain (plages min/max)\n"
-        "- Période de placement (après/avant)\n"
-        "- Attributs positifs/négatifs\n"
-        "- BBox optionnelle et tri (-placed_at, -favorites, difficulty, terrain)"
+        "Returns a paginated list of geocaches based on combinable filters:\n"
+        "- Text (`$text`), type, size, country/state\n"
+        "- Difficulty/terrain (min/max ranges)\n"
+        "- Placement period (after/before)\n"
+        "- Positive/negative attributes\n"
+        "- Optional BBox and sort (-placed_at, -favorites, difficulty, terrain)"
     ),
 )
 async def by_filter(
@@ -257,12 +258,12 @@ async def by_filter(
         Body(
             ...,
             description=(
-                "Objet de filtrage et de pagination :\n"
-                "- `q`: recherche plein texte\n"
+                "Filtering and pagination object:\n"
+                "- `q`: full-text search\n"
                 "- `type_id`, `size_id`, `country_id`, `state_id`\n"
-                "- `difficulty`, `terrain`: objets `Range {min,max}`\n"
-                "- `placed_after`, `placed_before`: bornes temporelles\n"
-                "- `attr_pos`, `attr_neg`: listes d’attributs (ObjectId)\n"
+                "- `difficulty`, `terrain`: `Range {min,max}` objects\n"
+                "- `placed_after`, `placed_before`: time bounds\n"
+                "- `attr_pos`, `attr_neg`: attribute lists (ObjectId)\n"
                 "- `bbox`: `{min_lat,min_lon,max_lat,max_lon}`\n"
                 "- `sort`, `page`, `page_size`"
             ),
@@ -270,19 +271,19 @@ async def by_filter(
     ],
     compact: bool = Query(
         True,
-        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+        description="Returns an abbreviated version (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
     ),
 ):
-    """Recherche multi-critères de géocaches.
+    """Multi-criteria geocache search.
 
     Description:
-        Filtre les caches selon plusieurs critères combinables, applique le tri et retourne des résultats paginés.
+        Filters caches using multiple combinable criteria, applies sorting, and returns paginated results.
 
     Args:
-        payload (CacheFilterIn): Paramètres de filtrage, tri et pagination.
+        payload (CacheFilterIn): Filtering, sorting, and pagination parameters.
 
     Returns:
-        dict: Résultats paginés `{items, total, page, page_size}`.
+        dict: Paginated results `{items, total, page, page_size}`.
     """
     coll = await get_collection("caches")
     q: dict[str, Any] = {}
@@ -384,58 +385,54 @@ async def by_filter(
     }
 
 
-# DONE: [BACKLOG] Route /caches/within-bbox (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/within-bbox (GET) verified
 @router.get(
     "/within-bbox",
-    summary="Caches dans une bounding box",
+    summary="Caches within a bounding box",
     description=(
-        "Liste paginée des caches comprises dans une BBox.\n"
-        "- Filtre optionnel par `type_id` et `size_id`\n"
-        "- Tri: `-placed_at`, `-favorites`, `difficulty`, `terrain`\n"
-        "- Pagination avec `page` et `page_size` (max 200)"
+        "Paginated list of caches within a BBox.\n"
+        "- Optional filter by `type_id` and `size_id`\n"
+        "- Sort: `-placed_at`, `-favorites`, `difficulty`, `terrain`\n"
+        "- Pagination via `page` and `page_size` (max 200)"
     ),
 )
 async def within_bbox(
-    min_lat: float = Query(..., description="Latitude minimale de la BBox."),
-    min_lon: float = Query(..., description="Longitude minimale de la BBox."),
-    max_lat: float = Query(..., description="Latitude maximale de la BBox."),
-    max_lon: float = Query(..., description="Longitude maximale de la BBox."),
-    type_id: str | None = Query(
-        None, description="Filtre optionnel: identifiant de type (ObjectId)."
-    ),
-    size_id: str | None = Query(
-        None, description="Filtre optionnel: identifiant de taille (ObjectId)."
-    ),
-    page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
-    page_size: int = Query(100, ge=1, le=200, description="Taille de page (1–200)."),
+    min_lat: float = Query(..., description="Minimum BBox latitude."),
+    min_lon: float = Query(..., description="Minimum BBox longitude."),
+    max_lat: float = Query(..., description="Maximum BBox latitude."),
+    max_lon: float = Query(..., description="Maximum BBox longitude."),
+    type_id: str | None = Query(None, description="Optional filter: type identifier (ObjectId)."),
+    size_id: str | None = Query(None, description="Optional filter: size identifier (ObjectId)."),
+    page: int = Query(1, ge=1, description="Page number (≥1)."),
+    page_size: int = Query(100, ge=1, le=200, description="Page size (1–200)."),
     sort: Literal["-placed_at", "-favorites", "difficulty", "terrain"] = Query(
         "-placed_at",
-        description="Clé de tri: '-placed_at' (défaut), '-favorites', 'difficulty', 'terrain'.",
+        description="Sort key: ‘-placed_at’ (default), ‘-favorites’, ‘difficulty’, ‘terrain’.",
     ),
     compact: bool = Query(
         True,
-        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+        description="Returns an abbreviated version (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
     ),
 ):
-    """Liste les caches d’une BBox.
+    """Lists caches within a BBox.
 
     Description:
-        Applique un filtre spatial rectangulaire (BBox) avec options de tri et de pagination.
-        Peut restreindre par type et/ou taille de cache.
+        Applies a rectangular spatial filter (BBox) with sorting and pagination options.
+        Can be restricted by cache type and/or size.
 
     Args:
-        min_lat (float): Latitude minimale.
-        min_lon (float): Longitude minimale.
-        max_lat (float): Latitude maximale.
-        max_lon (float): Longitude maximale.
-        type_id (str | None): Identifiant de type de cache (ObjectId).
-        size_id (str | None): Identifiant de taille de cache (ObjectId).
-        page (int): Numéro de page.
-        page_size (int): Taille de page.
-        sort (Literal): Clé de tri.
+        min_lat (float): Minimum latitude.
+        min_lon (float): Minimum longitude.
+        max_lat (float): Maximum latitude.
+        max_lon (float): Maximum longitude.
+        type_id (str | None): Cache type identifier (ObjectId).
+        size_id (str | None): Cache size identifier (ObjectId).
+        page (int): Page number.
+        page_size (int): Page size.
+        sort (Literal): Sort key.
 
     Returns:
-        dict: Résultats paginés `{items, total, page, page_size}`.
+        dict: Paginated results `{items, total, page, page_size}`.
     """
     coll = await get_collection("caches")
     q: dict[str, Any] = {
@@ -483,59 +480,55 @@ async def within_bbox(
     }
 
 
-# DONE: [BACKLOG] Route /caches/within-radius (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/within-radius (GET) verified
 @router.get(
     "/within-radius",
-    summary="Caches autour d’un point (rayon)",
+    summary="Caches around a point (radius)",
     description=(
-        "Recherche par distance (geoNear) autour d’un point (lat, lon).\n"
-        "- Requiert un index 2dsphere sur `caches.loc`\n"
-        "- Filtre optionnel par `type_id` et `size_id`\n"
+        "Distance search (geoNear) around a point (lat, lon).\n"
+        "- Requires a 2dsphere index on `caches.loc`\n"
+        "- Optional filter by `type_id` and `size_id`\n"
         "- Pagination via `page`/`page_size` (max 200)"
     ),
 )
 async def within_radius(
-    lat: float = Query(..., description="Latitude du centre."),
-    lon: float = Query(..., description="Longitude du centre."),
+    lat: float = Query(..., description="Center latitude."),
+    lon: float = Query(..., description="Center longitude."),
     radius_km: float = Query(
         10.0,
         ge=0.1,
         le=100.0,
-        description="Rayon de recherche en kilomètres (0.1–100).",
+        description="Search radius in kilometers (0.1–100).",
     ),
-    type_id: str | None = Query(
-        None, description="Filtre optionnel: identifiant de type (ObjectId)."
-    ),
-    size_id: str | None = Query(
-        None, description="Filtre optionnel: identifiant de taille (ObjectId)."
-    ),
-    page: int = Query(1, ge=1, description="Numéro de page (≥1)."),
-    page_size: int = Query(100, ge=1, le=200, description="Taille de page (1–200)."),
+    type_id: str | None = Query(None, description="Optional filter: type identifier (ObjectId)."),
+    size_id: str | None = Query(None, description="Optional filter: size identifier (ObjectId)."),
+    page: int = Query(1, ge=1, description="Page number (≥1)."),
+    page_size: int = Query(100, ge=1, le=200, description="Page size (1–200)."),
     compact: bool = Query(
         True,
-        description="Retourne une version abrégée (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+        description="Returns an abbreviated version (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
     ),
 ):
-    """Recherche par rayon autour d’un point.
+    """Search by radius around a point.
 
     Description:
-        Effectue une agrégation `$geoNear` centrée sur (lat, lon) avec une distance maximale,
-        puis applique tri par distance ascendant, pagination, et compte estimatif.
+        Performs a `$geoNear` aggregation centered on (lat, lon) with a maximum distance,
+        then applies ascending distance sorting, pagination, and an estimated count.
 
     Args:
-        lat (float): Latitude du centre.
-        lon (float): Longitude du centre.
-        radius_km (float): Rayon de recherche en kilomètres.
-        type_id (str | None): Identifiant de type de cache (ObjectId).
-        size_id (str | None): Identifiant de taille de cache (ObjectId).
-        page (int): Numéro de page.
-        page_size (int): Taille de page.
+        lat (float): Center latitude.
+        lon (float): Center longitude.
+        radius_km (float): Search radius in kilometers.
+        type_id (str | None): Cache type identifier (ObjectId).
+        size_id (str | None): Cache size identifier (ObjectId).
+        page (int): Page number.
+        page_size (int): Page size.
 
     Returns:
-        dict: Résultats paginés `{items, total, page, nb_pages, page_size}`.
+        dict: Paginated results `{items, total, page, nb_pages, page_size}`.
 
     Raises:
-        HTTPException: 400 si l’index `2dsphere` requis sur `caches.loc` est manquant.
+        HTTPException: 400 if the required `2dsphere` index on `caches.loc` is missing.
     """
     coll = await get_collection("caches")
     geo = {"type": "Point", "coordinates": [lon, lat]}
@@ -574,7 +567,7 @@ async def within_radius(
             status_code=400, detail=f"2dsphere index required on caches.loc: {e}"
         ) from e
     # count with same query (rough, not exact geo count but OK for paging UI)
-    radius_radians = radius_km / 6378.1  # rayon de la Terre en km
+    radius_radians = radius_km / 6378.1  # Earth radius in km
     total = await coll.count_documents(
         {"loc": {"$geoWithin": {"$centerSphere": [[lon, lat], radius_radians]}}, **q}
     )
@@ -588,25 +581,25 @@ async def within_radius(
     }
 
 
-# DONE: [BACKLOG] Route /caches/{gc} (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/{gc} (GET) verified
 @router.get(
     "/{gc}",
-    summary="Récupère une cache par code GC",
-    description="Retourne une cache unique à partir de son code GC.",
+    summary="Get a cache by GC code",
+    description="Returns a single cache by its GC code.",
 )
 async def get_by_gc(
-    gc: str = Path(..., description="Code GC unique de la cache."),
+    gc: str = Path(..., description="Unique GC code of the cache."),
 ):
-    """Lecture d’une cache (code GC).
+    """Read a cache (GC code).
 
     Description:
-        Récupère la cache identifiée par son code GC. Renvoie 404 si introuvable.
+        Retrieves the cache identified by its GC code. Returns 404 if not found.
 
     Args:
-        gc (str): Code GC de la cache.
+        gc (str): GC code of the cache.
 
     Returns:
-        dict: Document cache sérialisé.
+        dict: Serialized cache document.
     """
 
     coll = await get_collection("caches")
@@ -650,28 +643,26 @@ async def get_by_gc(
     return _doc(doc)
 
 
-# DONE: [BACKLOG] Route /caches/by-id/{id} (GET) à vérifier
+# DONE: [BACKLOG] Route /caches/by-id/{id} (GET) verified
 @router.get(
     "/by-id/{id}",
-    summary="Récupère une cache par identifiant MongoDB",
-    description="Retourne une cache unique à partir de son ObjectId (format chaîne).",
+    summary="Get a cache by MongoDB identifier",
+    description="Returns a single cache by its ObjectId (string format).",
 )
 async def get_by_id(
-    id: str = Path(
-        ..., description="Identifiant MongoDB (ObjectId) de la cache, au format chaîne."
-    ),
+    id: str = Path(..., description="MongoDB identifier (ObjectId) of the cache, as a string."),
 ):
-    """Lecture d’une cache (ObjectId).
+    """Read a cache (ObjectId).
 
     Description:
-        Récupère la cache par son identifiant MongoDB. Renvoie 404 si introuvable
-        et 400 si l’ObjectId est invalide.
+        Retrieves the cache by its MongoDB identifier. Returns 404 if not found
+        and 400 if the ObjectId is invalid.
 
     Args:
-        id (str): Identifiant MongoDB (ObjectId sous forme de chaîne).
+        id (str): MongoDB identifier (ObjectId as a string).
 
     Returns:
-        dict: Document cache sérialisé.
+        dict: Serialized cache document.
     """
     coll = await get_collection("caches")
     oid = _oid(id)

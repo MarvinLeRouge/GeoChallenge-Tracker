@@ -1,12 +1,13 @@
 # backend/app/api/routes/my_profile.py
-# Routes "mon profil" : lecture/écriture de la localisation utilisateur (coordonnées ou expression textuelle).
+# "My profile" routes: read/write user location (coordinates or textual expression).
 
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 
+from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
-from app.core.security import CurrentUser, CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
 from app.services.user_profile_service import UserProfileService
@@ -18,38 +19,38 @@ router = APIRouter(
 # --- ROUTES ---------------------------------------------------------------
 
 
-# TODO: [BACKLOG] Route /my/profile/location (PUT) à vérifier
+# TODO: [BACKLOG] Route /my/profile/location (PUT) to verify
 @router.put(
     "/location",
     status_code=status.HTTP_200_OK,
-    summary="Enregistrer ou mettre à jour ma localisation",
+    summary="Save or update my location",
     description=(
-        "Enregistre la localisation de l’utilisateur **au choix** :\n"
-        "- **Position textuelle** (`position`, ex. coordonnées DM)\n"
-        "- **Coordonnées numériques** (`lat`, `lon`)\n\n"
-        "Valide l’input et renvoie un message indiquant si une mise à jour a eu lieu."
+        "Saves the user’s location using **either**:\n"
+        "- **Textual position** (`position`, e.g. DM coordinates)\n"
+        "- **Numeric coordinates** (`lat`, `lon`)\n\n"
+        "Validates the input and returns a message indicating whether an update occurred."
     ),
 )
 async def put_my_location(
     payload: Annotated[
         UserLocationIn,
-        Body(..., description="Localisation sous forme de `position` (texte) ou `lat`/`lon`."),
+        Body(..., description="Location as a `position` string (text) or `lat`/`lon` numbers."),
     ],
     user_id: CurrentUserId,
 ):
-    """Enregistrer ou mettre à jour la localisation.
+    """Save or update location.
 
     Description:
-        Sauvegarde la localisation via parsing d’une chaîne (`position`) ou directement via `lat`/`lon`.
-        Valide les bornes géographiques et renvoie un message d’état.
+        Saves the location by parsing a string (`position`) or directly via `lat`/`lon`.
+        Validates geographic bounds and returns a status message.
 
     Args:
-        payload (UserLocationIn): Position textuelle ou coordonnées numériques.
+        payload (UserLocationIn): Textual position or numeric coordinates.
 
     Returns:
-        dict: Message d’état (modifiée ou non).
+        dict: Status message (updated or unchanged).
     """
-    # Utiliser le service pour gérer la localisation
+    # Use the service to handle location
     db = get_db()
     user_profile_service = UserProfileService(db)
 
@@ -63,21 +64,21 @@ async def put_my_location(
     return {"message": "No change (same location)"}
 
 
-# TODO: [BACKLOG] Route /my/profile/location (GET) à vérifier
+# TODO: [BACKLOG] Route /my/profile/location (GET) to verify
 @router.get(
     "/location",
     response_model=UserLocationOut,
-    summary="Obtenir ma dernière localisation",
-    description="Retourne la **dernière localisation** enregistrée (lat/lon, format DM, date de mise à jour).",
+    summary="Get my last saved location",
+    description="Returns the **last saved location** (lat/lon, DM format, update timestamp).",
 )
 async def get_my_location(user_id: CurrentUserId):
-    """Obtenir ma dernière localisation.
+    """Get my last saved location.
 
     Description:
-        Récupère la dernière localisation sauvegardée pour l'utilisateur courant. Renvoie 404 si aucune n'existe.
+        Retrieves the last saved location for the current user. Returns 404 if none exists.
 
     Returns:
-        UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
+        UserLocationOut: Coordinates, degrees/minutes representation, and update timestamp.
     """
     db = get_db()
     user_profile_service = UserProfileService(db)
@@ -93,23 +94,23 @@ async def get_my_location(user_id: CurrentUserId):
     return location_data
 
 
-# TODO: [BACKLOG] Route /my/profile (GET) à vérifier
+# TODO: [BACKLOG] Route /my/profile (GET) to verify
 @router.get(
     "",
     response_model=UserOut,
-    summary="Obtenir mon profil",
-    description="Retourne le profil de l'utilisateur courant.",
+    summary="Get my profile",
+    description="Returns the profile of the current user.",
 )
 async def get_my_profile(user: CurrentUser):
-    """Obtenir mon profil.
+    """Get my profile.
 
     Description:
-        Récupère le profil pour l’utilisateur courant.
+        Retrieves the profile for the current user.
 
     Args:
 
     Returns:
-        UserLocationOut: Coordonnées, représentation en degrés/minutes, et timestamp de mise à jour.
+        UserOut: Public user profile data.
     """
 
     return user

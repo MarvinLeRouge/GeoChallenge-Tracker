@@ -11,7 +11,7 @@ class BatchPatchItem(BaseModel):
     uc_id: PyObjectId = Field(..., description="UserChallenge id")
     status: str | None = Field(
         default=None,
-        description="Nouveau statut (pending|accepted|dismissed|completed)",
+        description="New status (pending|accepted|dismissed|completed)",
     )
     notes: str | None = None
     override_reason: str | None = None

@@ -1,5 +1,5 @@
 # backend/app/models/cache_type.py
-# Référentiel listant les types (Traditional, Mystery, Event, …) et leurs alias.
+# Reference list of cache types (Traditional, Mystery, Event, …) and their aliases.
 
 from __future__ import annotations
 
@@ -12,42 +12,42 @@ from app.core.utils import now
 
 
 class CacheTypeBase(BaseModel):
-    """Type de cache (référentiel).
+    """Cache type (reference data).
 
     Description:
-        Nom, code et alias associés à un type de géocache.
+        Name, code and aliases associated with a geocache type.
 
     Attributes:
-        name (str): Libellé (ex. "Traditional").
-        code (str | None): Abréviation (ex. "TR").
-        aliases (list[str]): Alias reconnus pour ce type.
+        name (str): Label (e.g. "Traditional").
+        code (str | None): Abbreviation (e.g. "TR").
+        aliases (list[str]): Recognized aliases for this type.
     """
 
-    name: str  # ex: "Traditional", "Mystery", etc.
-    code: str | None = None  # abréviation, ex: "TR", "MY", "EV"
+    name: str  # e.g. "Traditional", "Mystery", etc.
+    code: str | None = None  # abbreviation, e.g. "TR", "MY", "EV"
     aliases: list[str] = Field(default_factory=list)
 
 
 class CacheTypeCreate(CacheTypeBase):
-    """Payload de création d’un type de cache.
+    """Cache type creation payload.
 
     Description:
-        Identique à `CacheTypeBase` pour insertion dans le référentiel.
+        Identical to `CacheTypeBase` for insertion into the reference data.
     """
 
     pass
 
 
 class CacheTypeUpdate(BaseModel):
-    """Payload de mise à jour d’un type de cache.
+    """Cache type update payload.
 
     Description:
-        Mise à jour partielle des champs.
+        Partial field update.
 
     Attributes:
-        name (str | None): Nouveau libellé.
-        code (str | None): Nouvelle abréviation.
-        aliases (list[str] | None): Nouveaux alias.
+        name (str | None): New label.
+        code (str | None): New abbreviation.
+        aliases (list[str] | None): New aliases.
     """
 
     name: str | None = None
@@ -56,10 +56,10 @@ class CacheTypeUpdate(BaseModel):
 
 
 class CacheType(MongoBaseModel, CacheTypeBase):
-    """Document Mongo d’un type de cache (référentiel).
+    """Cache type Mongo document (reference data).
 
     Description:
-        Étend `CacheTypeBase` avec _id, created_at, updated_at.
+        Extends `CacheTypeBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

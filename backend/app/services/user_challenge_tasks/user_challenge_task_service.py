@@ -1,5 +1,5 @@
 # backend/app/services/user_challenge_tasks/user_challenge_task_service.py
-# Service principal - PRESERVATION EXACTE DES API PUBLIQUES
+# Main service — exact preservation of public APIs.
 
 from __future__ import annotations
 
@@ -21,41 +21,41 @@ from .task_expression_validator import TaskExpressionValidator
 
 
 class UserChallengeTaskService:
-    """Service principal de gestion des tâches UserChallenge.
+    """Main UserChallenge task management service.
 
     Description:
-        Préservation EXACTE des 3 API publiques : list_tasks, put_tasks, validate_only.
-        Aucune modification comportementale - juste réorganisation modulaire.
+        Exact preservation of the 3 public APIs: list_tasks, put_tasks, validate_only.
+        No behavioral changes — purely modular reorganization.
     """
 
     def __init__(self):
-        """Initialiser le service."""
+        """Initialize the service."""
         self.compiler = TaskExpressionCompiler()
         self.normalizer = TaskExpressionNormalizer()
         self.validator = TaskExpressionValidator()
 
     async def list_tasks(self, user_id: ObjectId, uc_id: ObjectId) -> list[dict[str, Any]]:
-        """Lister les tâches d'un UC (déjà canoniques pour l'API).
+        """List the tasks of a UC (already canonical for the API).
 
-        FONCTION IDENTIQUE À L'ORIGINALE list_tasks.
+        FUNCTION IDENTICAL TO THE ORIGINAL list_tasks.
 
         Description:
-            Lit, tente une validation telle quelle, sinon applique un « legacy fixup »
-            puis renvoie l'expression **canonisée** (AND par défaut).
+            Reads tasks, attempts validation as-is, otherwise applies a legacy fixup,
+            then returns the **canonicalized** expression (AND by default).
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            list[dict]: Tâches prêtes pour `TaskOut`.
+            list[dict]: Tasks ready for `TaskOut`.
         """
         coll = await get_collection("user_challenge_tasks")
         cur = coll.find({"user_challenge_id": uc_id}, sort=[("order", 1), ("_id", 1)])
 
         tasks: list[dict[str, Any]] = []
         async for d in cur:
-            # title est requis côté TaskOut -> fallback si absent
+            # title is required by TaskOut -> fallback if absent
             title = d.get("title") or "Untitled task"
             exp = d.get("expression")
 
@@ -76,12 +76,12 @@ class UserChallengeTaskService:
                 exp_out = exp_model.model_dump(by_alias=True)
             tasks.append(
                 {
-                    "id": d["_id"],  # TaskOut.id (PyObjectId géré par tes encoders)
+                    "id": d["_id"],  # TaskOut.id (PyObjectId handled by encoders)
                     "order": d.get("order", 0),
                     "title": title,
                     "expression": exp_out,
                     "constraints": d.get("constraints", {}),
-                    "status": d.get("status"),  # optionnel dans TaskOut
+                    "status": d.get("status"),  # optional in TaskOut
                     "metrics": d.get("metrics"),
                     "progress": d.get("progress"),
                     "last_evaluated_at": d.get("last_evaluated_at"),
@@ -95,14 +95,14 @@ class UserChallengeTaskService:
     def validate_only(
         self, user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        """Valider un payload de tâches **sans persister**.
+        """Validate a task payload **without persisting**.
 
-        FONCTION IDENTIQUE À L'ORIGINALE validate_only.
+        FUNCTION IDENTICAL TO THE ORIGINAL validate_only.
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
-            tasks_payload: Liste d'items de tâches.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            tasks_payload: List of task items.
 
         Returns:
             dict: `{ok: bool, errors: list[...]}`
@@ -119,21 +119,21 @@ class UserChallengeTaskService:
     async def put_tasks(
         self, user_id: ObjectId, uc_id: ObjectId, tasks_payload: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
-        """Remplacer toutes les tâches d'un UC (canonisation + insert).
+        """Replace all tasks of a UC (canonicalization + insert).
 
-        FONCTION IDENTIQUE À L'ORIGINALE put_tasks.
+        FUNCTION IDENTICAL TO THE ORIGINAL put_tasks.
 
         Description:
-            Valide, efface l'existant, insère des tâches **canonisées** (code→id),
-            puis relit pour retour stable.
+            Validates, deletes existing tasks, inserts **canonicalized** tasks (code→id),
+            then re-reads for a stable return value.
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
-            tasks_payload: Liste de tâches.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            tasks_payload: List of tasks.
 
         Returns:
-            list[dict]: Tâches stockées (canonisées).
+            list[dict]: Stored tasks (canonicalized).
         """
         # Validate first (raises on error)
         self.validator.validate_tasks_payload(
@@ -166,7 +166,7 @@ class UserChallengeTaskService:
                 "user_challenge_id": uc_id,
                 "order": int(item.get("order", i)),
                 "title": title,
-                "expression": expr_canonical,  # <--- store canonical
+                "expression": expr_canonical,  # store canonical form
                 "constraints": item.get("constraints", {}),
                 "status": item.get("status") or "todo",
                 "metrics": item.get("metrics", {}),
@@ -202,26 +202,26 @@ class UserChallengeTaskService:
 
         return items
 
-    # === Fonctions utilitaires exposées pour compatibilité ===
+    # === Utility functions exposed for compatibility ===
 
     def compile_expression_to_cache_match(self, expr: TaskExpression) -> dict[str, Any]:
-        """Fonction utilitaire exposée pour compatibilité externe.
+        """Utility function exposed for external compatibility.
 
         Args:
-            expr: Expression AST validée.
+            expr: Validated AST expression.
 
         Returns:
-            dict: Filtre MongoDB pour collection caches.
+            dict: MongoDB filter for the caches collection.
         """
         return self.compiler.compile_expression_to_cache_match(expr)
 
     def validate_task_expression(self, expr: TaskExpression) -> list[str]:
-        """Fonction utilitaire exposée pour compatibilité externe.
+        """Utility function exposed for external compatibility.
 
         Args:
-            expr: Expression AST validée.
+            expr: Validated AST expression.
 
         Returns:
-            list[str]: Liste d'erreurs (vide si OK).
+            list[str]: List of errors (empty if OK).
         """
         return self.validator.validate_task_expression(expr)

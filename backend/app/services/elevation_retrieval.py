@@ -1,5 +1,5 @@
 # backend/app/services/elevation_retrieval.py
-# Interface d’appel asynchrone pour récupérer les altitudes via un provider (OpenTopoData par défaut).
+# Async interface for retrieving elevations via a provider (OpenTopoData by default).
 
 from __future__ import annotations
 
@@ -22,23 +22,23 @@ _PROVIDERS: dict[str, Callable[[list[tuple[float, float]]], Awaitable[list[int |
 
 
 async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
-    """Récupérer les altitudes pour une liste de points.
+    """Retrieve elevations for a list of points.
 
     Description:
-        Utilise le provider configuré (`settings.elevation_provider`, ex. "opentopo") pour interroger
-        les altitudes d’une liste de points `(lat, lon)`. La réponse est alignée en index sur `points`.
-        Si aucun provider n’est disponible, retourne une liste de `None`.
+        Uses the configured provider (`settings.elevation_provider`, e.g. "opentopo") to query
+        elevations for a list of `(lat, lon)` points. The response is index-aligned with `points`.
+        If no provider is available, returns a list of `None`.
 
     Args:
-        points (list[tuple[float, float]]): Liste de coordonnées (latitude, longitude).
+        points (list[tuple[float, float]]): List of coordinates (latitude, longitude).
 
     Returns:
-        list[int | None]: Altitudes en mètres (ou `None` en cas d’indisponibilité/échec), alignées sur `points`.
+        list[int | None]: Elevations in meters (or `None` on unavailability/failure), aligned with `points`.
     """
     if not DEFAULT_PROVIDER:
         return [None] * len(points)
     provider_fn = _PROVIDERS.get(DEFAULT_PROVIDER)
     if not provider_fn:
-        # selon ta préférence: raise HTTPException(422, ...) si appelé depuis une route
+        # depending on preference: raise HTTPException(422, ...) if called from a route
         return [None] * len(points)
     return await provider_fn(points)

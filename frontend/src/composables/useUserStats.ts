@@ -1,25 +1,23 @@
 import { ref, computed } from 'vue'
 import api from '@/api/http'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 import type { UserStatsOut } from '@/types/index'
 
 export function useUserStats() {
   const stats = ref<UserStatsOut | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const { handleApiError } = useApiErrorHandler()
 
   const loadStats = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await api.get('/user-stats')
       stats.value = response.data
     } catch (err: unknown) {
-      console.error('Error loading user stats:', err)
-      const errorMessage = err && typeof err === 'object' && 'response' in err 
-        ? (err as any).response?.data?.detail || 'Erreur lors du chargement des statistiques'
-        : 'Erreur lors du chargement des statistiques'
-      error.value = errorMessage
+      error.value = handleApiError(err).message
     } finally {
       loading.value = false
     }

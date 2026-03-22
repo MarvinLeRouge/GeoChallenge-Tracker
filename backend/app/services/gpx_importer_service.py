@@ -1,5 +1,5 @@
 # backend/app/services/gpx_importer_service.py
-# Fichier de compatibilité pour le nouveau système d'import GPX.
+# Compatibility shim for the new GPX import system.
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from app.db.mongodb import get_db
 
 from .gpx_import.gpx_import_service import GpxImportService
 
-# Instance globale pour compatibilité
+# Global instance for backward compatibility
 _gpx_import_service: GpxImportService | None = None
 
 
 def get_gpx_import_service() -> GpxImportService:
-    """Obtenir l'instance du service d'import GPX.
+    """Return the GPX import service instance.
 
     Returns:
-        GpxImportService: Instance configurée du service.
+        GpxImportService: Configured service instance.
     """
     global _gpx_import_service
     if _gpx_import_service is None:
@@ -28,29 +28,29 @@ def get_gpx_import_service() -> GpxImportService:
     return _gpx_import_service
 
 
-# Fonction de compatibilité pour l'ancien API
+# Compatibility function for the legacy API
 async def import_gpx_payload(
     payload: bytes,
     filename: str | None = None,
     user_id: ObjectId | None = None,
     import_mode: str = "both",
     fetch_elevation: bool = False,
-    request: Any = None,  # Paramètre de compatibilité
-    source_type: str | None = None,  # Paramètre de compatibilité
-    force_update_attributes: bool = False,  # Mise à jour forcée des attributs (admin seulement)
-    **kwargs: Any,  # Autres paramètres de compatibilité
+    request: Any = None,  # compatibility parameter
+    source_type: str | None = None,  # compatibility parameter
+    force_update_attributes: bool = False,  # forced attribute update (admin only)
+    **kwargs: Any,  # additional compatibility parameters
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - importer un payload GPX/ZIP.
+    """Compatibility wrapper — import a GPX/ZIP payload.
 
     Args:
-        payload: Données du fichier (GPX ou ZIP).
-        filename: Nom de fichier optionnel.
-        user_id: ID de l'utilisateur (pour les trouvailles).
-        import_mode: Mode d'import ('both', 'caches', 'found').
-        fetch_elevation: Enrichir avec les données d'élévation.
+        payload: File data (GPX or ZIP).
+        filename: Optional filename.
+        user_id: User ID (for found caches).
+        import_mode: Import mode ('both', 'caches', 'found').
+        fetch_elevation: Enrich with elevation data.
 
     Returns:
-        dict: Statistiques d'import détaillées.
+        dict: Detailed import statistics.
     """
     service = get_gpx_import_service()
     return await service.import_gpx_payload(

@@ -1,17 +1,17 @@
 # backend/app/services/challenge_autocreate.py
-# Génère des documents Challenge pour les caches portant l’attribut "challenge" (id=71). Idempotent, via upsert.
+# Generates Challenge documents for caches carrying the "challenge" attribute (id=71). Idempotent, via upsert.
 
 """
-Création automatique des Challenges à partir des caches qui portent l'attribut "challenge".
-Critère: présence de l'attribut geocaching.com `cache_attribute_id = 71` en positif.
+Automatic Challenge creation from caches that carry the "challenge" attribute.
+Criterion: presence of the geocaching.com attribute `cache_attribute_id = 71` set to positive.
 
-Optimisations:
-- On exclut d'emblée les caches déjà présentes dans `challenges`.
-- Quand on balaye toute la base, on utilise un pipeline `$lookup` (indexé sur `challenges.cache_id`)
-  pour éviter de charger un gros set en mémoire.
-- Quand on limite à un sous-ensemble (ex: IDs importés), on fait un `$in` + exclusion locale.
+Optimizations:
+- Caches already present in `challenges` are excluded upfront.
+- When scanning the full collection, a `$lookup` pipeline (indexed on `challenges.cache_id`)
+  is used to avoid loading a large set into memory.
+- When limiting to a subset (e.g. imported IDs), a `$in` + local exclusion is applied.
 
-Idempotent: un challenge est unique par `cache_id` (index unique requis sur `challenges(cache_id)`).
+Idempotent: a challenge is unique per `cache_id` (unique index required on `challenges(cache_id)`).
 """
 
 from __future__ import annotations
@@ -25,50 +25,50 @@ from pymongo import UpdateOne
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
-# Constante métier: attribut "Challenge cache" (geocaching.com)
+# Business constant: "Challenge cache" attribute (geocaching.com)
 CHALLENGE_ATTRIBUTE_ID = 71
 
 
 async def _get_attribute_doc_id(attribute_id: int = CHALLENGE_ATTRIBUTE_ID) -> ObjectId:
-    """Résoudre l’_id référentiel de l’attribut « challenge ».
+    """Resolve the referential `_id` for the "challenge" attribute.
 
     Description:
-        Cherche dans la collection `cache_attributes` le document dont `cache_attribute_id == attribute_id`
-        (par défaut 71), et retourne son `_id`. Utilisé pour matcher les caches challenge.
+        Searches the `cache_attributes` collection for a document where `cache_attribute_id == attribute_id`
+        (default 71) and returns its `_id`. Used to match challenge caches.
 
     Args:
-        attribute_id (int): Identifiant numérique global de l’attribut (par défaut 71).
+        attribute_id (int): Global numeric attribute identifier (default 71).
 
     Returns:
-        ObjectId: Identifiant du document référentiel d’attribut.
+        ObjectId: Attribute referential document identifier.
 
     Raises:
-        RuntimeError: Si aucun attribut correspondant n’est trouvé (référentiels non seedés).
+        RuntimeError: If no matching attribute is found (referentials not seeded).
     """
     coll_attrs = await get_collection("cache_attributes")
     doc = await coll_attrs.find_one({"cache_attribute_id": attribute_id}, {"_id": 1})
     if not doc:
         raise RuntimeError(
-            f"cache_attributes: aucun document avec cache_attribute_id={attribute_id}. "
-            "Vérifie que le référentiel des attributs est seedé."
+            f"cache_attributes: no document with cache_attribute_id={attribute_id}. "
+            "Ensure the attribute referential is seeded."
         )
     return doc["_id"]
 
 
 async def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
-    """Lister globalement les caches challenge non encore présentes dans `challenges`.
+    """List all challenge caches not yet present in `challenges`.
 
     Description:
-        Exécute un pipeline d’agrégation sur `caches` :
-        - filtre `attributes.elemMatch(attribute_doc_id, is_positive=True)`
-        - `$lookup` vers `challenges` pour exclure celles déjà liées
-        - projection légère (`title`, `description_html`)
+        Runs an aggregation pipeline on `caches`:
+        - filters on `attributes.elemMatch(attribute_doc_id, is_positive=True)`
+        - `$lookup` into `challenges` to exclude already-linked caches
+        - lightweight projection (`title`, `description_html`)
 
     Args:
-        attribute_doc_id (ObjectId): Référence de l’attribut « challenge » (référentiel).
+        attribute_doc_id (ObjectId): Reference to the "challenge" attribute (referential).
 
     Returns:
-        Iterable[dict]: Curseur d’agrégation sur les caches candidates.
+        Iterable[dict]: Aggregation cursor over candidate caches.
     """
     coll_caches = await get_collection("caches")
     pipeline: list[dict[str, Any]] = [
@@ -99,18 +99,18 @@ async def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
 async def _iter_new_challenge_caches_subset(
     attribute_doc_id: ObjectId, cache_ids: Iterable[ObjectId]
 ):
-    """Lister un sous-ensemble de caches challenge à partir d’_id fournis.
+    """List a subset of challenge caches from provided _ids.
 
     Description:
-        Applique `_id ∈ cache_ids` puis exclut localement les `cache_id` déjà présents dans `challenges`.
-        Filtre également par attribut « challenge » positif.
+        Applies `_id ∈ cache_ids` then locally excludes `cache_id`s already present in `challenges`.
+        Also filters by positive "challenge" attribute.
 
     Args:
-        attribute_doc_id (ObjectId): Référence de l’attribut « challenge » (référentiel).
-        cache_ids (Iterable[ObjectId]): Sous-ensemble d’identifiants de caches à considérer.
+        attribute_doc_id (ObjectId): Reference to the "challenge" attribute (referential).
+        cache_ids (Iterable[ObjectId]): Subset of cache identifiers to consider.
 
     Returns:
-        Iterable[dict]: Curseur de recherche sur les caches candidates (projection légère).
+        Iterable[dict]: Search cursor over candidate caches (lightweight projection).
     """
     coll_caches = await get_collection("caches")
     coll_challenges = await get_collection("challenges")
@@ -119,7 +119,7 @@ async def _iter_new_challenge_caches_subset(
     if not cache_ids:
         return iter(())
 
-    # Déjà connus (uniquement dans ce sous-ensemble)
+    # Already known (restricted to this subset)
     known_ids = set(await coll_challenges.distinct("cache_id", {"cache_id": {"$in": cache_ids}}))
 
     base_filter: dict[str, Any] = {
@@ -138,19 +138,19 @@ async def _iter_new_challenge_caches_subset(
 async def create_challenges_from_caches(
     *, cache_ids: Iterable[ObjectId] | None = None
 ) -> dict[str, Any]:
-    """Créer (upsert) les challenges à partir des caches « challenge ».
+    """Create (upsert) challenges from "challenge" caches.
 
     Description:
-        Source des caches candidates :
-        - si `cache_ids` est fourni, utilise le sous-ensemble (optimisé) ;
-        - sinon, scanne la collection via `$lookup` pour exclure l’existant.
-        Effectue des `UpdateOne(..., upsert=True)` sur `challenges` avec `cache_id` unique.
+        Source of candidate caches:
+        - if `cache_ids` is provided, uses the optimized subset approach;
+        - otherwise, scans the collection via `$lookup` to exclude existing entries.
+        Performs `UpdateOne(..., upsert=True)` on `challenges` using a unique `cache_id`.
 
     Args:
-        cache_ids (Iterable[ObjectId] | None): Optionnel — restreindre aux caches fournies.
+        cache_ids (Iterable[ObjectId] | None): Optional — restrict to the provided caches.
 
     Returns:
-        dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}`.
+        dict: Statistics `{‘matched’: int, ‘created’: int, ‘skipped_existing’: int}`.
     """
     attr_doc_id = await _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
 
@@ -203,18 +203,18 @@ async def create_challenges_from_caches(
 async def create_new_challenges_from_caches(
     *, cache_ids: Iterable[ObjectId] | None = None
 ) -> dict[str, Any]:
-    """Wrapper : déterminer explicitement les nouveaux `_id` avant création.
+    """Wrapper: explicitly determine new `_id`s before creation.
 
     Description:
-        Calcule l’ensemble des candidates (`caches` + attribut « challenge ») puis soustrait
-        les `cache_id` déjà présents dans `challenges`. Si l’ensemble est vide, **n’effectue pas**
-        de scan global inutile. Délègue ensuite à `create_challenges_from_caches`.
+        Computes the candidate set (`caches` + "challenge" attribute) then subtracts
+        the `cache_id`s already present in `challenges`. If the set is empty, **does not**
+        perform an unnecessary global scan. Delegates to `create_challenges_from_caches`.
 
     Args:
-        cache_ids (Iterable[ObjectId] | None): Optionnel — sous-ensemble d’entrée.
+        cache_ids (Iterable[ObjectId] | None): Optional — input subset.
 
     Returns:
-        dict: Statistiques `{'matched': int, 'created': int, 'skipped_existing': int}` (zéro si rien à créer).
+        dict: Statistics `{‘matched’: int, ‘created’: int, ‘skipped_existing’: int}` (zeros if nothing to create).
     """
     attr_doc_id = await _get_attribute_doc_id(CHALLENGE_ATTRIBUTE_ID)
     coll_caches = await get_collection("caches")

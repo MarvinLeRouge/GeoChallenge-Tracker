@@ -1,5 +1,5 @@
 # backend/app/core/settings.py
-# Chargement des variables d’environnement via Pydantic Settings, avec propriétés utiles (ex. `mongodb_uri`).
+# Loads environment variables via Pydantic Settings, with useful properties (e.g. `mongodb_uri`).
 
 import logging
 import os
@@ -15,7 +15,7 @@ log = logging.getLogger("settings")
 
 
 def _resolve_env_file() -> Path:
-    # backend/ comme racine par défaut
+    # backend/ as the default root
     backend_root = Path(__file__).resolve().parents[2]
     default_env = backend_root / ".env"
     env_file = os.getenv("ENV_FILE")
@@ -25,12 +25,12 @@ def _resolve_env_file() -> Path:
 
 
 class Settings(BaseSettings):
-    """Paramètres de l’application (Pydantic Settings).
+    """Application settings (Pydantic Settings).
 
     Description:
-        Regroupe la configuration (app, MongoDB, JWT, admin, mail, elevation). Les valeurs
-        sont chargées depuis `.env` (voir `model_config`). Fournit des valeurs par défaut
-        lorsque pertinent (ex. `jwt_algorithm`, `jwt_expiration_minutes`).
+        Groups configuration for app, MongoDB, JWT, admin, mail, and elevation. Values
+        are loaded from `.env` (see `model_config`). Provides sensible defaults where
+        applicable (e.g. `jwt_algorithm`, `jwt_expiration_minutes`).
 
     """
 
@@ -71,12 +71,12 @@ class Settings(BaseSettings):
     elevation_provider_rate_delay_s: int
     elevation_enabled: bool
 
+    # === CORS ===
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     # UPLOAD
     one_mb: int
     max_upload_mb: int
-
-    # === TEST ===
-    test: str
 
     model_config = SettingsConfigDict(
         env_file=_resolve_env_file(),
@@ -87,14 +87,14 @@ class Settings(BaseSettings):
     @field_validator("build_date", mode="before")
     @classmethod
     def empty_str_to_none(cls, v):
-        """Convertit string vide en None"""
+        """Converts an empty string to None."""
         if v == "":
             return None
         return v
 
     @property
     def build_date_parsed(self) -> Optional[datetime]:
-        """Parse la BUILD_DATE depuis l'env var"""
+        """Parses BUILD_DATE from the environment variable."""
         if self.build_date and self.build_date != "":
             try:
                 return datetime.fromisoformat(self.build_date.replace("Z", "+00:00"))
@@ -104,14 +104,14 @@ class Settings(BaseSettings):
 
     @property
     def mongodb_uri(self) -> str:
-        """Construit l’URI MongoDB à partir du template et des credentials.
+        """Builds the MongoDB URI from the template and credentials.
 
         Description:
-            Remplace les tokens `[[MONGODB_USER]]` et `[[MONGODB_PASSWORD]]` dans `mongodb_uri_tpl`
-            par les valeurs chargées, afin d’obtenir une URI complète.
+            Replaces the `[[MONGODB_USER]]` and `[[MONGODB_PASSWORD]]` tokens in `mongodb_uri_tpl`
+            with the loaded values to produce a complete URI.
 
         Returns:
-            str: URI MongoDB complète.
+            str: Complete MongoDB URI.
         """
         return self.mongodb_uri_tpl.replace("[[MONGODB_USER]]", self.mongodb_user).replace(
             "[[MONGODB_PASSWORD]]", self.mongodb_password

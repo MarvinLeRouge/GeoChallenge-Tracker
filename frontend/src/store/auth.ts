@@ -1,25 +1,20 @@
 import { defineStore } from 'pinia'
 import api from '@/api/http'
 import { isAxiosError } from 'axios'
-import type { Me, ProfileBaseApi, UserLocation, Tokens, LoginPayload } from '@/types/auth'
+import type { Me, ProfileBaseApi, UserLocation, TokenResponse, LoginPayload } from '@/types/auth'
 import { mapProfileBase } from '@/utils/auth'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: '' as string,
-    refreshToken: (localStorage.getItem('refresh_token') || '') as string,
     user: null as Me | null,
     initialized: false,
   }),
   getters: { isAuthenticated: s => !!s.accessToken },
   actions: {
-    setTokens(tokens: Tokens) {
+    setTokens(tokens: TokenResponse) {
       this.accessToken = tokens.access_token || ''
       sessionStorage.setItem('access_token', this.accessToken)
-      if (tokens.refresh_token) {
-        this.refreshToken = tokens.refresh_token
-        localStorage.setItem('refresh_token', this.refreshToken)
-      }
     },
     // 1) Profil de base immédiatement après login
     async fetchProfileBase() {
@@ -37,36 +32,26 @@ export const useAuthStore = defineStore('auth', {
       const body = new URLSearchParams()
       body.set('username', identifier) // email OU username
       body.set('password', password)
-      const { data } = await api.post<Tokens>('/auth/login', body, {
+      const { data } = await api.post<TokenResponse>('/auth/login', body, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
       })
       this.setTokens(data)
-      // Enchaînement : profil de base puis localisation (indépendants)
-      try { await this.fetchProfileBase() } catch (e: unknown) {
-        if (isAxiosError(e)) console.warn('fetchProfileBase failed:', e.response?.status)
-      }
-      try { await this.fetchLocation() } catch (e: unknown) {
-        if (isAxiosError(e)) console.warn('fetchLocation failed:', e.response?.status)
-      }
+      await Promise.allSettled([this.fetchProfileBase(), this.fetchLocation()])
     },
     async refresh() {
-      if (!this.refreshToken) throw new Error('no refresh')
-      const { data } = await api.post<Tokens>('/auth/refresh', { refresh_token: this.refreshToken })
+      const { data } = await api.post<TokenResponse>('/auth/refresh')
       this.setTokens(data)
     },
     logout() {
       this.accessToken = ''
-      this.refreshToken = ''
       this.user = null
       sessionStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
     },
     async init() {
       if (this.initialized) return
       this.initialized = true
-      // 👉 restaurer l'access, ne PAS appeler refresh ici
       this.accessToken = sessionStorage.getItem('access_token') || ''
-      if (!this.accessToken) return            // ⟵ évite le 401 au premier chargement
+      if (!this.accessToken) return
       await Promise.allSettled([this.fetchProfileBase(), this.fetchLocation()])
     }
   }

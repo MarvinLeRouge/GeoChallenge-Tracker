@@ -1,5 +1,5 @@
 # backend/app/services/targets/target_evaluator.py
-# Logique d'évaluation des caches cibles pour un UserChallenge.
+# Cache target evaluation logic for a UserChallenge.
 
 from __future__ import annotations
 
@@ -15,43 +15,43 @@ from .target_scorer import TargetScorer
 
 
 class TargetEvaluator:
-    """Service d'évaluation des targets de caches pour un UserChallenge.
+    """Cache target evaluation service for a UserChallenge.
 
     Description:
-        Responsable de l'identification et du scoring des caches candidates
-        en fonction des tâches d'un challenge et du profil utilisateur.
+        Responsible for identifying and scoring candidate caches
+        based on challenge tasks and the user profile.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser l'évaluateur.
+        """Initialize the evaluator.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self.scorer = TargetScorer()
 
     async def get_username(self, user_id: ObjectId) -> str | None:
-        """Récupérer le nom d'utilisateur.
+        """Retrieve the username.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            str | None: Nom d'utilisateur ou None.
+            str | None: Username or None.
         """
         coll_users = self.db.users
         user_doc = await coll_users.find_one({"_id": user_id}, {"username": 1})
         return user_doc.get("username") if user_doc else None
 
     async def get_latest_progress_task_map(self, uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]:
-        """Récupérer la carte de progression par tâche.
+        """Retrieve the progress map by task.
 
         Args:
-            uc_id: Identifiant du UserChallenge.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            dict: Mapping task_id -> progress_data.
+            dict: Mapping of task_id -> progress_data.
         """
         coll_progress = self.db.progress
         progress_doc = await coll_progress.find_one(
@@ -70,13 +70,13 @@ class TargetEvaluator:
         return task_map
 
     async def get_user_challenge_tasks(self, uc_id: ObjectId) -> list[dict[str, Any]]:
-        """Récupérer les tâches d'un UserChallenge.
+        """Retrieve the tasks of a UserChallenge.
 
         Args:
-            uc_id: Identifiant du UserChallenge.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            list: Liste des documents de tâches.
+            list: List of task documents.
         """
         coll_tasks = self.db.user_challenge_tasks
         tasks_cursor = coll_tasks.find({"user_challenge_id": uc_id}, sort=[("order", 1)])
@@ -90,39 +90,39 @@ class TargetEvaluator:
         geo_ctx: dict[str, Any] | None,
         limit_per_task: int,
     ) -> list[dict[str, Any]]:
-        """Construire le pipeline MongoDB pour une tâche.
+        """Build the MongoDB pipeline for a task.
 
         Args:
-            task_doc: Document de tâche.
-            username: Nom d'utilisateur (pour exclure ses caches).
-            user_id: ID utilisateur (pour exclure ses trouvailles).
-            geo_ctx: Contexte géographique optionnel.
-            limit_per_task: Limite de résultats par tâche.
+            task_doc: Task document.
+            username: Username (to exclude the user's own caches).
+            user_id: User ID (to exclude the user's found caches).
+            geo_ctx: Optional geographic context.
+            limit_per_task: Result limit per task.
 
         Returns:
-            list: Pipeline d'agrégation MongoDB.
+            list: MongoDB aggregation pipeline.
         """
         pipeline = []
 
-        # Ajouter $geoNear en premier si contexte géo
+        # Add $geoNear first if a geographic context is provided
         if geo_ctx and "radius_km" in geo_ctx:
             geo_stage = build_geo_pipeline_stage(
                 geo_ctx["lat"], geo_ctx["lon"], geo_ctx["radius_km"]
             )
             pipeline.append(geo_stage)
 
-        # Filtre de base
+        # Base filter
         base_match: dict[str, Any] = {
-            "status": {"$in": ["active"]},  # Seulement les caches actives
+            "status": {"$in": ["active"]},  # Active caches only
         }
 
-        # Exclure les caches du propriétaire
+        # Exclude caches owned by the user
         if username:
             base_match["owner"] = {"$ne": username}
 
         pipeline.append({"$match": base_match})
 
-        # Anti-join avec found_caches de l'utilisateur
+        # Anti-join with the user's found_caches
         pipeline.extend(
             [
                 {
@@ -148,7 +148,7 @@ class TargetEvaluator:
             ]
         )
 
-        # Appliquer les filtres de la tâche
+        # Apply task filters
         task_expression = task_doc.get("expression")
         if task_expression:
             try:
@@ -156,10 +156,10 @@ class TargetEvaluator:
                 if match_filters:
                     pipeline.append({"$match": match_filters})
             except Exception:
-                # En cas d'erreur de compilation, ignorer le filtre
+                # On compilation error, skip the filter
                 pass
 
-        # Projection des champs nécessaires
+        # Project the required fields
         projection = {
             "_id": 1,
             "GC": 1,
@@ -170,7 +170,7 @@ class TargetEvaluator:
             "terrain": 1,
         }
 
-        # Ajouter distance_m si contexte géo
+        # Add distance_m if a geographic context is provided
         if geo_ctx and "radius_km" in geo_ctx:
             projection["distance_m"] = 1
 
@@ -189,30 +189,30 @@ class TargetEvaluator:
         limit_per_task: int,
         hard_limit_total: int,
     ) -> dict[ObjectId, dict[str, Any]]:
-        """Évaluer les caches candidates pour toutes les tâches.
+        """Evaluate candidate caches for all tasks.
 
         Args:
-            tasks: Liste des tâches du UserChallenge.
-            progress_map: Carte de progression par tâche.
-            username: Nom d'utilisateur.
-            user_id: ID utilisateur.
-            geo_ctx: Contexte géographique.
-            limit_per_task: Limite par tâche.
-            hard_limit_total: Limite globale.
+            tasks: List of UserChallenge tasks.
+            progress_map: Progress map by task.
+            username: Username.
+            user_id: User ID.
+            geo_ctx: Geographic context.
+            limit_per_task: Per-task limit.
+            hard_limit_total: Global limit.
 
         Returns:
-            dict: Caches uniques avec leurs tâches correspondantes.
+            dict: Unique caches with their matched tasks.
         """
         coll_caches = self.db.caches
         unique_by_cache = {}
         total_seen = 0
 
         for task_doc in tasks:
-            # Ignorer les tâches OR/NOT (complexes)
+            # Skip OR/NOT tasks (complex expressions)
             if task_doc.get("expression", {}).get("type") != "and":
                 continue
 
-            # Construire et exécuter le pipeline
+            # Build and execute the pipeline
             pipeline = await self.build_cache_pipeline_for_task(
                 task_doc, username, user_id, geo_ctx, limit_per_task
             )
@@ -220,11 +220,11 @@ class TargetEvaluator:
             aggregate_cursor = coll_caches.aggregate(pipeline, allowDiskUse=False)
             rows = await aggregate_cursor.to_list(length=None)
 
-            # Traiter chaque cache candidate
+            # Process each candidate cache
             for cache_row in rows:
                 cache_id = cache_row["_id"]
 
-                # Ajouter à la collection unique
+                # Add to the unique collection
                 if cache_id not in unique_by_cache:
                     unique_by_cache[cache_id] = {
                         "cache": cache_row,
@@ -234,13 +234,13 @@ class TargetEvaluator:
                     if total_seen >= hard_limit_total:
                         break
 
-                # Calculer les métriques de tâche
+                # Calculate task metrics
                 min_count = self.scorer.get_task_constraints_min_count(task_doc)
                 current_count = progress_map.get(task_doc["_id"], {}).get("current_count", 0)
                 remaining = max(0, min_count - current_count)
                 ratio = current_count / max(min_count, 1) if min_count > 0 else 0.0
 
-                # Ajouter les infos de tâche
+                # Add task info
                 unique_by_cache[cache_id]["matched_tasks"].append(
                     {
                         "_id": task_doc["_id"],

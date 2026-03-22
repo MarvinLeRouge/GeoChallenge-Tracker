@@ -1,5 +1,5 @@
 # backend/app/services/query_builder.py
-# Transforme une expression canonique (AND-only) en conditions MongoDB pour la collection `caches`.
+# Transforms a canonical expression (AND-only) into MongoDB conditions for the `caches` collection.
 
 from __future__ import annotations
 
@@ -17,21 +17,21 @@ from app.services.referentials_cache import (
     resolve_type_code,
 )
 
-# NOTE: on ne dépend pas des modèles Pydantic ici : on reçoit un dict "expression" déjà canonisé
-# (cf. services/user_challenge_tasks.put_tasks qui stocke l'expression canonicalisée). :contentReference[oaicite:1]{index=1}
+# NOTE: we do not depend on Pydantic models here: we receive an already-canonicalized "expression" dict
+# (see services/user_challenge_tasks.put_tasks which stores the canonicalized expression).
 
 
 def _mk_date(dt_or_str: Any) -> datetime:
-    """Normaliser divers formats de date vers `datetime`.
+    """Normalize various date formats to `datetime`.
 
     Description:
-        Accepte `datetime`, `date` ou `str` (ISO ou `YYYY-MM-DD`). Lève `ValueError` pour les formats invalides.
+        Accepts `datetime`, `date` or `str` (ISO or `YYYY-MM-DD`). Raises `ValueError` for invalid formats.
 
     Args:
-        dt_or_str (Any): Valeur de date/heure à convertir.
+        dt_or_str (Any): Date/time value to convert.
 
     Returns:
-        datetime: Date normalisée.
+        datetime: Normalized date.
     """
     if isinstance(dt_or_str, datetime):
         return dt_or_str
@@ -46,16 +46,16 @@ def _mk_date(dt_or_str: Any) -> datetime:
 
 
 def _flatten_and_nodes(expr: dict[str, Any]) -> list[dict[str, Any]] | None:
-    """Aplatir récursivement les nœuds `AND` en une liste de feuilles.
+    """Recursively flatten `AND` nodes into a list of leaves.
 
     Description:
-        Retourne `None` si l’expression contient des `OR`/`NOT` (non supportés par le compilateur « AND-only »).
+        Returns `None` if the expression contains `OR`/`NOT` nodes (unsupported by the AND-only compiler).
 
     Args:
-        expr (dict): Expression AST canonique.
+        expr (dict): Canonical AST expression.
 
     Returns:
-        list[dict] | None: Feuilles si AND pur, sinon None.
+        list[dict] | None: Leaves if pure AND, otherwise None.
     """
     kind = expr.get("kind")
     if kind == "and":
@@ -74,21 +74,21 @@ def _flatten_and_nodes(expr: dict[str, Any]) -> list[dict[str, Any]] | None:
 def _extract_aggregate_spec(
     leaves: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    """Extraire la spécification d’agrégat et les feuilles « cache.* ».
+    """Extract the aggregate specification and the cache-level leaves.
 
     Description:
-        Détecte la **première** feuille d’agrégat parmi:
+        Detects the **first** aggregate leaf among:
         - `aggregate_sum_difficulty_at_least`
         - `aggregate_sum_terrain_at_least`
         - `aggregate_sum_diff_plus_terr_at_least`
         - `aggregate_sum_altitude_at_least`
-        Retourne `(agg_spec, leaves_sans_agrégat)`.
+        Returns `(agg_spec, leaves_without_aggregate)`.
 
     Args:
-        leaves (list[dict]): Feuilles AND.
+        leaves (list[dict]): AND leaves.
 
     Returns:
-        tuple[dict | None, list[dict]]: Spéc d’agrégat (ou None) et feuilles restantes.
+        tuple[dict | None, list[dict]]: Aggregate spec (or None) and remaining leaves.
     """
     agg = None
     cache_leaves: list[dict[str, Any]] = []
@@ -116,21 +116,21 @@ def _extract_aggregate_spec(
 
 
 def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
-    """Compiler une feuille AST en `(champ, condition)` sur `caches`.
+    """Compile an AST leaf into `(field, condition)` pairs on `caches`.
 
     Description:
-        Supporte notamment:
-        - `type_in`, `size_in` (résolution via référentiels/aliases)
+        Supports in particular:
+        - `type_in`, `size_in` (resolution via reference data/aliases)
         - `country_is`, `state_in`
         - `placed_year`, `placed_before`, `placed_after`
         - `difficulty_between`, `terrain_between`
         - `attributes` (±, `attributes.$elemMatch`)
 
     Args:
-        leaf (dict): Feuille individuelle.
+        leaf (dict): Individual leaf.
 
     Returns:
-        list[tuple[str, Any]]: Paires `(champ, condition)` à fusionner en AND.
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
     """
     k = leaf.get("kind")
     out: list[tuple[str, Any]] = []
@@ -141,7 +141,7 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
         for t in leaf.get("types") or []:
             oid = t.get("cache_type_doc_id")
             if not oid and t.get("cache_type_id") is not None:
-                # numeric id non supporté nativement par le cache -> on ignore, ou ajoute si tu l’as dans cache
+                # numeric id not natively supported by the cache -> ignore, or add if available in cache
                 pass
             if not oid and t.get("cache_type_code"):
                 oid = resolve_type_code(t["cache_type_code"])
@@ -200,26 +200,26 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
         return out
 
     if k == "country_is":
-        # Accepter leaf.country_id OU leaf.country.{code|name}
+        # Accept leaf.country_id OR leaf.country.{code|name}
         cid = leaf.get("country_id")
         if not cid:
             c = leaf.get("country") or {}
             if c.get("code"):
-                # Le cache pays est indexé par 'name'; ici on ne l’a que par name => on tente d’abord name,
-                # sinon on peut étendre referentials_cache pour gérer code si tu en as.
-                # Si tes pays n’ont pas "code", utilise resolve_country_name uniquement.
+                # Country cache is indexed by ‘name’; here we only have name => try name first,
+                # otherwise extend referentials_cache to handle code if needed.
+                # If countries have no "code", use resolve_country_name only.
                 cid = resolve_country_name(c.get("name") or c.get("code", ""))
             elif c.get("name"):
                 cid = resolve_country_name(c["name"])
         if cid:
             out.append(("country_id", cid))
         else:
-            # clause impossible -> 0 match (éviter faux positifs)
-            out.append(("_id", ObjectId()))  # _id impossible
+            # impossible clause -> 0 matches (avoid false positives)
+            out.append(("_id", ObjectId()))  # impossible _id
         return out
 
     if k == "state_in":
-        # Accepte state_ids OU states[{name}] (avec country diffusable via sibling)
+        # Accepts state_ids OR states[{name}] (with country propagated via sibling)
         ids: list[ObjectId] = list(leaf.get("state_ids") or [])
 
         for s in leaf.get("states") or []:
@@ -264,14 +264,14 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
         return out
 
     if k == "attributes":
-        # Canonique: [{"cache_attribute_doc_id"| "cache_attribute_id" | "code", "is_positive": bool}]
+        # Canonical: [{"cache_attribute_doc_id"| "cache_attribute_id" | "code", "is_positive": bool}]
         attrs = leaf.get("attributes") or []
         for a in attrs:
             is_pos = bool(a.get("is_positive", True))
             attr_oid = a.get("cache_attribute_doc_id") or a.get("attribute_doc_id")
             if not attr_oid and a.get("cache_attribute_id") is not None:
-                # le cache retourne aussi l'id numérique via resolve_attribute_code(code) si tu veux;
-                # ici on reste doc_id only
+                # cache also returns the numeric id via resolve_attribute_code(code) if needed;
+                # here we stay doc_id only
                 pass
             if not attr_oid and a.get("code"):
                 res = resolve_attribute_code(a["code"])
@@ -318,24 +318,24 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
 def compile_and_only(
     expr: dict[str, Any],
 ) -> tuple[str, dict[str, Any], bool, list[str], dict[str, Any] | None]:
-    """Compiler une expression AND en filtres Mongo « caches.* ».
+    """Compile an AND expression into Mongo filters on `caches.*`.
 
     Description:
-        - Rejette `OR`/`NOT` (`supported=False`, notes).\n
-        - Extrait un éventuel agrégat (diff/terr/diff+terr/altitude).\n
-        - Compile chaque feuille en paires `(champ, condition)` et fusionne par champ (AND).\n
-        - Génère une signature stable de l’expression (`"and:" + json.dumps(leaves)`).
+        - Rejects `OR`/`NOT` (`supported=False`, notes).
+        - Extracts an optional aggregate (diff/terr/diff+terr/altitude).
+        - Compiles each leaf into `(field, condition)` pairs and merges by field (AND).
+        - Generates a stable expression signature (`"and:" + json.dumps(leaves)`).
 
     Args:
-        expr (dict): Expression canonique.
+        expr (dict): Canonical expression.
 
     Returns:
         tuple:
-            str: Signature compilée.
-            dict: `match_caches` — conditions AND par champ.
-            bool: `supported` — True si AND pur.
-            list[str]: `notes` — avertissements/causes de non-support.
-            dict | None: `aggregate_spec` — spécification d’agrégat.
+            str: Compiled signature.
+            dict: `match_caches` — AND conditions per field.
+            bool: `supported` — True if pure AND.
+            list[str]: `notes` — warnings/reasons for non-support.
+            dict | None: `aggregate_spec` — aggregate specification.
     """
     leaves = _flatten_and_nodes(expr)
     if leaves is None:
@@ -346,7 +346,7 @@ def compile_and_only(
     for lf in cache_leaves:
         parts.extend(_compile_leaf_to_cache_pairs(lf))
 
-    # fusion (AND): grouper par champ; si plusieurs conds pour un même champ -> liste ET-ée
+    # merge (AND): group by field; if multiple conditions for the same field -> AND-ed list
     match: dict[str, Any] = {}
     for field, cond in parts:
         if field in match:

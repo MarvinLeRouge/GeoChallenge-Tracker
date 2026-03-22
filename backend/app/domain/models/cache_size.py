@@ -1,5 +1,5 @@
 # backend/app/models/cache_size.py
-# Référentiel listant les tailles (Small, Micro, Regular, …) avec ordre d’affichage.
+# Reference list of cache sizes (Small, Micro, Regular, …) with display order.
 
 from __future__ import annotations
 
@@ -12,45 +12,45 @@ from app.core.utils import now
 
 
 class CacheSizeBase(BaseModel):
-    """Taille de cache (référentiel).
+    """Cache size (reference data).
 
     Description:
-        Nom/Code de taille et ordre pour le tri.
+        Size name/code and sort order.
 
     Attributes:
-        name (str): Nom (ex. "Small", "Micro").
-        code (str | None): Code court (ex. "S", "M").
-        aliases (list[str]): Alias reconnus pour cette taille.
-        order (int | None): Ordre d’affichage.
+        name (str): Name (e.g. "Small", "Micro").
+        code (str | None): Short code (e.g. "S", "M").
+        aliases (list[str]): Recognized aliases for this size.
+        order (int | None): Display order.
     """
 
-    name: str  # ex: "Small", "Micro", "Regular"
-    code: str | None = None  # code interne ou abbr (ex: "S", "M")
-    aliases: list[str] = Field(default_factory=list)  # alias reconnus pour cette taille
-    order: int | None = None  # ordonnancement des cache sizes
+    name: str  # e.g. "Small", "Micro", "Regular"
+    code: str | None = None  # internal code or abbreviation (e.g. "S", "M")
+    aliases: list[str] = Field(default_factory=list)  # recognized aliases for this size
+    order: int | None = None  # cache size sort order
 
 
 class CacheSizeCreate(CacheSizeBase):
-    """Payload de création d’une taille de cache.
+    """Cache size creation payload.
 
     Description:
-        Identique à `CacheSizeBase` pour insertion dans le référentiel.
+        Identical to `CacheSizeBase` for insertion into the reference data.
     """
 
     pass
 
 
 class CacheSizeUpdate(BaseModel):
-    """Payload de mise à jour d’une taille de cache.
+    """Cache size update payload.
 
     Description:
-        Mise à jour partielle des champs.
+        Partial field update.
 
     Attributes:
-        name (str | None): Nouveau nom.
-        code (str | None): Nouveau code.
-        aliases (list[str] | None): Nouveaux alias.
-        order (int | None): Nouvel ordre.
+        name (str | None): New name.
+        code (str | None): New code.
+        aliases (list[str] | None): New aliases.
+        order (int | None): New order.
     """
 
     name: str | None = None
@@ -60,10 +60,10 @@ class CacheSizeUpdate(BaseModel):
 
 
 class CacheSize(MongoBaseModel, CacheSizeBase):
-    """Document Mongo d’une taille de cache (référentiel).
+    """Cache size Mongo document (reference data).
 
     Description:
-        Étend `CacheSizeBase` avec _id, created_at, updated_at.
+        Extends `CacheSizeBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

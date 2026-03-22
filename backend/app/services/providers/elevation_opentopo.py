@@ -1,6 +1,6 @@
 # backend/app/services/providers/elevation_opentopo.py
-# Provider OpenTopoData/Mapzen : récupération d’altitudes, découpage des requêtes (URL/compte),
-# respect du quota quotidien via la collection `api_quotas`, et rate limiting côté client.
+# OpenTopoData/Mapzen provider: elevation retrieval, request chunking (URL/count),
+# daily quota enforcement via the `api_quotas` collection, and client-side rate limiting.
 
 from __future__ import annotations
 
@@ -27,36 +27,36 @@ PROVIDER_KEY = "opentopodata_mapzen"
 
 
 def _quota_key_for_today() -> str:
-    """Clé de quota journalière pour le provider.
+    """Daily quota key for the provider.
 
     Description:
-        Construit une clé unique pour la journée courante en UTC (via `utcnow()`),
-        sous la forme `"opentopodata_mapzen:YYYY-MM-DD"`. Sert d’identifiant de
-        document dans la collection `api_quotas`.
+        Builds a unique key for the current UTC day (via `utcnow()`),
+        in the form `"opentopodata_mapzen:YYYY-MM-DD"`. Used as the document
+        identifier in the `api_quotas` collection.
 
     Args:
         None
 
     Returns:
-        str: Clé de quota du jour (ex. "opentopodata_mapzen:2025-08-27").
+        str: Today's quota key (e.g. "opentopodata_mapzen:2025-08-27").
     """
     today = utcnow().date().isoformat()
     return f"{PROVIDER_KEY}:{today}"
 
 
 async def _read_quota() -> int:
-    """Lire le compteur de requêtes du jour.
+    """Read today's request counter.
 
     Description:
-        Lit le document `api_quotas[_id=_quota_key_for_today()]` et retourne le champ
-        `count` s’il est présent ; sinon 0. Ce compteur représente le **nombre de requêtes
-        HTTP** déjà effectuées vers le provider ce jour-là.
+        Reads the `api_quotas[_id=_quota_key_for_today()]` document and returns
+        the `count` field if present; otherwise 0. This counter represents the
+        **number of HTTP requests** already made to the provider today.
 
     Args:
         None
 
     Returns:
-        int: Compteur courant de requêtes (≥ 0).
+        int: Current request counter (>= 0).
     """
     coll_quotas = await get_collection("api_quotas")
     doc = await coll_quotas.find_one({"_id": _quota_key_for_today()})
@@ -64,14 +64,14 @@ async def _read_quota() -> int:
 
 
 async def _inc_quota(n: int) -> None:
-    """Incrémenter le compteur de quota du jour.
+    """Increment today's quota counter.
 
     Description:
-        Applique un `update_one(..., {"$inc": {"count": int(n)}, "$setOnInsert": {"created_at": utcnow()}}, upsert=True)`
-        sur `api_quotas` pour la clé journalière. Utilisé après **chaque** appel HTTP.
+        Applies `update_one(..., {"$inc": {"count": int(n)}, "$setOnInsert": {"created_at": utcnow()}}, upsert=True)`
+        on `api_quotas` for the daily key. Called after **each** HTTP request.
 
     Args:
-        n (int): Nombre de requêtes à ajouter (converti en int).
+        n (int): Number of requests to add (converted to int).
 
     Returns:
         None
@@ -85,39 +85,39 @@ async def _inc_quota(n: int) -> None:
 
 
 def _build_param(points: list[tuple[float, float]]) -> str:
-    """Construire le paramètre `locations` de l’API.
+    """Build the `locations` API parameter.
 
     Description:
-        Sérialise la liste de points `(lat, lon)` au format attendu par l’API :
+        Serializes the list of `(lat, lon)` points into the format expected by the API:
         `"lat,lon|lat,lon|..."`.
 
     Args:
-        points (list[tuple[float, float]]): Coordonnées (latitude, longitude).
+        points (list[tuple[float, float]]): Coordinates (latitude, longitude).
 
     Returns:
-        str: Chaîne `locations` prête à concaténer dans l’URL.
+        str: `locations` string ready to append to the URL.
     """
     return "|".join(f"{lat},{lon}" for (lat, lon) in points)
 
 
 def _split_params_by_url_and_count(all_param: str) -> list[str]:
-    """Découper `locations` en fragments compatibles URL et quota par requête.
+    """Split `locations` into URL-compatible and per-request quota chunks.
 
     Description:
-        Divise la grande chaîne `locations` en **morceaux** respectant :
-        - la longueur maximale d’URL (~`URL_MAXLEN`) en tenant compte du préfixe `?locations=`
-        - la limite `MAX_POINTS_PER_REQ` (nombre de points par appel)
+        Splits the large `locations` string into **chunks** respecting:
+        - Maximum URL length (~`URL_MAXLEN`), accounting for the `?locations=` prefix.
+        - The `MAX_POINTS_PER_REQ` limit (number of points per call).
 
-        Heuristique :
-        - coupe par la dernière barre verticale `|` pour ne pas séparer un couple lat/lon ;
-        - si un fragment dépasse la limite de points, tronque au **nombre permis** et
-          réinjecte l’excédent au début du reste.
+        Heuristic:
+        - Cuts at the last pipe `|` to avoid splitting a lat/lon pair.
+        - If a chunk exceeds the point limit, truncates to the **allowed count** and
+          reinjects the overflow at the start of the remainder.
 
     Args:
-        all_param (str): Chaîne `locations` globale construite par `_build_param`.
+        all_param (str): Global `locations` string built by `_build_param`.
 
     Returns:
-        list[str]: Liste de fragments `locations` à appeler séquentiellement.
+        list[str]: List of `locations` fragments to call sequentially.
     """
     prefix_len = len(f"{ENDPOINT}?locations=")
     max_param_len = max(1, URL_MAXLEN - prefix_len)
@@ -168,31 +168,31 @@ def _split_params_by_url_and_count(all_param: str) -> list[str]:
 
 
 async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
-    """Récupérer les altitudes pour une liste de points (alignées sur l’entrée).
+    """Retrieve elevations for a list of points (aligned with the input).
 
     Description:
-        - Si le provider est désactivé (`settings.elevation_enabled=False`) **ou** si la liste
-          `points` est vide, retourne une liste de `None` de même taille.
-        - Respecte un **quota quotidien** en nombre d’appels HTTP, basé sur la collection
-          `api_quotas` et la variable d’environnement `ELEVATION_DAILY_LIMIT` (défaut 1000).
-          Si le quota est atteint, retourne des `None` pour les points restants.
-        - Construit une chaîne `locations` puis la **découpe** via `_split_params_by_url_and_count`
-          en respectant `URL_MAXLEN` et `MAX_POINTS_PER_REQ`.
-        - Pour chaque fragment :
-            * effectue un `GET` sur `ENDPOINT?locations=...` (timeout configurable par
-              `ELEVATION_TIMEOUT_S`, défaut "5.0")
-            * parse la réponse JSON et extrait `results[*].elevation`
-            * mappe chaque altitude (arrondie à l’entier) au **bon index d’origine**
-            * en cas d’erreur HTTP/JSON, laisse les valeurs correspondantes à `None`
-            * incrémente le quota et respecte un **rate delay** (`RATE_DELAY_S`) entre appels
-              (sauf après le dernier)
-        - Ne lève **jamais** d’exception ; toute erreur réseau/parse entraîne des `None` localisés.
+        - If the provider is disabled (`settings.elevation_enabled=False`) **or** the
+          `points` list is empty, returns a list of `None` of the same length.
+        - Respects a **daily quota** in number of HTTP calls, tracked in the `api_quotas`
+          collection and the `ELEVATION_DAILY_LIMIT` environment variable (default 1000).
+          If the quota is reached, returns `None` for the remaining points.
+        - Builds a `locations` string, then **splits** it via `_split_params_by_url_and_count`
+          respecting `URL_MAXLEN` and `MAX_POINTS_PER_REQ`.
+        - For each chunk:
+            * performs a `GET` on `ENDPOINT?locations=...` (timeout configurable via
+              `ELEVATION_TIMEOUT_S`, default "5.0")
+            * parses the JSON response and extracts `results[*].elevation`
+            * maps each elevation (rounded to int) back to the **correct original index**
+            * on HTTP/JSON error, leaves the corresponding values as `None`
+            * increments the quota and respects a **rate delay** (`RATE_DELAY_S`) between
+              calls (except after the last one)
+        - Never raises an exception; any network/parse error results in localized `None` values.
 
     Args:
-        points (list[tuple[float, float]]): Liste `(lat, lon)` pour lesquelles obtenir l’altitude.
+        points (list[tuple[float, float]]): List of `(lat, lon)` for which to retrieve elevation.
 
     Returns:
-        list[int | None]: Liste des altitudes en mètres (ou `None` sur échec), **alignée** sur `points`.
+        list[int | None]: Elevations in meters (or `None` on failure), **aligned** with `points`.
     """
     if not ENABLED or not points:
         return [None] * len(points)

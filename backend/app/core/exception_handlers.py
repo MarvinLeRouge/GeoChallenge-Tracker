@@ -7,11 +7,11 @@ from app.api.dto.response_format import ErrorResponse
 
 
 def register_exception_handlers(app: FastAPI):
-    """Enregistre les gestionnaires d'exceptions globaux pour standardiser les réponses."""
+    """Registers global exception handlers to standardize responses."""
 
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-        """Gestionnaire pour les exceptions HTTP standards."""
+        """Handler for standard HTTP exceptions."""
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse.from_detail(
@@ -21,8 +21,8 @@ def register_exception_handlers(app: FastAPI):
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        """Gestionnaire pour les erreurs de validation Pydantic."""
-        # Extraire les détails des erreurs de validation
+        """Handler for Pydantic validation errors."""
+        # Extract validation error details
         errors = []
         for error in exc.errors():
             errors.append(
@@ -40,10 +40,10 @@ def register_exception_handlers(app: FastAPI):
             ).model_dump(),
         )
 
-    # Gestionnaire pour les exceptions non capturées
+    # Handler for uncaught exceptions
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
-        """Gestionnaire pour les exceptions non capturées."""
+        """Handler for uncaught exceptions."""
         return JSONResponse(
             status_code=500,
             content=ErrorResponse.from_detail(

@@ -1,5 +1,5 @@
 # backend/app/api/routes/my_challenge_targets.py
-# Routes "targets" : évaluation/rafraîchissement des cibles par challenge, listings paginés (globaux/proches), suppression.
+# "Targets" routes: evaluation/refresh of targets per challenge, paginated listings (global/nearby), deletion.
 
 from __future__ import annotations
 
@@ -8,8 +8,9 @@ from typing import Any
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
+from app.api.deps import CurrentUserId
 from app.api.dto.target import TargetListResponse
-from app.core.security import CurrentUserId, get_current_user
+from app.core.security import get_current_user
 from app.core.utils import utcnow
 from app.db.mongodb import get_db
 from app.services.targets_service import (
@@ -33,13 +34,13 @@ router = APIRouter(
 
 
 def _as_objid(v: Any) -> ObjectId:
-    """Convertit une valeur en ObjectId (en conservant l’ObjectId s’il est déjà typé).
+    """Converts a value to ObjectId (preserving it if already typed as ObjectId).
 
     Args:
-        v (Any): Valeur à convertir.
+        v (Any): Value to convert.
 
     Returns:
-        ObjectId: Identifiant MongoDB.
+        ObjectId: MongoDB identifier.
     """
     if isinstance(v, ObjectId):
         return v
@@ -47,13 +48,13 @@ def _as_objid(v: Any) -> ObjectId:
 
 
 def _current_user_id(current_user: dict) -> ObjectId:
-    """Extrait l’ObjectId de l’utilisateur courant ou lève 401 si absent.
+    """Extracts the ObjectId of the current user, or raises 401 if absent.
 
     Args:
-        current_user (dict): Utilisateur authentifié.
+        current_user (dict): Authenticated user.
 
     Returns:
-        ObjectId: Identifiant de l’utilisateur.
+        ObjectId: User identifier.
     """
     uid = current_user.get("_id")
     if not uid:
@@ -66,64 +67,64 @@ def _current_user_id(current_user: dict) -> ObjectId:
 # ---------------------------
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets/evaluate (POST) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets/evaluate (POST) to verify
 @router.post(
     "/challenges/{uc_id}/targets/evaluate",
     status_code=status.HTTP_200_OK,
-    summary="Évaluer et persister les targets d’un UserChallenge",
+    summary="Evaluate and persist targets for a UserChallenge",
     description=(
-        "Calcule les **targets** pour un UserChallenge en agrégeant les caches non trouvées qui satisfont ≥1 tâche,\n"
-        "déduplique, score, puis upsert en base.\n\n"
-        "- Caps contrôlables (`limit_per_task`, `hard_limit_total`)\n"
-        "- Filtre géographique optionnel (`include_geo_filter` + `lat`/`lon`/`radius_km`)\n"
-        "- Option `force` pour recalculer même si des targets existent"
+        "Computes **targets** for a UserChallenge by aggregating unfound caches that satisfy ≥1 task,\n"
+        "deduplicates, scores, then upserts to the database.\n\n"
+        "- Controllable caps (`limit_per_task`, `hard_limit_total`)\n"
+        "- Optional geographic filter (`include_geo_filter` + `lat`/`lon`/`radius_km`)\n"
+        "- `force` option to recalculate even if targets already exist"
     ),
 )
 async def evaluate_targets(
     user_id: CurrentUserId,
-    uc_id: str = Path(..., description="Identifiant du UserChallenge."),
-    limit_per_task: int = Query(500, ge=1, le=5000, description="Cap de calcul par tâche."),
+    uc_id: str = Path(..., description="UserChallenge identifier."),
+    limit_per_task: int = Query(500, ge=1, le=5000, description="Computation cap per task."),
     hard_limit_total: int = Query(
-        2000, ge=1, le=20000, description="Cap global avant fusion/score."
+        2000, ge=1, le=20000, description="Global cap before merging/scoring."
     ),
     include_geo_filter: bool = Query(
-        False, description="Activer un filtre géographique pendant l’évaluation."
+        False, description="Enable a geographic filter during evaluation."
     ),
     lat: float | None = Query(
-        None, ge=-90, le=90, description="Latitude pour filtre géo (si activé)."
+        None, ge=-90, le=90, description="Latitude for geo filter (if enabled)."
     ),
     lon: float | None = Query(
-        None, ge=-180, le=180, description="Longitude pour filtre géo (si activé)."
+        None, ge=-180, le=180, description="Longitude for geo filter (if enabled)."
     ),
     radius_km: float | None = Query(
-        None, gt=0, description="Rayon (km) requis si `include_geo_filter=true`."
+        None, gt=0, description="Radius (km) required if `include_geo_filter=true`."
     ),
-    force: bool = Query(False, description="Forcer le recalcul même si des targets existent déjà."),
+    force: bool = Query(False, description="Force recalculation even if targets already exist."),
 ):
-    """Évaluer et persister les targets d’un UserChallenge.
+    """Evaluate and persist targets for a UserChallenge.
 
     Description:
-        Construit la liste des caches cibles (targets) en fonction des tâches du challenge, applique un score, et
-        enregistre le résultat. Peut restreindre l’évaluation à une zone géographique.
+        Builds the list of target caches based on the challenge tasks, applies scoring, and
+        saves the result. Can restrict evaluation to a geographic area.
 
     Args:
-        uc_id (str): Identifiant du UserChallenge.
-        limit_per_task (int): Cap par tâche lors de l’évaluation.
-        hard_limit_total (int): Cap global avant fusion/score.
-        include_geo_filter (bool): Activer le filtre géographique.
-        lat (float | None): Latitude si filtre géo.
-        lon (float | None): Longitude si filtre géo.
-        radius_km (float | None): Rayon (km) requis si filtre géo actif.
-        force (bool): Recalcul même si des targets existent.
+        uc_id (str): UserChallenge identifier.
+        limit_per_task (int): Per-task cap during evaluation.
+        hard_limit_total (int): Global cap before merging/scoring.
+        include_geo_filter (bool): Enable geographic filter.
+        lat (float | None): Latitude for geo filter.
+        lon (float | None): Longitude for geo filter.
+        radius_km (float | None): Radius (km) required if geo filter is active.
+        force (bool): Recalculate even if targets already exist.
 
     Returns:
-        dict: Compte-rendu `{ok, inserted, updated, total}`.
+        dict: Report `{ok, inserted, updated, total}`.
     """
     uc_oid = _as_objid(uc_id)
 
     geo_ctx = None
     if include_geo_filter:
-        # si lat/lon non fournis, tenter depuis le profil
+        # if lat/lon not provided, try to retrieve from user profile
         if lat is None or lon is None:
             db = get_db()
             user_profile_service = UserProfileService(db)
@@ -150,7 +151,7 @@ async def evaluate_targets(
         evaluated_at=utcnow(),
         force=force,
     )
-    # result attendu: {"ok": True, "inserted": int, "updated": int, "total": int}
+    # expected result: {"ok": True, "inserted": int, "updated": int, "total": int}
     return result
 
 
@@ -159,37 +160,37 @@ async def evaluate_targets(
 # ---------------------------
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets (GET) to verify
 @router.get(
     "/challenges/{uc_id}/targets",
     response_model=TargetListResponse,
-    summary="Lister les targets d’un UserChallenge",
+    summary="List targets for a UserChallenge",
     description=(
-        "Retourne la liste **paginée** des targets d’un UserChallenge.\n"
-        "- Tri paramétrable (ex. `-score`, `distance`, `GC`)\n"
-        "- Pagination `page`/`limit` (max 200)"
+        "Returns the **paginated** list of targets for a UserChallenge.\n"
+        "- Configurable sort (e.g. `-score`, `distance`, `GC`)\n"
+        "- Pagination via `page`/`limit` (max 200)"
     ),
 )
 async def list_targets_uc(
     user_id: CurrentUserId,
-    uc_id: str = Path(..., description="Identifiant du UserChallenge."),
-    page: int = Query(1, ge=1, description="Numéro de page."),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
-    sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
+    uc_id: str = Path(..., description="UserChallenge identifier."),
+    page: int = Query(1, ge=1, description="Page number."),
+    page_size: int = Query(50, ge=1, le=200, description="Page size (1–200)."),
+    sort: str = Query("-score", description="Sort key (e.g. ‘-score’, ‘distance’, ‘GC’)."),
 ):
-    """Lister les targets d’un UserChallenge (paginé).
+    """List targets for a UserChallenge (paginated).
 
     Description:
-        Affiche les targets associées au UserChallenge avec pagination et tri.
+        Displays targets associated with the UserChallenge with pagination and sorting.
 
     Args:
-        uc_id (str): Identifiant du UserChallenge.
+        uc_id (str): UserChallenge identifier.
         page (int): Page (≥1).
-        page_size (int): Taille de page (1–200).
-        sort (str): Clé de tri.
+        page_size (int): Page size (1–200).
+        sort (str): Sort key.
 
     Returns:
-        TargetListResponse: Items et pagination.
+        TargetListResponse: Items and pagination.
     """
     uc_oid = _as_objid(uc_id)
     return await list_targets_for_user_challenge(
@@ -197,47 +198,47 @@ async def list_targets_uc(
     )
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets/nearby (GET) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets/nearby (GET) to verify
 @router.get(
     "/challenges/{uc_id}/targets/nearby",
     response_model=TargetListResponse,
-    summary="Lister les targets proches d’un point (par UC)",
+    summary="List targets near a point (per UC)",
     description=(
-        "Liste **paginée** des targets d’un UserChallenge proches d’un point (`lat`/`lon`) dans un rayon (km).\n"
-        "- Si `lat`/`lon` absents, utilise la **dernière localisation** enregistrée de l’utilisateur\n"
-        "- Tri par défaut: `distance`"
+        "**Paginated** list of targets for a UserChallenge near a point (`lat`/`lon`) within a radius (km).\n"
+        "- If `lat`/`lon` are absent, uses the user’s **last saved location**\n"
+        "- Default sort: `distance`"
     ),
 )
 async def list_targets_uc_nearby(
     user_id: CurrentUserId,
-    uc_id: str = Path(..., description="Identifiant du UserChallenge."),
-    radius_km: float = Query(50.0, gt=0, description="Rayon de recherche (km)."),
+    uc_id: str = Path(..., description="UserChallenge identifier."),
+    radius_km: float = Query(50.0, gt=0, description="Search radius (km)."),
     lat: float | None = Query(
-        None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."
+        None, ge=-90, le=90, description="Latitude; falls back to saved location."
     ),
     lon: float | None = Query(
-        None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."
+        None, ge=-180, le=180, description="Longitude; falls back to saved location."
     ),
-    page: int = Query(1, ge=1, description="Numéro de page."),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
-    sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
+    page: int = Query(1, ge=1, description="Page number."),
+    page_size: int = Query(50, ge=1, le=200, description="Page size (1–200)."),
+    sort: str = Query("distance", description="Sort key (default: ‘distance’)."),
 ):
-    """Lister les targets proches d’un point (par UC).
+    """List targets near a point (per UC).
 
     Description:
-        Retourne les targets du UserChallenge situées à proximité d’un point, avec pagination et tri.
+        Returns targets for the UserChallenge located near a given point, with pagination and sorting.
 
     Args:
-        uc_id (str): Identifiant du UserChallenge.
-        radius_km (float): Rayon (km).
-        lat (float | None): Latitude ou localisation enregistrée.
-        lon (float | None): Longitude ou localisation enregistrée.
+        uc_id (str): UserChallenge identifier.
+        radius_km (float): Radius (km).
+        lat (float | None): Latitude or saved location.
+        lon (float | None): Longitude or saved location.
         page (int): Page (≥1).
-        page_size (int): Taille de page (1–200).
-        sort (str): Clé de tri.
+        page_size (int): Page size (1–200).
+        sort (str): Sort key.
 
     Returns:
-        TargetListResponse: Items et pagination.
+        TargetListResponse: Items and pagination.
     """
     uc_oid = _as_objid(uc_id)
 
@@ -275,37 +276,37 @@ async def list_targets_uc_nearby(
 # ---------------------------
 
 
-# TODO: [BACKLOG] Route /my/targets (GET) à vérifier
+# TODO: [BACKLOG] Route /my/targets (GET) to verify
 @router.get(
     "/targets",
     response_model=TargetListResponse,
-    summary="Lister toutes mes targets (tous challenges)",
+    summary="List all my targets (all challenges)",
     description=(
-        "Liste **paginée** des targets sur l’ensemble des challenges de l’utilisateur.\n"
-        "- Filtre optionnel `status_filter` (ex. 'accepted')\n"
-        "- Tri (ex. `-score`, `distance`, `GC`)"
+        "**Paginated** list of targets across all of the user’s challenges.\n"
+        "- Optional `status_filter` (e.g. ‘accepted’)\n"
+        "- Sort (e.g. `-score`, `distance`, `GC`)"
     ),
 )
 async def list_targets_all(
     user_id: CurrentUserId,
-    status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
-    page: int = Query(1, ge=1, description="Numéro de page."),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
-    sort: str = Query("-score", description="Clé de tri (ex. '-score', 'distance', 'GC')."),
+    status_filter: str | None = Query(None, description="Filter by UC status (e.g. ‘accepted’)."),
+    page: int = Query(1, ge=1, description="Page number."),
+    page_size: int = Query(50, ge=1, le=200, description="Page size (1–200)."),
+    sort: str = Query("-score", description="Sort key (e.g. ‘-score’, ‘distance’, ‘GC’)."),
 ):
-    """Lister toutes mes targets (paginé).
+    """List all my targets (paginated).
 
     Description:
-        Retourne les targets agrégées de tous les challenges de l’utilisateur, avec pagination et tri.
+        Returns aggregated targets from all of the user’s challenges, with pagination and sorting.
 
     Args:
-        status_filter (str | None): Filtre de statut des UC.
+        status_filter (str | None): UC status filter.
         page (int): Page (≥1).
-        page_size (int): Taille de page (1–200).
-        sort (str): Clé de tri.
+        page_size (int): Page size (1–200).
+        sort (str): Sort key.
 
     Returns:
-        TargetListResponse: Items et pagination.
+        TargetListResponse: Items and pagination.
     """
     return await list_targets_for_user(
         user_id=user_id,
@@ -316,47 +317,47 @@ async def list_targets_all(
     )
 
 
-# TODO: [BACKLOG] Route /my/targets/nearby (GET) à vérifier
+# TODO: [BACKLOG] Route /my/targets/nearby (GET) to verify
 @router.get(
     "/targets/nearby",
     response_model=TargetListResponse,
-    summary="Lister les targets proches d’un point (tous challenges)",
+    summary="List targets near a point (all challenges)",
     description=(
-        "Liste **paginée** des targets proches d’un point (`lat`/`lon`) pour **tous** les challenges.\n"
-        "- Si `lat`/`lon` absents, utilise la localisation enregistrée\n"
-        "- Filtre de statut UC disponible (`status_filter`)"
+        "**Paginated** list of targets near a point (`lat`/`lon`) for **all** challenges.\n"
+        "- If `lat`/`lon` are absent, uses the saved location\n"
+        "- UC status filter available (`status_filter`)"
     ),
 )
 async def list_targets_all_nearby(
     user_id: CurrentUserId,
-    radius_km: float = Query(50.0, gt=0, description="Rayon (km)."),
+    radius_km: float = Query(50.0, gt=0, description="Radius (km)."),
     lat: float | None = Query(
-        None, ge=-90, le=90, description="Latitude ; sinon localisation enregistrée."
+        None, ge=-90, le=90, description="Latitude; falls back to saved location."
     ),
     lon: float | None = Query(
-        None, ge=-180, le=180, description="Longitude ; sinon localisation enregistrée."
+        None, ge=-180, le=180, description="Longitude; falls back to saved location."
     ),
-    status_filter: str | None = Query(None, description="Filtrer les UC (ex. 'accepted')."),
-    page: int = Query(1, ge=1, description="Numéro de page."),
-    page_size: int = Query(50, ge=1, le=200, description="Taille de page (1–200)."),
-    sort: str = Query("distance", description="Clé de tri (défaut: 'distance')."),
+    status_filter: str | None = Query(None, description="Filter by UC status (e.g. ‘accepted’)."),
+    page: int = Query(1, ge=1, description="Page number."),
+    page_size: int = Query(50, ge=1, le=200, description="Page size (1–200)."),
+    sort: str = Query("distance", description="Sort key (default: ‘distance’)."),
 ):
-    """Lister les targets proches (tous challenges).
+    """List nearby targets (all challenges).
 
     Description:
-        Agrège les targets à proximité d’un point pour l’ensemble des challenges de l’utilisateur.
+        Aggregates targets near a point across all of the user’s challenges.
 
     Args:
-        radius_km (float): Rayon (km).
-        lat (float | None): Latitude ou localisation enregistrée.
-        lon (float | None): Longitude ou localisation enregistrée.
-        status_filter (str | None): Filtre de statut UC.
+        radius_km (float): Radius (km).
+        lat (float | None): Latitude or saved location.
+        lon (float | None): Longitude or saved location.
+        status_filter (str | None): UC status filter.
         page (int): Page (≥1).
-        page_size (int): Taille de page (1–200).
-        sort (str): Clé de tri.
+        page_size (int): Page size (1–200).
+        sort (str): Sort key.
 
     Returns:
-        TargetListResponse: Items et pagination.
+        TargetListResponse: Items and pagination.
     """
     final_lat: float
     final_lon: float
@@ -392,29 +393,29 @@ async def list_targets_all_nearby(
 # ---------------------------
 
 
-# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets (DELETE) à vérifier
+# TODO: [BACKLOG] Route /my/challenges/{uc_id}/targets (DELETE) to verify
 @router.delete(
     "/challenges/{uc_id}/targets",
     status_code=status.HTTP_200_OK,
-    summary="Supprimer toutes les targets d’un UserChallenge",
-    description="Efface toutes les targets associées au UserChallenge fourni.",
+    summary="Delete all targets for a UserChallenge",
+    description="Removes all targets associated with the given UserChallenge.",
 )
 async def clear_targets_uc(
     user_id: CurrentUserId,
-    uc_id: str = Path(..., description="Identifiant du UserChallenge."),
+    uc_id: str = Path(..., description="UserChallenge identifier."),
 ):
-    """Supprimer les targets d’un UserChallenge.
+    """Delete targets for a UserChallenge.
 
     Description:
-        Supprime l’ensemble des targets rattachées au UserChallenge pour l’utilisateur courant.
+        Removes all targets linked to the UserChallenge for the current user.
 
     Args:
-        uc_id (str): Identifiant du UserChallenge.
+        uc_id (str): UserChallenge identifier.
 
     Returns:
-        dict: Résultat `{ok, deleted}`.
+        dict: Result `{ok, deleted}`.
     """
     uc_oid = _as_objid(uc_id)
     result = await delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_oid)
-    # result attendu: {"ok": True, "deleted": n}
+    # expected result: {"ok": True, "deleted": n}
     return result
