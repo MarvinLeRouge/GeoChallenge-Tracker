@@ -133,32 +133,32 @@ class TaskExpressionNormalizer:
                     state_ids = list(node.get("state_ids") or [])
                     # short compat form: state_names: ["X","Y"]
                     for nm in node.get("state_names") or []:
-                        sid = resolve_state_name(
+                        state_id, _ = resolve_state_name(
                             nm,
                             country_id=node.get("country_id")
                             or (node.get("country") or {}).get("country_id"),
                         )
-                        if not sid:
+                        if not state_id:
                             raise ValueError(
                                 f"state_in: state not found '{nm}' (index {index_for_errors})"
                             )
-                        state_ids.append(sid)
+                        state_ids.append(state_id)
                     # rich form: states: [{"name": ...}]
                     for s in node.get("states") or []:
                         s = dict(s)
-                        sid = s.get("state_id")
-                        if not sid and s.get("name"):
-                            sid = resolve_state_name(
+                        state_id = s.get("state_id")
+                        if not state_id and s.get("name"):
+                            state_id, _ = resolve_state_name(
                                 s["name"],
-                                context_country_id=node.get("country_id")
+                                country_id=node.get("country_id")
                                 or (node.get("country") or {}).get("country_id"),
                             )
-                        if not sid:
+                        if not state_id:
                             label = s.get("name") or "<?>"
                             raise ValueError(
                                 f"state_in: state not found '{label}' (index {index_for_errors})"
                             )
-                        state_ids.append(sid)
+                        state_ids.append(state_id)
                     if state_ids:
                         node["state_ids"] = list(dict.fromkeys(state_ids))  # dedup
                     # keep 'states' and/or 'state_names' for GET readability
