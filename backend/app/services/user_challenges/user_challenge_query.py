@@ -83,7 +83,7 @@ class UserChallengeQuery:
             "page": page,
             "page_size": page_size,
             "nb_pages": nb_pages,
-            "total": total_count,
+            "nb_items": total_count,
         }
 
     async def get_user_challenge_detail(
