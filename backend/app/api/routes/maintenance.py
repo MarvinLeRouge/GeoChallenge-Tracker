@@ -868,3 +868,59 @@ async def cleanup_expired_verifications(
         },
     )
     return {"cleaned": result.modified_count}
+
+
+@router.get(
+    "/snapshot",
+    summary="System snapshot for a user",
+    description="Returns global counts (caches, challenges) and user-specific stats (found caches, user_challenges by status).",
+    dependencies=[Depends(require_admin)],
+)
+async def snapshot(
+    _: Annotated[bool, Depends(require_admin)],
+    user_id: str = Query(..., description="User ObjectId as string"),
+) -> dict:
+    """Snapshot of system state for before/after comparison.
+
+    Args:
+        user_id: User ObjectId string.
+
+    Returns:
+        dict: Global and user-scoped counts.
+    """
+    from bson import ObjectId
+
+    uid = ObjectId(user_id)
+
+    coll_caches = await get_collection("caches")
+    coll_challenges = await get_collection("challenges")
+    coll_found = await get_collection("found_caches")
+    coll_ucs = await get_collection("user_challenges")
+
+    total_caches = await coll_caches.count_documents({})
+    total_challenges = await coll_challenges.count_documents({})
+    total_found = await coll_found.count_documents({"user_id": uid})
+    total_ucs = await coll_ucs.count_documents({"user_id": uid})
+
+    # user_challenges grouped by computed_status
+    pipeline: list[dict[str, Any]] = [
+        {"$match": {"user_id": uid}},
+        {"$group": {"_id": "$computed_status", "count": {"$sum": 1}}},
+        {"$sort": {"_id": 1}},
+    ]
+    uc_by_status: dict[str, int] = {}
+    async for doc in coll_ucs.aggregate(pipeline):
+        key = doc["_id"] if doc["_id"] is not None else "null"
+        uc_by_status[key] = doc["count"]
+
+    return {
+        "global": {
+            "caches": total_caches,
+            "challenges": total_challenges,
+        },
+        "user": {
+            "found_caches": total_found,
+            "user_challenges": total_ucs,
+            "user_challenges_by_computed_status": uc_by_status,
+        },
+    }
