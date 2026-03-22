@@ -1,5 +1,5 @@
 # backend/app/services/targets_service.py
-# Fichier de compatibilité et point d'entrée principal pour le nouveau système de targets.
+# Compatibility shim and main entry point for the new targets system.
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from app.db.mongodb import get_db
 
 from .targets.target_service import TargetService
 
-# Instance globale pour compatibilité avec l'ancien système
+# Global instance for backward compatibility with the legacy system
 _target_service: TargetService | None = None
 
 
 def get_target_service() -> TargetService:
-    """Obtenir l'instance du service de targets.
+    """Return the targets service instance.
 
     Returns:
-        TargetService: Instance configurée du service.
+        TargetService: Configured service instance.
     """
     global _target_service
     if _target_service is None:
@@ -28,7 +28,7 @@ def get_target_service() -> TargetService:
     return _target_service
 
 
-# Fonctions de compatibilité pour l'ancien API
+# Compatibility functions for the legacy API
 async def evaluate_targets_for_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
@@ -38,7 +38,7 @@ async def evaluate_targets_for_user_challenge(
     evaluated_at: Any = None,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - évaluer les targets d'un UserChallenge."""
+    """Compatibility wrapper — evaluate targets for a UserChallenge."""
     service = get_target_service()
     return await service.evaluate_targets_for_user_challenge(
         user_id=user_id,
@@ -58,7 +58,7 @@ async def list_targets_for_user_challenge(
     page_size: int = 50,
     sort: str = "-score",
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - lister les targets d'un UC."""
+    """Compatibility wrapper — list targets for a UC."""
     service = get_target_service()
     return await service.list_targets_for_user_challenge(
         user_id=user_id,
@@ -79,7 +79,7 @@ async def list_targets_nearby_for_user_challenge(
     page_size: int = 50,
     sort: str = "distance",
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - lister les targets proches d'un UC."""
+    """Compatibility wrapper — list nearby targets for a UC."""
     service = get_target_service()
     return await service.list_targets_nearby_for_user_challenge(
         user_id=user_id,
@@ -100,7 +100,7 @@ async def list_targets_for_user(
     page_size: int = 50,
     sort: str = "-score",
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - lister toutes les targets d'un utilisateur."""
+    """Compatibility wrapper — list all targets for a user."""
     service = get_target_service()
     return await service.list_targets_for_user(
         user_id=user_id,
@@ -121,7 +121,7 @@ async def list_targets_nearby_for_user(
     page_size: int = 50,
     sort: str = "distance",
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - lister les targets proches pour un utilisateur."""
+    """Compatibility wrapper — list nearby targets for a user."""
     service = get_target_service()
     return await service.list_targets_nearby_for_user(
         user_id=user_id,
@@ -136,6 +136,6 @@ async def list_targets_nearby_for_user(
 
 
 async def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
-    """Fonction de compatibilité - supprimer les targets d'un UC."""
+    """Compatibility wrapper — delete targets for a UC."""
     service = get_target_service()
     return await service.delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_id)

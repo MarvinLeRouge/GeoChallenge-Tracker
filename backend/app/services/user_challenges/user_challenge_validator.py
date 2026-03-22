@@ -1,5 +1,5 @@
 # backend/app/services/user_challenges/user_challenge_validator.py
-# Service de validation pour les opérations sur UserChallenges.
+# Validation service for UserChallenge operations.
 
 from __future__ import annotations
 
@@ -12,18 +12,18 @@ from .status_calculator import StatusCalculator
 
 
 class UserChallengeValidator:
-    """Service de validation pour UserChallenges.
+    """Validation service for UserChallenges.
 
     Description:
-        Responsable de la validation des opérations de patch,
-        des transitions de statut et de la cohérence des données.
+        Responsible for validating patch operations, status transitions,
+        and data consistency for UserChallenges.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service de validation.
+        """Initialize the validation service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self.status_calculator = StatusCalculator()
@@ -34,22 +34,22 @@ class UserChallengeValidator:
         uc_id: ObjectId,
         patch_data: dict[str, Any],
     ) -> tuple[bool, str | None, dict[str, Any]]:
-        """Valider une opération de patch sur un UserChallenge.
+        """Validate a patch operation on a UserChallenge.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
-            patch_data: Données de patch à valider.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            patch_data: Patch data to validate.
 
         Returns:
             tuple: (is_valid, error_message, validated_data).
         """
-        # Récupérer l'UC existant
+        # Retrieve the existing UC
         current_uc = await self._get_user_challenge(user_id, uc_id)
         if not current_uc:
             return False, "UserChallenge not found", {}
 
-        # Valider les champs autorisés
+        # Validate allowed fields
         allowed_fields = {"status", "notes", "manual_override", "override_reason"}
         invalid_fields = set(patch_data.keys()) - allowed_fields
         if invalid_fields:
@@ -57,7 +57,7 @@ class UserChallengeValidator:
 
         validated_data = {}
 
-        # Valider le statut si fourni
+        # Validate status if provided
         if "status" in patch_data:
             new_status = patch_data["status"]
             is_valid, error_msg = self.status_calculator.validate_status_transition(
@@ -70,7 +70,7 @@ class UserChallengeValidator:
 
             validated_data["status"] = new_status
 
-        # Valider les notes si fournies
+        # Validate notes if provided
         if "notes" in patch_data:
             notes = patch_data["notes"]
             if notes is not None:
@@ -82,14 +82,14 @@ class UserChallengeValidator:
             else:
                 validated_data["notes"] = None
 
-        # Valider l'override si fourni
+        # Validate override flag if provided
         if "manual_override" in patch_data:
             override_value = patch_data["manual_override"]
             if not isinstance(override_value, bool):
                 return False, "manual_override must be a boolean", {}
             validated_data["manual_override"] = override_value
 
-        # Valider la raison d'override si fournie
+        # Validate override reason if provided
         if "override_reason" in patch_data:
             reason = patch_data["override_reason"]
             if reason is not None:
@@ -104,14 +104,14 @@ class UserChallengeValidator:
         return True, None, validated_data
 
     async def validate_ownership(self, user_id: ObjectId, uc_id: ObjectId) -> bool:
-        """Valider que l'utilisateur possède bien cet UserChallenge.
+        """Validate that the user owns the given UserChallenge.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            bool: True si l'utilisateur possède l'UC.
+            bool: True if the user owns the UC.
         """
         current_uc = await self._get_user_challenge(user_id, uc_id)
         return current_uc is not None
@@ -122,12 +122,12 @@ class UserChallengeValidator:
         uc_ids: list[ObjectId],
         operation_type: str,
     ) -> tuple[bool, str | None, list[ObjectId]]:
-        """Valider une opération en lot sur des UserChallenges.
+        """Validate a bulk operation on UserChallenges.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_ids: Liste des identifiants UserChallenges.
-            operation_type: Type d'opération ('dismiss', 'accept', 'reset').
+            user_id: User identifier.
+            uc_ids: List of UserChallenge identifiers.
+            operation_type: Operation type ('dismiss', 'accept', 'reset').
 
         Returns:
             tuple: (is_valid, error_message, valid_uc_ids).
@@ -142,7 +142,7 @@ class UserChallengeValidator:
         if operation_type not in valid_operations:
             return False, f"Invalid operation: {operation_type}", []
 
-        # Vérifier que tous les UC appartiennent à l'utilisateur
+        # Verify that all UCs belong to the user
         coll_ucs = self.db.user_challenges
         existing_count = await coll_ucs.count_documents(
             {
@@ -157,20 +157,20 @@ class UserChallengeValidator:
         return True, None, uc_ids
 
     async def get_patch_dependencies(self, user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any]:
-        """Récupérer les dépendances nécessaires pour un patch.
+        """Retrieve the dependencies needed for a patch operation.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            dict: Données de contexte pour le patch.
+            dict: Context data for the patch.
         """
         current_uc = await self._get_user_challenge(user_id, uc_id)
         if not current_uc:
             return {}
 
-        # Vérifier si la cache du challenge est trouvée
+        # Check whether the challenge's cache has been found
         challenge_id = current_uc.get("challenge_id")
         if not isinstance(challenge_id, ObjectId):
             challenge_cache_found = False
@@ -187,35 +187,35 @@ class UserChallengeValidator:
     async def _get_user_challenge(
         self, user_id: ObjectId, uc_id: ObjectId
     ) -> dict[str, Any] | None:
-        """Récupérer un UserChallenge spécifique.
+        """Retrieve a specific UserChallenge.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            dict | None: UserChallenge ou None si non trouvé.
+            dict | None: UserChallenge or None if not found.
         """
         coll_ucs = self.db.user_challenges
         return await coll_ucs.find_one({"_id": uc_id, "user_id": user_id})
 
     async def _is_challenge_cache_found(self, user_id: ObjectId, challenge_id: ObjectId) -> bool:
-        """Vérifier si la cache du challenge est trouvée par l'utilisateur.
+        """Check whether the challenge's cache has been found by the user.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            challenge_id: Identifiant du challenge.
+            user_id: User identifier.
+            challenge_id: Challenge identifier.
 
         Returns:
-            bool: True si la cache est trouvée.
+            bool: True if the cache has been found.
         """
-        # Récupérer l'ID de la cache du challenge
+        # Retrieve the challenge's cache ID
         coll_challenges = self.db.challenges
         challenge = await coll_challenges.find_one({"_id": challenge_id}, {"cache_id": 1})
         if not challenge or not challenge.get("cache_id"):
             return False
 
-        # Vérifier si elle est trouvée
+        # Check whether it has been found
         coll_found = self.db.found_caches
         found = await coll_found.find_one(
             {

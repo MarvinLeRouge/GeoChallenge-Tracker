@@ -1,6 +1,6 @@
 # backend/app/db/seed_indexes.py
-# Fournit des helpers pour assurer (créer/mettre à jour) les index Mongo avec comparaison d’options
-# (unique, partialFilterExpression, collation) et un seeding global `ensure_indexes()`.
+# Provides helpers to ensure (create/update) Mongo indexes with option comparison
+# (unique, partialFilterExpression, collation) and a global `ensure_indexes()` seeder.
 
 from __future__ import annotations
 
@@ -24,17 +24,17 @@ COLLATION_CI = Collation(locale="en", strength=2)
 
 
 def _normalize_key_from_mongo(key_doc: dict[str, Any]) -> KeySpec:
-    """Normalise la clé d’index renvoyée par Mongo.
+    """Normalizes an index key document returned by Mongo.
 
     Description:
-        Convertit le document de clé (Ordered mapping) en liste de tuples `(champ, direction)`,
-        où direction est un int (1/-1) ou une chaîne (ex. '2dsphere').
+        Converts the key document (ordered mapping) into a list of `(field, direction)` tuples,
+        where direction is an int (1/-1) or a string (e.g. ‘2dsphere’).
 
     Args:
-        key_doc (dict[str, Any]): Document `key` d’un index Mongo.
+        key_doc (dict[str, Any]): `key` document of a Mongo index.
 
     Returns:
-        KeySpec: Liste normalisée des paires (champ, direction).
+        KeySpec: Normalized list of (field, direction) pairs.
     """
     norm: KeySpec = []
     for k, v in key_doc.items():
@@ -47,17 +47,17 @@ def _normalize_key_from_mongo(key_doc: dict[str, Any]) -> KeySpec:
 
 
 async def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
-    """Recherche un index existant portant exactement ces clés.
+    """Finds an existing index matching exactly these keys.
 
     Description:
-        Parcourt `coll.list_indexes()` et compare les clés via `_normalize_key_from_mongo`.
+        Iterates over `coll.list_indexes()` and compares keys via `_normalize_key_from_mongo`.
 
     Args:
-        coll: Collection MongoDB.
-        keys (KeySpec): Clés d’index souhaitées.
+        coll: MongoDB collection.
+        keys (KeySpec): Desired index keys.
 
     Returns:
-        dict | None: Descripteur d’index existant ou `None` si absent.
+        dict | None: Existing index descriptor or `None` if not found.
     """
     async for ix in coll.list_indexes():
         if "key" in ix and _normalize_key_from_mongo(ix["key"]) == keys:
@@ -66,16 +66,16 @@ async def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
 
 
 def _collation_to_dict(c: Collation | None) -> dict[str, Any] | None:
-    """Convertit une collation Mongo en dict comparable.
+    """Converts a Mongo collation to a comparable dict.
 
     Description:
-        Extrait les champs pertinents d’une `Collation` pour comparaison d’options.
+        Extracts the relevant fields from a `Collation` for option comparison.
 
     Args:
-        c (Collation | None): Collation à convertir.
+        c (Collation | None): Collation to convert.
 
     Returns:
-        dict | None: Dictionnaire de paramètres ou `None`.
+        dict | None: Parameter dictionary or `None`.
     """
     if c is None:
         return None
@@ -99,19 +99,19 @@ def _same_options(
     partial: dict[str, Any] | None,
     collation: Collation | None,
 ) -> bool:
-    """Compare les options d’un index existant avec les options souhaitées.
+    """Compares an existing index’s options against the desired options.
 
     Description:
-        Vérifie l’égalité sur `unique`, `partialFilterExpression` et `collation`.
+        Checks equality of `unique`, `partialFilterExpression`, and `collation`.
 
     Args:
-        existing (dict): Descripteur de l’index existant.
-        unique (bool | None): Caractère unique attendu.
-        partial (dict | None): Expression partielle attendue.
-        collation (Collation | None): Collation attendue.
+        existing (dict): Existing index descriptor.
+        unique (bool | None): Expected uniqueness constraint.
+        partial (dict | None): Expected partial filter expression.
+        collation (Collation | None): Expected collation.
 
     Returns:
-        bool: True si les options correspondent, sinon False.
+        bool: True if the options match, False otherwise.
     """
     ex_unique = bool(existing.get("unique", False))
     if bool(unique) != ex_unique:
@@ -133,18 +133,18 @@ async def ensure_index(
     partial: dict[str, Any] | None = None,
     collation: Collation | None = None,
 ) -> None:
-    """Assure la présence d’un index simple (création/MAJ idempotente).
+    """Ensures a simple index exists (idempotent create/update).
 
     Description:
-        - Si un index avec **mêmes clés** et **mêmes options** existe : ne fait rien.
-        - S’il existe avec des **options différentes**, le supprime puis le recrée.
-        - Sinon, crée l’index avec les options fournies.
+        - If an index with **the same keys** and **the same options** already exists: does nothing.
+        - If it exists with **different options**, drops it then recreates it.
+        - Otherwise, creates the index with the provided options.
 
     Args:
-        coll_name (str): Nom de la collection.
-        keys (KeySpec): Liste des paires (champ, direction).
-        name (str | None): Nom explicite de l’index.
-        unique (bool | None): Contrainte d’unicité.
+        coll_name (str): Collection name.
+        keys (KeySpec): List of (field, direction) pairs.
+        name (str | None): Explicit index name.
+        unique (bool | None): Uniqueness constraint.
         partial (dict | None): `partialFilterExpression`.
         collation (Collation | None): Collation.
 
@@ -156,9 +156,9 @@ async def ensure_index(
     if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
         return
     if existing:
-        # Tolérer l'exécution concurrente (plusieurs workers) :
-        #  - re-lister pour minimiser la fenêtre de course
-        #  - ignorer IndexNotFound (code 27)
+        # Tolerate concurrent execution (multiple workers):
+        #  - re-list to minimize the race window
+        #  - ignore IndexNotFound (code 27)
         try:
             server_names = {ix.get("name") async for ix in coll.list_indexes()}
             name_to_drop = cast(str, existing["name"])
@@ -182,17 +182,17 @@ async def ensure_index(
 async def ensure_text_index(
     coll_name: str, fields: Iterable[str], *, name: str | None = None
 ) -> None:
-    """Assure un **unique** index texte sur les champs donnés (poids = 1).
+    """Ensures a **single** text index on the given fields (weight = 1).
 
     Description:
-        Mongo n’autorise **qu’un seul** index texte par collection :
-        - S’il existe et couvre exactement les `fields`, ne fait rien.
-        - Sinon, le supprime puis recrée un index texte sur ces champs.
+        Mongo only allows **one** text index per collection:
+        - If it exists and covers exactly the `fields`, does nothing.
+        - Otherwise, drops it then recreates a text index on those fields.
 
     Args:
-        coll_name (str): Nom de la collection.
-        fields (Iterable[str]): Champs à indexer en texte.
-        name (str | None): Nom explicite de l’index.
+        coll_name (str): Collection name.
+        fields (Iterable[str]): Fields to index as text.
+        name (str | None): Explicit index name.
 
     Returns:
         None
@@ -215,11 +215,11 @@ async def ensure_text_index(
 
 
 async def ensure_indexes() -> None:
-    """Crée/assure l’ensemble des index utilisés par l’application.
+    """Creates/ensures all indexes used by the application.
 
     Description:
-        Construit tous les index (utilisateurs, caches, challenges, progress, targets, etc.),
-        en appliquant les collations/idempotence adéquates.
+        Builds all indexes (users, caches, challenges, progress, targets, etc.),
+        applying appropriate collations and idempotency.
 
     Args:
         None
@@ -345,7 +345,7 @@ async def ensure_indexes() -> None:
         ],
         name="ix_caches__attributes_attrdocid_ispos",
     )
-    # NEW: combos fréquents pour targets
+    # NEW: frequent combos for targets
     await ensure_index(
         "caches",
         [("type_id", ASCENDING), ("size_id", ASCENDING)],
@@ -410,7 +410,7 @@ async def ensure_indexes() -> None:
     )
 
     # ---------- targets ----------
-    # Unicité d’un target par (UC, cache)
+    # Uniqueness of a target per (UC, cache)
     await ensure_index(
         "targets",
         [("user_challenge_id", ASCENDING), ("cache_id", ASCENDING)],
@@ -418,7 +418,7 @@ async def ensure_indexes() -> None:
         unique=True,
     )
 
-    # Filtrages et tris courants
+    # Common filters and sort orders
     await ensure_index(
         "targets", [("user_challenge_id", ASCENDING), ("satisfies_task_ids", ASCENDING)]
     )
@@ -431,7 +431,7 @@ async def ensure_indexes() -> None:
         [("user_id", ASCENDING), ("score", DESCENDING)],
         name="user_score_desc",
     )
-    # Tri par score pour un UC donné
+    # Sort by score for a given UC
     await ensure_index(
         "targets",
         [
@@ -444,7 +444,7 @@ async def ensure_indexes() -> None:
     # Index géospatial sur loc (GeoJSON Point)
     await ensure_index("targets", [("loc", "2dsphere")], name="geo_targets_loc_2dsphere")
 
-    # Tri récents si besoin d’ordonnancement temporel
+    # Recent sort for temporal ordering when needed
     await ensure_index(
         "targets",
         [("updated_at", DESCENDING), ("created_at", DESCENDING)],

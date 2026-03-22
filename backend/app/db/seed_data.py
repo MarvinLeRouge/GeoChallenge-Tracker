@@ -1,5 +1,5 @@
 # backend/app/db/seed_data.py
-# Outils de remplissage initial : ping Mongo, seed des référentiels et création/MAJ du compte admin.
+# Initial seeding utilities: MongoDB ping, referential seeding, and admin account creation/update.
 
 import asyncio
 import json
@@ -21,11 +21,11 @@ SEEDS_FOLDER = Path(__file__).resolve().parents[2] / "data" / "seeds"
 
 
 async def test_connection():
-    """Teste la connexion à MongoDB (ping).
+    """Tests the MongoDB connection (ping).
 
     Description:
-        Envoie une commande `ping` à la base et affiche le résultat. En cas d’échec,
-        logue un message et termine le processus avec un code d’erreur (sys.exit).
+        Sends a `ping` command to the database and prints the result. On failure,
+        logs a message and exits the process with an error code (sys.exit).
 
     Args:
         None
@@ -48,28 +48,28 @@ async def seed_collection(
     unique_field: str = "code",
     force: bool = False,
 ):
-    """Remplit une collection depuis un fichier JSON.
+    """Seeds a collection from a JSON file.
 
     Description:
-        Charge le contenu JSON de `file_path` et insère/met à jour les documents dans `collection_name`.
-        - Si `force=True`, vide la collection puis insère toutes les données.
-        - Si `force=False` et la collection existe, effectue un upsert sur `unique_field` :
-          compare les documents existants avec les seeds et ne met à jour que ceux qui diffèrent,
-          tout en insérant les nouveaux documents. Les documents existants non présents dans
-          les seeds sont conservés pour préserver les références entre collections.
+        Loads the JSON content of `file_path` and inserts/updates documents in `collection_name`.
+        - If `force=True`, clears the collection then inserts all data.
+        - If `force=False` and the collection already exists, performs an upsert on `unique_field`:
+          compares existing documents against seeds and only updates those that differ,
+          while inserting new documents. Existing documents absent from the seed are preserved
+          to maintain references across collections.
 
     Args:
-        file_path (str): Chemin du fichier JSON (UTF-8).
-        collection_name (str): Nom de la collection MongoDB cible.
-        unique_field (str): Champ servant de clé d’upsert. Par défaut ``"code"``.
-        force (bool, optional): Forcer la réinitialisation de la collection. Par défaut `False`.
+        file_path (str): Path to the JSON file (UTF-8).
+        collection_name (str): Target MongoDB collection name.
+        unique_field (str): Field used as the upsert key. Defaults to ``"code"``.
+        force (bool, optional): Force collection reset before insertion. Defaults to `False`.
 
     Returns:
         None
 
     Raises:
-        FileNotFoundError: Si le fichier n’existe pas.
-        json.JSONDecodeError: Si le JSON est invalide.
+        FileNotFoundError: If the file does not exist.
+        json.JSONDecodeError: If the JSON is invalid.
     """
     collection_obj = await get_collection(collection_name)
     count = await collection_obj.count_documents({})
@@ -79,14 +79,14 @@ async def seed_collection(
 
     if force:
         await collection_obj.delete_many({})
-        log.info("Collection ‘%s’ vidée (force=True).", collection_name)
+        log.info("Collection ‘%s’ cleared (force=True).", collection_name)
         await collection_obj.insert_many(seed_data)
-        log.info("%d documents insérés dans ‘%s’.", len(seed_data), collection_name)
+        log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
         return
 
     if count == 0:
         await collection_obj.insert_many(seed_data)
-        log.info("%d documents insérés dans ‘%s’.", len(seed_data), collection_name)
+        log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
         return
 
     # Upsert logic: update documents that differ, insert new ones, keep existing ones
@@ -114,29 +114,29 @@ async def seed_collection(
             inserted_count += 1
 
     log.info(
-        "%d documents mis à jour, %d documents insérés dans ‘%s’.",
+        "%d documents updated, %d documents inserted into ‘%s’.",
         updated_count,
         inserted_count,
         collection_name,
     )
-    log.info("Les documents existants non présents dans le seed ont été conservés.")
+    log.info("Existing documents not present in the seed were preserved.")
 
 
 async def seed_admin_user(force: bool = False):
-    """Crée ou met à jour l’utilisateur administrateur.
+    """Creates or updates the administrator user.
 
     Description:
-        Lit `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` depuis l’environnement.
-        Calcule le hash du mot de passe, upsert l’utilisateur avec rôle `admin`, `is_active=True`, `is_verified=True`.
+        Reads `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` from the environment.
+        Hashes the password and upserts the user with role `admin`, `is_active=True`, `is_verified=True`.
 
     Args:
-        force (bool, optional): Paramètre sans effet direct ici (cohérence d’API).
+        force (bool, optional): Parameter with no direct effect here (API consistency).
 
     Returns:
         None
 
     Raises:
-        ValueError: Si une des variables d’environnement admin est absente.
+        ValueError: If any admin environment variable is missing.
     """
     coll_users = await get_collection("users")
 
@@ -169,14 +169,14 @@ async def seed_admin_user(force: bool = False):
 
 
 async def seed_referentials(force: bool = False):
-    """Seed des collections de référentiels et de l’admin.
+    """Seeds referential collections and the admin account.
 
     Description:
-        Alimente `cache_types`, `cache_sizes`, `cache_attributes` depuis des fichiers JSON
-        et appelle `seed_admin_user()` pour garantir la présence du compte admin.
+        Populates `cache_types`, `cache_sizes`, `cache_attributes` from JSON files
+        and calls `seed_admin_user()` to ensure the admin account is present.
 
     Args:
-        force (bool, optional): Si vrai, réinitialise les collections avant insertion.
+        force (bool, optional): If true, resets collections before insertion.
 
     Returns:
         None

@@ -8,16 +8,16 @@ from bson import ObjectId
 
 
 def _normalize_name(name: str | None) -> str:
-    """Normaliser un libellé pour matching référentiel.
+    """Normalize a label for referential matching.
 
     Description:
-        Trim et `casefold()` pour des comparaisons tolérantes (ex. « micro » vs « Micro »).
+        Strips and applies `casefold()` for case-insensitive comparisons (e.g. "micro" vs "Micro").
 
     Args:
-        name (str | None): Libellé source.
+        name (str | None): Source label.
 
     Returns:
-        str: Libellé normalisé (éventuellement chaîne vide).
+        str: Normalized label (possibly an empty string).
     """
     return (name or "").strip().casefold()
 
@@ -26,14 +26,14 @@ def get_type_by_name(
     cache_type_name: str | None,
     all_types_by_name: dict[str, ObjectId] | None = None,
 ):
-    """Résoudre le type par nom (avec synonymes).
+    """Resolve a cache type by name (with synonym support).
 
     Args:
-        cache_type_name (str | None): Libellé type (ex. "Traditional").
-        all_types_by_name (dict | None): Index `{name_normalized: _id}` (recommandé).
+        cache_type_name (str | None): Type label (e.g. "Traditional").
+        all_types_by_name (dict | None): Index `{name_normalized: _id}` (recommended).
 
     Returns:
-        ObjectId | None: Référence du type si résolue.
+        ObjectId | None: Type reference if resolved.
     """
     synonymes = {
         "unknown": "mystery",

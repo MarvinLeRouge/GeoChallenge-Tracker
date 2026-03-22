@@ -15,34 +15,34 @@ router = APIRouter(tags=["Meta"])
 @router.get(
     "/health",
     response_model=HealthCheck,
-    summary="Health check de l'API",
-    description="Retourne le statut de l'API et de ses dépendances (BDD, email, etc.)",
+    summary="API health check",
+    description="Returns the API status and its dependencies (database, email, etc.)",
 )
 async def health() -> JSONResponse:
     """
-    Health check endpoint standard
+    Standard health check endpoint.
 
-    Vérifie :
+    Checks:
     - MongoDB
-    - Email (optionnel)
+    - Email (optional)
 
     Returns:
-        200 si tout OK, 503 si un service est down
+        200 if everything is OK, 503 if a service is down.
     """
-    # Exécuter tous les checks
+    # Run all checks
     checks = {
         "database": await check_mongodb(),
         "email": await check_email(),
     }
 
-    # Déterminer le statut global
+    # Determine overall status
     has_errors = any(check != "ok" for check in checks.values())
     overall_status = "degraded" if has_errors else "ok"
 
-    # Code HTTP
+    # HTTP status code
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE if has_errors else status.HTTP_200_OK
 
-    # Réponse
+    # Response
     response = HealthCheck(
         status=overall_status,
         timestamp=datetime.utcnow(),
@@ -56,7 +56,7 @@ async def health() -> JSONResponse:
 @router.get("/version", response_model=VersionInfo)
 async def version():
     """
-    Version de l'API
+    API version.
     """
     return {
         "version": settings.api_version,
@@ -68,7 +68,7 @@ async def version():
 @router.get("/info", response_model=APIInfo)
 async def api_info():
     """
-    Informations générales sur l'API (optionnel)
+    General API information (optional).
     """
     return {
         "name": settings.app_name + " API",

@@ -1,5 +1,5 @@
 # backend/app/api/routes/challenges.py
-# Routes admin pour (re)créer les challenges automatiquement depuis les caches "challenge".
+# Admin routes to automatically (re)create challenges from "challenge" caches.
 
 from __future__ import annotations
 
@@ -22,18 +22,18 @@ router = APIRouter(
 class RefreshIn(BaseModel):
     cache_ids: list[PyObjectId] | None = Field(
         default=None,
-        description="Liste optionnelle de cache_ids (_id Mongo) à considérer; si absent, balaye toute la collection.",
+        description="Optional list of cache_ids (Mongo _id) to consider; if absent, scans the entire collection.",
     )
 
 
-# TODO: [BACKLOG] Route /challenges/refresh-from-caches (POST) à vérifier
+# TODO: [BACKLOG] Route /challenges/refresh-from-caches (POST) to verify
 @router.post(
     "/refresh-from-caches",
-    summary="(Re)crée les challenges depuis les caches 'challenge'",
+    summary="(Re)create challenges from ‘challenge’ caches",
     description=(
-        "Analyse les caches marquées 'challenge' et crée/met à jour les documents de challenge.\n\n"
-        "- Option: restreindre à une liste de `cache_ids`\n"
-        "- Réservé aux administrateurs (dépendance `require_admin`)"
+        "Scans caches marked as ‘challenge’ and creates/updates challenge documents.\n\n"
+        "- Option: restrict to a list of `cache_ids`\n"
+        "- Reserved for administrators (`require_admin` dependency)"
     ),
     dependencies=[Depends(require_admin)],
 )
@@ -42,21 +42,21 @@ async def refresh_from_caches(
         RefreshIn,
         Body(
             default_factory=RefreshIn,
-            description="Paramètres d’exécution : optionnellement une liste de `cache_ids` (_id Mongo) à considérer.",
+            description="Execution parameters: optionally a list of `cache_ids` (Mongo _id) to process.",
         ),
     ],
 ):
-    """(Re)création de challenges à partir des caches.
+    """(Re)create challenges from caches.
 
     Description:
-        Lance la génération/rafraîchissement des challenges depuis les caches marquées comme 'challenge'
-        (p. ex. via un attribut spécifique). Peut être restreint à certaines caches.
+        Triggers generation/refresh of challenges from caches marked as ‘challenge’
+        (e.g. via a specific attribute). Can be restricted to specific caches.
 
     Args:
-        payload (RefreshIn): Liste optionnelle de `cache_ids` MongoDB à traiter.
+        payload (RefreshIn): Optional list of MongoDB `cache_ids` to process.
 
     Returns:
-        dict: Indicateur de succès et statistiques de traitement.
+        dict: Success indicator and processing statistics.
     """
     cache_ids = None
     if payload.cache_ids:

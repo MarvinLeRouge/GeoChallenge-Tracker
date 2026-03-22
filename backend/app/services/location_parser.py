@@ -1,5 +1,5 @@
 # backend/app/services/location_parser.py
-# Utilitaires de parsing et formatage de coordonnées (DD/DM/DMS).
+# Utilities for parsing and formatting coordinates (DD/DM/DMS).
 
 from __future__ import annotations
 
@@ -7,29 +7,29 @@ import re
 
 
 def normalize_location_string(s: str) -> str:
-    """Normaliser une chaine de coordonnees.
+    """Normalize a coordinate string.
 
     Description:
-        Unifie decimales (virgule->point), symboles et espaces.
+        Unifies decimal separators (comma->period), symbols, and whitespace.
 
     Args:
-        s: Chaine brute.
+        s: Raw coordinate string.
 
     Returns:
-        str: Chaine normalisee.
+        str: Normalized string.
     """
     s = s.strip()
-    # virgule decimale -> point
+    # decimal comma -> period
     s = re.sub(r"(\d),(\d)", r"\1.\2", s)
-    # normaliser symboles unicode
+    # normalize unicode symbols
     s = s.replace("'", "'").replace('"', '"').replace('"', '"')
-    # compacter espaces multiples
+    # collapse multiple spaces
     s = re.sub(r"\s+", " ", s)
     return s
 
 
-# Un composant (lat OU lon) : [NSEW]? [+/-]? d [m [s]]
-# ° ' " optionnels; hémisphère possible en préfixe ou suffixe
+# One component (lat OR lon): [NSEW]? [+/-]? d [m [s]]
+# °, ', " optional; hemisphere may appear as prefix or suffix
 _LOCATION_COMP = re.compile(
     r"(?P<prefix_hem>[NnSsEeWw])?\s*"
     r"(?P<sign>[+-])?\s*"
@@ -46,18 +46,18 @@ _LOCATION_COMP = re.compile(
 
 
 def _degrees_minutes_seconds_to_decimal(d: float, m: float | None, s: float | None) -> float:
-    """Convertir degres/minutes/secondes en degres decimaux.
+    """Convert degrees/minutes/seconds to decimal degrees.
 
     Args:
-        d: Degres.
-        m: Minutes (0-<60) ou None.
-        s: Secondes (0-<60) ou None.
+        d: Degrees.
+        m: Minutes (0–<60) or None.
+        s: Seconds (0–<60) or None.
 
     Returns:
-        float: Valeur en degres decimaux.
+        float: Value in decimal degrees.
 
     Raises:
-        ValueError: Minutes/secondes hors bornes.
+        ValueError: Minutes or seconds out of range.
     """
     val = float(d)
     if m is not None:
@@ -72,13 +72,13 @@ def _degrees_minutes_seconds_to_decimal(d: float, m: float | None, s: float | No
 
 
 def _parse_location_component(match: re.Match) -> tuple[float, str | None, int]:
-    """Transformer un composant regex en (valeur, hémisphère, signe).
+    """Transform a regex component match into (value, hemisphere, sign).
 
     Args:
-        match: Résultat du motif `_LOCATION_COMP`.
+        match: Result of the `_LOCATION_COMP` pattern.
 
     Returns:
-        tuple: `(degres_signés, hem_NSEW|None, raw_sign in {+1,-1})`.
+        tuple: `(signed_degrees, hem_NSEW|None, raw_sign in {+1,-1})`.
     """
     g = match.groupdict()
     deg = float(g["deg"])
@@ -91,56 +91,56 @@ def _parse_location_component(match: re.Match) -> tuple[float, str | None, int]:
 
 
 def _resolve_hemisphere_sign(value: float, hem: str | None, is_latitude: bool) -> float:
-    """Appliquer la règle de signe en fonction de l'hémisphère.
+    """Apply sign rule based on hemisphere indicator.
 
     Description:
-        Le signe numérique explicite prime ; sinon N/S règle la latitude, E/W la longitude.
+        An explicit numeric sign takes precedence; otherwise N/S governs latitude and E/W governs longitude.
 
     Args:
-        value: Valeur absolue en degrés.
-        hem: Hémisphère détectée (N/S/E/W) ou None.
-        is_latitude: True si la valeur représente une latitude.
+        value: Absolute value in degrees.
+        hem: Detected hemisphere (N/S/E/W) or None.
+        is_latitude: True if the value represents a latitude.
 
     Returns:
-        float: Valeur signée cohérente.
+        float: Consistently signed value.
     """
     if value < 0:
-        return value  # signe explicite -> priorité
+        return value  # explicit sign -> takes precedence
     if hem:
         if is_latitude:  # lat
             if hem == "S":
                 return -abs(value)
-            # N ou autre -> positif
+            # N or other -> positive
             return abs(value)
         else:  # lon
             if hem == "W":
                 return -abs(value)
             return abs(value)
-    # pas de hem, pas de signe -> par défaut N/E donc positif
+    # no hemisphere, no sign -> defaults to N/E, therefore positive
     return abs(value)
 
 
 def parse_location_to_lon_lat(position: str) -> tuple[float, float]:
-    """Parser une position libre vers (lon, lat).
+    """Parse a free-form position string to (lon, lat).
 
     Description:
-        Accepte formats DD/DM/DMS mixtes ; si hémisphères présents aux deux composants,
-        l'ordre est déduit ; sinon on suppose (lat, lon).
+        Accepts mixed DD/DM/DMS formats; if hemispheres are present on both components,
+        the order is inferred from them; otherwise (lat, lon) order is assumed.
 
     Args:
-        position: Chaîne de coordonnées.
+        position: Coordinate string.
 
     Returns:
         tuple[float, float]: (longitude, latitude).
 
     Raises:
-        ValueError: Parsing impossible ou coordonnées hors bornes.
+        ValueError: If parsing fails or coordinates are out of range.
     """
     txt = normalize_location_string(position)
-    # Extraire deux composants
+    # Extract two components
     matches = list(_LOCATION_COMP.finditer(txt))
     if len(matches) < 2:
-        # Tentative: formats "dd, dd" simples (ex: "50.1, 5.2")
+        # Fallback: simple "dd, dd" formats (e.g. "50.1, 5.2")
         m = re.findall(r"[-+]?\d+(?:\.\d+)?", txt)
         if len(m) >= 2:
             lat = float(m[0])
@@ -150,12 +150,12 @@ def parse_location_to_lon_lat(position: str) -> tuple[float, float]:
             return (lon, lat)
         raise ValueError("unable to parse position")
 
-    # Convertir les deux premières occurrences
+    # Convert the first two matches
     v1, hem1, _ = _parse_location_component(matches[0])
     v2, hem2, _ = _parse_location_component(matches[1])
 
-    # Déterminer quel est lat vs lon
-    # Cas où hémisphères présents et distincts -> on s'appuie dessus
+    # Determine which is lat vs lon
+    # When both hemispheres are present and distinct, rely on them
     if hem1 in ("N", "S") and hem2 in ("E", "W"):
         lat = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=True)
         lon = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=False)
@@ -165,48 +165,48 @@ def parse_location_to_lon_lat(position: str) -> tuple[float, float]:
         lat = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=True)
         return (lon, lat)
 
-    # Sinon, on suppose l'ordre (lat, lon)
+    # Otherwise, assume (lat, lon) order
     lat = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=True)
     lon = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=False)
 
-    # Validations finales
+    # Final validation
     if not (-90 <= lat <= 90 and -180 <= lon <= 180):
         raise ValueError("coordinates out of range")
     return (lon, lat)
 
 
 def format_decimal_to_deg_min_mil(decimal_coord: float) -> str:
-    """Convertir un degre decimal vers degres minutes.mmm.
+    """Convert a decimal degree value to degrees minutes.mmm.
 
     Args:
-        decimal_coord: Coordonnee decimale (ex. 43.123456).
+        decimal_coord: Decimal coordinate (e.g. 43.123456).
 
     Returns:
-        str: Forme ±DD MM.mmm.
+        str: Form ±DD MM.mmm.
     """
-    # Garder le signe
+    # Preserve sign
     sign = "-" if decimal_coord < 0 else "+"
     abs_coord = abs(decimal_coord)
 
-    # Partie entiere = degres
+    # Integer part = degrees
     degrees = int(abs_coord)
 
-    # Partie decimale * 60 = minutes
+    # Decimal part * 60 = minutes
     minutes = (abs_coord - degrees) * 60
 
-    # Format: DD MM.mmm (3 décimales pour les minutes)
+    # Format: DD MM.mmm (3 decimal places for minutes)
     return f"{sign}{degrees} {minutes:06.3f}"
 
 
 def format_coordinates_deg_min_mil(lat: float, lon: float) -> str:
-    """Formatter (lat, lon) en N/S DD MM.mmm  E/O DD MM.mmm.
+    """Format (lat, lon) as N/S DD MM.mmm  E/W DD MM.mmm.
 
     Args:
-        lat: Latitude decimale.
-        lon: Longitude decimale.
+        lat: Decimal latitude.
+        lon: Decimal longitude.
 
     Returns:
-        str: Chaine formatee (ex. N43 07.407 E005 23.456).
+        str: Formatted string (e.g. N43 07.407 E005 23.456).
     """
     lat_str = format_decimal_to_deg_min_mil(lat)
     lat_str = lat_str.replace("+", "N")

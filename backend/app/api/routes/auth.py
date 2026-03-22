@@ -1,8 +1,8 @@
 # backend/app/api/routes/auth.py
-# Routes d'authentification et gestion des utilisateurs :
-# - Inscription, login, refresh token
-# - Vérification d'email et renvoi de code
-# - Utilise JWT et envoie d'email de confirmation
+# Authentication and user management routes:
+# - Registration, login, token refresh
+# - Email verification and code resend
+# - Uses JWT and sends confirmation emails
 
 from __future__ import annotations
 
@@ -55,14 +55,14 @@ COLLATION_CI = Collation(locale="en", strength=2)
 
 
 def create_verification_code() -> str:
-    """Crée un code de vérification aléatoire et unique."""
+    """Creates a random, unique verification code."""
     import secrets
 
     return secrets.token_urlsafe(24)
 
 
 async def users_coll() -> AsyncIOMotorCollection:
-    """Retourne la collection MongoDB `users`."""
+    """Returns the MongoDB `users` collection."""
     return await get_collection("users")
 
 
@@ -70,40 +70,40 @@ class MessageOut(BaseModel):
     message: str = Field(..., examples=["OK"])
 
 
-# DONE: [BACKLOG] Route /auth/register (POST) vérifiée
+# DONE: [BACKLOG] Route /auth/register (POST) verified
 @router.post(
     "/register",
     response_model=UserOut,
     status_code=status.HTTP_201_CREATED,
-    summary="Inscription d’un nouvel utilisateur",
+    summary="Register a new user",
     description=(
-        "Crée un compte utilisateur avec email et username uniques.\n\n"
-        "- Vérifie la force du mot de passe\n"
-        "- Hash le mot de passe\n"
-        "- Envoie un email avec un code de vérification (24h)\n"
-        "- Retourne les informations publiques du compte créé"
+        "Creates a user account with a unique email and username.\n\n"
+        "- Validates password strength\n"
+        "- Hashes the password\n"
+        "- Sends a verification email with a code (valid 24h)\n"
+        "- Returns the public information of the created account"
     ),
 )
 async def register(
     payload: Annotated[
         UserInRegister,
-        Body(..., description="Données d'inscription : username, email et mot de passe."),
+        Body(..., description="Registration data: username, email, and password."),
     ],
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
-    """Inscription d’un utilisateur.
+    """Registers a user.
 
     Description:
-        Enregistre un nouvel utilisateur après validation de la force du mot de passe et unicité (email/username).
-        Génère un code de vérification et envoie un email. Le compte est créé non vérifié.
+        Creates a new user after validating password strength and uniqueness (email/username).
+        Generates a verification code and sends an email. The account is created unverified.
 
     Args:
-        payload (UserInRegister): Données d'inscription (username, email, password).
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        payload (UserInRegister): Registration data (username, email, password).
+        users (AsyncIOMotorCollection): MongoDB users collection.
 
     Returns:
-        UserOut: Données publiques de l’utilisateur (id, username, email, role).
+        UserOut: Public user data (id, username, email, role).
     """
 
     username = (payload.username or "").strip()
@@ -113,7 +113,7 @@ async def register(
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
 
-    # Unicité insensible à la casse (sans champs *_lower)
+    # Case-insensitive uniqueness check (without *_lower fields)
     existing = await users.find_one(
         {"$or": [{"username": username}, {"email": email}]},
         collation=COLLATION_CI,
@@ -161,17 +161,17 @@ async def register(
     }
 
 
-# DONE: [BACKLOG] Route /auth/login (POST) vérifiée
+# DONE: [BACKLOG] Route /auth/login (POST) verified
 @router.post(
     "/login",
     response_model=TokenResponse,
-    summary="Connexion d’un utilisateur",
+    summary="Log in a user",
     description=(
-        "Authentifie via formulaire OAuth2 **ou** JSON (username/email + password).\n\n"
-        "- Retourne un access token dans le JSON\n"
-        "- Émet le refresh token dans un cookie HttpOnly (7 jours)\n"
-        "- Le compte doit être vérifié\n"
-        "- 401 si identifiants invalides ou compte non vérifié"
+        "Authenticates via OAuth2 form **or** JSON (username/email + password).\n\n"
+        "- Returns an access token in the JSON response\n"
+        "- Sets the refresh token in an HttpOnly cookie (7 days)\n"
+        "- The account must be verified\n"
+        "- 401 if credentials are invalid or account is unverified"
     ),
 )
 async def login(
@@ -179,31 +179,31 @@ async def login(
     response: Response,
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
-    """Connexion utilisateur.
+    """Logs in a user.
 
     Description:
-        Authentifie l’utilisateur avec identifiant (username/email) et mot de passe, puis génère un access token
-        et un refresh token JWT. Accepte `application/x-www-form-urlencoded`, `multipart/form-data` et JSON.
+        Authenticates the user with an identifier (username/email) and password, then generates an access token
+        and a JWT refresh token. Accepts `application/x-www-form-urlencoded`, `multipart/form-data`, and JSON.
 
     Args:
-        request (Request): Requête HTTP (support JSON ou formulaire).
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        request (Request): HTTP request (JSON or form support).
+        users (AsyncIOMotorCollection): MongoDB users collection.
 
     Returns:
-        TokenPair: Contenant access_token, refresh_token et token_type.
+        TokenPair: Contains access_token, refresh_token, and token_type.
     """
-    # Accepte form-data OAuth2 (Swagger) OU JSON {identifier|username|email, password}
+    # Accept form-data OAuth2 (Swagger) OR JSON {identifier|username|email, password}
     ctype = request.headers.get("content-type", "")
     ident = ""
     password = ""
 
     if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
         form = await request.form()
-        # Extraction sécurisée avec vérification de type
+        # Safe extraction with type checking
         raw_ident = form.get("username") or form.get("identifier") or ""
         raw_password = form.get("password") or ""
 
-        # S'assurer qu'on a des strings, pas des UploadFile
+        # Ensure we have strings, not UploadFile objects
         ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
         password = raw_password if isinstance(raw_password, str) else ""
     else:
@@ -241,34 +241,34 @@ async def login(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# DONE: [BACKLOG] Route /auth/refresh (POST) vérifiée
+# DONE: [BACKLOG] Route /auth/refresh (POST) verified
 @router.post(
     "/refresh",
     response_model=TokenResponse,
-    summary="Renouvellement du token d’accès",
+    summary="Renew the access token",
     description=(
-        "Génère un nouveau token d’accès à partir du refresh token (cookie HttpOnly).\n\n"
-        "- Vérifie la validité du refresh token\n"
-        "- Vérifie que l’utilisateur est actif\n"
-        "- Retourne un nouvel access token"
+        "Generates a new access token from the refresh token (HttpOnly cookie).\n\n"
+        "- Validates the refresh token\n"
+        "- Checks that the user is active\n"
+        "- Returns a new access token"
     ),
 )
 async def refresh_token(
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
     refresh_token: Annotated[str | None, Cookie()] = None,
 ):
-    """Rafraîchissement du token d’accès.
+    """Refreshes the access token.
 
     Description:
-        Lit le refresh token depuis le cookie HttpOnly, contrôle l’existence et l’état de l’utilisateur,
-        puis génère un nouvel access token.
+        Reads the refresh token from the HttpOnly cookie, checks the user’s existence and status,
+        then generates a new access token.
 
     Args:
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
-        refresh_token (str | None): Refresh token lu depuis le cookie HttpOnly.
+        users (AsyncIOMotorCollection): MongoDB users collection.
+        refresh_token (str | None): Refresh token read from the HttpOnly cookie.
 
     Returns:
-        TokenResponse: Nouveau jeton d’accès.
+        TokenResponse: New access token.
     """
     if not refresh_token:
         raise HTTPException(status_code=401, detail="No refresh token")
@@ -292,36 +292,36 @@ async def refresh_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# DONE: [BACKLOG] Route /auth/verify-email (GET) vérifiée
+# DONE: [BACKLOG] Route /auth/verify-email (GET) verified
 @router.get(
     "/verify-email",
     response_model=MessageOut,
-    summary="Vérification d’email par code",
+    summary="Verify email by code",
     description=(
-        "Vérifie un code de confirmation reçu par email.\n\n"
-        "- Active l’utilisateur si code valide et non expiré\n"
-        "- Supprime le code et son expiration\n"
-        "- Retourne un message de confirmation"
+        "Verifies a confirmation code received by email.\n\n"
+        "- Activates the user if the code is valid and not expired\n"
+        "- Removes the code and its expiration\n"
+        "- Returns a confirmation message"
     ),
 )
 async def verify_email(
     code: Annotated[
-        str, Query(..., description="Code de vérification reçu par email, valide 24h.")
+        str, Query(..., description="Verification code received by email, valid for 24h.")
     ],
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
-    """Vérification email.
+    """Verifies email.
 
     Description:
-        Vérifie que le code fourni correspond à un compte en attente de vérification et non expiré,
-        puis active définitivement l’utilisateur.
+        Checks that the provided code matches a pending, non-expired verification,
+        then permanently activates the user.
 
     Args:
-        code (str): Code de vérification envoyé par email.
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        code (str): Verification code sent by email.
+        users (AsyncIOMotorCollection): MongoDB users collection.
 
     Returns:
-        MessageOut: Message confirmant la vérification.
+        MessageOut: Message confirming verification.
     """
     now_ts = now()
     user = await users.find_one(
@@ -341,65 +341,65 @@ async def verify_email(
     return {"message": "Email verified"}
 
 
-# DONE: [BACKLOG] Route /auth/verify-email (POST) vérifiée
+# DONE: [BACKLOG] Route /auth/verify-email (POST) verified
 @router.post(
     "/verify-email",
     response_model=MessageOut,
-    summary="Vérification d’email via POST",
-    description="Alternative POST pour transmettre le code de vérification dans le corps JSON.",
+    summary="Verify email via POST",
+    description="POST alternative to submit the verification code in a JSON body.",
 )
 async def verify_email_post(
     body: Annotated[
-        VerifyEmailBody, Body(..., description="Objet contenant le code de vérification.")
+        VerifyEmailBody, Body(..., description="Object containing the verification code.")
     ],
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
 ):
-    """Vérification email (POST).
+    """Verifies email (POST).
 
     Description:
-        Identique à la version GET mais reçoit le code dans un body JSON.
+        Same as the GET version but receives the code in a JSON body.
 
     Args:
-        body (VerifyEmailBody): Objet contenant le code de vérification.
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        body (VerifyEmailBody): Object containing the verification code.
+        users (AsyncIOMotorCollection): MongoDB users collection.
 
     Returns:
-        MessageOut: Message confirmant la vérification.
+        MessageOut: Message confirming verification.
     """
     return await verify_email(code=body.code, users=users)
 
 
-# DONE: [BACKLOG] Route /auth/resend-verification (POST) vérifiée
+# DONE: [BACKLOG] Route /auth/resend-verification (POST) verified
 @router.post(
     "/resend-verification",
     response_model=MessageOut,
-    summary="Renvoi du code de vérification",
+    summary="Resend the verification code",
     description=(
-        "Régénère et renvoie un email de vérification si le compte existe et n’est pas encore activé.\n\n"
-        "- Ne révèle pas si le compte existe réellement\n"
-        "- Met à jour l’expiration du code (24h)"
+        "Regenerates and resends a verification email if the account exists and is not yet activated.\n\n"
+        "- Does not reveal whether the account actually exists\n"
+        "- Updates the code expiration (24h)"
     ),
 )
 async def resend_verification(
     body: Annotated[
         ResendVerificationRequest,
-        Body(..., description="Identifiant (username ou email) de l’utilisateur."),
+        Body(..., description="Identifier (username or email) of the user."),
     ],
     users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
-    """Renvoi d’email de vérification.
+    """Resends a verification email.
 
     Description:
-        Génère et envoie un nouveau code de vérification pour l’utilisateur identifié (username/email),
-        si son compte n’est pas encore vérifié.
+        Generates and sends a new verification code for the identified user (username/email),
+        if their account is not yet verified.
 
     Args:
-        body (ResendVerificationRequest): Identifiant (username ou email).
-        users (AsyncIOMotorCollection): Collection MongoDB des utilisateurs.
+        body (ResendVerificationRequest): Identifier (username or email).
+        users (AsyncIOMotorCollection): MongoDB users collection.
 
     Returns:
-        MessageOut: Message de confirmation (sans divulguer l’existence du compte).
+        MessageOut: Confirmation message (without revealing whether the account exists).
     """
     ident = (body.identifier or "").strip()
     user = await users.find_one(

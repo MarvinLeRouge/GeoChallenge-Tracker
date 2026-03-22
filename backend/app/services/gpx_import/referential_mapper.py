@@ -1,5 +1,5 @@
 # backend/app/services/gpx_import/referential_mapper.py
-# Mapper des référentiels (pays, états, types, tailles, attributs).
+# Referential mapper (countries, states, types, sizes, attributes).
 
 from __future__ import annotations
 
@@ -14,18 +14,18 @@ from app.core.utils import now
 
 
 class ReferentialMapper:
-    """Service de mapping des référentiels pour l'import GPX.
+    """Referential mapping service for GPX import.
 
     Description:
-        Gère la résolution et la création des référentiels
-        (pays, états, types de caches, tailles, attributs).
+        Handles resolution and creation of referentials
+        (countries, states, cache types, sizes, attributes).
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le mapper.
+        """Initialize the mapper.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self._countries_cache: dict[str, ObjectId] = {}
@@ -35,7 +35,7 @@ class ReferentialMapper:
         self._attributes_cache: dict[int, ObjectId] = {}
 
     async def load_all_referentials(self) -> None:
-        """Charger tous les référentiels en cache."""
+        """Load all referentials into cache."""
         await asyncio.gather(
             self._load_countries(),
             self._load_states(),
@@ -45,7 +45,7 @@ class ReferentialMapper:
         )
 
     async def _load_countries(self) -> None:
-        """Charger tous les pays en cache."""
+        """Load all countries into cache."""
         coll_countries = self.db.countries
         cursor = coll_countries.find({}, {"_id": 1, "name": 1})
 
@@ -55,7 +55,7 @@ class ReferentialMapper:
             self._countries_cache[name] = doc["_id"]
 
     async def _load_states(self) -> None:
-        """Charger tous les états en cache par pays."""
+        """Load all states into cache, keyed by country."""
         coll_states = self.db.states
         cursor = coll_states.find({}, {"_id": 1, "name": 1, "country_id": 1})
 
@@ -70,7 +70,7 @@ class ReferentialMapper:
             self._states_cache[country_id][name] = doc["_id"]
 
     async def _load_types(self) -> None:
-        """Charger tous les types de caches en cache."""
+        """Load all cache types into cache."""
         coll_types = self.db.cache_types
         cursor = coll_types.find({}, {"_id": 1, "name": 1})
 
@@ -80,7 +80,7 @@ class ReferentialMapper:
             self._types_cache[name] = doc["_id"]
 
     async def _load_sizes(self) -> None:
-        """Charger toutes les tailles de caches en cache."""
+        """Load all cache sizes into cache."""
         coll_sizes = self.db.cache_sizes
         cursor = coll_sizes.find({}, {"_id": 1, "name": 1})
 
@@ -90,7 +90,7 @@ class ReferentialMapper:
             self._sizes_cache[name] = doc["_id"]
 
     async def _load_attributes(self) -> None:
-        """Charger tous les attributs de caches en cache."""
+        """Load all cache attributes into cache."""
         coll_attributes = self.db.cache_attributes
         cursor = coll_attributes.find({}, {"_id": 1, "cache_attribute_id": 1})
 
@@ -102,61 +102,61 @@ class ReferentialMapper:
 
     @staticmethod
     def normalize_name(name: str | None) -> str:
-        """Normaliser un nom pour le mapping.
+        """Normalize a name for mapping.
 
         Args:
-            name: Nom à normaliser.
+            name: Name to normalize.
 
         Returns:
-            str: Nom normalisé (minuscules, caractères alphanumériques).
+            str: Normalized name (lowercase, alphanumeric only).
         """
         if not name:
             return ""
 
-        # Normalisation: minuscules, alphanumérique uniquement
+        # Normalize: lowercase, alphanumeric only
         normalized = re.sub(r"[^a-z0-9]", "", name.lower())
         return normalized
 
     async def ensure_country_and_state(
         self, country_name: str | None, state_name: str | None
     ) -> tuple[ObjectId | None, ObjectId | None]:
-        """Assurer l'existence du pays et de l'état, les créer si nécessaire.
+        """Ensure the country and state exist, creating them if necessary.
 
         Args:
-            country_name: Nom du pays.
-            state_name: Nom de l'état/région.
+            country_name: Country name.
+            state_name: State/region name.
 
         Returns:
-            tuple: (country_id, state_id) ou (None, None) si données manquantes.
+            tuple: (country_id, state_id) or (None, None) if data is missing.
         """
         if not country_name:
             return None, None
 
-        # Normaliser et chercher le pays
+        # Normalize and look up the country
         country_norm = self.normalize_name(country_name)
         country_id = self._countries_cache.get(country_norm)
 
-        # Créer le pays s'il n'existe pas
+        # Create the country if it does not exist
         if not country_id:
             country_id = await self._create_country(country_name, country_norm)
 
-        # Gérer l'état si fourni
+        # Handle state if provided
         state_id = None
         if state_name and country_id:
             state_norm = self.normalize_name(state_name)
 
-            # Chercher l'état dans le cache
+            # Look up the state in cache
             country_states = self._states_cache.get(country_id, {})
             state_id = country_states.get(state_norm)
 
-            # Créer l'état s'il n'existe pas
+            # Create the state if it does not exist
             if not state_id:
                 state_id = await self._create_state(state_name, state_norm, country_id)
 
         return country_id, state_id
 
     async def _create_country(self, original_name: str, normalized_name: str) -> ObjectId:
-        """Créer un nouveau pays."""
+        """Create a new country."""
         coll_countries = self.db.countries
 
         doc = {
@@ -168,7 +168,7 @@ class ReferentialMapper:
         result = await coll_countries.insert_one(doc)
         country_id = result.inserted_id
 
-        # Mettre à jour le cache
+        # Update the cache
         self._countries_cache[normalized_name] = country_id
 
         return country_id
@@ -176,7 +176,7 @@ class ReferentialMapper:
     async def _create_state(
         self, original_name: str, normalized_name: str, country_id: ObjectId
     ) -> ObjectId:
-        """Créer un nouveau état/région."""
+        """Create a new state/region."""
         coll_states = self.db.states
 
         doc = {
@@ -189,7 +189,7 @@ class ReferentialMapper:
         result = await coll_states.insert_one(doc)
         state_id = result.inserted_id
 
-        # Mettre à jour le cache
+        # Update the cache
         if country_id not in self._states_cache:
             self._states_cache[country_id] = {}
         self._states_cache[country_id][normalized_name] = state_id
@@ -197,13 +197,13 @@ class ReferentialMapper:
         return state_id
 
     def get_type_by_name(self, type_name: str | None) -> ObjectId | None:
-        """Récupérer l'ID du type de cache par nom.
+        """Retrieve the cache type ID by name.
 
         Args:
-            type_name: Nom du type de cache.
+            type_name: Cache type name.
 
         Returns:
-            ObjectId | None: ID du type ou None si non trouvé.
+            ObjectId | None: Type ID or None if not found.
         """
         if not type_name:
             return None
@@ -212,13 +212,13 @@ class ReferentialMapper:
         return self._types_cache.get(normalized)
 
     def get_size_by_name(self, size_name: str | None) -> ObjectId | None:
-        """Récupérer l'ID de la taille de cache par nom.
+        """Retrieve the cache size ID by name.
 
         Args:
-            size_name: Nom de la taille de cache.
+            size_name: Cache size name.
 
         Returns:
-            ObjectId | None: ID de la taille ou None si non trouvé.
+            ObjectId | None: Size ID or None if not found.
         """
         if not size_name:
             return None
@@ -227,13 +227,13 @@ class ReferentialMapper:
         return self._sizes_cache.get(normalized)
 
     def get_attribute_by_gc_id(self, gc_id: int | None) -> ObjectId | None:
-        """Récupérer l'ID de l'attribut par son ID Geocaching.
+        """Retrieve the attribute ID by its Geocaching ID.
 
         Args:
-            gc_id: ID Geocaching de l'attribut.
+            gc_id: Geocaching attribute ID.
 
         Returns:
-            ObjectId | None: ID de l'attribut ou None si non trouvé.
+            ObjectId | None: Attribute ID or None if not found.
         """
         if gc_id is None:
             return None
@@ -241,17 +241,17 @@ class ReferentialMapper:
         return self._attributes_cache.get(gc_id)
 
     async def map_cache_referentials(self, cache_data: dict[str, Any]) -> dict[str, Any]:
-        """Mapper tous les référentiels d'une cache.
+        """Map all referentials for a cache.
 
         Args:
-            cache_data: Données de cache à mapper.
+            cache_data: Cache data to map.
 
         Returns:
-            dict: Données de cache avec IDs des référentiels.
+            dict: Cache data enriched with referential IDs.
         """
         mapped_data = cache_data.copy()
 
-        # Mapper pays et état
+        # Map country and state
         country_id, state_id = await self.ensure_country_and_state(
             cache_data.get("country"), cache_data.get("state")
         )
@@ -261,17 +261,17 @@ class ReferentialMapper:
         if state_id:
             mapped_data["state_id"] = state_id
 
-        # Mapper type de cache
+        # Map cache type
         type_id = self.get_type_by_name(cache_data.get("type"))
         if type_id:
             mapped_data["type_id"] = type_id
 
-        # Mapper taille de cache
+        # Map cache size
         size_id = self.get_size_by_name(cache_data.get("size"))
         if size_id:
             mapped_data["size_id"] = size_id
 
-        # Mapper attributs (si présents)
+        # Map attributes (if present)
         if "attributes" in cache_data and isinstance(cache_data["attributes"], list):
             mapped_attributes = []
             for attr in cache_data["attributes"]:

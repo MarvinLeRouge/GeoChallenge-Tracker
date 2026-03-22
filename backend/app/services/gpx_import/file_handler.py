@@ -1,5 +1,5 @@
 # backend/app/services/gpx_import/file_handler.py
-# Gestion des fichiers GPX et ZIP - validation, extraction, écriture.
+# GPX and ZIP file management — validation, extraction, writing.
 
 from __future__ import annotations
 
@@ -12,51 +12,51 @@ from fastapi import HTTPException
 
 
 class FileHandler:
-    """Service de gestion des fichiers GPX et ZIP.
+    """GPX and ZIP file management service.
 
     Description:
-        Responsable de la validation, extraction et matérialisation
-        des fichiers GPX et archives ZIP.
+        Responsible for validating, extracting, and materializing
+        GPX files and ZIP archives.
     """
 
     def __init__(self, uploads_dir: Path | None = None):
-        """Initialiser le gestionnaire de fichiers.
+        """Initialize the file handler.
 
         Args:
-            uploads_dir: Répertoire de stockage des uploads.
+            uploads_dir: Upload storage directory.
         """
         self.uploads_dir = uploads_dir or Path("../uploads/gpx").resolve()
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
 
     def is_zip_file(self, data: bytes) -> bool:
-        """Détecter un fichier ZIP via signature magique.
+        """Detect a ZIP file via magic signature.
 
         Args:
-            data: Données du fichier.
+            data: File data.
 
         Returns:
-            bool: True si c'est un ZIP, False sinon.
+            bool: True if it is a ZIP, False otherwise.
         """
         return data[:4] == b"PK\x03\x04"
 
     def safe_join(self, base: Path, *paths: str) -> Path:
-        """Joindre des chemins en empêchant le path traversal.
+        """Join paths while preventing path traversal.
 
         Args:
-            base: Chemin de base.
-            *paths: Chemins à joindre.
+            base: Base path.
+            *paths: Paths to join.
 
         Returns:
-            Path: Chemin sécurisé.
+            Path: Safe joined path.
 
         Raises:
-            ValueError: Si tentative de path traversal.
+            ValueError: If a path traversal attempt is detected.
         """
         result = base
         for path in paths:
             result = result / path
 
-        # Vérifier qu'on reste dans le répertoire de base
+        # Verify we remain within the base directory
         try:
             result.resolve().relative_to(base.resolve())
         except ValueError as e:
@@ -65,20 +65,20 @@ class FileHandler:
         return result
 
     def validate_gpx_content(self, data: bytes) -> None:
-        """Valider le contenu minimal d'un fichier GPX.
+        """Validate the minimal content of a GPX file.
 
         Args:
-            data: Données du fichier GPX.
+            data: GPX file data.
 
         Raises:
-            HTTPException: Si le contenu n'est pas valide.
+            HTTPException: If the content is not valid.
         """
         if len(data) < 50:
             raise HTTPException(status_code=400, detail="File too small to be a valid GPX")
 
-        # Vérification basique XML/GPX
+        # Basic XML/GPX check
         try:
-            # Essayer de parser les 1000 premiers caractères
+            # Try to parse the first 1000 characters
             sample = data[:1000].decode("utf-8", errors="ignore")
             if "<gpx" not in sample.lower():
                 raise HTTPException(
@@ -88,13 +88,13 @@ class FileHandler:
             raise HTTPException(status_code=400, detail=f"Invalid GPX content: {str(e)}") from e
 
     def validate_gpx_file(self, path: Path) -> None:
-        """Valider un fichier GPX par son chemin.
+        """Validate a GPX file by path.
 
         Args:
-            path: Chemin vers le fichier GPX.
+            path: Path to the GPX file.
 
         Raises:
-            HTTPException: Si le fichier n'est pas valide.
+            HTTPException: If the file is not valid.
         """
         if not path.exists():
             raise HTTPException(status_code=404, detail=f"GPX file not found: {path}")
@@ -102,7 +102,7 @@ class FileHandler:
         if path.stat().st_size == 0:
             raise HTTPException(status_code=400, detail=f"GPX file is empty: {path}")
 
-        # Valider le contenu
+        # Validate content
         try:
             with open(path, "rb") as f:
                 header = f.read(1000)
@@ -113,31 +113,31 @@ class FileHandler:
             raise HTTPException(status_code=400, detail=f"Cannot read GPX file: {str(e)}") from e
 
     def write_gpx_file(self, data: bytes, filename: str | None = None) -> Path:
-        """Écrire un fichier GPX unique sur disque.
+        """Write a single GPX file to disk.
 
         Args:
-            data: Contenu du fichier GPX.
-            filename: Nom de fichier optionnel.
+            data: GPX file content.
+            filename: Optional filename.
 
         Returns:
-            Path: Chemin du fichier créé.
+            Path: Path of the created file.
         """
-        # Valider d'abord le contenu
+        # Validate content first
         self.validate_gpx_content(data)
 
-        # Générer un nom de fichier unique
+        # Generate a unique filename
         if filename:
-            # Nettoyer et sécuriser le nom de fichier
+            # Sanitize the filename
             clean_name = "".join(c for c in filename if c.isalnum() or c in ".-_")
             if not clean_name.endswith(".gpx"):
                 clean_name += ".gpx"
         else:
             clean_name = f"upload_{uuid.uuid4()}.gpx"
 
-        # Écrire le fichier
+        # Write the file
         file_path = self.uploads_dir / clean_name
 
-        # Éviter les collisions de noms
+        # Avoid name collisions
         counter = 1
         while file_path.exists():
             base_name = clean_name.rsplit(".", 1)[0]
@@ -150,52 +150,52 @@ class FileHandler:
         return file_path
 
     def extract_zip_files(self, data: bytes) -> list[Path]:
-        """Extraire les fichiers GPX d'une archive ZIP.
+        """Extract GPX files from a ZIP archive.
 
         Args:
-            data: Données de l'archive ZIP.
+            data: ZIP archive data.
 
         Returns:
-            list[Path]: Liste des chemins des fichiers GPX extraits.
+            list[Path]: List of paths of extracted GPX files.
 
         Raises:
-            HTTPException: Si l'extraction échoue ou aucun GPX trouvé.
+            HTTPException: If extraction fails or no GPX files are found.
         """
         extracted_paths = []
 
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
-                # Limiter le nombre de fichiers
+                # Limit the number of files
                 if len(zip_file.namelist()) > 100:
                     raise HTTPException(
                         status_code=400, detail="ZIP contains too many files (max 100)"
                     )
 
                 for zip_info in zip_file.infolist():
-                    # Ignorer les répertoires
+                    # Skip directories
                     if zip_info.is_dir():
                         continue
 
-                    # Filtrer les fichiers GPX
+                    # Filter to GPX files only
                     if not zip_info.filename.lower().endswith(".gpx"):
                         continue
 
-                    # Limiter la taille des fichiers individuels
+                    # Limit individual file size
                     if zip_info.file_size > 50 * 1024 * 1024:  # 50MB max
                         continue
 
-                    # Extraction sécurisée
+                    # Safe extraction
                     try:
                         with zip_file.open(zip_info) as gpx_file:
                             gpx_data = gpx_file.read()
 
-                        # Sauvegarder le fichier GPX
+                        # Save the GPX file
                         gpx_filename = Path(zip_info.filename).name
                         gpx_path = self.write_gpx_file(gpx_data, gpx_filename)
                         extracted_paths.append(gpx_path)
 
                     except Exception as e:
-                        # Ignorer les fichiers corrompus mais continuer
+                        # Skip corrupt files but continue processing
                         print(f"Warning: Failed to extract {zip_info.filename}: {str(e)}")
                         continue
 
@@ -210,14 +210,14 @@ class FileHandler:
         return extracted_paths
 
     def materialize_files(self, data: bytes, filename: str | None = None) -> list[Path]:
-        """Matérialiser les fichiers depuis les données brutes.
+        """Materialize files from raw data.
 
         Args:
-            data: Données du fichier (GPX ou ZIP).
-            filename: Nom de fichier optionnel.
+            data: File data (GPX or ZIP).
+            filename: Optional filename.
 
         Returns:
-            list[Path]: Liste des chemins des fichiers GPX créés.
+            list[Path]: List of created GPX file paths.
         """
         if self.is_zip_file(data):
             return self.extract_zip_files(data)
@@ -226,23 +226,23 @@ class FileHandler:
             return [single_file]
 
     def cleanup_file(self, path: Path) -> None:
-        """Supprimer un fichier temporaire.
+        """Delete a temporary file.
 
         Args:
-            path: Chemin du fichier à supprimer.
+            path: Path of the file to delete.
         """
         try:
             if path.exists():
                 path.unlink()
         except Exception:
-            # Ignorer les erreurs de nettoyage
+            # Ignore cleanup errors
             pass
 
     def cleanup_files(self, paths: list[Path]) -> None:
-        """Supprimer plusieurs fichiers temporaires.
+        """Delete multiple temporary files.
 
         Args:
-            paths: Liste des chemins à supprimer.
+            paths: List of file paths to delete.
         """
         for path in paths:
             self.cleanup_file(path)

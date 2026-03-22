@@ -1,5 +1,5 @@
 # backend/app/services/user_stats.py
-# Service pour calculer les statistiques synthétiques d'un utilisateur
+# Service for computing summary statistics for a user.
 
 from collections.abc import Mapping, Sequence
 from typing import Any, Optional, cast
@@ -12,34 +12,34 @@ from app.db.mongodb import get_collection
 
 
 async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = None) -> UserStatsOut:
-    """Calculer les statistiques synthétiques d'un utilisateur.
+    """Compute summary statistics for a user.
 
     Description:
-        Récupère les statistiques pour l'utilisateur courant ou un autre utilisateur
-        (si target_username fourni et utilisateur courant admin).
-        Réutilise les collections existantes pour calculer les métriques.
+        Retrieves statistics for the current user or another user
+        (if target_username is provided and the current user is an admin).
+        Reuses existing collections to compute the metrics.
 
     Args:
-        user_id (ObjectId): Identifiant de l'utilisateur courant.
-        target_username (str | None): Username cible (nécessite droits admin).
+        user_id (ObjectId): Current user's identifier.
+        target_username (str | None): Target username (requires admin rights).
 
     Returns:
-        UserStatsOut: Statistiques calculées.
+        UserStatsOut: Computed statistics.
 
     Raises:
-        PermissionError: Si target_username fourni sans droits admin.
-        ValueError: Si target_username non trouvé.
+        PermissionError: If target_username is provided without admin rights.
+        ValueError: If target_username is not found.
     """
     users_coll = await get_collection("users")
 
-    # Déterminer l'utilisateur cible
+    # Determine the target user
     if target_username:
-        # Vérifier que l'utilisateur courant est admin
+        # Verify that the current user is an admin
         current_user = await users_coll.find_one({"_id": user_id}, {"role": 1})
         if not current_user or current_user.get("role") != "admin":
             raise PermissionError("Admin rights required to view other users' stats")
 
-        # Récupérer l'utilisateur cible
+        # Retrieve the target user
         target_user = await users_coll.find_one({"username": target_username})
         if not target_user:
             raise ValueError(f"User '{target_username}' not found")
@@ -48,7 +48,7 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
         username = target_user["username"]
         created_at = target_user["created_at"]
     else:
-        # Utilisateur courant
+        # Current user
         current_user = await users_coll.find_one({"_id": user_id})
         if not current_user:
             raise ValueError("Current user not found")
@@ -57,11 +57,11 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
         username = current_user["username"]
         created_at = current_user["created_at"]
 
-    # Calculer le nombre total de caches trouvées
+    # Compute total number of found caches
     found_caches_coll = await get_collection("found_caches")
     total_caches_found = await found_caches_coll.count_documents({"user_id": target_user_id})
 
-    # Dates de première et dernière cache trouvée
+    # Dates of first and last found cache
     first_cache = await found_caches_coll.find_one(
         {"user_id": target_user_id}, sort=[("found_date", ASCENDING)]
     )
@@ -72,18 +72,18 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
     )
     last_cache_found_at = last_cache["found_date"] if last_cache else None
 
-    # Statistiques des challenges
+    # Challenge statistics
     user_challenges_coll = await get_collection("user_challenges")
 
-    # Nombre total de challenges
+    # Total number of challenges
     total_challenges = await user_challenges_coll.count_documents({"user_id": target_user_id})
 
-    # Challenges actifs (status: accepted)
+    # Active challenges (status: accepted)
     active_challenges = await user_challenges_coll.count_documents(
         {"user_id": target_user_id, "status": "accepted"}
     )
 
-    # Challenges terminés (status: completed OU computed_status: completed)
+    # Completed challenges (status: completed OR computed_status: completed)
     completed_challenges = await user_challenges_coll.count_documents(
         {
             "user_id": target_user_id,
@@ -91,17 +91,17 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
         }
     )
 
-    # Dernière activité : max entre dernière cache trouvée et dernier challenge créé
+    # Last activity: max of last found cache and last created challenge
     last_challenge = await user_challenges_coll.find_one(
         {"user_id": target_user_id}, sort=[("created_at", DESCENDING)]
     )
     last_challenge_created = last_challenge["created_at"] if last_challenge else None
 
-    # Statistiques par type de cache
+    # Per-type cache statistics
     cache_types_stats = None
     try:
-        # Utiliser une aggregation MongoDB pour compter les caches trouvées par type
-        # La collection found_caches contient cache_id qui référence la collection caches
+        # Use a MongoDB aggregation to count found caches by type.
+        # found_caches.cache_id references the caches collection.
         pipeline = [
             {"$match": {"user_id": target_user_id}},
             {
@@ -115,7 +115,7 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
             {"$unwind": "$cache"},
             {
                 "$group": {
-                    "_id": "$cache.type_id",  # Regrouper par type_id de la cache
+                    "_id": "$cache.type_id",  # group by cache type_id
                     "count": {"$sum": 1},
                 }
             },
@@ -125,16 +125,16 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
         found_caches_agg = found_caches_coll.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
         type_counts = await found_caches_agg.to_list(length=None)
 
-        if type_counts and type_counts[0]["_id"] is not None:  # Vérifier que les données existent
-            # Récupérer les détails des types de cache
+        if type_counts and type_counts[0]["_id"] is not None:  # verify data exists
+            # Retrieve cache type details
             cache_types_coll = await get_collection("cache_types")
             type_ids = [item["_id"] for item in type_counts if item["_id"] is not None]
 
-            if type_ids:  # Vérifier qu'il y a des IDs à récupérer
+            if type_ids:  # verify there are IDs to look up
                 cache_types = await cache_types_coll.find().to_list(length=None)
                 type_map = {ct["_id"]: ct for ct in cache_types}
 
-                # Créer les objets CacheTypeStats
+                # Build CacheTypeStats objects
                 all_caches_type_ids = {cache_type["_id"] for cache_type in cache_types}
                 found_caches_type_ids = set()
                 cache_types_stats = []
@@ -164,10 +164,10 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
                     )
 
     except Exception as e:
-        # En cas d'erreur, on continue sans les statistiques par type
+        # On error, continue without per-type statistics
         print(f"Error calculating cache type stats: {e}")
 
-    # Calculer last_activity_at
+    # Compute last_activity_at
     last_activity_candidates = [
         dt for dt in [last_cache_found_at, last_challenge_created] if dt is not None
     ]
@@ -189,13 +189,13 @@ async def get_user_stats(user_id: ObjectId, target_username: Optional[str] = Non
 
 
 async def get_user_by_username(username: str) -> Optional[dict]:
-    """Récupérer un utilisateur par son username.
+    """Retrieve a user by username.
 
     Args:
-        username (str): Nom d'utilisateur.
+        username (str): Username.
 
     Returns:
-        dict | None: Document utilisateur ou None si non trouvé.
+        dict | None: User document or None if not found.
     """
     users_coll = await get_collection("users")
     return await users_coll.find_one({"username": username})

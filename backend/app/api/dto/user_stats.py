@@ -1,5 +1,5 @@
 # backend/app/models/user_stats_dto.py
-# DTOs pour les statistiques utilisateur
+# DTOs for user statistics
 
 from datetime import datetime
 from typing import Optional
@@ -10,52 +10,52 @@ from app.core.bson_utils import PyObjectId
 
 
 class CacheTypeStats(BaseModel):
-    """Statistiques pour un type de cache spécifique.
+    """Statistics for a specific cache type.
 
     Attributes:
-        type_id (PyObjectId): Identifiant du type de cache.
-        type_label (str): Libellé du type de cache.
-        type_code (str): Code du type de cache.
-        count (int): Nombre de caches trouvées de ce type.
+        type_id (PyObjectId): Cache type identifier.
+        type_label (str): Cache type label.
+        type_code (str): Cache type code.
+        count (int): Number of caches found of this type.
     """
 
     type_id: PyObjectId
     type_label: str
     type_code: str
-    count: int = Field(ge=0, description="Nombre de caches trouvées de ce type")
+    count: int = Field(ge=0, description="Number of caches found of this type")
 
 
 class UserStatsOut(BaseModel):
-    """Statistiques synthétiques d'un utilisateur.
+    """Summary statistics for a user.
 
     Attributes:
-        user_id (PyObjectId): Identifiant utilisateur.
-        username (str): Nom d'utilisateur.
-        total_caches_found (int): Nombre total de caches trouvées.
-        total_challenges (int): Nombre total de challenges.
-        active_challenges (int): Nombre de challenges actifs (accepted).
-        completed_challenges (int): Nombre de challenges terminés.
-        first_cache_found_at (datetime | None): Date de la première cache trouvée.
-        last_cache_found_at (datetime | None): Date de la dernière cache trouvée.
-        created_at (datetime): Date de création du compte.
-        last_activity_at (datetime | None): Dernière activité (cache trouvée ou challenge créé).
-        cache_types_stats (list[CacheTypeStats] | None): Statistiques par type de cache.
+        user_id (PyObjectId): User identifier.
+        username (str): Username.
+        total_caches_found (int): Total number of caches found.
+        total_challenges (int): Total number of challenges.
+        active_challenges (int): Number of active challenges (accepted).
+        completed_challenges (int): Number of completed challenges.
+        first_cache_found_at (datetime | None): Date of the first found cache.
+        last_cache_found_at (datetime | None): Date of the most recent found cache.
+        created_at (datetime): Account creation date.
+        last_activity_at (datetime | None): Last activity (cache found or challenge created).
+        cache_types_stats (list[CacheTypeStats] | None): Statistics by cache type.
     """
 
     user_id: PyObjectId
     username: str
-    total_caches_found: int = Field(ge=0, description="Nombre total de caches trouvées")
-    total_challenges: int = Field(ge=0, description="Nombre total de challenges")
-    active_challenges: int = Field(ge=0, description="Challenges actifs (accepted)")
-    completed_challenges: int = Field(ge=0, description="Challenges terminés")
+    total_caches_found: int = Field(ge=0, description="Total number of caches found")
+    total_challenges: int = Field(ge=0, description="Total number of challenges")
+    active_challenges: int = Field(ge=0, description="Active challenges (accepted)")
+    completed_challenges: int = Field(ge=0, description="Completed challenges")
     first_cache_found_at: Optional[datetime] = Field(
-        None, description="Date de la première cache trouvée"
+        None, description="Date of the first found cache"
     )
     last_cache_found_at: Optional[datetime] = Field(
-        None, description="Date de la dernière cache trouvée"
+        None, description="Date of the most recent found cache"
     )
-    created_at: datetime = Field(description="Date de création du compte")
-    last_activity_at: Optional[datetime] = Field(None, description="Dernière activité")
+    created_at: datetime = Field(description="Account creation date")
+    last_activity_at: Optional[datetime] = Field(None, description="Last activity")
     cache_types_stats: Optional[list[CacheTypeStats]] = Field(
-        None, description="Statistiques par type de cache"
+        None, description="Statistics by cache type"
     )

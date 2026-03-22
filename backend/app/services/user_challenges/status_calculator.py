@@ -1,5 +1,5 @@
 # backend/app/services/user_challenges/status_calculator.py
-# Logique de calcul des statuts effectifs pour les UserChallenges.
+# Effective status calculation logic for UserChallenges.
 
 from __future__ import annotations
 
@@ -7,43 +7,43 @@ from typing import Any
 
 
 class StatusCalculator:
-    """Service de calcul des statuts effectifs pour UserChallenges.
+    """Effective status calculation service for UserChallenges.
 
     Description:
-        Responsable de la logique de calcul des statuts en tenant compte
-        des statuts manuels, calculés et des overrides.
+        Responsible for computing statuses by taking into account
+        manual statuses, computed statuses, and overrides.
     """
 
     @staticmethod
     def calculate_effective_status(user_status: str | None, computed_status: str | None) -> str:
-        """Calculer le statut effectif d'un UserChallenge.
+        """Calculate the effective status of a UserChallenge.
 
         Args:
-            user_status: Statut manuel de l'utilisateur.
-            computed_status: Statut calculé automatiquement.
+            user_status: Manual status set by the user.
+            computed_status: Automatically computed status.
 
         Returns:
-            str: Statut effectif.
+            str: Effective status.
         """
-        # Règle : completed si statut manuel OU calculé est completed
+        # Rule: completed if either manual or computed status is completed
         if user_status == "completed" or computed_status == "completed":
             return "completed"
 
-        # Sinon, retourner le statut utilisateur ou 'pending' par défaut
+        # Otherwise return the user status or 'pending' as default
         return user_status or "pending"
 
     @staticmethod
     def build_status_filter_pipeline(status_filter: str) -> list[dict[str, Any]]:
-        """Construire un pipeline MongoDB pour filtrer par statut effectif.
+        """Build a MongoDB pipeline to filter by effective status.
 
         Args:
-            status_filter: Statut à filtrer ('pending', 'accepted', 'dismissed', 'completed').
+            status_filter: Status to filter on ('pending', 'accepted', 'dismissed', 'completed').
 
         Returns:
-            list: Étapes de pipeline MongoDB.
+            list: MongoDB pipeline stages.
         """
         if status_filter == "completed":
-            # Effectif: completed si statut manuel OU calculé
+            # Effective completed: manual OR computed status is completed
             return [
                 {
                     "$match": {
@@ -56,7 +56,7 @@ class StatusCalculator:
             ]
 
         elif status_filter == "dismissed":
-            # dismissed effectif = statut utilisateur (hors completed)
+            # Effective dismissed = user status (excluding completed)
             return [
                 {
                     "$match": {
@@ -69,7 +69,7 @@ class StatusCalculator:
             ]
 
         elif status_filter == "accepted":
-            # accepted effectif = statut utilisateur (hors completed)
+            # Effective accepted = user status (excluding completed)
             return [
                 {
                     "$match": {
@@ -82,7 +82,7 @@ class StatusCalculator:
             ]
 
         elif status_filter == "pending":
-            # pending effectif = pas de statut utilisateur (hors completed)
+            # Effective pending = no user status (excluding completed)
             return [
                 {
                     "$match": {
@@ -94,30 +94,30 @@ class StatusCalculator:
                 }
             ]
 
-        # Aucun filtre
+        # No filter
         return []
 
     @staticmethod
     def should_auto_complete(challenge_cache_found: bool) -> str | None:
-        """Déterminer si un UserChallenge doit être auto-complété.
+        """Determine whether a UserChallenge should be auto-completed.
 
         Args:
-            challenge_cache_found: True si la cache du challenge est trouvée.
+            challenge_cache_found: True if the challenge's cache has been found.
 
         Returns:
-            str | None: 'completed' si auto-completion, None sinon.
+            str | None: 'completed' if auto-completion applies, None otherwise.
         """
         return "completed" if challenge_cache_found else None
 
     @staticmethod
     def create_progress_snapshot(completion_percent: float = 100.0) -> dict[str, Any]:
-        """Créer un snapshot de progression.
+        """Create a progress snapshot.
 
         Args:
-            completion_percent: Pourcentage de completion.
+            completion_percent: Completion percentage.
 
         Returns:
-            dict: Snapshot de progression.
+            dict: Progress snapshot.
         """
         from app.core.utils import utcnow
 
@@ -134,23 +134,23 @@ class StatusCalculator:
         new_status: str | None,
         computed_status: str | None,
     ) -> tuple[bool, str | None]:
-        """Valider une transition de statut.
+        """Validate a status transition.
 
         Args:
-            current_status: Statut actuel.
-            new_status: Nouveau statut demandé.
-            computed_status: Statut calculé.
+            current_status: Current status.
+            new_status: Requested new status.
+            computed_status: Computed status.
 
         Returns:
             tuple: (is_valid, error_message).
         """
         valid_statuses = ["pending", "accepted", "dismissed", "completed"]
 
-        # Vérifier que le nouveau statut est valide
+        # Verify that the new status is valid
         if new_status and new_status not in valid_statuses:
             return False, f"Invalid status: {new_status}"
 
-        # Si computed_status est completed, on ne peut pas rétrograder
+        # If computed_status is completed, downgrading is not allowed
         if computed_status == "completed" and new_status in ["pending", "dismissed"]:
             return False, "Cannot change status of auto-completed challenge"
 
@@ -161,20 +161,20 @@ class StatusCalculator:
         new_status: str | None,
         computed_status: str | None,
     ) -> tuple[bool, str | None]:
-        """Déterminer la logique d'override manuel.
+        """Determine manual override logic.
 
         Args:
-            new_status: Nouveau statut demandé.
-            computed_status: Statut calculé.
+            new_status: Requested new status.
+            computed_status: Computed status.
 
         Returns:
             tuple: (is_manual_override, override_type).
         """
-        # Override si on force completed alors que pas auto-completed
+        # Override if forcing completed while not yet auto-completed
         if new_status == "completed" and computed_status != "completed":
             return True, "manual_completion"
 
-        # Override si on force un statut différent du calculé
+        # Override if forcing a status different from the computed one
         if computed_status and new_status and new_status != computed_status:
             return True, "status_override"
 

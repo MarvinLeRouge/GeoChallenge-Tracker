@@ -1,5 +1,5 @@
 # backend/app/services/user_challenge_tasks/task_expression_compiler.py
-# Compilation des expressions AST vers filtres MongoDB - PRESERVATION EXACTE DE LA LOGIQUE
+# AST expression compilation to MongoDB filters — exact preservation of the logic.
 
 from __future__ import annotations
 
@@ -16,33 +16,33 @@ from app.domain.models.challenge_ast import (
 
 
 class TaskExpressionCompiler:
-    """Compilateur d'expressions AST vers filtres MongoDB.
+    """AST expression compiler to MongoDB filters.
 
     Description:
-        Préservation EXACTE de la logique existante de compile_expression_to_cache_match.
-        Aucune modification comportementale - juste réorganisation du code.
+        Exact preservation of the existing compile_expression_to_cache_match logic.
+        No behavioral changes — purely code reorganization.
     """
 
     @staticmethod
     def compile_expression_to_cache_match(expr: TaskExpression) -> dict[str, Any]:
-        """Compiler une expression AST vers un filtre Mongo `caches`.
+        """Compile an AST expression to a Mongo `caches` filter.
 
         Description:
-            FONCTION IDENTIQUE À L'ORIGINALE - Gère AND/OR/NOT pour les feuilles supportées ;
-            ignore les feuilles d'agrégat (traitées ailleurs).
+            FUNCTION IDENTICAL TO THE ORIGINAL — handles AND/OR/NOT for supported leaves;
+            ignores aggregate leaves (handled elsewhere).
 
         Args:
-            expr: Expression Pydantic déjà validée.
+            expr: Already-validated Pydantic expression.
 
         Returns:
-            dict: Filtre Mongo (peut contenir `$and/$or/$nor`).
+            dict: Mongo filter (may contain `$and/$or/$nor`).
         """
 
         def _leaf_to_match(leaf: Any) -> dict[str, Any]:
             k = getattr(leaf, "kind", None)
 
             if k == "type_in":
-                # canonique: node.type_ids (liste d'OIDs)
+                # canonical: node.type_ids (list of OIDs)
                 ids = [oid for oid in (getattr(leaf, "type_ids", None) or [])]
                 return {"type_id": {"$in": ids}} if ids else {}
 
@@ -76,10 +76,10 @@ class TaskExpressionCompiler:
                 return {"state_id": {"$in": ids}} if ids else {}
 
             if k == "attributes":
-                # Liste d'attributs ET-és (tous doivent matcher)
+                # AND-ed list of attributes (all must match)
                 clauses: list[dict[str, Any]] = []
                 for a in leaf.attributes:
-                    # on privilégie cache_attribute_doc_id si présent, sinon id numérique
+                    # prefer cache_attribute_doc_id if present, otherwise numeric id
                     attr_doc_id = getattr(a, "cache_attribute_doc_id", None) or getattr(
                         a, "attribute_doc_id", None
                     )
@@ -90,11 +90,11 @@ class TaskExpressionCompiler:
                         sub["attributes"]["$elemMatch"]["attribute_doc_id"] = attr_doc_id
                     elif num_id is not None:
                         sub["attributes"]["$elemMatch"]["cache_attribute_id"] = int(num_id)
-                    # sinon: si seulement "code" => interdit ici (doit avoir été normalisé avant)
+                    # if only "code" is present => forbidden here (must have been normalized first)
                     clauses.append(sub)
                 return {"$and": clauses} if clauses else {}
 
-            # Agrégats: ne participent pas au filtre "cache" (calculés côté progress/metrics)
+            # Aggregates: do not participate in the "cache" filter (computed by progress/metrics)
             if k in {
                 "aggregate_sum_difficulty_at_least",
                 "aggregate_sum_terrain_at_least",
@@ -103,7 +103,7 @@ class TaskExpressionCompiler:
             }:
                 return {}
 
-            # Par défaut: rien
+            # Default: no filter
             return {}
 
         def _node(expr_node: Any) -> dict[str, Any]:
@@ -121,39 +121,39 @@ class TaskExpressionCompiler:
                 inner = _node(expr_node.node)
                 return {"$nor": [inner]} if inner else {}
 
-            # Feuille
+            # Leaf
             return _leaf_to_match(expr_node)
 
         return _node(expr)
 
     @staticmethod
     def has_country_is_in_and(nodes: Iterable[Any]) -> bool:
-        """Tester la présence d'un nœud `country_is` dans un AND.
+        """Test whether a `country_is` node is present in an AND.
 
-        FONCTION IDENTIQUE À L'ORIGINALE _has_country_is.
+        FUNCTION IDENTICAL TO THE ORIGINAL _has_country_is.
 
         Args:
-            nodes: Nœuds frères.
+            nodes: Sibling nodes.
 
         Returns:
-            bool: True si `country_is` trouvé.
+            bool: True if `country_is` is found.
         """
         for n in nodes:
             if isinstance(n, RuleCountryIs):
                 return True
-            # Si sous-AND imbriqué, on check récursivement
+            # If nested AND, check recursively
             if isinstance(n, TaskAnd) and TaskExpressionCompiler.has_country_is_in_and(n.nodes):
                 return True
         return False
 
     @staticmethod
     def walk_expression_tree(expr: TaskExpression):
-        """Itérer (kind, node, parent_kind) à des fins de validation structurelle.
+        """Iterate (kind, node, parent_kind) for structural validation purposes.
 
-        FONCTION IDENTIQUE À L'ORIGINALE _walk_expr.
+        FUNCTION IDENTICAL TO THE ORIGINAL _walk_expr.
 
         Args:
-            expr: Expression à parcourir.
+            expr: Expression to traverse.
 
         Returns:
             Iterable[tuple[str, Any, str|None]]: Triplets (kind, node, parent).
@@ -172,15 +172,15 @@ class TaskExpressionCompiler:
 
     @staticmethod
     def is_aggregate_kind(kind: str) -> bool:
-        """Indiquer si `kind` correspond à une feuille d'agrégat.
+        """Indicate whether `kind` corresponds to an aggregate leaf.
 
-        FONCTION IDENTIQUE À L'ORIGINALE _is_aggregate_kind.
+        FUNCTION IDENTICAL TO THE ORIGINAL _is_aggregate_kind.
 
         Args:
-            kind: Nom de la règle.
+            kind: Rule name.
 
         Returns:
-            bool: True si agrégat.
+            bool: True if aggregate.
         """
         return kind in (
             "aggregate_sum_difficulty_at_least",

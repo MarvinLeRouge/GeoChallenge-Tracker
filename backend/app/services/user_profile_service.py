@@ -1,5 +1,5 @@
 # backend/app/services/user_profile_service.py
-# Service de gestion des profils utilisateur avec injection de dépendances.
+# User profile management service with dependency injection.
 
 from __future__ import annotations
 
@@ -14,44 +14,44 @@ from app.services.location_parser import parse_location_to_lon_lat
 
 
 class UserProfileService:
-    """Service de gestion des profils utilisateur.
+    """User profile management service.
 
     Description:
-        Encapsule toute la logique métier liée aux profils utilisateur :
-        - Gestion de la localisation (lecture/écriture)
-        - Validation et parsing des coordonnées
-        - Formatage des données de sortie
+        Encapsulates all business logic related to user profiles:
+        - Location management (read/write)
+        - Coordinate validation and parsing
+        - Output data formatting
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service.
+        """Initialize the service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
 
     async def get_user(self, user_id: ObjectId) -> dict | None:
-        """Récupérer les informations d'un utilisateur.
+        """Retrieve a user's information.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            dict | None: Profil utilisateur ou None si non trouvé.
+            dict | None: User profile or None if not found.
         """
         collection = self.db.users
         user_doc = await collection.find_one({"_id": user_id})
         return user_doc
 
     async def get_user_location(self, user_id: ObjectId) -> dict | None:
-        """Récupérer la localisation d'un utilisateur.
+        """Retrieve a user's location.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            dict | None: Champ `location` (GeoJSON Point) ou None.
+            dict | None: `location` field (GeoJSON Point) or None.
         """
         collection = self.db.users
         user_doc = await collection.find_one({"_id": user_id}, {"_id": 1, "location": 1})
@@ -60,19 +60,19 @@ class UserProfileService:
     async def set_user_location(
         self, user_id: ObjectId, location_input: UserLocationIn
     ) -> UpdateResult:
-        """Définir la localisation d'un utilisateur.
+        """Set a user's location.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            location_input: Données de localisation à enregistrer.
+            user_id: User identifier.
+            location_input: Location data to store.
 
         Returns:
-            UpdateResult: Résultat de la mise à jour MongoDB.
+            UpdateResult: MongoDB update result.
 
         Raises:
-            ValueError: Si les coordonnées ne peuvent pas être parsées.
+            ValueError: If coordinates cannot be parsed.
         """
-        # Parser et valider les coordonnées
+        # Parse and validate coordinates
         if location_input.position:
             lon, lat = parse_location_to_lon_lat(location_input.position)
         elif location_input.lat is not None and location_input.lon is not None:
@@ -80,17 +80,17 @@ class UserProfileService:
         else:
             raise ValueError("Either position or lat/lon must be provided")
 
-        # Valider les bornes
+        # Validate bounds
         if not (-90 <= lat <= 90 and -180 <= lon <= 180):
             raise ValueError("Coordinates out of valid range")
 
-        # Créer l'objet GeoJSON Point
+        # Build the GeoJSON Point object
         geojson_location = {
             "type": "Point",
             "coordinates": [lon, lat],
         }
 
-        # Mettre à jour en base
+        # Persist to database
         collection = self.db.users
         result = await collection.update_one(
             {"_id": user_id},
@@ -105,13 +105,13 @@ class UserProfileService:
         return result
 
     async def get_user_location_formatted(self, user_id: ObjectId) -> UserLocationOut | None:
-        """Récupérer la localisation formatée d'un utilisateur.
+        """Retrieve a user's formatted location.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            UserLocationOut | None: Localisation formatée ou None si pas de localisation.
+            UserLocationOut | None: Formatted location or None if no location is set.
         """
         location = await self.get_user_location(user_id)
 
@@ -127,13 +127,13 @@ class UserProfileService:
         return UserLocationOut(id=PyObjectId(user_id), lat=lat, lon=lon)
 
     async def delete_user_location(self, user_id: ObjectId) -> UpdateResult:
-        """Supprimer la localisation d'un utilisateur.
+        """Delete a user's location.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            UpdateResult: Résultat de la mise à jour MongoDB.
+            UpdateResult: MongoDB update result.
         """
         collection = self.db.users
         result = await collection.update_one(
@@ -147,13 +147,13 @@ class UserProfileService:
         return result
 
     async def user_exists(self, user_id: ObjectId) -> bool:
-        """Vérifier si un utilisateur existe.
+        """Check whether a user exists.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            bool: True si l'utilisateur existe, False sinon.
+            bool: True if the user exists, False otherwise.
         """
         collection = self.db.users
         count = await collection.count_documents({"_id": user_id}, limit=1)

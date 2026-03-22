@@ -1,5 +1,5 @@
 # backend/app/api/routes/caches_elevation.py
-# Routes admin pour enrichir les caches avec l'altitude (appel fournisseur externe).
+# Admin routes to enrich caches with elevation data (external provider call).
 
 from __future__ import annotations
 
@@ -20,40 +20,36 @@ router = APIRouter(
 )
 
 
-# TODO: [BACKLOG] Route /caches_elevation/caches/elevation/backfill (POST) à vérifier
+# TODO: [BACKLOG] Route /caches_elevation/caches/elevation/backfill (POST) to verify
 @router.post(
     "/caches/elevation/backfill",
-    summary="Backfill de l’altitude manquante (admin)",
+    summary="Backfill missing elevation data (admin)",
     description=(
-        "Complète l’altitude des caches dépourvues de valeur, par lots, en respectant les quotas du fournisseur.\n\n"
-        "- Parcours paginé de la collection\n"
-        "- Mode `dry_run` pour simuler sans écrire en base\n"
-        "- Réservé aux administrateurs"
+        "Fills in the elevation for caches that have no value, in batches, respecting provider quotas.\n\n"
+        "- Paginated scan of the collection\n"
+        "- `dry_run` mode to simulate without writing to the database\n"
+        "- Reserved for administrators"
     ),
 )
 async def backfill_elevation(
     admin: Annotated[User, Depends(require_admin)],
-    limit: int = Query(1000, ge=1, le=20000, description="Nombre maximum de caches à traiter."),
-    page_size: int = Query(
-        500, ge=10, le=1000, description="Taille de lot pour les lectures/écritures."
-    ),
-    dry_run: bool = Query(
-        False, description="Si vrai, ne persiste pas les mises à jour (simulation)."
-    ),
+    limit: int = Query(1000, ge=1, le=20000, description="Maximum number of caches to process."),
+    page_size: int = Query(500, ge=10, le=1000, description="Batch size for reads/writes."),
+    dry_run: bool = Query(False, description="If true, does not persist updates (simulation)."),
 ):
-    """Backfill d’altitude (admin).
+    """Elevation backfill (admin).
 
     Description:
-        Sélectionne les caches sans altitude (mais avec lat/lon valides), récupère l’altitude via un provider externe
-        et applique des mises à jour par lots. Peut fonctionner en mode simulation.
+        Selects caches without elevation (but with valid lat/lon), retrieves elevation via an external provider,
+        and applies batch updates. Can run in simulation mode.
 
     Args:
-        limit (int): Nombre maximum de caches à traiter.
-        page_size (int): Taille des lots.
-        dry_run (bool): Si vrai, exécute sans écrire en base.
+        limit (int): Maximum number of caches to process.
+        page_size (int): Batch size.
+        dry_run (bool): If true, executes without writing to the database.
 
     Returns:
-        dict: Statistiques de traitement (scanned, updated, failed, batches, requests_used, dry_run).
+        dict: Processing statistics (scanned, updated, failed, batches, requests_used, dry_run).
     """
 
     coll = await get_collection("caches")

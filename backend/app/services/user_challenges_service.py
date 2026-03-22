@@ -1,5 +1,5 @@
 # backend/app/services/user_challenges_service.py
-# Fichier de compatibilité pour le nouveau système de UserChallenges.
+# Compatibility shim for the new UserChallenges system.
 
 from __future__ import annotations
 
@@ -11,15 +11,15 @@ from app.db.mongodb import get_db
 
 from .user_challenges.user_challenge_service import UserChallengeService
 
-# Instance globale pour compatibilité
+# Global instance for backward compatibility
 _user_challenge_service: UserChallengeService | None = None
 
 
 def get_user_challenge_service() -> UserChallengeService:
-    """Obtenir l'instance du service UserChallenges.
+    """Return the UserChallenges service instance.
 
     Returns:
-        UserChallengeService: Instance configurée du service.
+        UserChallengeService: Configured service instance.
     """
     global _user_challenge_service
     if _user_challenge_service is None:
@@ -28,9 +28,9 @@ def get_user_challenge_service() -> UserChallengeService:
     return _user_challenge_service
 
 
-# Fonctions de compatibilité pour l'ancien API
+# Compatibility functions for the legacy API
 async def sync_user_challenges(user_id: ObjectId) -> dict[str, int]:
-    """Fonction de compatibilité - synchroniser les UserChallenges."""
+    """Compatibility wrapper — synchronize UserChallenges."""
     service = get_user_challenge_service()
     return await service.sync_user_challenges(user_id)
 
@@ -41,7 +41,7 @@ async def list_user_challenges(
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    """Fonction de compatibilité - lister les UserChallenges."""
+    """Compatibility wrapper — list UserChallenges."""
     service = get_user_challenge_service()
     return await service.list_user_challenges(
         user_id=user_id,
@@ -52,7 +52,7 @@ async def list_user_challenges(
 
 
 async def get_user_challenge_detail(user_id: ObjectId, uc_id: ObjectId) -> dict[str, Any] | None:
-    """Fonction de compatibilité - récupérer le détail d'un UC."""
+    """Compatibility wrapper — retrieve UC detail."""
     service = get_user_challenge_service()
     return await service.get_user_challenge_detail(user_id, uc_id)
 
@@ -61,8 +61,8 @@ async def patch_user_challenge(
     user_id: ObjectId,
     uc_id: ObjectId,
     patch_data: dict[str, Any],
-    **kwargs: Any,  # Paramètres additionnels pour compatibilité
+    **kwargs: Any,  # Additional parameters for backward compatibility
 ) -> tuple[bool, str | None, dict[str, Any] | None]:
-    """Fonction de compatibilité - mettre à jour un UC."""
+    """Compatibility wrapper — update a UC."""
     service = get_user_challenge_service()
     return await service.patch_user_challenge(user_id, uc_id, patch_data)

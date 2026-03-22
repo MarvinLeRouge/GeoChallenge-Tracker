@@ -1,5 +1,5 @@
 # backend/app/services/user_challenge_tasks/task_expression_validator.py
-# Validation des expressions - PRESERVATION EXACTE DE LA LOGIQUE
+# Expression validation — exact preservation of the logic.
 
 from __future__ import annotations
 
@@ -13,32 +13,32 @@ from .task_expression_compiler import TaskExpressionCompiler
 
 
 class TaskExpressionValidator:
-    """Validateur d'expressions AST.
+    """AST expression validator.
 
     Description:
-        Préservation EXACTE de la logique existante de validate_task_expression
-        et _validate_tasks_payload. Aucune modification comportementale.
+        Exact preservation of the existing validate_task_expression
+        and _validate_tasks_payload logic. No behavioral changes.
     """
 
     def __init__(self):
-        """Initialiser le validateur."""
+        """Initialize the validator."""
         self.compiler = TaskExpressionCompiler()
 
     def validate_task_expression(self, expr: TaskExpression) -> list[str]:
-        """Validation étendue d'une expression de tâche.
+        """Extended validation of a task expression.
 
-        FONCTION IDENTIQUE À L'ORIGINALE validate_task_expression.
+        FUNCTION IDENTICAL TO THE ORIGINAL validate_task_expression.
 
         Description:
-            - Référentiels (types, tailles, pays/états, attributs)
-            - Bornes numériques (min/max)
-            - Agrégats: **AND-only**, au plus un par tâche
+            - Referentials (types, sizes, countries/states, attributes).
+            - Numeric bounds (min/max).
+            - Aggregates: **AND-only**, at most one per task.
 
         Args:
-            expr: Expression déjà Pydantic-validée.
+            expr: Already Pydantic-validated expression.
 
         Returns:
-            list[str]: Liste d'erreurs (vide si OK).
+            list[str]: List of errors (empty if OK).
         """
         errors: list[str] = []
         aggregate_count = 0
@@ -50,7 +50,7 @@ class TaskExpressionValidator:
                     errors.append(
                         f"{kind}: aggregate rules are only supported under AND (not under {parent})"
                     )
-                # check min_total presence & type via Pydantic already; nothing else here
+                # min_total presence & type checked by Pydantic already; nothing else here
                 continue
 
             if kind == "type_in":
@@ -65,7 +65,7 @@ class TaskExpressionValidator:
                 for oid in node.state_ids:
                     if not exists_id("states", oid):
                         errors.append(f"state_in: unknown state id '{oid}'")
-                    # obligation d'un country_is sibling
+                    # a sibling country_is is required
                     if isinstance(expr, TaskAnd):
                         if not self.compiler.has_country_is_in_and(expr.nodes):
                             errors.append(
@@ -99,29 +99,29 @@ class TaskExpressionValidator:
         preprocess_func: Callable[..., Any],
         TypeAdapter: Any,
     ) -> None:
-        """Valider le payload de tâches (lève à la première erreur).
+        """Validate the task payload (raises on the first error).
 
-        FONCTION IDENTIQUE À L'ORIGINALE _validate_tasks_payload.
+        FUNCTION IDENTICAL TO THE ORIGINAL _validate_tasks_payload.
 
         Description:
-            - Unicité/cohérence des `order`
-            - Pydantic parse + normalisation code→id
-            - Validation étendue (`validate_task_expression`)
-            - Sanity check des `constraints` (min_count ≥ 0)
+            - Uniqueness/consistency of `order` values.
+            - Pydantic parse + code→id normalization.
+            - Extended validation (`validate_task_expression`).
+            - Sanity check of `constraints` (min_count >= 0).
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
-            tasks_payload: Liste d'items.
-            normalize_func: Fonction de normalisation.
-            preprocess_func: Fonction de préprocessing.
-            TypeAdapter: Adaptateur de type Pydantic.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            tasks_payload: List of task items.
+            normalize_func: Normalization function.
+            preprocess_func: Preprocessing function.
+            TypeAdapter: Pydantic type adapter.
 
         Returns:
             None
 
         Raises:
-            ValueError: En cas d'invalidité structurelle ou métier.
+            ValueError: On structural or business invalidity.
         """
         if not isinstance(tasks_payload, list) or len(tasks_payload) == 0:
             raise ValueError("tasks_payload must be a non-empty list")
@@ -140,13 +140,13 @@ class TaskExpressionValidator:
             if expr_raw is None:
                 raise ValueError("each task must have an 'expression'")
             try:
-                # 1) appliquer la forme courte -> canonique (AND par défaut)
+                # 1) apply short form -> canonical (AND by default)
                 expr_pre = preprocess_func(expr_raw)
 
-                # 2) valider/parse Pydantic (Union des nœuds)
+                # 2) validate/parse Pydantic (Union of nodes)
                 expr_model: TaskExpression = TypeAdapter(TaskExpression).validate_python(expr_pre)
 
-                # 3) tes normalisations existantes (ex: attributes.code -> ids, type_in.codes -> type_ids)
+                # 3) existing normalizations (e.g. attributes.code -> ids, type_in.codes -> type_ids)
                 expr_model = normalize_func(expr_model, index_for_errors=i)
 
             except Exception as err:
@@ -181,17 +181,17 @@ class TaskExpressionValidator:
         preprocess_func: Callable[..., Any],
         TypeAdapter: Any,
     ) -> dict[str, Any]:
-        """Valider un payload de tâches **sans persister** et formater la réponse.
+        """Validate a task payload **without persisting** and format the response.
 
-        FONCTION IDENTIQUE À L'ORIGINALE validate_only.
+        FUNCTION IDENTICAL TO THE ORIGINAL validate_only.
 
         Args:
-            user_id: Utilisateur.
-            uc_id: UserChallenge.
-            tasks_payload: Liste d'items de tâches.
-            normalize_func: Fonction de normalisation.
-            preprocess_func: Fonction de préprocessing.
-            TypeAdapter: Adaptateur de type Pydantic.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
+            tasks_payload: List of task items.
+            normalize_func: Normalization function.
+            preprocess_func: Preprocessing function.
+            TypeAdapter: Pydantic type adapter.
 
         Returns:
             dict: `{ok: bool, errors: list[...]}`

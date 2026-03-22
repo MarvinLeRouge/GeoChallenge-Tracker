@@ -1,5 +1,5 @@
 # backend/app/services/user_challenge_tasks/task_data_models.py
-# Modèles de données pour les tâches - PRESERVATION EXACTE
+# Task data models — exact preservation.
 
 from __future__ import annotations
 
@@ -12,17 +12,17 @@ from app.domain.models.challenge_ast import TaskExpression
 
 
 class PatchTaskItem(BaseModel):
-    """Payload interne pour patch/put de tâche.
+    """Internal payload for task patch/put.
 
-    CLASSE IDENTIQUE À L'ORIGINALE - Aucune modification.
+    CLASS IDENTICAL TO THE ORIGINAL — no changes.
 
     Attributes:
-        _id (PyObjectId | None): Id existant (si update).
-        user_challenge_id (PyObjectId): UC parent.
-        order (int): Ordre d'affichage.
-        expression (TaskExpression): AST canonique.
-        constraints (dict): Contraintes.
-        metrics (dict): Métriques.
+        _id (PyObjectId | None): Existing id (if updating).
+        user_challenge_id (PyObjectId): Parent UC.
+        order (int): Display order.
+        expression (TaskExpression): Canonical AST.
+        constraints (dict): Constraints.
+        metrics (dict): Metrics.
         notes (str | None): Notes.
     """
 

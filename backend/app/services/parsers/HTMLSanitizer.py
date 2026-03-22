@@ -1,5 +1,5 @@
 # backend/app/services/parsers/HTMLSanitizer.py
-# Sanitizeur HTML : garde un sous-ensemble de balises sûres, échappe le texte et élague le vide.
+# HTML sanitizer: retains a safe tag subset, escapes text, and removes empty nodes.
 
 from urllib.parse import urlparse
 
@@ -7,32 +7,32 @@ from selectolax.parser import HTMLParser
 
 
 class HTMLSanitizer:
-    """Sanitizeur HTML basé sur selectolax.
+    """selectolax-based HTML sanitizer.
 
     Description:
-        Sérialise un fragment HTML en conservant uniquement des balises sûres
-        (p, br, strong, em, titres, listes, table, a, img, etc.).\n
-        - Les liens <a> ne sont gardés que pour des schémas sûrs (http/https/mailto).\n
-        - Les <script>/<style> sont supprimés.\n
-        - Les balises non autorisées sont « déroulées » (contenu conservé, tag supprimé).\n
-        - Les nœuds vides sont retirés.
+        Serializes an HTML fragment keeping only a safe subset of tags
+        (p, br, strong, em, headings, lists, table, a, img, etc.).\n
+        - <a> links are kept only for safe schemes (http/https/mailto).\n
+        - <script>/<style> elements are dropped entirely.\n
+        - Disallowed tags are "unwrapped" (content kept, tag removed).\n
+        - Empty nodes are removed.
 
     Attributes:
-        allowed_tags (set[str]): Ensemble de balises autorisées.
+        allowed_tags (set[str]): Set of allowed HTML tags.
     """
 
     def __init__(self, allowed_tags=None):
-        """Initialiser le sanitizeur.
+        """Initialize the sanitizer.
 
         Args:
-            allowed_tags (set | None): Ensemble de balises autorisées ; par défaut,
-                utilise un set « sûr » incluant `a` et `img`.
+            allowed_tags (set | None): Set of allowed tags; defaults to a safe set
+                that includes `a` and `img`.
 
         Returns:
             None
         """
         if allowed_tags is None:
-            # Default safe tags (now includes 'a' for links)
+            # Default safe tag set (includes 'a' for links)
             self.allowed_tags = {
                 "p",
                 "br",
@@ -67,16 +67,16 @@ class HTMLSanitizer:
             self.allowed_tags = set(allowed_tags)
 
     def _is_safe_href(self, href: str) -> bool:
-        """Vérifier qu’un href est « sûr ».
+        """Check whether an href is safe.
 
         Description:
-            Autorise les schémas `http`, `https`, `mailto` (ou vide). Refuse les autres.
+            Allows `http`, `https`, `mailto` schemes (or empty). Rejects all others.
 
         Args:
-            href (str): Valeur de l’attribut href.
+            href (str): Value of the href attribute.
 
         Returns:
-            bool: True si le lien est autorisé, sinon False.
+            bool: True if the link is allowed, otherwise False.
         """
         if not href:
             return False
@@ -84,31 +84,31 @@ class HTMLSanitizer:
         return scheme in ("http", "https", "mailto", "")
 
     def _escape(self, text: str) -> str:
-        """Échapper minimalement le texte (HTML).
+        """Minimally escape HTML text.
 
         Description:
-            Remplace `&`, `<`, `>` par les entités équivalentes. Utile pour les nœuds texte.
+            Replaces `&`, `<`, `>` with their HTML entity equivalents. Useful for text nodes.
 
         Args:
-            text (str): Chaîne source.
+            text (str): Source string.
 
         Returns:
-            str: Chaîne échappée.
+            str: Escaped string.
         """
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-    # helper: concat des enfants
+    # helper: concatenate children
     def serialize_children(self, el) -> str:
-        """Sérialiser les enfants d’un nœud.
+        """Serialize the children of a node.
 
         Description:
-            Concatène la sérialisation de chaque enfant en respectant l’ordre.
+            Concatenates the serialization of each child in document order.
 
         Args:
-            el: Nœud parent (selectolax Node).
+            el: Parent node (selectolax Node).
 
         Returns:
-            str: HTML sérialisé des enfants.
+            str: Serialized HTML of the children.
         """
         out = []
         child = el.child
@@ -118,19 +118,19 @@ class HTMLSanitizer:
         return "".join(out)
 
     def _serialize_node(self, node) -> str:
-        """Sérialiser récursivement un nœud.
+        """Recursively serialize a node.
 
         Description:
-            - Texte → échappé.\n
-            - `<script>/<style>` → supprimés.\n
-            - Balise autorisée → rendue (avec gestion spécifique pour `<a>` et `<img>`).\n
-            - Autre balise → contenu déroulé (tag supprimé).
+            - Text node → escaped.\n
+            - `<script>/<style>` → dropped entirely.\n
+            - Allowed tag → rendered (with specific handling for `<a>` and `<img>`).\n
+            - Other tag → content unwrapped (tag removed).
 
         Args:
-            node: Nœud selectolax.
+            node: selectolax node.
 
         Returns:
-            str: HTML sérialisé.
+            str: Serialized HTML.
         """
         # Text node
         if node.tag == "-text":
@@ -138,11 +138,11 @@ class HTMLSanitizer:
 
         tag = (node.tag or "").lower()
 
-        # drop <script>/<style> entièrement
+        # drop <script>/<style> entirely
         if tag in ("script", "style"):
             return ""
 
-        # balise autorisée
+        # allowed tag
         if tag in self.allowed_tags:
             if tag == "br":
                 return "<br/>"
@@ -157,24 +157,24 @@ class HTMLSanitizer:
                 name = node.attributes.get("name", "")
                 attrs = f' src="{src}" name="{name}"'
                 return f"<img{attrs} />"
-            # autres tags autorisés sans attributs
+            # other allowed tags rendered without attributes
             return f"<{tag}>{self.serialize_children(node)}</{tag}>"
 
-        # balise non autorisée (ex: span, font, center, etc.) → on déroule le contenu
+        # disallowed tag (e.g. span, font, center, etc.) → unwrap content
         return self.serialize_children(node)
 
     def clean_description_html(self, html: str) -> str:
-        """Nettoyer un fragment HTML.
+        """Clean an HTML fragment.
 
         Description:
-            Parse le HTML, récupère le `<body>` s’il existe, supprime les nœuds
-            vides via `remove_empty_nodes`, puis sérialise le résultat.
+            Parses the HTML, retrieves the `<body>` if present, removes empty nodes
+            via `remove_empty_nodes`, then serializes the result.
 
         Args:
-            html (str): Fragment HTML d’entrée.
+            html (str): Input HTML fragment.
 
         Returns:
-            str: HTML nettoyé et sûr (sous-ensemble autorisé).
+            str: Cleaned, safe HTML (allowed subset only).
         """
         if not html:
             return ""
@@ -187,35 +187,35 @@ class HTMLSanitizer:
         return result
 
     def is_node_empty(self, node) -> bool:
-        """Tester si un nœud est « vide » selon nos règles.
+        """Test whether a node is "empty" according to our rules.
 
         Description:
-            - `<br>` et `<img>` ne sont jamais considérés vides.\n
-            - Toute présence de texte non-blanc rend le nœud non vide.\n
-            - Sinon, inspecte les enfants pour décider.
+            - `<br>` and `<img>` are never considered empty.\n
+            - Any non-whitespace text makes the node non-empty.\n
+            - Otherwise, inspects children to decide.
 
         Args:
-            node: Nœud selectolax.
+            node: selectolax node.
 
         Returns:
-            bool: True si le nœud est vide, sinon False.
+            bool: True if the node is empty, otherwise False.
         """
-        # Un nœud <br> n'est jamais considéré comme vide
+        # A <br> or <img> node is never considered empty
         if node.tag in ["br", "img"]:
             return False
 
-        # Si le nœud contient du texte non whitespace, il n'est pas vide
+        # If the node contains non-whitespace text, it is not empty
         if node.text(strip=True):
             return False
 
-        # Vérifier les enfants
+        # Check children
         has_significant_content = False
         for child in node.iter(include_text=False):
-            # Si un enfant n'est pas un <br> et n'est pas vide
+            # If a child is not a <br> and is not empty
             if child.tag != "br" and not self.is_node_empty(child):
                 has_significant_content = True
                 break
-            # Si un enfant est un <br> avec du texte avant
+            # If a child is a <br> with preceding text
             if child.tag == "br" and child.prev and child.prev.text(strip=True):
                 has_significant_content = True
                 break
@@ -223,28 +223,28 @@ class HTMLSanitizer:
         return not has_significant_content
 
     def remove_empty_nodes(self, node) -> None:
-        """Supprimer récursivement les nœuds vides d’un sous-arbre.
+        """Recursively remove empty nodes from a subtree.
 
         Description:
-            Parcours en profondeur (post-ordre) pour identifier et éliminer les
-            nœuds vides selon `is_node_empty`.
+            Depth-first (post-order) traversal to identify and eliminate
+            empty nodes as determined by `is_node_empty`.
 
         Args:
-            node: Racine du sous-arbre à nettoyer.
+            node: Root of the subtree to clean.
 
         Returns:
             None
         """
-        # Parcours en profondeur d'abord (post-order)
+        # Depth-first traversal (post-order)
         for child in node.iter(include_text=False):
             self.remove_empty_nodes(child)
 
-        # Collecter les enfants à supprimer
+        # Collect children to remove
         children_to_remove = []
         for child in node.iter(include_text=False):
             if self.is_node_empty(child):
                 children_to_remove.append(child)
 
-        # Supprimer les nœuds vides
+        # Remove empty nodes
         for child in children_to_remove:
             child.decompose()

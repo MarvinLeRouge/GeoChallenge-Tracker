@@ -11,15 +11,15 @@ logger = logging.getLogger(__name__)
 
 async def check_mongodb() -> str:
     """
-    Vérifie la connexion MongoDB
+    Checks the MongoDB connection.
 
     Returns:
-        "ok" si connecté, message d'erreur sinon
+        "ok" if connected, error message otherwise.
     """
     try:
         from app.db.mongodb import get_db
 
-        # Ping MongoDB
+        # Ping MongoDB to verify connectivity
         db = get_db()
         await db.command("ping")
         return "ok"
@@ -30,13 +30,13 @@ async def check_mongodb() -> str:
 
 
 async def check_email() -> str:
-    """Vérifie la connexion SMTP via un EHLO/NOOP.
+    """Checks the SMTP connection via an EHLO/NOOP exchange.
 
-    Ouvre une connexion SMTP (avec STARTTLS si le port est 587), envoie NOOP,
-    puis ferme proprement. Exécuté dans un thread pour ne pas bloquer la boucle asyncio.
+    Opens an SMTP connection (with STARTTLS if port is 587), sends NOOP,
+    then closes cleanly. Executed in a thread to avoid blocking the asyncio event loop.
 
     Returns:
-        str: "ok" si le serveur répond, message d'erreur sinon.
+        str: "ok" if the server responds, error message otherwise.
     """
 
     def _smtp_check() -> str:

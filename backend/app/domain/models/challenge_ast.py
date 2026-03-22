@@ -1,5 +1,5 @@
 # backend/app/models/challenge_ast.py
-# AST décrivant les sélecteurs/règles de tâches et la logique (and/or/not) côté UserChallenge.
+# AST describing task selectors/rules and the (and/or/not) logic for UserChallenge.
 
 from __future__ import annotations
 
@@ -12,11 +12,11 @@ from app.core.bson_utils import PyObjectId
 
 
 class ASTBase(BaseModel):
-    """Base Pydantic pour tous les nœuds AST.
+    """Pydantic base for all AST nodes.
 
     Description:
-        Active les encoders `PyObjectId` et `populate_by_name`, tolère les types arbitraires,
-        afin d’obtenir un JSON/OpenAPI propre pour Swagger.
+        Enables `PyObjectId` encoders and `populate_by_name`, allows arbitrary types,
+        to produce clean JSON/OpenAPI for Swagger.
     """
 
     model_config = ConfigDict(
@@ -29,12 +29,12 @@ class ASTBase(BaseModel):
 # ---- Cache-level leaves ----
 ## --- Selectors ---
 class TypeSelector(ASTBase):
-    """Sélecteur par type de cache.
+    """Cache type selector.
 
     Attributes:
-        cache_type_doc_id (PyObjectId | None): Réf. `cache_types._id`.
-        cache_type_id (int | None): Identifiant numérique global.
-        cache_type_code (str | None): Code type (ex. "whereigo").
+        cache_type_doc_id (PyObjectId | None): Ref to `cache_types._id`.
+        cache_type_id (int | None): Global numeric identifier.
+        cache_type_code (str | None): Type code (e.g. "whereigo").
     """
 
     cache_type_doc_id: PyObjectId | None = None
@@ -43,12 +43,12 @@ class TypeSelector(ASTBase):
 
 
 class SizeSelector(ASTBase):
-    """Sélecteur par taille de cache.
+    """Cache size selector.
 
     Attributes:
-        cache_size_doc_id (PyObjectId | None): Réf. `cache_sizes._id`.
-        cache_size_id (int | None): Identifiant numérique global.
-        code (str | None): Code de taille.
+        cache_size_doc_id (PyObjectId | None): Ref to `cache_sizes._id`.
+        cache_size_id (int | None): Global numeric identifier.
+        code (str | None): Size code.
     """
 
     cache_size_doc_id: PyObjectId | None = None
@@ -57,11 +57,11 @@ class SizeSelector(ASTBase):
 
 
 class StateSelector(ASTBase):
-    """Sélecteur par État/région.
+    """State/region selector.
 
     Attributes:
-        state_id (int | None): Identifiant numérique (référentiel).
-        name (str | None): Nom de l’État/région.
+        state_id (int | None): Numeric identifier (reference data).
+        name (str | None): State/region name.
     """
 
     state_id: int | None = None
@@ -69,11 +69,11 @@ class StateSelector(ASTBase):
 
 
 class CountrySelector(ASTBase):
-    """Sélecteur par pays.
+    """Country selector.
 
     Attributes:
-        country_id (int | None): Identifiant numérique (référentiel).
-        name (str | None): Nom du pays.
+        country_id (int | None): Numeric identifier (reference data).
+        name (str | None): Country name.
     """
 
     country_id: int | None = None
@@ -81,13 +81,13 @@ class CountrySelector(ASTBase):
 
 
 class AttributeSelector(ASTBase):
-    """Sélecteur par attribut(s) de cache.
+    """Cache attribute selector.
 
     Attributes:
-        cache_attribute_doc_id (PyObjectId | None): Réf. `cache_attributes._id`.
-        cache_attribute_id (int | None): Identifiant numérique global.
-        code (str | None): Code attribut (ex. "picnic").
-        is_positive (bool): True si l’attribut est affirmatif.
+        cache_attribute_doc_id (PyObjectId | None): Ref to `cache_attributes._id`.
+        cache_attribute_id (int | None): Global numeric identifier.
+        code (str | None): Attribute code (e.g. "picnic").
+        is_positive (bool): True if the attribute is affirmative.
     """
 
     cache_attribute_doc_id: PyObjectId | None = None
@@ -98,56 +98,56 @@ class AttributeSelector(ASTBase):
 
 ## --- Rules ---
 class RuleTypeIn(ASTBase):
-    """Règle: type ∈ {…}."""
+    """Rule: type ∈ {…}."""
 
     kind: Literal["type_in"] = "type_in"
     types: list[TypeSelector]
 
 
 class RuleSizeIn(ASTBase):
-    """Règle: taille ∈ {…}."""
+    """Rule: size ∈ {…}."""
 
     kind: Literal["size_in"] = "size_in"
     sizes: list[SizeSelector]
 
 
 class RulePlacedYear(ASTBase):
-    """Règle: cache placée l’année donnée (bornée côté modèle)."""
+    """Rule: cache placed in the given year (bounded at model level)."""
 
     kind: Literal["placed_year"] = "placed_year"
     year: int = Field(ge=1999, le=2100)
 
 
 class RulePlacedBefore(ASTBase):
-    """Règle: cache placée **avant** la date donnée (incluse/exclue selon logique d’évaluation)."""
+    """Rule: cache placed **before** the given date (inclusive/exclusive per evaluation logic)."""
 
     kind: Literal["placed_before"] = "placed_before"
     date: date
 
 
 class RulePlacedAfter(ASTBase):
-    """Règle: cache placée **après** la date donnée (incluse/exclue selon logique d’évaluation)."""
+    """Rule: cache placed **after** the given date (inclusive/exclusive per evaluation logic)."""
 
     kind: Literal["placed_after"] = "placed_after"
     date: date
 
 
 class RuleStateIn(ASTBase):
-    """Règle: État ∈ {…} (liste d’ObjectId)."""
+    """Rule: state ∈ {…} (list of ObjectIds)."""
 
     kind: Literal["state_in"] = "state_in"
     state_ids: list[PyObjectId]
 
 
 class RuleCountryIs(ASTBase):
-    """Règle: pays == valeur (sélecteur unique)."""
+    """Rule: country == value (single selector)."""
 
     kind: Literal["country_is"] = "country_is"
     country: CountrySelector
 
 
 class RuleDifficultyBetween(ASTBase):
-    """Règle: difficulté ∈ [min, max] (1.0–5.0)."""
+    """Rule: difficulty ∈ [min, max] (1.0–5.0)."""
 
     kind: Literal["difficulty_between"] = "difficulty_between"
     min: float = Field(ge=1.0, le=5.0)
@@ -155,7 +155,7 @@ class RuleDifficultyBetween(ASTBase):
 
 
 class RuleTerrainBetween(ASTBase):
-    """Règle: terrain ∈ [min, max] (1.0–5.0)."""
+    """Rule: terrain ∈ [min, max] (1.0–5.0)."""
 
     kind: Literal["terrain_between"] = "terrain_between"
     min: float = Field(ge=1.0, le=5.0)
@@ -163,7 +163,7 @@ class RuleTerrainBetween(ASTBase):
 
 
 class RuleAttributes(ASTBase):
-    """Règle: ensemble d’attributs (±)."""
+    """Rule: set of attributes (±)."""
 
     kind: Literal["attributes"] = "attributes"
     attributes: list[AttributeSelector]
@@ -171,28 +171,28 @@ class RuleAttributes(ASTBase):
 
 # ---- Aggregate leaves (apply to the set of eligible finds) ----
 class RuleAggSumDifficultyAtLeast(ASTBase):
-    """Règle agrégée: somme(difficulté) ≥ min_total (sur l’ensemble de trouvailles éligibles)."""
+    """Aggregate rule: sum(difficulty) ≥ min_total (over the set of eligible finds)."""
 
     kind: Literal["aggregate_sum_difficulty_at_least"] = "aggregate_sum_difficulty_at_least"
     min_total: int = Field(ge=1)
 
 
 class RuleAggSumTerrainAtLeast(ASTBase):
-    """Règle agrégée: somme(terrain) ≥ min_total (sur l’ensemble de trouvailles éligibles)."""
+    """Aggregate rule: sum(terrain) ≥ min_total (over the set of eligible finds)."""
 
     kind: Literal["aggregate_sum_terrain_at_least"] = "aggregate_sum_terrain_at_least"
     min_total: int = Field(ge=1)
 
 
 class RuleAggSumDiffPlusTerrAtLeast(ASTBase):
-    """Règle agrégée: somme(difficulté+terrain) ≥ min_total."""
+    """Aggregate rule: sum(difficulty+terrain) ≥ min_total."""
 
     kind: Literal["aggregate_sum_diff_plus_terr_at_least"] = "aggregate_sum_diff_plus_terr_at_least"
     min_total: int = Field(ge=1)
 
 
 class RuleAggSumAltitudeAtLeast(ASTBase):
-    """Règle agrégée: somme(altitude) ≥ min_total."""
+    """Aggregate rule: sum(altitude) ≥ min_total."""
 
     kind: Literal["aggregate_sum_altitude_at_least"] = "aggregate_sum_altitude_at_least"
     min_total: int = Field(ge=1)
@@ -217,10 +217,10 @@ TaskLeaf = Union[
 
 
 class TaskAnd(ASTBase):
-    """Nœud logique AND.
+    """Logical AND node.
 
     Attributes:
-        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Sous-nœuds.
+        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Child nodes.
     """
 
     kind: Literal["and"] = "and"
@@ -228,10 +228,10 @@ class TaskAnd(ASTBase):
 
 
 class TaskOr(ASTBase):
-    """Nœud logique OR.
+    """Logical OR node.
 
     Attributes:
-        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Sous-nœuds.
+        nodes (list[TaskAnd | TaskOr | TaskNot | TaskLeaf]): Child nodes.
     """
 
     kind: Literal["or"] = "or"
@@ -239,10 +239,10 @@ class TaskOr(ASTBase):
 
 
 class TaskNot(ASTBase):
-    """Nœud logique NOT.
+    """Logical NOT node.
 
     Attributes:
-        node (TaskAnd | TaskOr | TaskLeaf): Sous-nœud.
+        node (TaskAnd | TaskOr | TaskLeaf): Child node.
     """
 
     kind: Literal["not"] = "not"
@@ -257,21 +257,21 @@ TaskNot.model_rebuild()
 
 # ---- UC-level logic (composition by task ids, unchanged) ----
 class UCAnd(ASTBase):
-    """Logique UC: AND des `task_ids`."""
+    """UC logic: AND of `task_ids`."""
 
     kind: Literal["and"] = "and"
     task_ids: list[PyObjectId]
 
 
 class UCOr(ASTBase):
-    """Logique UC: OR des `task_ids`."""
+    """UC logic: OR of `task_ids`."""
 
     kind: Literal["or"] = "or"
     task_ids: list[PyObjectId]
 
 
 class UCNot(ASTBase):
-    """Logique UC: NOT d’un `task_id`."""
+    """UC logic: NOT of a `task_id`."""
 
     kind: Literal["not"] = "not"
     task_id: PyObjectId
@@ -279,7 +279,7 @@ class UCNot(ASTBase):
 
 UCLogic = Union[UCAnd, UCOr, UCNot]
 
-# Les kinds logiques et les kinds "feuilles" (règles) connus
+# Known logical kinds and "leaf" (rule) kinds
 _LOGICAL_KINDS = {"and", "or", "not"}
 _RULE_KINDS = {
     "attributes",
@@ -300,30 +300,30 @@ _RULE_KINDS = {
 
 
 def preprocess_expression_default_and(expr: Any) -> Any:
-    """Normalise une expression courte en `AND` explicite.
+    """Normalizes a shorthand expression to an explicit `AND`.
 
     Description:
-        Transforme les écritures abrégées (sans `kind`, avec règles directes, etc.)
-        en une structure canonique où `kind='and'` et les règles sont dans `nodes`.
-        Appelée **avant** la validation Pydantic de l’AST.
+        Transforms abbreviated expressions (missing `kind`, with direct rules, etc.)
+        into a canonical structure where `kind=’and’` and rules are in `nodes`.
+        Called **before** Pydantic validation of the AST.
 
     Args:
-        expr (Any): Expression brute (dict/objets/…).
+        expr (Any): Raw expression (dict/objects/…).
 
     Returns:
-        Any: Expression normalisée (dict) prête pour la validation.
+        Any: Normalized expression (dict) ready for validation.
     """
-    # Cas non-dict (list, str, etc.) → inchangé
+    # Non-dict case (list, str, etc.) → unchanged
     if not isinstance(expr, dict):
         return expr
 
-    # Si pas de 'kind' → c'est un AND implicite
+    # No ‘kind’ → treat as implicit AND
     if "kind" not in expr:
-        # Si déjà une liste de 'nodes', on force 'and'
+        # Already has a ‘nodes’ list → force ‘and’
         if "nodes" in expr and isinstance(expr["nodes"], list):
             return {"kind": "and", "nodes": expr["nodes"]}
 
-        # Détection d'une "règle courte" (attributs/typage directs)
+        # Detect a "short rule" (direct attributes/type fields)
         looks_like_rule = any(
             k in expr
             for k in (
@@ -343,16 +343,16 @@ def preprocess_expression_default_and(expr: Any) -> Any:
         if looks_like_rule:
             return {"kind": "and", "nodes": [expr]}
 
-        # Sinon, on met quand même un AND vide (laisser la validation gérer)
+        # Otherwise, still wrap in an empty AND (let validation handle it)
         return {"kind": "and", "nodes": expr.get("nodes", [])}
 
-    # Si 'kind' est une règle au sommet → envelopper dans un AND
+    # ‘kind’ is a rule at the top level → wrap in an AND
     k = expr.get("kind")
     if isinstance(k, str) and k in _RULE_KINDS:
         return {"kind": "and", "nodes": [expr]}
 
-    # Si 'kind' est logique mais sans nodes et qu'on voit des champs de règle,
-    # on transforme en nodes=[ ce dict moins 'kind' ] (rare, mais utile)
+    # ‘kind’ is logical but has no nodes and rule fields are present →
+    # transform into nodes=[ this dict minus ‘kind’ ] (rare but useful)
     if isinstance(k, str) and k in _LOGICAL_KINDS and not expr.get("nodes"):
         looks_like_rule = any(
             field in expr
@@ -374,5 +374,5 @@ def preprocess_expression_default_and(expr: Any) -> Any:
             rule_like = {kk: vv for kk, vv in expr.items() if kk != "kind"}
             return {"kind": k, "nodes": [rule_like]}
 
-    # Déjà canonique
+    # Already canonical
     return expr

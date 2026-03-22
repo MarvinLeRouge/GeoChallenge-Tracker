@@ -1,5 +1,5 @@
 # backend/app/services/parsers/MultiFormatGPXParser.py
-# Parse un fichier GPX de plusieurs formats (cgeo, pocket query, etc.) pour extraire des géocaches structurées.
+# Parses a GPX file in multiple formats (cgeo, pocket query, etc.) to extract structured geocaches.
 
 from pathlib import Path
 from typing import Any, Optional
@@ -8,29 +8,29 @@ from lxml import etree
 
 
 class MultiFormatGPXParser:
-    """Parseur GPX multi-format de géocaches.
+    """Multi-format GPX geocache parser.
 
     Description:
-        Lit un fichier GPX de différents formats (cgeo, pocket query) et en extrait une
-        liste de caches prêtes pour l’import : code GC, titre, coordonnées, type,
-        taille, propriétaire, D/T, pays/état, description HTML (sanitisée), favoris,
-        notes, dates (placement / found), attributs, etc.
+        Reads a GPX file in various formats (cgeo, pocket query) and extracts a
+        list of caches ready for import: GC code, title, coordinates, type,
+        size, owner, D/T, country/state, sanitized HTML description, favorites,
+        notes, dates (placed / found), attributes, etc.
 
     Attributes:
-        gpx_file (Path): Chemin du fichier GPX.
-        format_type (str): Format spécifié ou détecté ('cgeo', 'pocket_query', etc.).
-        namespaces (dict): Préfixes d’espaces de noms XML utilisés pour les requêtes XPath.
-        caches (list[dict]): Résultats accumulés après `parse`.
-        sanitizer (HTMLSanitizer): Sanitizeur HTML pour la description longue.
+        gpx_file (Path): Path to the GPX file.
+        format_type (str): Specified or detected format (‘cgeo’, ‘pocket_query’, etc.).
+        namespaces (dict): XML namespace prefixes used for XPath queries.
+        caches (list[dict]): Results accumulated after `parse`.
+        sanitizer (HTMLSanitizer): HTML sanitizer for the long description.
     """
 
     def __init__(self, gpx_file: Path, format_type: str = "auto"):
-        """Initialiser le parseur GPX multi-format.
+        """Initialize the multi-format GPX parser.
 
         Args:
-            gpx_file (Path): Chemin du fichier GPX à analyser.
-            format_type (str): Type de format à utiliser - 'auto' pour détection automatique,
-                               'cgeo', 'pocket_query' pour forcer un format spécifique.
+            gpx_file (Path): Path to the GPX file to parse.
+            format_type (str): Format type to use — 'auto' for automatic detection,
+                               'cgeo' or 'pocket_query' to force a specific format.
 
         Returns:
             None
@@ -40,63 +40,63 @@ class MultiFormatGPXParser:
         if format_type == "auto":
             self.format_type = self._detect_format()
         else:
-            # Valider que le format demandé est supporté
+            # Validate that the requested format is supported
             if format_type in ["cgeo", "pocket_query"]:
                 self.format_type = format_type
             else:
-                # Format non supporté, utilisation de la détection automatique
+                # Unsupported format; fall back to automatic detection
                 self.format_type = self._detect_format()
 
-        # Définir les namespaces en fonction du format détecté ou spécifié
+        # Set namespaces based on the detected or specified format
         self.namespaces = self._get_namespaces_for_format(self.format_type)
 
         self.caches: list[dict] = []
 
-        # Importer HTMLSanitizer localement pour éviter les dépendances circulaires
+        # Import HTMLSanitizer locally to avoid circular dependencies
         from app.services.parsers.HTMLSanitizer import HTMLSanitizer
 
         self.sanitizer = HTMLSanitizer()
 
     def _detect_format(self) -> str:
-        """Détecter le format du GPX en lisant les métadonnées racines.
+        """Detect the GPX format by reading root metadata.
 
         Description:
-            Détecte le format en fonction du créateur ou des URLs de schéma présentes
-            dans l'élément racine.
+            Detects the format based on the creator attribute or schema URLs
+            present in the root element.
 
         Returns:
-            str: Format détecté ('cgeo' ou 'pocket_query')
+            str: Detected format ('cgeo' or 'pocket_query').
         """
         try:
             tree = etree.parse(str(self.gpx_file))
             root = tree.getroot()
 
-            # Vérifier le créateur du fichier
+            # Check the file creator
             creator = root.get("creator", "").lower()
             if "cgeo" in creator or "c:geo" in creator:
                 return "cgeo"
 
-            # Vérifier les URL de schéma
+            # Check schema URLs
             schema_location = root.get(
                 "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation", ""
             ).lower()
             if "cgeo" in schema_location:
                 return "cgeo"
 
-            # Vérifier si c'est une Pocket Query
+            # Check whether it is a Pocket Query
             if "pocket query" in schema_location or "pocket query" in creator:
                 return "pocket_query"
 
-            # Vérifier le namespace groundspeak s'il est présent dans l'élément racine
+            # Check the groundspeak namespace if present in the root element
             for _prefix, uri in root.nsmap.items():
                 if "groundspeak.com/cache" in uri:
-                    # Vérifier la version spécifique du schema
+                    # Check the specific schema version
                     if "1/0/1" in uri:
                         return "cgeo"
                     elif "1/0" in uri:
                         return "pocket_query"
 
-            # Dernier recours: chercher dans le contenu texte
+            # Last resort: search in the text content
             root_text = etree.tostring(root, encoding="unicode", method="xml").lower()
             if "c:geo" in root_text:
                 return "cgeo"
@@ -104,14 +104,14 @@ class MultiFormatGPXParser:
                 return "pocket_query"
 
         except Exception:
-            # Erreur lors de la détection de format, on continue avec la détection automatique
+            # Error during format detection; continue with automatic detection
             pass
 
-        # Par défaut, supposer cgeo
+        # Default: assume cgeo
         return "cgeo"
 
     def _get_namespaces_for_format(self, format_type: str) -> dict[str, str]:
-        """Retourner les namespaces appropriés pour un format donné."""
+        """Return the appropriate namespaces for a given format."""
         if format_type == "cgeo":
             return {
                 "gpx": "http://www.topografix.com/GPX/1/0",
@@ -121,10 +121,10 @@ class MultiFormatGPXParser:
         elif format_type == "pocket_query":
             return {
                 "gpx": "http://www.topografix.com/GPX/1/0",
-                "groundspeak": "http://www.groundspeak.com/cache/1/0",  # 1/0 au lieu de 1/0/1
+                "groundspeak": "http://www.groundspeak.com/cache/1/0",  # 1/0 instead of 1/0/1
             }
         else:
-            # Format inconnu, utiliser le format cgeo par défaut
+            # Unknown format; fall back to cgeo defaults
             return {
                 "gpx": "http://www.topografix.com/GPX/1/0",
                 "groundspeak": "http://www.groundspeak.com/cache/1/0/1",
@@ -132,17 +132,17 @@ class MultiFormatGPXParser:
             }
 
     def parse(self) -> list[dict]:
-        """Analyser le GPX en fonction du format détecté ou spécifié et remplir `self.caches`.
+        """Parse the GPX according to the detected or specified format and populate `self.caches`.
 
         Description:
-            - Parcourt les waypoints `//gpx:wpt` et cherche le sous-élément `groundspeak:cache`.\n
-            - Pour chaque cache finale (`_is_final_waypoint`), extrait les champs utiles
-              (GC, titre, coords, type, taille, owner, D/T, pays/état, description HTML
-              nettoyée, favoris GSAK, notes, dates, attributs via `_parse_attributes`).\n
-            - Empile chaque dict dans `self.caches`.
+            - Iterates over `//gpx:wpt` waypoints and looks for the `groundspeak:cache` sub-element.\n
+            - For each final cache (`_is_final_waypoint`), extracts useful fields
+              (GC, title, coords, type, size, owner, D/T, country/state, sanitized HTML
+              description, GSAK favorites, notes, dates, attributes via `_parse_attributes`).\n
+            - Appends each dict to `self.caches`.
 
         Returns:
-            list[dict]: Liste de caches structurées prêtes à l’import.
+            list[dict]: List of structured caches ready for import.
         """
         tree = etree.parse(str(self.gpx_file))
         nodes: Any = tree.xpath("//gpx:wpt", namespaces=self.namespaces)
@@ -163,8 +163,8 @@ class MultiFormatGPXParser:
         return self.caches
 
     def _extract_cache_data(self, wpt, cache_elem) -> dict:
-        """Extraire les données de cache selon le format détecté."""
-        # Commencer avec les champs de base qui sont communs
+        """Extract cache data according to the detected format."""
+        # Start with the base fields common to all formats
         cache = {
             "GC": self.find_text_deep(wpt, "gpx:name"),
             "title": self.find_text_deep(wpt, "gpx:desc"),
@@ -184,36 +184,36 @@ class MultiFormatGPXParser:
             "attributes": self._parse_attributes(cache_elem),
         }
 
-        # Ajouter les champs spécifiques selon le format
+        # Add format-specific fields
         if self.format_type == "cgeo":
-            # Champs spécifiques au format cgeo (avec GSAK)
+            # Fields specific to the cgeo format (with GSAK)
             cache["favorites"] = int(self.find_text_deep(wpt, "gsak:FavPoints") or 0)
             cache["notes"] = self.find_text_deep(wpt, "gsak:GcNote")
             cache["found_date"] = self.find_text_deep(wpt, "gsak:UserFound")
         elif self.format_type == "pocket_query":
-            # Champs spécifiques au format pocket query
-            # Pour le moment, on initialise avec des valeurs par défaut
-            # On peut améliorer cela en cherchant d'autres champs spécifiques
-            cache["favorites"] = 0  # Les pocket queries n'ont pas de FavPoints GSAK
+            # Fields specific to the pocket query format
+            # For now, initialize with default values
+            # Can be improved by looking for additional format-specific fields
+            cache["favorites"] = 0  # Pocket queries do not carry GSAK FavPoints
             cache["notes"] = None
 
-            # Vérifier si des logs sont disponibles dans le format pocket query
+            # Check whether logs are available in the pocket query format
             found_date = self._extract_found_date_from_logs(cache_elem)
 
-            # Pour les caches de type événementiel, si aucune date de trouvaille n'est trouvée,
-            # utiliser la date de placement (time) comme date de trouvaille
+            # For event-type caches, if no found date is available,
+            # use the placed date (time) as the found date
             raw_cache_type = cache.get("cache_type", "")
 
-            # On s'assure que c'est une string avant le .lower()
+            # Ensure it is a string before calling .lower()
             if isinstance(raw_cache_type, str):
                 cache_type = raw_cache_type.lower()
             else:
-                # Si c'est un autre type (float, list, etc.), on le convertit en str
+                # Convert to str if it is another type (float, list, etc.)
                 cache_type = str(raw_cache_type).lower()
 
             if not found_date and ("event" in cache_type):
-                # Prendre la date de placement comme date de trouvaille pour les événements
-                # Essayer d'abord le champ direct <time> puis gpx:time
+                # Use the placed date as the found date for event caches
+                # Try the direct <time> field first, then gpx:time
                 event_time = self.find_text_deep(wpt, "time") or self.find_text_deep(
                     wpt, "gpx:time"
                 )
@@ -227,25 +227,25 @@ class MultiFormatGPXParser:
         return cache
 
     def _extract_found_date_from_logs(self, cache_elem) -> Optional[str]:
-        """Tenter d'extraire la date de trouvaille à partir des logs dans le format pocket query."""
-        # Récupérer tous les logs de la cache
+        """Attempt to extract the found date from logs in the pocket query format."""
+        # Retrieve all logs for the cache
         logs = cache_elem.xpath("groundspeak:logs/groundspeak:log", namespaces=self.namespaces)
 
-        # Si aucun log, retourner None
+        # If no logs, return None
         if not logs:
             return None
 
-        # Si un seul log et que ce format est "pocket query", utiliser sa date comme found_date
+        # If there is a single log and the format is pocket query, use its date as found_date
         if self.format_type == "pocket_query" and len(logs) == 1:
             date = self.find_text_deep(logs[0], "groundspeak:date")
             if date:
-                # S'assurer que la date se termine par Z si nécessaire
+                # Ensure the date ends with Z if needed
                 if not date.endswith("Z"):
                     date += "Z"
                 return date
 
-        # Pour tous les formats, chercher les logs de type "found" de l'utilisateur
-        # dans l'ordre chronologique inverse (le plus récent en premier)
+        # For all formats, search for "found" log types
+        # in reverse chronological order (most recent first)
         logs_sorted = sorted(
             logs, key=lambda x: self.find_text_deep(x, "groundspeak:date"), reverse=True
         )
@@ -259,17 +259,17 @@ class MultiFormatGPXParser:
         return None
 
     def _parse_attributes(self, cache_elem) -> list[dict]:
-        """Extraire la liste des attributs depuis `<groundspeak:attributes>`.
+        """Extract the attribute list from `<groundspeak:attributes>`.
 
         Description:
-            Parcourt les nœuds `groundspeak:attribute` et retourne des objets
-            `{id: int, is_positive: bool, name: str}`.
+            Iterates over `groundspeak:attribute` nodes and returns
+            `{id: int, is_positive: bool, name: str}` objects.
 
         Args:
-            cache_elem: Élément XML `<groundspeak:cache>` parent.
+            cache_elem: Parent `<groundspeak:cache>` XML element.
 
         Returns:
-            list[dict]: Attributs normalisés (id / inc / libellé).
+            list[dict]: Normalized attributes (id / inc / label).
         """
         attrs = []
         attribute_elements = cache_elem.xpath(
@@ -287,37 +287,37 @@ class MultiFormatGPXParser:
         return attrs
 
     def _is_final_waypoint(self, cache_elem) -> bool:
-        """Filtrer les waypoints finaux (placeholder).
+        """Filter final waypoints (placeholder).
 
         Description:
-            Point d’extension pour n’extraire que certains waypoints (ex. finals).
-            Implémentation actuelle retourne systématiquement True.
+            Extension point to extract only certain waypoints (e.g. finals).
+            Current implementation always returns True.
 
         Args:
-            cache_elem: Élément XML `<groundspeak:cache>`.
+            cache_elem: `<groundspeak:cache>` XML element.
 
         Returns:
-            bool: True si le waypoint doit être conservé.
+            bool: True if the waypoint should be kept.
         """
         return True
 
     def find_text_deep(self, element, tag: str) -> str:
-        """Trouver du texte via XPath relatif (`.//{tag}`).
+        """Find text via relative XPath (`.//{tag}`).
 
         Args:
-            element: Élément de départ pour la recherche.
-            tag (str): Tag XPath qualifié par préfixe (ex. `gpx:name`).
+            element: Starting element for the search.
+            tag (str): Prefix-qualified XPath tag (e.g. `gpx:name`).
 
         Returns:
-            str: Texte trouvé, sinon chaîne vide.
+            str: Text found, or empty string.
         """
         found = element.xpath(f".//{tag}", namespaces=self.namespaces)
         return found[0].text.strip() if found and len(found) and found[0].text else ""
 
     def get_caches(self) -> list[dict]:
-        """Récupérer la liste des caches déjà extraites.
+        """Retrieve the list of already-extracted caches.
 
         Returns:
-            list[dict]: Valeur actuelle de `self.caches`.
+            list[dict]: Current value of `self.caches`.
         """
         return self.caches

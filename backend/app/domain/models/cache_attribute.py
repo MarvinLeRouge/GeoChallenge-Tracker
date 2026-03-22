@@ -1,5 +1,5 @@
 # backend/app/models/cache_attribute.py
-# Référentiel décrivant les attributs possibles d’une cache (code, libellés, alias).
+# Reference data describing possible cache attributes (code, labels, aliases).
 
 from __future__ import annotations
 
@@ -12,47 +12,47 @@ from app.core.utils import now
 
 
 class CacheAttributeBase(BaseModel):
-    """Attribut de cache (référentiel).
+    """Cache attribute (reference data).
 
     Description:
-        Définit l’ID global d’attribut, son identifiant texte, les libellés et alias.
+        Defines the global attribute ID, its text identifier, labels and aliases.
 
     Attributes:
-        cache_attribute_id (int): Identifiant numérique global (ex. 14).
-        txt (str): Identifiant texte (ex. "dogs_allowed").
-        name (str): Libellé principal (ex. "Dogs allowed").
-        name_reverse (str | None): Libellé inverse (ex. "No dogs allowed").
-        aliases (list[str]): Synonymes/variantes.
+        cache_attribute_id (int): Global numeric identifier (e.g. 14).
+        txt (str): Text identifier (e.g. "dogs_allowed").
+        name (str): Main label (e.g. "Dogs allowed").
+        name_reverse (str | None): Reverse label (e.g. "No dogs allowed").
+        aliases (list[str]): Synonyms/variants.
     """
 
-    cache_attribute_id: int  # identifiant global, ex. 14
-    txt: str  # identifiant txt (ex.: dogs_allowed)
-    name: str  # libellé principal ("Dogs allowed")
-    name_reverse: str | None = None  # libellé inverse ("No dogs allowed")
+    cache_attribute_id: int  # global identifier, e.g. 14
+    txt: str  # text identifier (e.g. dogs_allowed)
+    name: str  # main label ("Dogs allowed")
+    name_reverse: str | None = None  # reverse label ("No dogs allowed")
     aliases: list[str] = Field(default_factory=list)
 
 
 class CacheAttributeCreate(CacheAttributeBase):
-    """Payload de création d’un attribut de cache.
+    """Cache attribute creation payload.
 
     Description:
-        Identique à `CacheAttributeBase` pour insertion dans le référentiel.
+        Identical to `CacheAttributeBase` for insertion into the reference data.
     """
 
     pass
 
 
 class CacheAttributeUpdate(BaseModel):
-    """Payload de mise à jour d’un attribut.
+    """Cache attribute update payload.
 
     Description:
-        Mise à jour partielle des champs du référentiel.
+        Partial update of reference data fields.
 
     Attributes:
-        cache_attribute_id (int | None): Nouvel ID global.
-        name (str | None): Nouveau libellé.
-        name_reverse (str | None): Nouveau libellé inverse.
-        aliases (list[str] | None): Nouveaux alias.
+        cache_attribute_id (int | None): New global ID.
+        name (str | None): New label.
+        name_reverse (str | None): New reverse label.
+        aliases (list[str] | None): New aliases.
     """
 
     cache_attribute_id: int | None = None
@@ -62,10 +62,10 @@ class CacheAttributeUpdate(BaseModel):
 
 
 class CacheAttribute(MongoBaseModel, CacheAttributeBase):
-    """Document Mongo d’un attribut de cache (référentiel).
+    """Cache attribute Mongo document (reference data).
 
     Description:
-        Étend `CacheAttributeBase` avec les champs _id, created_at, updated_at.
+        Extends `CacheAttributeBase` with _id, created_at, updated_at.
     """
 
     created_at: dt.datetime = Field(default_factory=lambda: now())

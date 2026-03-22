@@ -1,5 +1,5 @@
 # backend/app/core/security.py
-# Hash de mot de passe (bcrypt), génération/validation JWT, dépendance FastAPI `get_current_user`.
+# Password hashing (bcrypt), JWT generation/validation, and FastAPI `get_current_user` dependency.
 
 import datetime as dt
 import re
@@ -24,16 +24,16 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
 
 
 def hash_password(password: str) -> str:
-    """Hash de mot de passe (bcrypt via Passlib).
+    """Hashes a password using bcrypt via Passlib.
 
     Description:
-        Calcule un hash sécurisé du mot de passe en utilisant le contexte Passlib configuré.
+        Computes a secure hash of the password using the configured Passlib context.
 
     Args:
-        password (str): Mot de passe en clair.
+        password (str): Plain-text password.
 
     Returns:
-        str: Hash stockable en base.
+        str: Hash suitable for storage in the database.
     """
     result = pwd_context.hash(password)
 
@@ -41,34 +41,34 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Vérifie un mot de passe contre son hash.
+    """Verifies a password against its hash.
 
     Description:
-        Utilise Passlib pour comparer `plain_password` au `hashed_password`.
+        Uses Passlib to compare `plain_password` against `hashed_password`.
 
     Args:
-        plain_password (str): Mot de passe en clair.
-        hashed_password (str): Hash stocké en base.
+        plain_password (str): Plain-text password.
+        hashed_password (str): Hash stored in the database.
 
     Returns:
-        bool: True si correspondance, sinon False.
+        bool: True if they match, False otherwise.
     """
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
-    """Crée un access token JWT.
+    """Creates a JWT access token.
 
     Description:
-        Encode un JWT signé contenant `data` (ex. `sub`) et une date d’expiration.
-        L’expiration par défaut est de 60 minutes si non précisée.
+        Encodes a signed JWT containing `data` (e.g. `sub`) and an expiration date.
+        The default expiration is 60 minutes if not specified.
 
     Args:
-        data (dict): Claims à inclure (ex. `{"sub": "<user_id>"}`).
-        expires_delta (datetime.timedelta | None): Durée de validité.
+        data (dict): Claims to include (e.g. `{"sub": "<user_id>"}`).
+        expires_delta (datetime.timedelta | None): Token validity duration.
 
     Returns:
-        str: Jeton JWT signé.
+        str: Signed JWT token.
     """
     to_encode = data.copy()
     expire = now() + (expires_delta or dt.timedelta(minutes=15))
@@ -79,20 +79,20 @@ def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
 
 
 def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) -> str:
-    """Crée un refresh token JWT.
+    """Creates a JWT refresh token.
 
     Description:
-        Encode un JWT de plus longue durée (par défaut 7 jours) pour obtenir de nouveaux access tokens.
+        Encodes a longer-lived JWT (7 days by default) used to obtain new access tokens.
 
     Args:
-        data (dict): Claims à inclure (ex. `{"sub": "<user_id>"}`).
-        expires_delta (datetime.timedelta | None): Durée de validité.
+        data (dict): Claims to include (e.g. `{"sub": "<user_id>"}`).
+        expires_delta (datetime.timedelta | None): Token validity duration.
 
     Returns:
-        str: Jeton JWT signé (refresh).
+        str: Signed JWT refresh token.
     """
     to_encode = data.copy()
-    expire = now() + (expires_delta or dt.timedelta(days=7))  # refresh token plus long
+    expire = now() + (expires_delta or dt.timedelta(days=7))  # refresh token has a longer TTL
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
@@ -100,21 +100,21 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    """Dépendance FastAPI: charge l’utilisateur courant depuis le JWT.
+    """FastAPI dependency: loads the current user from the JWT.
 
     Description:
-        - Décode le JWT reçu via le schéma OAuth2 Bearer
-        - Extrait `sub` (id utilisateur) puis charge l’utilisateur en base
-        - Lève 401 si le token est invalide ou si l’utilisateur n’existe pas
+        - Decodes the JWT received via the OAuth2 Bearer scheme
+        - Extracts `sub` (user id) then loads the user from the database
+        - Raises 401 if the token is invalid or the user does not exist
 
     Args:
-        token (str): Jeton d’authentification Bearer (injection via `oauth2_scheme`).
+        token (str): Bearer authentication token (injected via `oauth2_scheme`).
 
     Returns:
-        dict: Document utilisateur (tel que stocké en base).
+        dict: User document as stored in the database.
 
     Raises:
-        HTTPException: 401 si jeton invalide/inexistant ou utilisateur introuvable.
+        HTTPException: 401 if the token is invalid/missing or the user is not found.
     """
     coll_users = await get_collection("users")
     credentials_exception = HTTPException(
@@ -151,10 +151,10 @@ def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]
 
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
-    """Valide la complexité du mot de passe.
+    """Validates password strength.
 
     Args:
-        password (str): Mot de passe à contrôler.
+        password (str): Password to check.
 
     Returns:
         tuple[bool, str]: (is_valid, error_message if not valid)
@@ -171,7 +171,7 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     if not re.search(r"[0-9]", password):
         return False, "Password must include at least one number"
 
-    if not re.search(r"[\W_]", password):  # caractère spécial
+    if not re.search(r"[\W_]", password):  # special character
         return False, "Password must include at least one special character"
 
     return True, ""

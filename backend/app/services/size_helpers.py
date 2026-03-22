@@ -8,16 +8,16 @@ from bson import ObjectId
 
 
 def _normalize_name(name: str | None) -> str:
-    """Normaliser un libellé pour matching référentiel.
+    """Normalize a label for referential matching.
 
     Description:
-        Trim et `casefold()` pour des comparaisons tolérantes (ex. « micro » vs « Micro »).
+        Strips and applies `casefold()` for case-insensitive comparisons (e.g. "micro" vs "Micro").
 
     Args:
-        name (str | None): Libellé source.
+        name (str | None): Source label.
 
     Returns:
-        str: Libellé normalisé (éventuellement chaîne vide).
+        str: Normalized label (possibly an empty string).
     """
     return (name or "").strip().casefold()
 
@@ -26,17 +26,17 @@ def get_size_by_name(
     cache_size_name: str | None,
     all_sizes_by_name: dict[str, ObjectId] | None = None,
 ):
-    """Résoudre la taille par nom.
+    """Resolve a cache size by name.
 
     Description:
-        Similarité avec `get_type_by_name` : exact puis partiel, retourne l’ObjectId ou None.
+        Similar to `get_type_by_name`: exact match first, then partial; returns ObjectId or None.
 
     Args:
-        cache_size_name (str | None): Libellé taille (ex. "Micro").
+        cache_size_name (str | None): Size label (e.g. "Micro").
         all_sizes_by_name (dict | None): Index `{name_normalized: _id}`.
 
     Returns:
-        ObjectId | None: Référence de la taille si résolue.
+        ObjectId | None: Size reference if resolved.
     """
     cache_size_name = _normalize_name(cache_size_name)
     size_id: ObjectId | None = None

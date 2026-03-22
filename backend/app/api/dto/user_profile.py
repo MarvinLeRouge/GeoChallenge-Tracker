@@ -1,5 +1,5 @@
 # backend/app/models/user_profile_dto.py
-# Entrées/sorties pour la localisation utilisateur (texte ou coordonnées).
+# Input/output schemas for user location (text or coordinates).
 
 from __future__ import annotations
 
@@ -13,17 +13,17 @@ from app.services.location_parser import format_coordinates_deg_min_mil
 
 
 class UserLocationIn(BaseModel):
-    """Entrée de localisation.
+    """Location input.
 
     Description:
-        Deux formats acceptés :
-        - coordonnées numériques (`lat`, `lon`)
-        - chaîne `position` (DD/DM/DMS) à parser côté service.
+        Two accepted formats:
+        - numeric coordinates (`lat`, `lon`)
+        - `position` string (DD/DM/DMS) to be parsed by the service.
 
     Attributes:
         lat (float | None): Latitude (-90..90).
         lon (float | None): Longitude (-180..180).
-        position (str | None): Représentation texte des coordonnées.
+        position (str | None): Text representation of coordinates.
     """
 
     lat: float | None = Field(None, ge=-90, le=90)
@@ -32,7 +32,7 @@ class UserLocationIn(BaseModel):
 
 
 class UserLocationOut(BaseModel):
-    """Sortie de localisation utilisateur."""
+    """User location output."""
 
     id: PyObjectId
     lat: float
@@ -41,7 +41,7 @@ class UserLocationOut(BaseModel):
 
     @computed_field
     def coords(self) -> str:
-        """Représentation en degrés/minutes (calculé automatiquement)."""
+        """Degrees/minutes representation (computed automatically)."""
         return format_coordinates_deg_min_mil(self.lat, self.lon)
 
     model_config = ConfigDict(from_attributes=True)

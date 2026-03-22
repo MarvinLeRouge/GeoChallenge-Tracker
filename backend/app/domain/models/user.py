@@ -1,5 +1,5 @@
 # backend/app/models/user.py
-# Schémas utilisateur : document Mongo, payloads d’inscription/login, sorties publiques et tokens.
+# User schemas: Mongo document, registration/login payloads, public outputs and tokens.
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from app.core.utils import now, utcnow
 
 
 class UserLocation(BaseModel):
-    """Localisation utilisateur.
+    """User location.
 
     Attributes:
         lon (float): Longitude.
         lat (float): Latitude.
-        updated_at (datetime): Horodatage de mise à jour (UTC).
+        updated_at (datetime): Update timestamp (UTC).
     """
 
     lon: float
@@ -26,11 +26,11 @@ class UserLocation(BaseModel):
 
 
 class Preferences(BaseModel):
-    """Préférences utilisateur.
+    """User preferences.
 
     Attributes:
-        language (str | None): Langue (ex. 'fr').
-        dark_mode (bool | None): Thème sombre.
+        language (str | None): Language (e.g. 'fr').
+        dark_mode (bool | None): Dark theme.
     """
 
     language: str | None = "fr"
@@ -38,15 +38,15 @@ class Preferences(BaseModel):
 
 
 class UserBase(BaseModel):
-    """Champs communs utilisateur.
+    """Common user fields.
 
     Attributes:
-        username (str): Pseudo unique.
-        email (EmailStr): Email unique.
-        role (str): Rôle ('user' par défaut).
-        is_active (bool): Compte actif.
-        is_verified (bool): Email vérifié.
-        preferences (Preferences | None): Préférences UI.
+        username (str): Unique username.
+        email (EmailStr): Unique email.
+        role (str): Role ('user' by default).
+        is_active (bool): Account active.
+        is_verified (bool): Email verified.
+        preferences (Preferences | None): UI preferences.
     """
 
     username: str
@@ -58,22 +58,22 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """Payload de création (inscription).
+    """Registration payload.
 
     Attributes:
-        password (str): Mot de passe en clair reçu côté client.
+        password (str): Plain-text password received from the client.
     """
 
     password: str  # plain password received from client
 
 
 class UserUpdate(BaseModel):
-    """Payload de mise à jour utilisateur.
+    """User update payload.
 
     Attributes:
-        email (EmailStr | None): Nouvel email.
-        password (str | None): Nouveau mot de passe (en clair).
-        preferences (Preferences | None): Nouvelles préférences.
+        email (EmailStr | None): New email.
+        password (str | None): New password (plain text).
+        preferences (Preferences | None): New preferences.
     """
 
     email: EmailStr | None = None
@@ -82,15 +82,15 @@ class UserUpdate(BaseModel):
 
 
 class User(MongoBaseModel, UserBase):
-    """Document Mongo utilisateur.
+    """User Mongo document.
 
     Attributes:
-        challenges (list[PyObjectId]): UC associés.
-        verification_code (str | None): Code email.
-        verification_expires_at (datetime | None): Expiration code.
-        location (UserLocation | None): Dernière localisation.
-        created_at (datetime): Création (local).
-        updated_at (datetime | None): MAJ.
+        challenges (list[PyObjectId]): Associated UserChallenges.
+        verification_code (str | None): Email verification code.
+        verification_expires_at (datetime | None): Code expiration.
+        location (UserLocation | None): Last known location.
+        created_at (datetime): Creation time (local).
+        updated_at (datetime | None): Last update.
     """
 
     challenges: list[PyObjectId] = Field(default_factory=list)
@@ -101,8 +101,8 @@ class User(MongoBaseModel, UserBase):
     created_at: dt.datetime = Field(default_factory=lambda: now())
     updated_at: dt.datetime | None = None
 
-    # --- Normalisation d'entrée ---
-    # Si la DB fournit location en GeoJSON Point, on le convertit vers UserLocation attendu.
+    # --- Input normalization ---
+    # If the DB provides location as a GeoJSON Point, convert it to the expected UserLocation.
     @model_validator(mode="before")
     @classmethod
     def _normalize_geojson_location(cls, data: dict):
@@ -113,7 +113,7 @@ class User(MongoBaseModel, UserBase):
             coords = loc.get("coordinates") or []
             if len(coords) >= 2:
                 lon, lat = coords[0], coords[1]
-                # Conserver un éventuel updated_at présent dans l'objet DB
+                # Preserve any updated_at field present in the DB object
                 ua = loc.get("updated_at")
                 data["location"] = {
                     "lon": float(lon),
@@ -127,12 +127,12 @@ class User(MongoBaseModel, UserBase):
 
 
 class UserInRegister(BaseModel):
-    """Entrée d’inscription.
+    """Registration input.
 
     Attributes:
-        username (str): 3–30 caractères.
-        email (EmailStr): Email valide.
-        password (str): ≥ 8 caractères.
+        username (str): 3–30 characters.
+        email (EmailStr): Valid email.
+        password (str): ≥ 8 characters.
     """
 
     username: str = Field(min_length=3, max_length=30)
@@ -141,25 +141,25 @@ class UserInRegister(BaseModel):
 
 
 class UserInLogin(BaseModel):
-    """Entrée de login.
+    """Login input.
 
     Attributes:
-        identifier (str): Email ou username.
-        password (str): Mot de passe.
+        identifier (str): Email or username.
+        password (str): Password.
     """
 
-    identifier: str  # email ou username
+    identifier: str  # email or username
     password: str
 
 
 class UserOut(BaseModel):
-    """Sortie publique utilisateur.
+    """Public user output.
 
     Attributes:
-        id (PyObjectId): Alias `_id`.
+        id (PyObjectId): Alias for `_id`.
         email (EmailStr): Email.
-        username (str): Pseudo.
-        role (str | None): Rôle.
+        username (str): Username.
+        role (str | None): Role.
     """
 
     id: PyObjectId = Field(alias="_id")
@@ -175,12 +175,12 @@ class UserOut(BaseModel):
 
 
 class TokenPair(BaseModel):
-    """Couple de jetons JWT.
+    """JWT token pair.
 
     Attributes:
-        access_token (str): Jeton d’accès.
-        refresh_token (str): Jeton de refresh.
-        token_type (str): 'bearer'.
+        access_token (str): Access token.
+        refresh_token (str): Refresh token.
+        token_type (str): ‘bearer’.
     """
 
     access_token: str
@@ -189,11 +189,11 @@ class TokenPair(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """Réponse avec jeton d’accès.
+    """Access token response.
 
     Attributes:
-        access_token (str): Jeton d’accès.
-        token_type (str): 'bearer'.
+        access_token (str): Access token.
+        token_type (str): ‘bearer’.
     """
 
     access_token: str
@@ -201,20 +201,20 @@ class TokenResponse(BaseModel):
 
 
 class RefreshTokenRequest(BaseModel):
-    """Entrée de refresh token.
+    """Refresh token input.
 
     Attributes:
-        refresh_token (str): Jeton de refresh JWT.
+        refresh_token (str): JWT refresh token.
     """
 
     refresh_token: str
 
 
 class ResendVerificationRequest(BaseModel):
-    """Entrée de renvoi de vérification email.
+    """Email verification resend input.
 
     Attributes:
-        identifier (str): Email ou username.
+        identifier (str): Email or username.
     """
 
-    identifier: str  # email ou username
+    identifier: str  # email or username

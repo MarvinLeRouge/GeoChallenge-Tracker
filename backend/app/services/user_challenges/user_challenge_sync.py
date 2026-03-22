@@ -1,5 +1,5 @@
 # backend/app/services/user_challenges/user_challenge_sync.py
-# Service de synchronisation des UserChallenges manquants.
+# Synchronization service for missing UserChallenges.
 
 from __future__ import annotations
 
@@ -15,38 +15,38 @@ from .status_calculator import StatusCalculator
 
 
 class UserChallengeSync:
-    """Service de synchronisation des UserChallenges.
+    """Synchronization service for UserChallenges.
 
     Description:
-        Responsable de la création des UserChallenges manquants
-        et de l'auto-completion basée sur les caches trouvées.
+        Responsible for creating missing UserChallenges
+        and auto-completing them based on found caches.
     """
 
     def __init__(self, db: AsyncIOMotorDatabase):
-        """Initialiser le service de synchronisation.
+        """Initialize the synchronization service.
 
         Args:
-            db: Instance de base de données MongoDB.
+            db: MongoDB database instance.
         """
         self.db = db
         self.status_calculator = StatusCalculator()
 
     async def sync_user_challenges(self, user_id: ObjectId) -> dict[str, int]:
-        """Créer les UserChallenges manquants pour un utilisateur.
+        """Create missing UserChallenges for a user.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            dict: Statistiques de synchronisation.
+            dict: Synchronization statistics.
         """
-        # Étape 1: Créer les UC manquants
+        # Step 1: Create missing UCs
         creation_stats = await self._create_missing_user_challenges(user_id)
 
-        # Étape 2: Auto-compléter ceux dont la cache est trouvée
+        # Step 2: Auto-complete those whose cache has been found
         completion_stats = await self._auto_complete_found_challenges(user_id)
 
-        # Compter le total final
+        # Count the final total
         total_count = await self._count_user_challenges(user_id)
 
         return {
@@ -57,30 +57,30 @@ class UserChallengeSync:
         }
 
     async def _create_missing_user_challenges(self, user_id: ObjectId) -> dict[str, int]:
-        """Créer les UserChallenges manquants avec status=pending.
+        """Create missing UserChallenges with status=pending.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            dict: Statistiques de création.
+            dict: Creation statistics.
         """
         coll_challenges = self.db.challenges
         coll_ucs = self.db.user_challenges
 
-        # Récupérer tous les challenge IDs
+        # Retrieve all challenge IDs
         challenge_ids = await coll_challenges.distinct("_id")
         if not challenge_ids:
             return {"created": 0, "existing": 0}
 
-        # Identifier les challenges manquants
+        # Identify missing challenges
         existing_challenge_ids = set(await coll_ucs.distinct("challenge_id", {"user_id": user_id}))
         missing_challenge_ids = [cid for cid in challenge_ids if cid not in existing_challenge_ids]
 
         if not missing_challenge_ids:
             return {"created": 0, "existing": len(existing_challenge_ids)}
 
-        # Préparer les opérations d'insertion
+        # Prepare insert operations
         operations = []
         now = utcnow()
 
@@ -101,7 +101,7 @@ class UserChallengeSync:
                 )
             )
 
-        # Exécuter les opérations
+        # Execute operations
         if operations:
             result = await coll_ucs.bulk_write(operations, ordered=False)
             created_count = result.upserted_count
@@ -114,19 +114,19 @@ class UserChallengeSync:
         }
 
     async def _auto_complete_found_challenges(self, user_id: ObjectId) -> dict[str, int]:
-        """Auto-compléter les UC dont la cache est trouvée.
+        """Auto-complete UCs whose cache has been found.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            dict: Statistiques d'auto-completion.
+            dict: Auto-completion statistics.
         """
-        # Pipeline pour identifier les UC à auto-compléter
+        # Pipeline to identify UCs to auto-complete
         pipeline: list[dict[str, Any]] = [
-            # Matcher les UC de l'utilisateur
+            # Match the user's UCs
             {"$match": {"user_id": user_id}},
-            # Joindre avec les challenges
+            # Join with challenges
             {
                 "$lookup": {
                     "from": "challenges",
@@ -136,7 +136,7 @@ class UserChallengeSync:
                 }
             },
             {"$unwind": "$challenge"},
-            # Joindre avec les found_caches
+            # Join with found_caches
             {
                 "$lookup": {
                     "from": "found_caches",
@@ -156,19 +156,17 @@ class UserChallengeSync:
                     "as": "found",
                 }
             },
-            # Filtrer ceux qui ont la cache trouvée mais pas completed
+            # Filter those whose cache is found but not yet completed
             {
                 "$match": {
                     "$and": [
-                        {"found": {"$ne": []}},  # Cache trouvée
-                        {"status": {"$ne": "completed"}},  # Pas encore completed manuellement
-                        {
-                            "computed_status": {"$ne": "completed"}
-                        },  # Pas encore completed automatiquement
+                        {"found": {"$ne": []}},  # Cache found
+                        {"status": {"$ne": "completed"}},  # Not manually completed
+                        {"computed_status": {"$ne": "completed"}},  # Not automatically completed
                     ]
                 }
             },
-            # Projeter seulement l'ID
+            # Project only the ID
             {"$project": {"_id": 1}},
         ]
 
@@ -179,7 +177,7 @@ class UserChallengeSync:
         if not ucs_to_complete:
             return {"updated": 0}
 
-        # Mettre à jour les UC identifiés
+        # Update the identified UCs
         now = utcnow()
         progress_snapshot = self.status_calculator.create_progress_snapshot(100.0)
 
@@ -197,26 +195,26 @@ class UserChallengeSync:
         return {"updated": result.modified_count}
 
     async def _count_user_challenges(self, user_id: ObjectId) -> int:
-        """Compter le total des UserChallenges pour un utilisateur.
+        """Count the total number of UserChallenges for a user.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
+            user_id: User identifier.
 
         Returns:
-            int: Nombre total de UserChallenges.
+            int: Total number of UserChallenges.
         """
         coll_ucs = self.db.user_challenges
         return await coll_ucs.count_documents({"user_id": user_id})
 
     async def reset_user_challenge_status(self, user_id: ObjectId, uc_id: ObjectId) -> bool:
-        """Remettre un UserChallenge à son état par défaut.
+        """Reset a UserChallenge to its default state.
 
         Args:
-            user_id: Identifiant de l'utilisateur.
-            uc_id: Identifiant du UserChallenge.
+            user_id: User identifier.
+            uc_id: UserChallenge identifier.
 
         Returns:
-            bool: True si la remise à zéro a réussi.
+            bool: True if the reset succeeded.
         """
         coll_ucs = self.db.user_challenges
         now = utcnow()
