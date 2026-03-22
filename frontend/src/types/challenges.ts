@@ -89,5 +89,6 @@ export interface CalendarResult {
 // Types for GPX import response
 export interface ImportResponse {
   summary: Record<string, number | string>
-  challenge_stats?: Record<string, number | string>
+  challenges_stats?: Record<string, number | string>
+  sync_stats?: Record<string, number | string>
 }

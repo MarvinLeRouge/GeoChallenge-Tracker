@@ -139,7 +139,7 @@
         </div>
 
         <div
-          v-if="result.challenge_stats"
+          v-if="result.challenges_stats"
           class="rounded border p-3"
         >
           <h3 class="text-sm font-medium mb-2">
@@ -147,7 +147,7 @@
           </h3>
           <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
             <template
-              v-for="(val, key) in result.challenge_stats"
+              v-for="(val, key) in result.challenges_stats"
               :key="key"
             >
               <dt class="text-gray-500 capitalize">
@@ -162,14 +162,24 @@
 
     <!-- Résultats sync -->
     <div
-      v-if="sync"
+      v-if="result?.sync_stats"
       class="space-y-2"
     >
       <h2 class="text-lg font-semibold">
         Synchronisation de vos challenges
       </h2>
       <div class="rounded border p-3">
-        <pre class="text-xs overflow-auto">{{ sync }}</pre>
+        <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
+          <template
+            v-for="(val, key) in result.sync_stats"
+            :key="key"
+          >
+            <dt class="text-gray-500 capitalize">
+              {{ pretty(key) }}
+            </dt>
+            <dd>{{ val }}</dd>
+          </template>
+        </dl>
       </div>
     </div>
   </section>
@@ -179,7 +189,7 @@
 import { ref } from 'vue'
 import { toast } from 'vue-sonner'
 import api from '@/api/http'
-import type { ChallengeSyncStats, ImportResponse } from '@/types/challenges'
+import type { ImportResponse } from '@/types/challenges'
 import { isAxiosError } from 'axios'
 
 const file = ref<File | null>(null)
@@ -189,7 +199,6 @@ const loading = ref(false)
 const progress = ref(0)
 const error = ref('')
 const result = ref<ImportResponse | null>(null)
-const sync = ref<ChallengeSyncStats | null>(null)
 
 function onPick(e: Event) {
   const input = e.target as HTMLInputElement
@@ -206,7 +215,6 @@ async function submit() {
   progress.value = 0
   error.value = ''
   result.value = null
-  sync.value = null
 
   try {
     const fd = new FormData()
@@ -231,18 +239,6 @@ async function submit() {
 
     result.value = data
     toast.success('GPX importé', { description: 'Vos données ont été mises à jour.' })
-
-    // Sync challenges (manuel côté front)
-    try {
-      const { data: s } = await api.post<ChallengeSyncStats>('/my/challenges/sync')
-      sync.value = s
-      toast.success('Challenges synchronisés')
-    } catch (e: unknown) {
-      const description = isAxiosError(e)
-        ? ((e.response?.data as { detail?: string } | undefined)?.detail ?? 'Impossible de synchroniser.')
-        : 'Impossible de synchroniser.'
-      toast.error('Synchronisation partielle', { description })
-    }
   } catch (e: unknown) {
     // Check if it's an Axios error with response
     if (isAxiosError(e) && e.response) {
