@@ -156,16 +156,20 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
 
     oids: list[ObjectId] = []
     if k == "type_in":
-        # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code}]
+        # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code | code}]
         for t in leaf.get("types") or []:
             oid = t.get("cache_type_doc_id")
-            if not oid and t.get("cache_type_id") is not None:
-                # numeric id not natively supported by the cache -> ignore, or add if available in cache
-                pass
-            if not oid and t.get("cache_type_code"):
-                oid = resolve_type_code(t["cache_type_code"])
             if oid:
-                oids.append(oid)
+                try:
+                    oids.append(ObjectId(str(oid)))
+                except Exception:
+                    pass
+                continue
+            type_code = t.get("cache_type_code") or t.get("code")
+            if type_code:
+                resolved = resolve_type_code(type_code)
+                if resolved:
+                    oids.append(resolved)
 
         # 2) legacy: codes: ["wherigo", ...]
         for code in leaf.get("codes") or []:
@@ -188,12 +192,21 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
         # 1) canonique: sizes: [{cache_size_doc_id | cache_size_id | code | name}]
         for s in leaf.get("sizes") or []:
             oid = s.get("cache_size_doc_id")
-            if not oid and s.get("code"):
-                oid = resolve_size_code(s["code"])
-            if not oid and s.get("name"):
-                oid = resolve_size_name(s["name"])
             if oid:
-                oids.append(ObjectId(str(oid)))
+                try:
+                    oids.append(ObjectId(str(oid)))
+                except Exception:
+                    pass
+                continue
+            if s.get("code"):
+                resolved = resolve_size_code(s["code"])
+                if resolved:
+                    oids.append(ObjectId(str(resolved)))
+                    continue
+            if s.get("name"):
+                resolved = resolve_size_name(s["name"])
+                if resolved:
+                    oids.append(ObjectId(str(resolved)))
 
         # 2) legacy: codes: ["micro", ...]
         for code in leaf.get("codes") or []:
@@ -288,10 +301,6 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
         for a in attrs:
             is_pos = bool(a.get("is_positive", True))
             attr_oid = a.get("cache_attribute_doc_id") or a.get("attribute_doc_id")
-            if not attr_oid and a.get("cache_attribute_id") is not None:
-                # cache also returns the numeric id via resolve_attribute_code(code) if needed;
-                # here we stay doc_id only
-                pass
             if not attr_oid and a.get("code"):
                 res = resolve_attribute_code(a["code"])
                 attr_oid = res[0] if res else None

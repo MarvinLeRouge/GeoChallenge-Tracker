@@ -77,13 +77,12 @@ class TaskExpressionNormalizer:
                     new_types = []
                     for t in node["types"]:
                         t = dict(t)
-                        if t.get("cache_type_code") and not t.get("cache_type_doc_id"):
-                            found = resolve_type_code(
-                                t["cache_type_code"]
-                            )  # returns the OID of the type doc
+                        type_code = t.get("cache_type_code") or t.get("code")
+                        if type_code and not t.get("cache_type_doc_id"):
+                            found = resolve_type_code(type_code)
                             if not found:
                                 raise ValueError(
-                                    f"index {index_for_errors}: type code not found '{t['cache_type_code']}'"
+                                    f"index {index_for_errors}: type code not found '{type_code}'"
                                 )
                             t["cache_type_doc_id"] = found
                         new_types.append(t)

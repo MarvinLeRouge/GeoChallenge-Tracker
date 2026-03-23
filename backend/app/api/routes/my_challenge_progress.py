@@ -63,7 +63,7 @@ async def get_progress_route(
     Returns:
         ProgressGetResponse: Latest snapshot and mini-history.
     """
-    out = get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
+    out = await get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
     if out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
     return out
@@ -109,7 +109,7 @@ async def evaluate_progress_route(
     if user.id is None:
         raise HTTPException(status_code=400, detail="User ID manquant")
 
-    doc = evaluate_progress(user_id=user.id, uc_id=ObjectId(str(uc_id)), force=force)
+    doc = await evaluate_progress(user_id=user.id, uc_id=ObjectId(str(uc_id)), force=force)
     return doc
 
 
@@ -152,7 +152,7 @@ async def evaluate_new_progress_route(
     """
     if payload is None:
         payload = EvaluateNewPayload()
-    res = evaluate_new_progress(
+    res = await evaluate_new_progress(
         user_id,
         include_pending=payload.include_pending,
         limit=payload.limit,
