@@ -69,8 +69,7 @@ class TestSettingsLoading:
             test="test",
         )
 
-        # app_name default is "GeoChallenge Tracker" (from actual settings)
-        assert settings.app_name == "GeoChallenge Tracker"
+        assert settings.app_name == "GeoChallenge"
 
     def test_settings_environment_default(self):
         """Test default environment value."""
