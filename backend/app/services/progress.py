@@ -160,6 +160,42 @@ async def _aggregate_total(
         pipeline.append({"$match": {"$and": conds}})
 
     k = spec["kind"]
+
+    if k == "distinct_countries":
+        pipeline += [
+            {"$group": {"_id": "$cache.country_id"}},
+            {"$count": "total"},
+        ]
+        cursor = fc.aggregate(pipeline, allowDiskUse=False)
+        rows = await cursor.to_list(length=None)
+        return int(rows[0]["total"]) if rows else 0
+
+    if k == "dt_matrix":
+        max_d = float(spec.get("max_difficulty", 5.0))
+        max_t = float(spec.get("max_terrain", 5.0))
+        d_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_d - 1.0) / 0.5) + 1)]
+        t_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_t - 1.0) / 0.5) + 1)]
+        pipeline += [
+            {
+                "$group": {
+                    "_id": {
+                        "d": "$cache.difficulty",
+                        "t": "$cache.terrain",
+                    }
+                }
+            },
+        ]
+        cursor = fc.aggregate(pipeline, allowDiskUse=False)
+        rows = await cursor.to_list(length=None)
+        found_cells: set[tuple[float, float]] = set()
+        for r in rows:
+            d = r["_id"].get("d")
+            t = r["_id"].get("t")
+            if d is not None and t is not None:
+                found_cells.add((round(float(d), 1), round(float(t), 1)))
+        covered = sum(1 for d in d_values for t in t_values if (d, t) in found_cells)
+        return covered
+
     if k == "difficulty":
         score_expr = {"$ifNull": ["$cache.difficulty", 0]}
     elif k == "terrain":
@@ -320,22 +356,8 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
                 # base percent on min_count
                 bounded = min(current, min_count) if min_count > 0 else current
                 count_percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
-                new_status = "done" if current >= min_count else status
-                task_id = t["_id"]
-                t["status"] = new_status
-                if status != "done":
-                    await coll_uctasks.update_one(
-                        {"_id": task_id},
-                        {
-                            "$set": {
-                                "status": new_status,
-                                "last_evaluated_at": utcnow(),
-                                "updated_at": utcnow(),
-                            }
-                        },
-                    )
 
-                # aggregate handling
+                # aggregate handling (computed before status so it can influence new_status)
                 aggregate_total = None
                 aggregate_target = None
                 aggregate_percent = None
@@ -353,8 +375,38 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
                         )
                     else:
                         aggregate_percent = None
-                    # unit: altitude -> meters, otherwise points
-                    aggregate_unit = "meters" if agg_spec.get("kind") == "altitude" else "points"
+                    agg_kind = agg_spec.get("kind")
+                    if agg_kind == "altitude":
+                        aggregate_unit = "meters"
+                    elif agg_kind == "distinct_countries":
+                        aggregate_unit = "countries"
+                    elif agg_kind == "dt_matrix":
+                        aggregate_unit = "cells"
+                    else:
+                        aggregate_unit = "points"
+
+                # determine task status: count must meet min_count (if set) AND
+                # aggregate must meet its target (if set) — handles pure-aggregate tasks
+                count_ok = (min_count == 0) or (current >= min_count)
+                agg_ok = (
+                    (not agg_spec)
+                    or (not aggregate_target)
+                    or (aggregate_total is not None and aggregate_total >= aggregate_target)
+                )
+                new_status = "done" if (count_ok and agg_ok) else status
+                task_id = t["_id"]
+                t["status"] = new_status
+                if status != "done":
+                    await coll_uctasks.update_one(
+                        {"_id": task_id},
+                        {
+                            "$set": {
+                                "status": new_status,
+                                "last_evaluated_at": utcnow(),
+                                "updated_at": utcnow(),
+                            }
+                        },
+                    )
 
                 # final percent rule (MVP):
                 # - if both count & aggregate constraints exist -> percent = min(count_percent, aggregate_percent)

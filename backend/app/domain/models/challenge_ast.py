@@ -198,6 +198,29 @@ class RuleAggSumAltitudeAtLeast(ASTBase):
     min_total: int = Field(ge=1)
 
 
+class RuleAggCountDistinctCountriesAtLeast(ASTBase):
+    """Aggregate rule: count of distinct countries visited ≥ min_total."""
+
+    kind: Literal["aggregate_count_distinct_countries_at_least"] = (
+        "aggregate_count_distinct_countries_at_least"
+    )
+    min_total: int = Field(ge=1)
+
+
+class RuleAggDtMatrixComplete(ASTBase):
+    """Aggregate rule: full D×T matrix covered up to max_difficulty / max_terrain.
+
+    Description:
+        The target is automatically derived as the number of 0.5-step cells
+        in [1.0, max_difficulty] × [1.0, max_terrain]. The task is complete
+        when at least one qualifying cache has been found for every cell.
+    """
+
+    kind: Literal["aggregate_dt_matrix_complete"] = "aggregate_dt_matrix_complete"
+    max_difficulty: float = Field(ge=1.0, le=5.0)
+    max_terrain: float = Field(ge=1.0, le=5.0)
+
+
 TaskLeaf = Union[
     RuleTypeIn,
     RuleSizeIn,
@@ -213,6 +236,8 @@ TaskLeaf = Union[
     RuleAggSumTerrainAtLeast,
     RuleAggSumDiffPlusTerrAtLeast,
     RuleAggSumAltitudeAtLeast,
+    RuleAggCountDistinctCountriesAtLeast,
+    RuleAggDtMatrixComplete,
 ]
 
 
@@ -296,6 +321,8 @@ _RULE_KINDS = {
     "aggregate_sum_terrain_at_least",
     "aggregate_sum_diff_plus_terr_at_least",
     "aggregate_sum_altitude_at_least",
+    "aggregate_count_distinct_countries_at_least",
+    "aggregate_dt_matrix_complete",
 }
 
 

@@ -187,4 +187,6 @@ class TaskExpressionCompiler:
             "aggregate_sum_terrain_at_least",
             "aggregate_sum_diff_plus_terr_at_least",
             "aggregate_sum_altitude_at_least",
+            "aggregate_count_distinct_countries_at_least",
+            "aggregate_dt_matrix_complete",
         )
