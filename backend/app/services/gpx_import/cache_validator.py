@@ -99,9 +99,7 @@ class CacheValidator:
         lon = cache_data.get("lon")
 
         if lat is None or lon is None:
-            if self.strict_mode:
-                raise ValueError("Missing coordinates")
-            return
+            raise ValueError("Missing coordinates (lat/lon required)")
 
         # Type validation
         if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):

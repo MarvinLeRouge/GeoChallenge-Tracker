@@ -13,6 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.logging_config import get_loggers
 from app.services.elevation_retrieval import fetch as fetch_elevations
 from app.services.parsers.MultiFormatGPXParser import MultiFormatGPXParser
+from app.services.providers import geocoding_nominatim
 
 from .cache_persister import CachePersister
 from .cache_validator import CacheValidator
@@ -121,12 +122,19 @@ class GpxImportService:
 
             stats["nb_total_items"] = len(caches_data)
 
-            # Step 4: Elevation enrichment (optional)
+            # Step 4: Geocoding fallback for caches missing country/state
+            if caches_data:
+                logger_import.info(
+                    "Geocoding fallback for caches without country", extra={"step": "geocoding"}
+                )
+                await self._enrich_with_geocoding(caches_data)
+
+            # Step 5: Elevation enrichment (optional)
             if fetch_elevation and caches_data:
                 logger_import.info("Fetching elevation data", extra={"step": "elevation"})
                 await self._enrich_with_elevation(caches_data)
 
-            # Step 5: Cache persistence (all modes unless empty)
+            # Step 6: Cache persistence (all modes unless empty)
             if caches_data and import_mode in ["both", "all", "found"]:
                 cache_stats = await self.cache_persister.persist_caches(
                     caches_data, force_update_attributes=force_update_attributes
@@ -134,7 +142,7 @@ class GpxImportService:
                 stats["nb_inserted_caches"] = cache_stats["inserted"]
                 stats["nb_existing_caches"] = cache_stats["updated"]
 
-            # Step 6: Found cache persistence (only for applicable modes)
+            # Step 7: Found cache persistence (only for applicable modes)
             if found_caches_data and import_mode in ["both", "found"] and user_id:
                 logger_import.info("Persisting found caches", extra={"step": "found_persistence"})
                 found_stats = await self.cache_persister.persist_found_caches(
@@ -143,7 +151,7 @@ class GpxImportService:
                 stats["nb_inserted_found_caches"] = found_stats["inserted"]
                 stats["nb_updated_found_caches"] = found_stats["updated"]
 
-            # Step 7: Compute new referential counts
+            # Step 8: Compute new referential counts
             ref_counts_after = await self.cache_persister.get_referential_counts()
             stats["nb_new_countries"] = ref_counts_after.get(
                 "countries", 0
@@ -363,6 +371,61 @@ class GpxImportService:
         except Exception as e:
             logger_import.warning(f"Elevation fetch failed: {e}")
             # Continue without elevation on error
+
+    async def _enrich_with_geocoding(self, caches_data: list[dict[str, Any]]) -> None:
+        """Enrich caches missing country/state via Nominatim reverse geocoding.
+
+        Description:
+            Collects caches that have valid coordinates but no country_id (e.g. GPX
+            exported without groundspeak:country/state fields), batch-geocodes them
+            via Nominatim, then resolves or creates the corresponding referential
+            entries (country, state).
+
+        Args:
+            caches_data: List of cache data dicts (mutated in place).
+        """
+        candidates = [
+            (i, c)
+            for i, c in enumerate(caches_data)
+            if c.get("lat") is not None and c.get("lon") is not None and c.get("country_id") is None
+        ]
+
+        if not candidates:
+            return
+
+        logger_import.info(
+            "Nominatim geocoding fallback for %d caches without country", len(candidates)
+        )
+
+        points = [(float(c["lat"]), float(c["lon"])) for _, c in candidates]
+        geo_results, http_stats = await geocoding_nominatim.fetch_batch(points)
+
+        resolved = failed = 0
+        for (idx, _cache_data), geo in zip(candidates, geo_results):
+            if geo is None:
+                failed += 1
+                continue
+
+            country_name, state_name = geo
+            country_id, state_id = await self.referential_mapper.ensure_country_and_state(
+                country_name, state_name
+            )
+
+            if country_id is None:
+                failed += 1
+                continue
+
+            caches_data[idx]["country_id"] = country_id
+            if state_id is not None:
+                caches_data[idx]["state_id"] = state_id
+            resolved += 1
+
+        logger_import.info(
+            "Nominatim geocoding done — resolved=%d failed=%d http_stats=%s",
+            resolved,
+            failed,
+            http_stats,
+        )
 
     async def get_import_statistics(self, user_id: ObjectId | None = None) -> dict[str, Any]:
         """Retrieve import statistics for a user.
