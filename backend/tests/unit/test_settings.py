@@ -43,33 +43,8 @@ class TestSettingsLoading:
         assert isinstance(settings.environment, str)
 
     def test_settings_app_name_default(self):
-        """Test default app_name value."""
-        # Create settings with minimal required fields
-        settings = Settings(
-            mongodb_user="test",
-            mongodb_password="test",
-            mongodb_uri_tpl="mongodb://test",
-            mongodb_db="test",
-            jwt_secret_key="test",
-            admin_username="test",
-            admin_email="test@example.com",
-            admin_password="test",
-            mail_from="test@example.com",
-            smtp_host="localhost",
-            smtp_port=25,
-            smtp_username="test",
-            smtp_password="test",
-            elevation_provider="test",
-            elevation_provider_endpoint="http://test.com",
-            elevation_provider_max_points_per_req=100,
-            elevation_provider_rate_delay_s=1,
-            elevation_enabled=True,
-            one_mb=1048576,
-            max_upload_mb=20,
-            test="test",
-        )
-
-        assert settings.app_name == "GeoChallenge"
+        """Test default app_name value on the model field (not resolved from env)."""
+        assert Settings.model_fields["app_name"].default == "GeoChallenge"
 
     def test_settings_environment_default(self):
         """Test default environment value."""
