@@ -4,6 +4,7 @@
 from .auth import router as auth_router
 from .caches import router as caches_router
 from .caches_elevation import router as caches_elevation_router
+from .caches_geocoding import router as caches_geocoding_router
 from .challenges import router as challenges_router
 from .maintenance import router as maintenance_router
 from .meta import router as health_router
@@ -21,6 +22,7 @@ routers = [
     auth_router,
     caches_router,
     caches_elevation_router,
+    caches_geocoding_router,
     challenges_router,
     my_challenges_router,
     my_challenge_tasks_router,
