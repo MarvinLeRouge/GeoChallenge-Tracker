@@ -50,8 +50,8 @@ class TestCacheValidator:
         cache_data = {
             "GC": "GC12345",
             "title": "Test Cache",
-            "latitude": 48.8566,
-            "longitude": 2.3522,
+            "lat": 48.8566,
+            "lon": 2.3522,
             "difficulty": 2.5,
             "terrain": 3.0,
             "owner": "TestOwner",
@@ -97,7 +97,7 @@ class TestCacheValidator:
         """Test validation in non-strict mode auto-generates title."""
         validator = CacheValidator(strict_mode=False)
 
-        cache_data = {"GC": "GC12345", "latitude": 48.8566, "longitude": 2.3522}
+        cache_data = {"GC": "GC12345", "lat": 48.8566, "lon": 2.3522}
 
         validated = validator.validate_cache_data(cache_data)
 
@@ -110,8 +110,8 @@ class TestCacheValidator:
         cache_data = {
             "GC": "GC12345",
             "title": "Test Cache",
-            "latitude": 48.8566,
-            "longitude": 2.3522,
+            "lat": 48.8566,
+            "lon": 2.3522,
             "difficulty": 6.0,  # Max is 5.0
             "terrain": 3.0,
             "owner": "TestOwner",
@@ -127,8 +127,8 @@ class TestCacheValidator:
         cache_data = {
             "GC": "GC12345",
             "title": "Test Cache",
-            "latitude": 48.8566,
-            "longitude": 2.3522,
+            "lat": 48.8566,
+            "lon": 2.3522,
             "difficulty": 2.5,
             "terrain": 0.0,  # Min is 0.5
             "owner": "TestOwner",

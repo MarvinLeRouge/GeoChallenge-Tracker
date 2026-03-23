@@ -1,5 +1,6 @@
 """Tests for Logging configuration (unit tests - no DB required)."""
 
+import logging
 from unittest.mock import patch
 
 from app.core.logging_config import (
@@ -9,13 +10,19 @@ from app.core.logging_config import (
     setup_logging,
 )
 
+_STREAM_HANDLER_PATCH = patch(
+    "logging.handlers.TimedRotatingFileHandler",
+    side_effect=lambda filename, **kwargs: logging.StreamHandler(),
+)
+
 
 class TestSetupLogging:
     """Test setup_logging function."""
 
     def test_setup_logging_creates_loggers(self):
         """Test that setup_logging creates three loggers."""
-        generic_logger, error_logger, data_logger = setup_logging()
+        with _STREAM_HANDLER_PATCH:
+            generic_logger, error_logger, data_logger = setup_logging()
 
         assert generic_logger is not None
         assert error_logger is not None
@@ -23,24 +30,24 @@ class TestSetupLogging:
 
     def test_setup_logging_generic_logger_name(self):
         """Test generic logger has correct name."""
-        generic_logger, _, _ = setup_logging()
+        with _STREAM_HANDLER_PATCH:
+            generic_logger, _, _ = setup_logging()
 
         assert generic_logger.name == "geocaching.generic"
 
     def test_setup_logging_error_logger_name(self):
         """Test error logger has correct name."""
-        _, error_logger, _ = setup_logging()
+        with _STREAM_HANDLER_PATCH:
+            _, error_logger, _ = setup_logging()
 
         assert error_logger.name == "geocaching.errors"
 
     def test_setup_logging_creates_log_directory(self, tmp_path):
         """Test that setup_logging creates logs directory."""
-        test_logs_dir = tmp_path / "test_logs"
-
-        with patch("app.core.logging_config.Path", return_value=test_logs_dir):
+        with _STREAM_HANDLER_PATCH, patch("app.core.logging_config.Path", return_value=tmp_path):
             setup_logging()
 
-        assert test_logs_dir.exists()
+        assert tmp_path.exists()
 
 
 class TestGetLoggers:
