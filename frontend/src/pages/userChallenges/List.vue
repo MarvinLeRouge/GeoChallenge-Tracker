@@ -73,13 +73,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch, ref } from ‘vue’
-import api from ‘@/api/http’
-import { useRouter, useRoute } from ‘vue-router’
-import UserChallengeCard from ‘@/components/userChallenges/UserChallengeCard.vue’
-import { useChallengesStore } from ‘@/store/challenges’
-import { useApiErrorHandler } from ‘@/composables/useApiErrorHandler’
-import type { UserChallengeListItem } from ‘@/types/challenges’
+import { computed, onMounted, watch, ref } from 'vue'
+import api from '@/api/http'
+import { useRouter, useRoute } from 'vue-router'
+import UserChallengeCard from '@/components/userChallenges/UserChallengeCard.vue'
+import { useChallengesStore } from '@/store/challenges'
+import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
+import type { UserChallengeListItem } from '@/types/challenges'
 
 import {
     CheckCircleIcon,
@@ -87,17 +87,17 @@ import {
     ClockIcon,
     TrophyIcon,
     AdjustmentsHorizontalIcon,
-} from ‘@heroicons/vue/24/outline’
+} from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const route = useRoute()
 const { handleApiError } = useApiErrorHandler()
 const store = useChallengesStore()
 
-type UCStatus = UserChallengeListItem[‘status’]
+type UCStatus = UserChallengeListItem['status']
 
-const filterStatus = ref<’all’ | UCStatus>(
-    (route.query.status as ‘all’ | UCStatus) || ‘all’
+const filterStatus = ref<'all' | UCStatus>(
+    (route.query.status as 'all' | UCStatus) || 'all'
 )
 store.page = route.query.page ? parseInt(route.query.page as string, 10) : 1
 
@@ -108,18 +108,18 @@ const statusIcons: Record<UCStatus, unknown> = {
     completed: TrophyIcon,
 }
 const statusLabels: Record<string, string> = {
-    all: ‘Tous’,
-    pending: ‘En attente’,
-    accepted: ‘Acceptés’,
-    dismissed: ‘Refusés’,
-    completed: ‘Complétés’,
+    all: 'Tous',
+    pending: 'En attente',
+    accepted: 'Acceptés',
+    dismissed: 'Refusés',
+    completed: 'Complétés',
 }
 const canPrev = computed(() => store.page > 1)
 const canNext = computed(() => store.page < store.nbPages && store.nbPages > 0)
 
 function updateUrl() {
     const query: Record<string, string> = {}
-    if (filterStatus.value !== ‘all’) query.status = filterStatus.value
+    if (filterStatus.value !== 'all') query.status = filterStatus.value
     if (store.page > 1) query.page = store.page.toString()
     router.replace({ query })
 }
@@ -131,7 +131,7 @@ watch([filterStatus, () => store.page], () => {
 
 onMounted(() => store.fetchList(filterStatus.value))
 
-function setFilter(status: ‘all’ | UCStatus) {
+function setFilter(status: 'all' | UCStatus) {
     if (filterStatus.value === status) return
     filterStatus.value = status
     store.page = 1
@@ -141,7 +141,7 @@ function prevPage() { if (canPrev.value) store.page -= 1 }
 function nextPage() { if (canNext.value) store.page += 1 }
 
 function showDetails(ch: UserChallengeListItem) {
-    router.push({ name: ‘userChallengeDetails’, params: { id: ch.id } })
+    router.push({ name: 'userChallengeDetails', params: { id: ch.id } })
 }
 
 async function patchChallenge(ch: UserChallengeListItem, status: UCStatus) {
@@ -157,11 +157,11 @@ async function patchChallenge(ch: UserChallengeListItem, status: UCStatus) {
     }
 }
 
-function acceptChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘accepted’) }
-function dismissChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘dismissed’) }
-function resetChallenge(ch: UserChallengeListItem) { patchChallenge(ch, ‘pending’) }
+function acceptChallenge(ch: UserChallengeListItem) { patchChallenge(ch, 'accepted') }
+function dismissChallenge(ch: UserChallengeListItem) { patchChallenge(ch, 'dismissed') }
+function resetChallenge(ch: UserChallengeListItem) { patchChallenge(ch, 'pending') }
 
 function manageTasks(ch: UserChallengeListItem) {
-    router.push({ name: ‘userChallengeTasks’, params: { id: ch.id } })
+    router.push({ name: 'userChallengeTasks', params: { id: ch.id } })
 }
 </script>
