@@ -43,6 +43,19 @@ jobs:
       JWT_SECRET_KEY: ci-test-secret-key-for-unit-tests-only
       ADMIN_USERNAME: admin
       ADMIN_EMAIL: admin@ci.local
+      ADMIN_PASSWORD: ci-admin-password
+      MAIL_FROM: ci@ci.local
+      SMTP_HOST: localhost
+      SMTP_PORT: 25
+      SMTP_USERNAME: ci
+      SMTP_PASSWORD: ci
+      ELEVATION_PROVIDER: open-elevation
+      ELEVATION_PROVIDER_ENDPOINT: http://localhost:8080
+      ELEVATION_PROVIDER_MAX_POINTS_PER_REQ: 100
+      ELEVATION_PROVIDER_RATE_DELAY_S: 1
+      ELEVATION_ENABLED: false
+      ONE_MB: 1048576
+      MAX_UPLOAD_MB: 50
       ENVIRONMENT: development
 
     steps:
