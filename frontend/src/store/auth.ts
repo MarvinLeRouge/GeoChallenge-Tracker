@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import api from '@/api/http'
-import { isAxiosError } from 'axios'
 import type { Me, ProfileBaseApi, UserLocation, TokenResponse, LoginPayload } from '@/types/auth'
 import { mapProfileBase } from '@/utils/auth'
 

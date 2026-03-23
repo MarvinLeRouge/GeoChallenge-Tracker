@@ -14,10 +14,12 @@
       <summary class="cursor-pointer text-sm text-blue-600 hover:underline">
         Voir la description
       </summary>
+      <!-- eslint-disable vue/no-v-html -->
       <div
         class="prose prose-sm max-w-none mt-2"
         v-html="safeDescription"
       />
+      <!-- eslint-enable vue/no-v-html -->
     </details>
   </div>
   <div class="p-4 space-y-4">
@@ -161,16 +163,20 @@ import {
     ClipboardDocumentCheckIcon, // validate
     ArrowUpOnSquareIcon,        // save
 } from '@heroicons/vue/24/outline'
-import { inject } from 'vue'
+import { inject, type Ref } from 'vue'
 import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid'
-const toast = inject<any>('toast')
+import type { ToastArgs } from '@/components/BaseToast.vue'
+import type { Component } from 'vue'
 
-type TaskExpr = any
+type ToastInstance = { showToast: (args: ToastArgs, iconComp?: Component, duration?: number) => void }
+const toast = inject<Ref<ToastInstance | null>>('toast')
+
+type TaskExpr = unknown
 type Task = {
     id?: string
     title: string
     expression: TaskExpr | null
-    constraints: Record<string, any>
+    constraints: Record<string, unknown>
     status?: string | null
 }
 
@@ -179,13 +185,6 @@ type TaskUI = Task & {
     expression_json: string     // texte du textarea
     min_count: number | null    // pour constraints.min_count
 }
-
-type ProgressRes = {
-    evaluated_count: number
-    skipped_count: number
-    uc_ids: string[]
-}
-
 
 const tasks = ref<TaskUI[]>([])
 
@@ -196,7 +195,6 @@ const { uc, safeDescription, fetchDetail } = useUserChallenge(ucId)
 
 const loading = ref(false)
 const error = ref<string | null>(null)
-const rawMode = ref(false) // bascule JSON brut pour expression
 
 async function fetchTasks() {
     loading.value = true
@@ -215,8 +213,8 @@ async function fetchTasks() {
                 constraints: t.constraints ?? {},
             }
         })
-    } catch (e: any) {
-        error.value = e?.message ?? 'Erreur de chargement'
+    } catch (e: unknown) {
+        error.value = e instanceof Error ? e.message : 'Erreur de chargement'
     } finally {
         loading.value = false
     }
@@ -243,7 +241,7 @@ function removeTask(i: number) {
 
 function buildPayload() {
     const out = tasks.value.map((t, i) => {
-        let parsed: any = null
+        let parsed: unknown = null
         // tenter de parser le JSON tapé
         try {
             parsed = t.expression_json ? JSON.parse(t.expression_json) : null
@@ -262,7 +260,7 @@ function buildPayload() {
     return { tasks: out }
 }
 
-function mapServerTasksToUI(serverTasks: any[]) {
+function mapServerTasksToUI(serverTasks: Task[]) {
     return (serverTasks ?? []).map((t) => {
         const exprStr = t.expression ? JSON.stringify(t.expression, null, 2) : ''
         const minCount = typeof t.constraints?.min_count === 'number' ? t.constraints.min_count : null
@@ -282,8 +280,9 @@ async function validateAll() {
         const payload = buildPayload()
         await api.post(`/my/challenges/${ucId}/tasks/validate`, payload)
         toast?.value?.showToast('Validation réussie', CheckCircleIcon)
-    } catch (e: any) {
-        error.value = e?.response?.data?.detail ?? e?.message ?? 'Validation invalide'
+    } catch (e: unknown) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        error.value = detail ?? (e instanceof Error ? e.message : 'Validation invalide')
         toast?.value?.showToast('Erreur de validation', ExclamationTriangleIcon)
     } finally {
         loading.value = false
@@ -313,8 +312,9 @@ async function saveAll() {
         //const msg = `Progrès recalculé: évalués ${progress.evaluated_count}, ignorés ${progress.skipped_count}`
         //toast?.value?.showToast(`Tâches enregistrées — ${msg}`, CheckCircleIcon)
 
-    } catch (e: any) {
-        error.value = e?.response?.data?.detail ?? e?.message ?? 'Erreur enregistrement'
+    } catch (e: unknown) {
+        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        error.value = detail ?? (e instanceof Error ? e.message : 'Erreur enregistrement')
     } finally {
         loading.value = false
     }

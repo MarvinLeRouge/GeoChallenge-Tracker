@@ -18,3 +18,17 @@ repos:
         language: system
         pass_filenames: false
         files: ^backend/
+
+      - id: eslint-frontend
+        name: eslint (frontend)
+        entry: bash -c "cd frontend && npm run lint"
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(ts|tsx|vue|js|jsx)$
+
+      - id: vue-tsc-frontend
+        name: vue-tsc (frontend)
+        entry: bash -c "cd frontend && npm run typecheck"
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(ts|tsx|vue)$

@@ -1,20 +1,20 @@
 // src/composables/useFormValidation.ts
-import { ref, reactive, computed } from 'vue';
+import { reactive, computed } from 'vue';
 
 export interface ValidationRule {
-  validate: (value: any) => boolean | Promise<boolean>;
+  validate: (value: unknown) => boolean | Promise<boolean>;
   message: string;
 }
 
 export interface FieldState {
-  value: any;
+  value: unknown;
   errors: string[];
   isValid: boolean;
   isDirty: boolean;
   isTouched: boolean;
 }
 
-export function useFormValidation(initialValues: Record<string, any> = {}) {
+export function useFormValidation(initialValues: Record<string, unknown> = {}) {
   const fields = reactive<Record<string, FieldState>>({});
   
   // Initialize fields with initial values
@@ -28,7 +28,7 @@ export function useFormValidation(initialValues: Record<string, any> = {}) {
     };
   });
 
-  const addField = (name: string, initialValue: any = null) => {
+  const addField = (name: string, initialValue: unknown = null) => {
     fields[name] = {
       value: initialValue,
       errors: [],
@@ -38,7 +38,7 @@ export function useFormValidation(initialValues: Record<string, any> = {}) {
     };
   };
 
-  const setFieldValue = (name: string, value: any) => {
+  const setFieldValue = (name: string, value: unknown) => {
     if (!fields[name]) {
       addField(name, value);
     }
