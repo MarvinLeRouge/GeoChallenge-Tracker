@@ -99,17 +99,36 @@ def _extract_aggregate_spec(
             "aggregate_sum_terrain_at_least",
             "aggregate_sum_diff_plus_terr_at_least",
             "aggregate_sum_altitude_at_least",
+            "aggregate_count_distinct_countries_at_least",
+            "aggregate_dt_matrix_complete",
         ):
-            if agg is None and lf.get("min_total") is not None:
-                mt = int(lf["min_total"])
-                if k == "aggregate_sum_difficulty_at_least":
-                    agg = {"kind": "difficulty", "min_total": mt}
-                elif k == "aggregate_sum_terrain_at_least":
-                    agg = {"kind": "terrain", "min_total": mt}
-                elif k == "aggregate_sum_diff_plus_terr_at_least":
-                    agg = {"kind": "diff_plus_terr", "min_total": mt}
-                elif k == "aggregate_sum_altitude_at_least":
-                    agg = {"kind": "altitude", "min_total": mt}
+            if agg is None:
+                if k == "aggregate_sum_difficulty_at_least" and lf.get("min_total") is not None:
+                    agg = {"kind": "difficulty", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_sum_terrain_at_least" and lf.get("min_total") is not None:
+                    agg = {"kind": "terrain", "min_total": int(lf["min_total"])}
+                elif (
+                    k == "aggregate_sum_diff_plus_terr_at_least" and lf.get("min_total") is not None
+                ):
+                    agg = {"kind": "diff_plus_terr", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_sum_altitude_at_least" and lf.get("min_total") is not None:
+                    agg = {"kind": "altitude", "min_total": int(lf["min_total"])}
+                elif (
+                    k == "aggregate_count_distinct_countries_at_least"
+                    and lf.get("min_total") is not None
+                ):
+                    agg = {"kind": "distinct_countries", "min_total": int(lf["min_total"])}
+                elif k == "aggregate_dt_matrix_complete":
+                    max_d = float(lf.get("max_difficulty", 5.0))
+                    max_t = float(lf.get("max_terrain", 5.0))
+                    n_d = round((max_d - 1.0) / 0.5) + 1
+                    n_t = round((max_t - 1.0) / 0.5) + 1
+                    agg = {
+                        "kind": "dt_matrix",
+                        "max_difficulty": max_d,
+                        "max_terrain": max_t,
+                        "min_total": n_d * n_t,
+                    }
         else:
             cache_leaves.append(lf)
     return agg, cache_leaves
