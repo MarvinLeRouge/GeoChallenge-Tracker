@@ -68,10 +68,8 @@ async def backfill_elevation(
     docs_buffer: list[dict] = []
 
     while scanned < limit:
-        cursor = (
-            coll.find(filt, {"_id": 1, "lat": 1, "lon": 1})
-            .skip(scanned)
-            .limit(min(page_size, limit - scanned))
+        cursor = coll.find(filt, {"_id": 1, "lat": 1, "lon": 1}).limit(
+            min(page_size, limit - scanned)
         )
         docs_buffer = await cursor.to_list(length=page_size)
 

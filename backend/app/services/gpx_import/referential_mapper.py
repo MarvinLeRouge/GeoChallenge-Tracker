@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import unicodedata
 from typing import Any
 
 from bson import ObjectId
@@ -104,18 +105,25 @@ class ReferentialMapper:
     def normalize_name(name: str | None) -> str:
         """Normalize a name for mapping.
 
+        Description:
+            Applies NFKD Unicode decomposition to strip diacritics (é→e, î→i, ü→u…),
+            then lowercases and removes all non-alphanumeric characters.
+            This ensures that accented and non-accented variants of the same name
+            resolve to the same key and do not create duplicate referential entries.
+
         Args:
             name: Name to normalize.
 
         Returns:
-            str: Normalized name (lowercase, alphanumeric only).
+            str: Normalized name (lowercase, ASCII alphanumeric only).
         """
         if not name:
             return ""
 
-        # Normalize: lowercase, alphanumeric only
-        normalized = re.sub(r"[^a-z0-9]", "", name.lower())
-        return normalized
+        # Decompose accented characters (NFKD), then drop combining marks
+        decomposed = unicodedata.normalize("NFKD", name)
+        ascii_only = decomposed.encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"[^a-z0-9]", "", ascii_only.lower())
 
     async def ensure_country_and_state(
         self, country_name: str | None, state_name: str | None

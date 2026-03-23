@@ -26,6 +26,7 @@ from app.api.deps import CurrentUserId, require_admin
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
+from app.services.gpx_import.referential_mapper import ReferentialMapper
 from app.services.gpx_importer_service import import_gpx_payload
 
 # Confirmation key validity duration (in minutes)
@@ -871,6 +872,69 @@ async def cleanup_expired_verifications(
 
 
 @router.get(
+    "/caches-geo-anomalies",
+    summary="Count caches with missing country_id or state_id",
+    description="Reports how many caches have null country_id and/or null state_id.",
+    dependencies=[Depends(require_admin)],
+)
+async def caches_geo_anomalies(_: Annotated[bool, Depends(require_admin)]) -> dict:
+    """Count caches with incomplete geographic data.
+
+    Returns:
+        dict: Counts for null country_id, null state_id, and both null.
+    """
+    coll = await get_collection("caches")
+
+    total = await coll.count_documents({})
+    null_country = await coll.count_documents({"country_id": None})
+    null_state = await coll.count_documents({"state_id": None})
+    null_both = await coll.count_documents({"country_id": None, "state_id": None})
+    null_country_only = await coll.count_documents({"country_id": None, "state_id": {"$ne": None}})
+    null_state_only = await coll.count_documents({"country_id": {"$ne": None}, "state_id": None})
+
+    # Sample non-AL affected caches to understand the pattern
+    sample = []
+    async for doc in coll.find(
+        {"country_id": None, "GC": {"$not": {"$regex": "^AL"}}},
+        {"GC": 1, "title": 1, "lat": 1, "lon": 1, "location_more": 1},
+    ).limit(20):
+        sample.append(
+            {
+                "GC": doc.get("GC"),
+                "title": doc.get("title"),
+                "lat": doc.get("lat"),
+                "lon": doc.get("lon"),
+                "location_more": doc.get("location_more"),
+            }
+        )
+
+    # Check how many affected caches have coordinates
+    with_coords = await coll.count_documents({"country_id": None, "lat": {"$ne": None}})
+
+    # Verify the AL-prefix hypothesis
+    null_and_al = await coll.count_documents({"country_id": None, "GC": {"$regex": "^AL"}})
+    null_and_not_al = await coll.count_documents(
+        {"country_id": None, "GC": {"$not": {"$regex": "^AL"}}}
+    )
+
+    return {
+        "total_caches": total,
+        "null_country_id": null_country,
+        "null_state_id": null_state,
+        "null_both": null_both,
+        "null_country_only": null_country_only,
+        "null_state_only": null_state_only,
+        "null_both_with_coords": with_coords,
+        "al_prefix_hypothesis": {
+            "null_and_gc_starts_with_AL": null_and_al,
+            "null_and_gc_does_not_start_with_AL": null_and_not_al,
+            "hypothesis_confirmed": null_and_not_al == 0,
+        },
+        "sample": sample,
+    }
+
+
+@router.get(
     "/snapshot",
     summary="System snapshot for a user",
     description="Returns global counts (caches, challenges) and user-specific stats (found caches, user_challenges by status).",
@@ -923,4 +987,62 @@ async def snapshot(
             "user_challenges": total_ucs,
             "user_challenges_by_computed_status": uc_by_status,
         },
+    }
+
+
+@router.get(
+    "/referentials-duplicates",
+    dependencies=[Depends(require_admin)],
+    summary="Detect duplicate countries and states (admin)",
+    description=(
+        "Loads all countries and states, computes their normalized form "
+        "(NFKD + lowercase + alphanumeric), and returns groups where multiple "
+        "documents share the same normalized key. Useful to audit the referential "
+        "after a backfill or import."
+    ),
+)
+async def referentials_duplicates(_: Request) -> dict[str, Any]:
+    """Detect duplicate country/state entries (admin).
+
+    Returns:
+        dict: Lists of duplicate groups for countries and states.
+    """
+    db = get_db()
+
+    # --- Countries ---
+    country_groups: dict[str, list[dict[str, Any]]] = {}
+    async for doc in db.countries.find({}, {"_id": 1, "name": 1}):
+        key = ReferentialMapper.normalize_name(doc.get("name"))
+        entry = {"id": str(doc["_id"]), "name": doc.get("name")}
+        country_groups.setdefault(key, []).append(entry)
+
+    duplicate_countries = [
+        {"normalized": key, "entries": entries}
+        for key, entries in country_groups.items()
+        if len(entries) > 1
+    ]
+
+    # --- States ---
+    state_groups: dict[str, list[dict[str, Any]]] = {}
+    async for doc in db.states.find({}, {"_id": 1, "name": 1, "country_id": 1}):
+        # Key includes country_id to only flag duplicates within the same country
+        key = f"{doc.get('country_id')}::{ReferentialMapper.normalize_name(doc.get('name'))}"
+        entry = {
+            "id": str(doc["_id"]),
+            "name": doc.get("name"),
+            "country_id": str(doc.get("country_id")),
+        }
+        state_groups.setdefault(key, []).append(entry)
+
+    duplicate_states = [
+        {"normalized": key, "entries": entries}
+        for key, entries in state_groups.items()
+        if len(entries) > 1
+    ]
+
+    return {
+        "duplicate_countries": duplicate_countries,
+        "nb_duplicate_country_groups": len(duplicate_countries),
+        "duplicate_states": duplicate_states,
+        "nb_duplicate_state_groups": len(duplicate_states),
     }
