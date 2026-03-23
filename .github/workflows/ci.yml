@@ -7,7 +7,7 @@ on:
     branches: ["main"]
 
 jobs:
-  lint:
+  backend-lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,3 +31,62 @@ jobs:
 
       - name: Mypy
         run: mypy backend/
+
+  backend-test:
+    runs-on: ubuntu-latest
+
+    env:
+      MONGODB_USER: ci
+      MONGODB_PASSWORD: ci
+      MONGODB_URI_TPL: "mongodb://localhost:27017"
+      MONGODB_DB: geochallenge_ci
+      JWT_SECRET_KEY: ci-test-secret-key-for-unit-tests-only
+      ADMIN_USERNAME: admin
+      ADMIN_EMAIL: admin@ci.local
+      ENVIRONMENT: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+
+      - name: Run unit tests
+        working-directory: backend
+        run: pytest tests/unit/ -v
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: ESLint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Typecheck
+        working-directory: frontend
+        run: npm run typecheck
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
