@@ -36,8 +36,8 @@
               GC: {{ uc.cache.GC }}
             </p>
             <p class="text-xs text-gray-400">
-              Créé: {{ new Date(uc.created_at).toLocaleDateString() }} · Màj:
-              {{ new Date(uc.updated_at).toLocaleDateString() }}
+              Créé: {{ uc.created_at ? new Date(uc.created_at).toLocaleDateString() : '—' }} · Màj:
+              {{ uc.updated_at ? new Date(uc.updated_at).toLocaleDateString() : '—' }}
             </p>
             <p class="text-sm mt-1">
               Statut: <span class="font-medium">{{ uc.status }}</span>
@@ -100,10 +100,12 @@
           Description
         </h2>
         <!-- Rendu HTML sanitisé -->
+        <!-- eslint-disable vue/no-v-html -->
         <div
           class="prose prose-sm max-w-none"
           v-html="safeDescription"
         />
+        <!-- eslint-enable vue/no-v-html -->
       </div>
 
       <!-- Notes & override -->
@@ -145,7 +147,6 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserChallenge } from '@/composables/useUserChallenge'
 import api from '@/api/http'
-import DOMPurify from 'dompurify'
 
 import {
     ArrowLeftIcon,
@@ -184,7 +185,6 @@ const { uc, loadingDetail: loading, errorDetail: error, safeDescription, fetchDe
 const notes = ref('')
 const overrideReason = ref('')
 
-const canAct = computed(() => uc.value && uc.value.computed_status !== 'completed')
 const canAccept = computed(() =>
     uc.value && !['accepted', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
 )
@@ -198,8 +198,8 @@ async function patchStatus(status: Detail['status']) {
     try {
         await api.patch(`/my/challenges/${uc.value.id}`, { status })
         await fetchDetail()
-    } catch (e: any) {
-        error.value = e?.message ?? 'Erreur de mise à jour'
+    } catch (e: unknown) {
+        error.value = e instanceof Error ? e.message : 'Erreur de mise à jour'
     } finally {
         loading.value = false
     }
@@ -214,8 +214,8 @@ async function saveNotes() {
             override_reason: overrideReason.value || null,
         })
         await fetchDetail()
-    } catch (e: any) {
-        error.value = e?.message ?? 'Erreur enregistrement'
+    } catch (e: unknown) {
+        error.value = e instanceof Error ? e.message : 'Erreur enregistrement'
     } finally {
         loading.value = false
     }

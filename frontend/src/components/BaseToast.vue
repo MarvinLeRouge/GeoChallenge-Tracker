@@ -35,24 +35,25 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { Component } from 'vue'
 
 const visible = ref(false)
 const title = ref<string>('')
 const body = ref<string>('')        // lignes multiples supportées via whitespace-pre-line
-const icon = ref<any>(null)
+const icon = ref<Component | null>(null)
 let timeout: number | null = null
 
-type ToastArgs =
+export type ToastArgs =
     | string
     | {
         title: string
         body?: string      // facultatif → si renseigné, affiché sous le titre (multiligne OK avec \n)
-        icon?: any
+        icon?: Component
         duration?: number  // ms
     }
 
 /** API publique */
-function showToast(args: ToastArgs, iconComp?: any, duration = 3000) {
+function showToast(args: ToastArgs, iconComp?: Component, duration = 3000) {
     // rétro-compat: showToast('texte simple', Icon)
     if (typeof args === 'string') {
         title.value = args

@@ -1,5 +1,5 @@
 // src/composables/useCalendarData.ts
-import { ref, computed, type Ref } from 'vue';
+import { computed, type Ref } from 'vue';
 import type { CalendarResult } from '@/types/challenges';
 
 export interface CalendarDay {

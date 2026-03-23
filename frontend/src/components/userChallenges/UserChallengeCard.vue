@@ -168,12 +168,12 @@ type UserChallenge = {
     computed_status: string | null
     effective_status: 'pending' | 'accepted' | 'dismissed' | 'completed'
     progress: Progress | null
-    updated_at: string
+    updated_at: string | null
     challenge: { id: string; name: string }
-    cache: { id: string; GC: string; difficulty: number; terrain: number }
+    cache: { id: string; GC: string; difficulty?: number | null; terrain?: number | null }
 }
 
-const props = defineProps<{
+defineProps<{
     challenge: UserChallenge
     zebra?: boolean
 }>()

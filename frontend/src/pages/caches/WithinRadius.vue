@@ -236,35 +236,29 @@ async function search() {
         const { data } = await api.get<ApiListResponse<CacheCompact>>('/caches/within-radius', { params: { page, lat, lon: lng, radius_km } })
         results?.clearLayers()
 
-        // AJOUT: maj pagination depuis la réponse
-        if ((data as any)?.page !== undefined) {
-            currentPage.value = (data as any).page + 1
+        if (data.page !== undefined) {
+            currentPage.value = data.page + 1
         }
-        if ((data as any)?.nb_pages !== undefined) {
-            nbPages.value = (data as any).nb_pages
+        if (data.nb_pages !== undefined) {
+            nbPages.value = data.nb_pages
         }
-        if ((data as any)?.page_size !== undefined) {
-            pageSize.value = (data as any).page_size
+        if (data.page_size !== undefined) {
+            pageSize.value = data.page_size
         }
 
         if (Array.isArray(data?.items)) {
-            // AJOUT: filtrer les nouveaux items par _id
-            const fresh = Array.isArray((data as any)?.items)
-                ? (data as any).items.filter((c: any) => {
-                    const id = c?._id
-                    if (!id) return false
-                    if (seenIds.value.has(id)) return false
-                    seenIds.value.add(id)
-                    return true
-                })
-                : []
+            const fresh = data.items.filter((c: CacheCompact) => {
+                const id = c._id
+                if (!id) return false
+                if (seenIds.value.has(id)) return false
+                seenIds.value.add(id)
+                return true
+            })
 
             fresh.forEach((c: CacheCompact) => {
-                const lat = c.lat ?? c.latitude, lon = c.lon ?? c.longitude
-                if (isFinite(lat) && isFinite(lon)) {
-                    const marker = L.marker([lat, lon], { icon: getIconFor(c.type?.code) })
-                    const id = (c as any)?._id as string | undefined
-                    if (id) bindPopupToMarker(id, marker)
+                if (isFinite(c.lat) && isFinite(c.lon)) {
+                    const marker = L.marker([c.lat, c.lon], { icon: getIconFor(c.type?.code) })
+                    if (c._id) bindPopupToMarker(c._id, marker)
                     cluster!.addLayer(marker)
                 }
             })

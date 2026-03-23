@@ -81,9 +81,8 @@ export function useMapPopup(options?: {
                 d = data
                 detailsCache.set(cacheId, d)
             }
-            const content = render(d)
             marker.setPopupContent(render(d))
-        } catch (_err) {
+        } catch {
             marker.setPopupContent(errorHtml)
         }
     }

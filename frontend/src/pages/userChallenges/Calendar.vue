@@ -278,9 +278,10 @@ async function fetchCacheTypes() {
   try {
     const response = await api.get('/cache_types')
     cacheTypes.value = response.data
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
     console.error('Erreur chargement types:', e)
-    error.value = `Erreur chargement types: ${e.message}`
+    error.value = `Erreur chargement types: ${msg}`
   }
 }
 
@@ -288,9 +289,10 @@ async function fetchCacheSizes() {
   try {
     const response = await api.get('/cache_sizes')
     cacheSizes.value = response.data
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
     console.error('Erreur chargement tailles:', e)
-    error.value = `Erreur chargement tailles: ${e.message}`
+    error.value = `Erreur chargement tailles: ${msg}`
   }
 }
 
@@ -310,8 +312,10 @@ async function fetchCalendar() {
     const response = await api.get(`/my/challenges/basics/calendar?${params}`)
     console.log('Calendar API response:', response.data)
     calendarResult.value = response.data
-  } catch (e: any) {
-    error.value = e?.response?.data?.detail || e?.message || 'Erreur lors du chargement du calendrier'
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+    const msg = e instanceof Error ? e.message : String(e)
+    error.value = detail || msg || 'Erreur lors du chargement du calendrier'
   } finally {
     loading.value = false
   }

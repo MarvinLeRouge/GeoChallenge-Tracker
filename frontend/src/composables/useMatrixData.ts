@@ -1,5 +1,5 @@
 // src/composables/useMatrixData.ts
-import { ref, computed, type Ref } from 'vue';
+import { computed, type Ref } from 'vue';
 import type { MatrixResult } from '@/types/challenges';
 import { MATRIX_DT_TOTAL_COMBINATIONS } from '@/constants/matrix';
 

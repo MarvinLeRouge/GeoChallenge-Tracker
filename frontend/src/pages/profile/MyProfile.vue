@@ -350,7 +350,7 @@ async function handleLocationSubmit() {
     setTimeout(() => {
       showSuccessMessage.value = false
     }, 3000)
-  } catch (err) {
+  } catch {
     // Erreur gérée par le composable
   }
 }
@@ -400,7 +400,7 @@ async function clearLocation() {
     setTimeout(() => {
       showSuccessMessage.value = false
     }, 3000)
-  } catch (err) {
+  } catch {
     // Erreur gérée par le composable
   }
 }
