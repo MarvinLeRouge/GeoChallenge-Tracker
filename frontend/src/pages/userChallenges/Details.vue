@@ -55,13 +55,19 @@
         <!-- Progress -->
         <div class="mt-3">
           <div
-            v-if="uc.progress && uc.progress.percent !== null"
-            class="w-full bg-gray-200 rounded h-2"
+            v-if="progressSnapshot"
+            class="space-y-1"
           >
-            <div
-              class="bg-green-500 h-2 rounded"
-              :style="{ width: uc.progress.percent + '%' }"
-            />
+            <div class="flex justify-between text-xs text-gray-500">
+              <span>{{ progressSnapshot.tasks_done }}/{{ progressSnapshot.tasks_total }} tâches</span>
+              <span>{{ Math.round(progressSnapshot.percent) }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded h-2 overflow-hidden">
+              <div
+                class="h-full"
+                :style="progressBarStyle"
+              />
+            </div>
           </div>
           <p
             v-else
@@ -69,6 +75,13 @@
           >
             Pas encore commencé
           </p>
+          <button
+            class="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+            :disabled="evaluating"
+            @click="evaluateProgress"
+          >
+            {{ evaluating ? 'Évaluation…' : 'Évaluer la progression' }}
+          </button>
         </div>
 
         <!-- Actions statut -->
@@ -155,18 +168,17 @@ import {
     InformationCircleIcon,
 } from '@heroicons/vue/24/outline'
 
-type Progress = {
-    percent: number | null
-    tasks_done: number | null
-    tasks_total: number | null
-    checked_at: string | null
+type ProgressSnapshot = {
+    percent: number
+    tasks_done: number
+    tasks_total: number
+    checked_at: string
 }
 type Detail = {
     id: string
     status: 'pending' | 'accepted' | 'dismissed' | 'completed'
     computed_status: 'pending' | 'accepted' | 'dismissed' | 'completed' | null
     effective_status: 'pending' | 'accepted' | 'dismissed' | 'completed'
-    progress: Progress | null
     updated_at: string
     created_at: string
     manual_override: boolean
@@ -182,8 +194,23 @@ const id = route.params.id as string
 const { uc, loadingDetail: loading, errorDetail: error, safeDescription, fetchDetail } =
   useUserChallenge(id)
 
+const progressSnapshot = ref<ProgressSnapshot | null>(null)
+const evaluating = ref(false)
 const notes = ref('')
 const overrideReason = ref('')
+
+const progressBarStyle = computed(() => {
+    if (!progressSnapshot.value) return {}
+    const pct = Math.min(progressSnapshot.value.percent, 100)
+    if (pct >= 100) {
+        return { width: '100%', background: '#22c55e' }
+    }
+    return {
+        width: '100%',
+        background: 'linear-gradient(to right, #ef4444 0%, #f97316 20%, #22c55e 55%)',
+        clipPath: `inset(0 ${100 - pct}% 0 0)`,
+    }
+})
 
 const canAccept = computed(() =>
     uc.value && !['accepted', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
@@ -191,6 +218,27 @@ const canAccept = computed(() =>
 const canDismiss = computed(() =>
     uc.value && !['dismissed', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
 )
+
+async function fetchProgress() {
+    try {
+        const { data } = await api.get(`/my/challenges/${id}/progress`)
+        progressSnapshot.value = (data?.latest?.aggregate as ProgressSnapshot) ?? null
+    } catch {
+        progressSnapshot.value = null
+    }
+}
+
+async function evaluateProgress() {
+    evaluating.value = true
+    try {
+        await api.post(`/my/challenges/${id}/progress/evaluate`)
+        await fetchProgress()
+    } catch (e: unknown) {
+        error.value = e instanceof Error ? e.message : 'Erreur lors de l\'évaluation'
+    } finally {
+        evaluating.value = false
+    }
+}
 
 async function patchStatus(status: Detail['status']) {
     if (!uc.value) return
@@ -221,5 +269,5 @@ async function saveNotes() {
     }
 }
 
-onMounted(fetchDetail)
+onMounted(() => Promise.all([fetchDetail(), fetchProgress()]))
 </script>

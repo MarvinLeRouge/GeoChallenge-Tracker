@@ -4,7 +4,7 @@
     class="rounded-lg border shadow-sm p-3 transition"
     :class="zebra ? 'bg-gray-50' : 'bg-white'"
   >
-    <h3 class="font-semibold flex flex-wrap items-center gap-2">
+    <h3 class="font-semibold flex flex-wrap items-baseline gap-2">
       <CheckCircleIcon
         v-if="challenge.status === 'accepted'"
         class="w-5 h-5 text-green-600 shrink-0"
@@ -29,6 +29,10 @@
       <span>
         {{ challenge.challenge.name }}
       </span>
+      <span
+        v-if="challenge.status === 'accepted' && challenge.progress?.percent != null"
+        class="text-sm font-semibold text-gray-600"
+      >{{ Math.round(challenge.progress.percent) }}%</span>
     </h3>
 
     <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
@@ -61,12 +65,17 @@
     <div class="mt-2">
       <div
         v-if="challenge.progress && challenge.progress.percent !== null"
-        class="w-full bg-gray-200 rounded h-2"
+        class="flex items-center gap-2"
       >
-        <div
-          class="bg-green-500 h-2 rounded"
-          :style="{ width: challenge.progress.percent + '%' }"
-        />
+        <div class="flex-1 bg-gray-200 rounded h-2 overflow-hidden">
+          <div
+            class="h-full"
+            :style="progressBarStyle(challenge.progress.percent)"
+          />
+        </div>
+        <span class="text-xs text-gray-500 shrink-0 w-8 text-right">
+          {{ Math.round(challenge.progress.percent) }}%
+        </span>
       </div>
       <p
         v-else
@@ -144,6 +153,18 @@ import {
     ArrowTopRightOnSquareIcon,
     FireIcon,
 } from '@heroicons/vue/24/outline'
+
+function progressBarStyle(percent: number) {
+    const pct = Math.min(percent, 100)
+    if (pct >= 100) {
+        return { width: '100%', background: '#22c55e' }
+    }
+    return {
+        width: '100%',
+        background: 'linear-gradient(to right, #ef4444 0%, #f97316 20%, #22c55e 55%)',
+        clipPath: `inset(0 ${100 - pct}% 0 0)`,
+    }
+}
 
 function difficultyColor(value: number | string | null | undefined) {
   const d = Number(value)

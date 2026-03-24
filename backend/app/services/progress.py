@@ -492,13 +492,31 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
                 min(snap["current_count"], min_count) if min_count > 0 else snap["current_count"]
             )
             sum_current += bounded_for_sum
-            if bounded_for_sum >= min_count and min_count > 0:
+            # A task is done when its status is "done" (handles both count-based
+            # and pure-aggregate tasks where min_count == 0).
+            if snap.get("status") == "done":
                 tasks_done += 1
 
         snapshots.append(snap)
 
-    aggregate_percent = (100.0 * (sum_current / sum_min)) if sum_min > 0 else 0.0
-    aggregate_percent = round(aggregate_percent, 1)
+    # Aggregate percent: weighted by min_count when set, otherwise average of
+    # task-level percents (handles pure-aggregate tasks where min_count == 0).
+    if sum_min > 0:
+        aggregate_percent = round(100.0 * (sum_current / sum_min), 1)
+    else:
+        supported_snaps = [s for s in snapshots if s.get("supported_for_progress")]
+        aggregate_percent = (
+            round(sum(s["percent"] for s in supported_snaps) / len(supported_snaps), 1)
+            if supported_snaps
+            else 0.0
+        )
+
+    progress_snapshot = {
+        "percent": aggregate_percent,
+        "tasks_done": tasks_done,
+        "tasks_total": tasks_supported,
+        "checked_at": now(),
+    }
     doc = {
         "user_challenge_id": uc_id,
         "checked_at": now(),
@@ -520,9 +538,17 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
                 "$set": {
                     "computed_status": new_status,
                     "status": new_status,
+                    "progress": progress_snapshot,
                     "updated_at": utcnow(),
                 }
             },
+        )
+    else:
+        # Always persist the latest progress snapshot on the UC document so the
+        # detail view can display current progress without an extra query.
+        await coll_uc.update_one(
+            {"_id": uc_id},
+            {"$set": {"progress": progress_snapshot, "updated_at": utcnow()}},
         )
     coll_progress = await get_collection("progress")
     await coll_progress.insert_one(doc)
