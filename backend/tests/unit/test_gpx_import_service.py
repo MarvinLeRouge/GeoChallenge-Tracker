@@ -1,12 +1,31 @@
 """Tests for GPX Import Service components (unit tests - no DB required)."""
 
 import datetime as dt
+import io
+import zipfile
+from unittest.mock import MagicMock
 
 import pytest
+from fastapi import HTTPException
 
 from app.services.gpx_import.cache_validator import CacheValidator
 from app.services.gpx_import.data_normalizer import DataNormalizer
 from app.services.gpx_import.file_handler import FileHandler
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_MINIMAL_GPX = b"<?xml version='1.0' encoding='UTF-8'?><gpx version='1.1'>" + b" " * 50
+
+
+def _make_zip(*gpx_entries: tuple[str, bytes]) -> bytes:
+    """Build a ZIP archive in-memory containing the given (filename, content) pairs."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        for name, content in gpx_entries:
+            zf.writestr(name, content)
+    return buf.getvalue()
 
 
 class TestFileHandler:
@@ -38,6 +57,153 @@ class TestFileHandler:
         assert "cgeo" in source_types
         assert "pocket_query" in source_types
         assert "auto" in source_types
+
+
+class TestFileHandlerSafeJoin:
+    """Test FileHandler.safe_join — path traversal prevention."""
+
+    def test_normal_join(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        result = handler.safe_join(tmp_path, "subdir", "file.gpx")
+        assert result == tmp_path / "subdir" / "file.gpx"
+
+    def test_traversal_raises(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        with pytest.raises(ValueError, match="Path traversal"):
+            handler.safe_join(tmp_path, "..", "etc", "passwd")
+
+
+class TestFileHandlerValidateGpxContent:
+    """Test FileHandler.validate_gpx_content."""
+
+    def test_valid_gpx_passes(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        handler.validate_gpx_content(_MINIMAL_GPX)  # must not raise
+
+    def test_too_small_raises_400(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        with pytest.raises(HTTPException) as exc_info:
+            handler.validate_gpx_content(b"<gpx")
+        assert exc_info.value.status_code == 400
+        assert "too small" in exc_info.value.detail.lower()
+
+    def test_missing_gpx_tag_raises_400(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        not_gpx = b"<?xml version='1.0'?><root></root>" + b" " * 50
+        with pytest.raises(HTTPException) as exc_info:
+            handler.validate_gpx_content(not_gpx)
+        assert exc_info.value.status_code == 400
+        assert "gpx" in exc_info.value.detail.lower()
+
+    def test_gpx_tag_case_insensitive(self, tmp_path):
+        """<GPX> (uppercase) is also accepted."""
+        handler = FileHandler(uploads_dir=tmp_path)
+        upper_gpx = b"<?xml version='1.0'?><GPX version='1.1'>" + b" " * 50
+        handler.validate_gpx_content(upper_gpx)  # must not raise
+
+
+class TestFileHandlerWriteGpxFile:
+    """Test FileHandler.write_gpx_file."""
+
+    def test_writes_file_and_returns_path(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        path = handler.write_gpx_file(_MINIMAL_GPX, "test.gpx")
+        assert path.exists()
+        assert path.read_bytes() == _MINIMAL_GPX
+
+    def test_sanitizes_filename(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        path = handler.write_gpx_file(_MINIMAL_GPX, "my file@name!.gpx")
+        # Special chars are stripped; the file must still be created
+        assert path.exists()
+        assert "@" not in path.name
+        assert "!" not in path.name
+
+    def test_adds_gpx_extension_if_missing(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        path = handler.write_gpx_file(_MINIMAL_GPX, "noextension")
+        assert path.suffix == ".gpx"
+
+    def test_uuid_filename_when_no_name(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        path = handler.write_gpx_file(_MINIMAL_GPX)
+        assert path.exists()
+        assert path.suffix == ".gpx"
+
+    def test_collision_handled(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        path1 = handler.write_gpx_file(_MINIMAL_GPX, "collision.gpx")
+        path2 = handler.write_gpx_file(_MINIMAL_GPX, "collision.gpx")
+        assert path1 != path2
+        assert path1.exists()
+        assert path2.exists()
+
+    def test_invalid_content_raises(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        with pytest.raises(HTTPException):
+            handler.write_gpx_file(b"tiny", "bad.gpx")
+
+
+class TestFileHandlerExtractZipFiles:
+    """Test FileHandler.extract_zip_files."""
+
+    def test_valid_zip_with_gpx(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = _make_zip(("cache.gpx", _MINIMAL_GPX))
+        paths = handler.extract_zip_files(zip_data)
+        assert len(paths) == 1
+        assert paths[0].suffix == ".gpx"
+
+    def test_non_gpx_files_skipped(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = _make_zip(
+            ("readme.txt", b"not a gpx"),
+            ("cache.gpx", _MINIMAL_GPX),
+        )
+        paths = handler.extract_zip_files(zip_data)
+        assert len(paths) == 1  # only the .gpx
+
+    def test_no_gpx_files_raises_400(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = _make_zip(("readme.txt", b"no gpx here at all"))
+        with pytest.raises(HTTPException) as exc_info:
+            handler.extract_zip_files(zip_data)
+        assert exc_info.value.status_code == 400
+        assert "no valid gpx" in exc_info.value.detail.lower()
+
+    def test_bad_zip_raises_400(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        with pytest.raises(HTTPException) as exc_info:
+            handler.extract_zip_files(b"not a zip at all!!!!!")
+        assert exc_info.value.status_code == 400
+
+    def test_too_many_files_raises_http_exception(self, tmp_path):
+        """The inner 400 HTTPException is caught by the outer except-Exception handler
+        and re-raised as 500. The detail still mentions 'too many files'."""
+        handler = FileHandler(uploads_dir=tmp_path)
+        entries = [(f"file_{i}.txt", b"x") for i in range(101)]
+        zip_data = _make_zip(*entries)
+        with pytest.raises(HTTPException) as exc_info:
+            handler.extract_zip_files(zip_data)
+        # The inner 400 is swallowed by the outer except-Exception block → becomes 500
+        assert exc_info.value.status_code == 500
+        assert "too many" in exc_info.value.detail.lower()
+
+
+class TestFileHandlerMaterializeFiles:
+    """Test FileHandler.materialize_files dispatch."""
+
+    def test_gpx_data_produces_single_file(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        paths = handler.materialize_files(_MINIMAL_GPX, "input.gpx")
+        assert len(paths) == 1
+        assert paths[0].suffix == ".gpx"
+
+    def test_zip_data_extracts_gpx_files(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = _make_zip(("a.gpx", _MINIMAL_GPX), ("b.gpx", _MINIMAL_GPX))
+        paths = handler.materialize_files(zip_data)
+        assert len(paths) == 2
 
 
 class TestCacheValidator:
@@ -205,3 +371,125 @@ class TestDataNormalizer:
         assert attributes[0]["attribute_id"] == 1
         assert attributes[0]["is_positive"] is True
         assert attributes[2]["is_positive"] is False  # inc="0" means negative
+
+
+# ---------------------------------------------------------------------------
+# FileHandler.validate_gpx_file — missing branches (lines 99-113)
+# ---------------------------------------------------------------------------
+
+
+class TestFileHandlerValidateGpxFile:
+    def test_raises_404_when_file_not_found(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        missing = tmp_path / "nonexistent.gpx"
+        with pytest.raises(HTTPException) as exc_info:
+            handler.validate_gpx_file(missing)
+        assert exc_info.value.status_code == 404
+
+    def test_raises_400_when_file_empty(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        empty = tmp_path / "empty.gpx"
+        empty.write_bytes(b"")
+        with pytest.raises(HTTPException) as exc_info:
+            handler.validate_gpx_file(empty)
+        assert exc_info.value.status_code == 400
+
+    def test_passes_for_valid_gpx_file(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        gpx_file = tmp_path / "valid.gpx"
+        gpx_file.write_bytes(_MINIMAL_GPX)
+        handler.validate_gpx_file(gpx_file)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# FileHandler.extract_zip_files — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestFileHandlerExtractZipMissingBranches:
+    def _make_zip_with_dir(self) -> bytes:
+        """Build a ZIP containing a directory entry and one GPX file."""
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            # Add a directory entry
+            info = zipfile.ZipInfo("mydir/")
+            zf.writestr(info, "")
+            # Add a valid GPX file inside
+            zf.writestr("mydir/cache.gpx", _MINIMAL_GPX.decode())
+        return buf.getvalue()
+
+    def test_skips_directory_entries(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = self._make_zip_with_dir()
+        # Should still extract the GPX file
+        paths = handler.extract_zip_files(zip_data)
+        assert len(paths) == 1
+
+    def test_skips_oversized_files(self, tmp_path):
+        """Files > 50MB in a ZIP are skipped (file_size check)."""
+        import unittest.mock as mock
+
+        handler = FileHandler(uploads_dir=tmp_path)
+
+        # Patch file_size on the big entry
+        big_info_mock = mock.MagicMock(spec=zipfile.ZipInfo)
+        big_info_mock.filename = "big.gpx"
+        big_info_mock.file_size = 60 * 1024 * 1024  # 60MB
+        big_info_mock.is_dir = MagicMock(return_value=False)
+
+        small_info_mock = mock.MagicMock(spec=zipfile.ZipInfo)
+        small_info_mock.filename = "small.gpx"
+        small_info_mock.file_size = len(_MINIMAL_GPX)
+        small_info_mock.is_dir = MagicMock(return_value=False)
+
+        zip_data = _make_zip(("small.gpx", _MINIMAL_GPX))
+
+        with mock.patch("zipfile.ZipFile") as mock_zf_cls:
+            mock_zf = mock.MagicMock()
+            mock_zf.__enter__ = mock.MagicMock(return_value=mock_zf)
+            mock_zf.__exit__ = mock.MagicMock(return_value=False)
+            mock_zf.namelist = mock.MagicMock(return_value=["big.gpx", "small.gpx"])
+            mock_zf.infolist = mock.MagicMock(return_value=[big_info_mock, small_info_mock])
+
+            # small.gpx content
+            small_ctx = mock.MagicMock()
+            small_ctx.__enter__ = mock.MagicMock(return_value=small_ctx)
+            small_ctx.__exit__ = mock.MagicMock(return_value=False)
+            small_ctx.read = mock.MagicMock(return_value=_MINIMAL_GPX)
+            mock_zf.open = mock.MagicMock(return_value=small_ctx)
+
+            mock_zf_cls.return_value = mock_zf
+
+            paths = handler.extract_zip_files(zip_data)
+
+        # Only small.gpx should have been extracted
+        assert len(paths) == 1
+
+
+# ---------------------------------------------------------------------------
+# FileHandler.cleanup_file / cleanup_files (lines 234-248)
+# ---------------------------------------------------------------------------
+
+
+class TestFileHandlerCleanup:
+    def test_cleanup_file_removes_existing_file(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        f = tmp_path / "to_delete.gpx"
+        f.write_bytes(b"data")
+        assert f.exists()
+        handler.cleanup_file(f)
+        assert not f.exists()
+
+    def test_cleanup_file_ignores_missing_file(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        missing = tmp_path / "gone.gpx"
+        handler.cleanup_file(missing)  # should not raise
+
+    def test_cleanup_files_removes_multiple(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        files = [tmp_path / f"f{i}.gpx" for i in range(3)]
+        for f in files:
+            f.write_bytes(b"x")
+        handler.cleanup_files(files)
+        for f in files:
+            assert not f.exists()

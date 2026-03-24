@@ -72,8 +72,8 @@ class TaskExpressionValidator:
                                 "state_in requires a sibling country_is in the same AND group"
                             )
             elif kind == "country_is":
-                if not exists_id("countries", node.country_id):
-                    errors.append(f"country_is: unknown country id '{node.country_id}'")
+                if not exists_id("countries", node.country.country_id):
+                    errors.append(f"country_is: unknown country id '{node.country.country_id}'")
             elif kind == "attributes":
                 for i, a in enumerate(node.attributes):
                     if not exists_attribute_id(a.cache_attribute_id):

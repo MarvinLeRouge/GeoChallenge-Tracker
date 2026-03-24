@@ -199,3 +199,271 @@ class TestMatrixVerificationService:
         details = result.completed_combinations_details
         assert any(d["difficulty"] == 1.0 and d["terrain"] == 1.5 for d in details)
         assert any(d["difficulty"] == 2.0 and d["terrain"] == 2.5 for d in details)
+
+
+# ---------------------------------------------------------------------------
+# ObjectId-based filter resolution (lines 40-45, 57, 64-93, 101, 103, 121)
+# and matrix_tours calculation (lines 194-199)
+# ---------------------------------------------------------------------------
+
+
+class TestMatrixFilterResolution:
+    @pytest.mark.asyncio
+    async def test_cache_type_as_objectid_found(self):
+        """cache_type_name is a valid ObjectId that exists → lines 40-42."""
+        type_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_type_name=str(type_id))
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_type_as_objectid_not_found(self):
+        """cache_type_name is a valid ObjectId that doesn't exist → lines 43-45 (empty result)."""
+        type_id = ObjectId()
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_type_name=str(type_id))
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_type_name_found_by_name(self):
+        """cache_type_name is a string that resolves → line 57."""
+        type_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_type_name="Traditional")
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_as_objectid_found(self):
+        """cache_size_name is a valid ObjectId that exists → lines 64-70."""
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_size_name=str(size_id))
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_as_objectid_not_found(self):
+        """cache_size_name is a valid ObjectId that doesn't exist → lines 71-74."""
+        size_id = ObjectId()
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_size_name=str(size_id))
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_name_found_by_name(self):
+        """cache_size_name is a string that resolves → line 92."""
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()), MatrixFilters(cache_size_name="Regular")
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_both_filters_resolved_pipeline_stage_added(self):
+        """Both type+size resolved → lines 101, 103, 121 (pipeline $match stage)."""
+        type_id = ObjectId()
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(
+            str(ObjectId()),
+            MatrixFilters(cache_type_name=str(type_id), cache_size_name=str(size_id)),
+        )
+        assert result.completed_combinations_count == 0
+
+    @pytest.mark.asyncio
+    async def test_matrix_tours_calculated_when_all_combinations_done(self):
+        """All DT matrix cells completed → lines 194-199 (matrix_tours calculation).
+
+        MATRIX_DT_TOTAL_COMBINATIONS = 81 (9 difficulty × 9 terrain values).
+        We feed 81 unique (d, t) pairs so completed_count == 81.
+        """
+        d_vals = [round(1.0 + i * 0.5, 1) for i in range(9)]  # 1.0 to 5.0
+        t_vals = [round(1.0 + i * 0.5, 1) for i in range(9)]
+        all_combinations = [
+            {
+                "found_date": None,
+                "cache_info": {"difficulty": d, "terrain": t},
+            }
+            for d in d_vals
+            for t in t_vals
+        ]
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return all_combinations
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = MatrixVerificationService(MockDB())
+        result = await service.verify_user_matrix(str(ObjectId()), MatrixFilters())
+        assert result.completed_combinations_count == MATRIX_DT_TOTAL_COMBINATIONS
+        assert result.matrix_tours >= 1

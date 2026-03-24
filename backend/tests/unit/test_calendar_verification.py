@@ -152,3 +152,256 @@ class TestCalendarVerificationService:
         # With empty DB, all days should be missing
         assert result.completed_days_365 == 0
         assert result.completed_days_366 == 0
+
+    # -----------------------------------------------------------------------
+    # ObjectId-based filter resolution (lines 42-47, 59, 66-95, 100, 102, 120)
+    # -----------------------------------------------------------------------
+
+    @pytest.mark.asyncio
+    async def test_cache_type_as_objectid_found(self):
+        """cache_type_name is a valid ObjectId string that exists → lines 42-44."""
+        type_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_type_name=str(type_id))
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_type_as_objectid_not_found(self):
+        """cache_type_name is a valid ObjectId that doesn't exist → lines 45-47 (empty result)."""
+        type_id = ObjectId()
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                pass
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_type_name=str(type_id))
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+        assert result.completed_days_366 == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_type_name_found_by_name(self):
+        """cache_type_name is a string (not ObjectId) that resolves → line 59."""
+        type_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_type_name="Traditional")
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_as_objectid_found(self):
+        """cache_size_name is a valid ObjectId string that exists → lines 66-71."""
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_size_name=str(size_id))
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_as_objectid_not_found(self):
+        """cache_size_name is a valid ObjectId that doesn't exist → lines 72-74."""
+        size_id = ObjectId()
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_size_name=str(size_id))
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_cache_size_name_found_by_name(self):
+        """cache_size_name is a string that resolves → line 92."""
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_size_name="Regular")
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_both_filters_resolved_pipeline_stage_added(self):
+        """Both type+size resolved → lines 100, 102, 120 (pipeline $match stage)."""
+        type_id = ObjectId()
+        size_id = ObjectId()
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return []
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return {"_id": type_id}
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return {"_id": size_id}
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters(cache_type_name=str(type_id), cache_size_name=str(size_id))
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 0
+
+    @pytest.mark.asyncio
+    async def test_calendar_tours_calculated_when_all_365_done(self):
+        """All 365 days completed → line 176 (calendar_tours calculation)."""
+        from datetime import date, timedelta
+
+        # Generate one found_cache entry per day for all 365 days (non-leap year)
+        base = date(2023, 1, 1)
+        all_days = [{"found_date": base + timedelta(days=i), "cache_info": {}} for i in range(365)]
+
+        class MockCursor:
+            async def to_list(self, length=None):
+                return all_days
+
+        class MockDB:
+            class CacheTypes:
+                async def find_one(self, query):
+                    return None
+
+            class CacheSizes:
+                async def find_one(self, query):
+                    return None
+
+            class FoundCaches:
+                def aggregate(self, pipeline):
+                    return MockCursor()
+
+            def __init__(self):
+                self.cache_types = self.CacheTypes()
+                self.cache_sizes = self.CacheSizes()
+                self.found_caches = self.FoundCaches()
+
+        service = CalendarVerificationService(MockDB())
+        filters = CalendarFilters()
+        result = await service.verify_user_calendar(str(ObjectId()), filters)
+        assert result.completed_days_365 == 365
+        assert result.calendar_tours >= 1
