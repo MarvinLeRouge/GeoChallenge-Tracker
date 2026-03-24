@@ -760,3 +760,483 @@ class _apply_patches:
     def __exit__(self, *args):
         for p in self._patches:
             p.stop()
+
+
+# ---------------------------------------------------------------------------
+# _get_tasks_for_uc
+# ---------------------------------------------------------------------------
+
+
+class TestGetTasksForUc:
+    @pytest.mark.asyncio
+    async def test_returns_sorted_tasks(self):
+        from app.services.progress import _get_tasks_for_uc
+
+        tasks = [{"_id": _TASK_ID, "order": 1}]
+        cursor = MagicMock()
+        cursor.sort = MagicMock(return_value=cursor)
+        cursor.to_list = AsyncMock(return_value=tasks)
+        coll = AsyncMock()
+        coll.find = MagicMock(return_value=cursor)
+
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _get_tasks_for_uc(_UC_ID)
+
+        assert result == tasks
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_no_tasks(self):
+        from app.services.progress import _get_tasks_for_uc
+
+        cursor = MagicMock()
+        cursor.sort = MagicMock(return_value=cursor)
+        cursor.to_list = AsyncMock(return_value=[])
+        coll = AsyncMock()
+        coll.find = MagicMock(return_value=cursor)
+
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _get_tasks_for_uc(_UC_ID)
+
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _attr_id_by_cache_attr_id
+# ---------------------------------------------------------------------------
+
+
+class TestAttrIdByCacheAttrId:
+    @pytest.mark.asyncio
+    async def test_returns_objectid_when_found(self):
+        from app.services.progress import _attr_id_by_cache_attr_id
+
+        oid = ObjectId()
+        coll = AsyncMock()
+        coll.find_one = AsyncMock(return_value={"_id": oid})
+
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _attr_id_by_cache_attr_id(71)
+
+        assert result == oid
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_not_found(self):
+        from app.services.progress import _attr_id_by_cache_attr_id
+
+        coll = AsyncMock()
+        coll.find_one = AsyncMock(return_value=None)
+
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _attr_id_by_cache_attr_id(999)
+
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _count_found_caches_matching
+# ---------------------------------------------------------------------------
+
+
+def _mock_aggregate_coll(rows):
+    cursor = AsyncMock()
+    cursor.to_list = AsyncMock(return_value=rows)
+    coll = AsyncMock()
+    coll.aggregate = MagicMock(return_value=cursor)
+    return coll
+
+
+class TestCountFoundCachesMatching:
+    @pytest.mark.asyncio
+    async def test_no_conditions_returns_count(self):
+        from app.services.progress import _count_found_caches_matching
+
+        coll = _mock_aggregate_coll([{"current_count": 7}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _count_found_caches_matching(_UID, {})
+        assert result == 7
+
+    @pytest.mark.asyncio
+    async def test_single_condition(self):
+        from app.services.progress import _count_found_caches_matching
+
+        coll = _mock_aggregate_coll([{"current_count": 3}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _count_found_caches_matching(_UID, {"difficulty": {"$gte": 3.0}})
+        assert result == 3
+
+    @pytest.mark.asyncio
+    async def test_list_condition(self):
+        from app.services.progress import _count_found_caches_matching
+
+        coll = _mock_aggregate_coll([{"current_count": 2}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _count_found_caches_matching(
+                _UID, {"difficulty": [{"$gte": 3.0}, {"$lte": 5.0}]}
+            )
+        assert result == 2
+
+    @pytest.mark.asyncio
+    async def test_no_rows_returns_zero(self):
+        from app.services.progress import _count_found_caches_matching
+
+        coll = _mock_aggregate_coll([])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _count_found_caches_matching(_UID, {})
+        assert result == 0
+
+
+# ---------------------------------------------------------------------------
+# _aggregate_total
+# ---------------------------------------------------------------------------
+
+
+class TestAggregateTotal:
+    @pytest.mark.asyncio
+    async def test_unknown_kind_returns_zero(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "unknown_kind"})
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_difficulty_kind(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 42}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "difficulty"})
+        assert result == 42
+
+    @pytest.mark.asyncio
+    async def test_terrain_kind(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 15}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "terrain"})
+        assert result == 15
+
+    @pytest.mark.asyncio
+    async def test_diff_plus_terr_kind(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 30}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "diff_plus_terr"})
+        assert result == 30
+
+    @pytest.mark.asyncio
+    async def test_altitude_kind(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 1500}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "altitude"})
+        assert result == 1500
+
+    @pytest.mark.asyncio
+    async def test_distinct_countries_kind(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 5}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "distinct_countries"})
+        assert result == 5
+
+    @pytest.mark.asyncio
+    async def test_distinct_countries_no_rows(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "distinct_countries"})
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_dt_matrix_counts_covered_cells(self):
+        from app.services.progress import _aggregate_total
+
+        rows = [{"_id": {"d": 1.0, "t": 1.0}}, {"_id": {"d": 2.5, "t": 3.0}}]
+        coll = _mock_aggregate_coll(rows)
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "dt_matrix"})
+        assert result == 2
+
+    @pytest.mark.asyncio
+    async def test_dt_matrix_skips_none_values(self):
+        from app.services.progress import _aggregate_total
+
+        rows = [{"_id": {"d": None, "t": 1.0}}, {"_id": {"d": 1.5, "t": None}}]
+        coll = _mock_aggregate_coll(rows)
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "dt_matrix"})
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_list_condition_applied(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([{"total": 10}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(
+                _UID,
+                {"difficulty": [{"$gte": 1.0}, {"$lte": 3.0}]},
+                {"kind": "difficulty"},
+            )
+        assert result == 10
+
+    @pytest.mark.asyncio
+    async def test_no_rows_returns_zero(self):
+        from app.services.progress import _aggregate_total
+
+        coll = _mock_aggregate_coll([])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _aggregate_total(_UID, {}, {"kind": "difficulty"})
+        assert result == 0
+
+
+# ---------------------------------------------------------------------------
+# _nth_found_date / _first_found_date
+# ---------------------------------------------------------------------------
+
+
+class TestNthFoundDate:
+    @pytest.mark.asyncio
+    async def test_n_zero_returns_none_without_db(self):
+        from app.services.progress import _nth_found_date
+
+        # n <= 0 returns None before any DB call — no patch needed
+        result = await _nth_found_date(_UID, {}, 0)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_n_negative_returns_none_without_db(self):
+        from app.services.progress import _nth_found_date
+
+        result = await _nth_found_date(_UID, {}, -3)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_found_returns_date(self):
+        from app.services.progress import _nth_found_date
+
+        d = date(2025, 6, 15)
+        coll = _mock_aggregate_coll([{"found_date": d}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _nth_found_date(_UID, {}, 1)
+        assert result == d
+
+    @pytest.mark.asyncio
+    async def test_not_found_returns_none(self):
+        from app.services.progress import _nth_found_date
+
+        coll = _mock_aggregate_coll([])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _nth_found_date(_UID, {}, 3)
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_with_list_condition(self):
+        from app.services.progress import _nth_found_date
+
+        d = date(2025, 3, 10)
+        coll = _mock_aggregate_coll([{"found_date": d}])
+        with patch("app.services.progress.get_collection", return_value=coll):
+            result = await _nth_found_date(_UID, {"difficulty": [{"$gte": 1.0}]}, 1)
+        assert result == d
+
+
+class TestFirstFoundDate:
+    @pytest.mark.asyncio
+    async def test_delegates_to_nth_with_n1(self):
+        from app.services.progress import _first_found_date
+
+        d = date(2025, 1, 1)
+        with patch("app.services.progress._nth_found_date", new=AsyncMock(return_value=d)) as mock:
+            result = await _first_found_date(_UID, {})
+
+        mock.assert_awaited_once_with(_UID, {}, 1)
+        assert result == d
+
+
+# ---------------------------------------------------------------------------
+# evaluate_progress — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateProgressMissingBranches:
+    @pytest.mark.asyncio
+    async def test_aggregate_no_min_total_percent_is_zero(self):
+        """agg_spec without min_total → aggregate_percent=None → final_percent=0.0."""
+        from app.services.progress import evaluate_progress
+
+        task = _make_task(status="todo", min_count=0)
+        agg_spec = {"kind": "difficulty"}  # no min_total
+        patches = _patch_evaluate_deps(
+            tasks=[task],
+            compile_result=("and:test", {}, True, [], agg_spec),
+            current_count=5,
+            aggregate_total=60,
+        )
+        with _apply_patches(patches):
+            result = await evaluate_progress(_UID, _UC_ID)
+
+        snap = result["tasks"][0]
+        # aggregate_percent is None (no min_total), final_percent = 0.0
+        assert snap["percent"] == 0.0
+
+    @pytest.mark.asyncio
+    async def test_aggregate_unit_dt_matrix(self):
+        """dt_matrix aggregate kind uses 'cells' as unit."""
+        from app.services.progress import evaluate_progress
+
+        task = _make_task(status="todo", min_count=0)
+        agg_spec = {"kind": "dt_matrix", "min_total": 25}
+        patches = _patch_evaluate_deps(
+            tasks=[task],
+            compile_result=("and:test", {}, True, [], agg_spec),
+            aggregate_total=10,
+        )
+        with _apply_patches(patches):
+            result = await evaluate_progress(_UID, _UC_ID)
+
+        snap = result["tasks"][0]
+        assert snap["aggregate"]["unit"] == "cells"
+
+    @pytest.mark.asyncio
+    async def test_start_found_at_persisted_when_first_find(self):
+        """When _first_found_date returns a date and task has no start, DB is updated."""
+        from app.services.progress import evaluate_progress
+
+        task = _make_task(status="todo", min_count=5)  # start_found_at=None
+        start = date(2025, 3, 1)
+        patches = _patch_evaluate_deps(tasks=[task], current_count=3, first_found_date=start)
+        with _apply_patches(patches):
+            result = await evaluate_progress(_UID, _UC_ID)
+
+        # Line 429-433 executed; task still todo (3 < 5)
+        assert result["tasks"][0]["status"] == "todo"
+
+    @pytest.mark.asyncio
+    async def test_completed_at_persisted_when_nth_reached(self):
+        """When current >= min_count and nth_found_date returns a date, DB is updated."""
+        from app.services.progress import evaluate_progress
+
+        task = _make_task(status="todo", min_count=5)  # completed_at=None
+        completed = date(2025, 6, 1)
+        patches = _patch_evaluate_deps(
+            tasks=[task],
+            current_count=5,
+            nth_found_date=completed,
+        )
+        with _apply_patches(patches):
+            result = await evaluate_progress(_UID, _UC_ID)
+
+        # Lines 442-452 executed; task is done
+        assert result["tasks"][0]["status"] == "done"
+
+    @pytest.mark.asyncio
+    async def test_completed_at_cleared_when_no_longer_valid(self):
+        """When completed_dt is None but task.completed_at was set, DB is cleared."""
+        from app.services.progress import evaluate_progress
+
+        task = _make_task(status="todo", min_count=10)
+        task["completed_at"] = date(2025, 1, 1)  # previously set
+        patches = _patch_evaluate_deps(
+            tasks=[task],
+            current_count=3,  # < min_count → no nth_found_date call
+            nth_found_date=None,
+        )
+        with _apply_patches(patches):
+            result = await evaluate_progress(_UID, _UC_ID)
+
+        # Lines 455-459 executed; task still todo
+        assert result["tasks"][0]["status"] == "todo"
+
+
+# ---------------------------------------------------------------------------
+# get_latest_and_history — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestGetLatestAndHistoryMissingBranches:
+    @pytest.mark.asyncio
+    async def test_before_filter_applied(self):
+        """Passing before= adds $lt filter to the query (line 561)."""
+        from app.services.progress import get_latest_and_history
+
+        before = datetime(2025, 7, 1)
+
+        async def _get_coll(name):
+            coll = AsyncMock()
+            coll.find = MagicMock(return_value=_make_cursor([]))
+            return coll
+
+        with (
+            patch("app.services.progress._ensure_uc_owned", new=AsyncMock(return_value={})),
+            patch("app.services.progress.get_collection", side_effect=_get_coll),
+        ):
+            result = await get_latest_and_history(_UID, _UC_ID, before=before)
+
+        assert result["latest"] is None
+
+    @pytest.mark.asyncio
+    async def test_history_summarizes_older_snapshots(self):
+        """With ≥2 snapshots, _summarize is called on history items (line 626)."""
+        from app.services.progress import get_latest_and_history
+
+        snap1 = {
+            "_id": ObjectId(),
+            "checked_at": datetime(2025, 7, 1),
+            "aggregate": {"percent": 100.0},
+            "tasks": [],
+        }
+        snap2 = {
+            "_id": ObjectId(),
+            "checked_at": datetime(2025, 6, 1),
+            "aggregate": {"percent": 50.0},
+            "tasks": [],
+        }
+
+        async def _get_coll(name):
+            coll = AsyncMock()
+            if name == "progress":
+                coll.find = MagicMock(return_value=_make_cursor([snap1, snap2]))
+            elif name == "user_challenge_tasks":
+                coll.find = MagicMock(return_value=_make_cursor([]))
+            return coll
+
+        with (
+            patch("app.services.progress._ensure_uc_owned", new=AsyncMock(return_value={})),
+            patch("app.services.progress.get_collection", side_effect=_get_coll),
+        ):
+            result = await get_latest_and_history(_UID, _UC_ID)
+
+        assert len(result["history"]) == 1
+        assert result["history"][0]["aggregate"] == snap2["aggregate"]
+
+
+# ---------------------------------------------------------------------------
+# evaluate_new_progress — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestEvaluateNewProgressMissingBranches:
+    @pytest.mark.asyncio
+    async def test_since_filter_applied(self):
+        """Passing since= adds created_at $gte filter (line 669)."""
+        from app.services.progress import evaluate_new_progress
+
+        since = datetime(2025, 1, 1)
+
+        async def _get_coll(name):
+            coll = AsyncMock()
+            coll.find = MagicMock(return_value=_make_cursor([]))
+            return coll
+
+        with patch("app.services.progress.get_collection", side_effect=_get_coll):
+            result = await evaluate_new_progress(_UID, since=since)
+
+        assert result == {"evaluated_count": 0, "skipped_count": 0, "uc_ids": []}

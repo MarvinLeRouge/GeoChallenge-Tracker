@@ -69,7 +69,7 @@ class TaskExpressionCompiler:
                 return {"terrain": {"$gte": leaf.min, "$lte": leaf.max}}
 
             if k == "country_is":
-                return {"country_id": leaf.country_id}
+                return {"country_id": leaf.country.country_id}
 
             if k == "state_in":
                 ids = [oid for oid in (getattr(leaf, "state_ids", None) or [])]
@@ -168,7 +168,7 @@ class TaskExpressionCompiler:
             for k, n, _pk in TaskExpressionCompiler.walk_expression_tree(expr.node):
                 yield (k, n, "not")
             return
-        return [(expr.kind, expr, None)]
+        yield (expr.kind, expr, None)
 
     @staticmethod
     def is_aggregate_kind(kind: str) -> bool:

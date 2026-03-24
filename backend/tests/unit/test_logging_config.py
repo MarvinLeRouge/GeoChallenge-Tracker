@@ -1,11 +1,18 @@
 """Tests for Logging configuration (unit tests - no DB required)."""
 
+import json
 import logging
-from unittest.mock import patch
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
+
+import pytest
+from bson import ObjectId
 
 from app.core.logging_config import (
+    CustomJSONEncoder,
     DataLogger,
     cleanup_old_logs,
+    extract_user_data,
     get_loggers,
     setup_logging,
 )
@@ -127,3 +134,103 @@ class TestCleanupOldLogs:
 
         # Recent file should still exist
         assert recent_file.exists()
+
+    def test_cleanup_old_logs_runs_without_error_with_old_files(self, tmp_path):
+        """cleanup_old_logs runs without error even when old files are present."""
+        old_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
+        old_file = tmp_path / f"{old_date}-data.json"
+        old_file.write_text("[]")
+
+        # Should not raise
+        cleanup_old_logs(tmp_path, retention_days=30)
+
+
+# ---------------------------------------------------------------------------
+# CustomJSONEncoder — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestCustomJSONEncoder:
+    def test_encodes_objectid_as_string(self):
+        oid = ObjectId()
+        result = json.dumps({"id": oid}, cls=CustomJSONEncoder)
+        assert str(oid) in result
+
+    def test_encodes_datetime_as_isoformat(self):
+        dt = datetime(2024, 6, 1, 12, 0, 0)
+        result = json.dumps({"ts": dt}, cls=CustomJSONEncoder)
+        assert "2024-06-01" in result
+
+    def test_raises_for_unknown_type(self):
+        with pytest.raises(TypeError):
+            json.dumps({"obj": object()}, cls=CustomJSONEncoder)
+
+
+# ---------------------------------------------------------------------------
+# DataLogger — append path (lines 50-67)
+# ---------------------------------------------------------------------------
+
+
+class TestDataLoggerAppend:
+    def test_appends_to_existing_json_file(self, tmp_path):
+        logger = DataLogger(logs_dir=str(tmp_path))
+        logger.log_data("context1", {"x": 1})
+        logger.log_data("context2", {"x": 2})
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        json_file = tmp_path / f"{today}-data.json"
+        content = json.loads(json_file.read_text())
+
+        assert len(content) == 2
+        assert content[1]["calling_context"] == "context2"
+
+    def test_appends_when_file_ends_with_brace_not_bracket(self, tmp_path):
+        """Covers the elif content.endswith('}') branch."""
+        logger = DataLogger(logs_dir=str(tmp_path))
+        today = datetime.now().strftime("%Y-%m-%d")
+        json_file = tmp_path / f"{today}-data.json"
+        # Write a file that ends with } (not ]) to trigger the elif branch
+        json_file.write_text('{"calling_context": "x", "data": {}}')
+        logger.log_data("appended", {"y": 2})
+        raw = json_file.read_text()
+        assert "appended" in raw
+
+
+# ---------------------------------------------------------------------------
+# extract_user_data — missing branches
+# ---------------------------------------------------------------------------
+
+
+class TestExtractUserData:
+    def test_returns_empty_dict_with_no_args(self):
+        result = extract_user_data()
+        assert result == {}
+
+    def test_includes_user_id_when_provided(self):
+        oid = ObjectId()
+        result = extract_user_data(user_id=oid)
+        assert result["user_id"] == oid
+
+    def test_includes_ip_from_request_client(self):
+        request = MagicMock()
+        request.client.host = "127.0.0.1"
+        request.headers.get = MagicMock(return_value=None)
+
+        result = extract_user_data(request=request)
+        assert result["ip"] == "127.0.0.1"
+
+    def test_includes_user_agent_when_present(self):
+        request = MagicMock()
+        request.client = None
+        request.headers.get = MagicMock(return_value="Mozilla/5.0")
+
+        result = extract_user_data(request=request)
+        assert result.get("user_agent") == "Mozilla/5.0"
+
+    def test_omits_ip_when_client_is_none(self):
+        request = MagicMock()
+        request.client = None
+        request.headers.get = MagicMock(return_value=None)
+
+        result = extract_user_data(request=request)
+        assert "ip" not in result

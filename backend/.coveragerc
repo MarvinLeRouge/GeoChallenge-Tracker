@@ -1,11 +1,14 @@
 [run]
 source = app
-omit = 
+omit =
     app/models/*
     app/domain/models/*
     */tests/*
     */__init__.py
     */migrations/*
+    app/main.py
+    app/db/seed_data.py
+    app/db/seed_indexes.py
 
 [report]
 exclude_lines =

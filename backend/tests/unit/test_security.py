@@ -1,14 +1,20 @@
 """Tests for security functions (password hashing, JWT tokens)."""
 
 import datetime as dt
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from bson import ObjectId
+from fastapi import HTTPException
 from jose import jwt
 
 from app.core.security import (
     create_access_token,
     create_refresh_token,
+    get_current_user,
+    get_current_user_id,
     hash_password,
+    validate_password_strength,
     verify_password,
 )
 from app.core.settings import get_settings
@@ -182,3 +188,147 @@ class TestJWTTokenDecoding:
         # Attempting to decode should raise JWTError
         with pytest.raises(jwt.JWTError):
             jwt.decode(tampered_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+
+
+# ---------------------------------------------------------------------------
+# validate_password_strength
+# ---------------------------------------------------------------------------
+
+
+class TestValidatePasswordStrength:
+    """Test validate_password_strength from app.core.security."""
+
+    def test_valid_strong_password(self):
+        valid, msg = validate_password_strength("Str0ng!Pass")
+        assert valid is True
+        assert msg == ""
+
+    def test_too_short(self):
+        valid, msg = validate_password_strength("Ab1!xyz")
+        assert valid is False
+        assert "8 characters" in msg
+
+    def test_no_uppercase(self):
+        valid, msg = validate_password_strength("str0ng!pass")
+        assert valid is False
+        assert "uppercase" in msg
+
+    def test_no_lowercase(self):
+        valid, msg = validate_password_strength("STR0NG!PASS")
+        assert valid is False
+        assert "lowercase" in msg
+
+    def test_no_digit(self):
+        valid, msg = validate_password_strength("Strong!Pass")
+        assert valid is False
+        assert "number" in msg
+
+    def test_no_special_char(self):
+        valid, msg = validate_password_strength("Str0ngPass")
+        assert valid is False
+        assert "special character" in msg
+
+    def test_underscore_counts_as_special(self):
+        """Underscore is matched by [\\W_] and counts as a special character."""
+        valid, msg = validate_password_strength("Str0ng_Pass")
+        assert valid is True
+        assert msg == ""
+
+    def test_exactly_8_chars_valid(self):
+        valid, msg = validate_password_strength("Ab1!wxyz")
+        assert valid is True
+
+    def test_7_chars_too_short(self):
+        valid, msg = validate_password_strength("Ab1!xyz")
+        assert valid is False
+        assert "8 characters" in msg
+
+
+# ---------------------------------------------------------------------------
+# get_current_user (lines 119-140)
+# ---------------------------------------------------------------------------
+
+
+_RAW_USER = {
+    "_id": None,  # filled per test
+    "username": "testuser",
+    "email": "test@example.com",
+    "role": "user",
+    "is_active": True,
+    "is_verified": False,
+}
+
+
+class TestGetCurrentUser:
+    @pytest.mark.asyncio
+    async def test_valid_token_user_found(self):
+        user_id = ObjectId()
+        raw = {**_RAW_USER, "_id": user_id}
+        token = create_access_token(data={"sub": str(user_id)})
+
+        coll = AsyncMock()
+        coll.find_one = AsyncMock(return_value=raw)
+
+        with patch("app.core.security.get_collection", return_value=coll):
+            user = await get_current_user(token)
+
+        assert str(user.id) == str(user_id)
+        assert user.username == "testuser"
+
+    @pytest.mark.asyncio
+    async def test_valid_token_user_not_found_raises_401(self):
+        user_id = ObjectId()
+        token = create_access_token(data={"sub": str(user_id)})
+
+        coll = AsyncMock()
+        coll.find_one = AsyncMock(return_value=None)
+
+        with patch("app.core.security.get_collection", return_value=coll):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user(token)
+
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_invalid_token_raises_401(self):
+        coll = AsyncMock()
+        with patch("app.core.security.get_collection", return_value=coll):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user("not.a.valid.jwt")
+
+        assert exc_info.value.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_token_missing_sub_raises_401(self):
+        token = create_access_token(data={"other_claim": "value"})
+
+        coll = AsyncMock()
+        with patch("app.core.security.get_collection", return_value=coll):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user(token)
+
+        assert exc_info.value.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# get_current_user_id (lines 144-150)
+# ---------------------------------------------------------------------------
+
+
+class TestGetCurrentUserId:
+    def test_user_with_id_returns_id(self):
+        from app.domain.models.user import User
+
+        oid = ObjectId()
+        user = User(_id=oid, username="test", email="test@example.com")
+        result = get_current_user_id(user)
+        assert result == oid
+
+    def test_user_with_none_id_raises_401(self):
+        from app.domain.models.user import User
+
+        user = User(username="test", email="test@example.com")  # id=None by default
+        with pytest.raises(HTTPException) as exc_info:
+            get_current_user_id(user)
+
+        assert exc_info.value.status_code == 401

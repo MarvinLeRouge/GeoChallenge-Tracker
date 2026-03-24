@@ -138,21 +138,14 @@ class TestWalkExpressionTree:
     the original implementation.
     """
 
-    def test_leaf_directly_yields_nothing(self):
-        """Leaf nodes directly yield nothing due to generator return semantics."""
+    def test_leaf_directly_yields_itself(self):
+        """Leaf nodes yield themselves when walked directly."""
         leaf = RulePlacedYear(year=2020)
         items = list(TaskExpressionCompiler.walk_expression_tree(leaf))
-        # The return value in a generator is not yielded — this is the actual behavior.
-        assert items == []
+        assert len(items) == 1
+        assert items[0][0] == "placed_year"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="walk_expression_tree uses 'return list' (not yield) for leaves in a generator "
-        "function, so leaf children of AND/OR nodes produce no items. "
-        "This is a known bug in the original implementation.",
-    )
     def test_and_yields_leaf_children(self):
-        """AND should yield its leaf children (fails due to generator return bug)."""
         year_node = RulePlacedYear(year=2020)
         diff_node = RuleDifficultyBetween(min=2.0, max=4.0)
         and_expr = TaskAnd(nodes=[year_node, diff_node])
@@ -160,24 +153,14 @@ class TestWalkExpressionTree:
         kinds = [k for k, _, _ in items]
         assert "placed_year" in kinds
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Same generator return bug: leaf children of OR produce no items.",
-    )
     def test_or_yields_leaf_children(self):
-        """OR should yield its leaf children (fails due to generator return bug)."""
         year_node = RulePlacedYear(year=2020)
         or_expr = TaskOr(nodes=[year_node])
         items = list(TaskExpressionCompiler.walk_expression_tree(or_expr))
         kinds = [k for k, _, _ in items]
         assert "placed_year" in kinds
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="Same generator return bug: leaf under NOT produces no items.",
-    )
     def test_not_wraps_with_not_parent(self):
-        """NOT should wrap its leaf with parent='not' (fails due to generator return bug)."""
         year_node = RulePlacedYear(year=2020)
         not_expr = TaskNot(node=year_node)
         items = list(TaskExpressionCompiler.walk_expression_tree(not_expr))
@@ -353,17 +336,10 @@ class TestCompileExpressionToCacheMatch:
         result = TaskExpressionCompiler.compile_expression_to_cache_match(and_expr)
         assert result == {} or result.get("$and") == []
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="RuleCountryIs has no 'country_id' attribute at node level — only 'country.country_id'. "
-        "The compiler incorrectly accesses 'leaf.country_id', raising AttributeError. "
-        "This is a known bug in the original implementation.",
-    )
     def test_country_is(self):
-        """country_is compiles to country_id filter (fails due to AttributeError bug)."""
-        leaf = RuleCountryIs(country_id=_OID, country=CountrySelector(name="France"))
+        leaf = RuleCountryIs(country=CountrySelector(country_id=42, name="France"))
         and_expr = TaskAnd(nodes=[leaf])
         result = TaskExpressionCompiler.compile_expression_to_cache_match(and_expr)
         clauses = result["$and"]
         country_clause = next(c for c in clauses if "country_id" in c)
-        assert country_clause["country_id"] == _OID
+        assert country_clause["country_id"] == 42
