@@ -54,13 +54,17 @@ class TaskExpressionValidator:
                 continue
 
             if kind == "type_in":
-                for oid in node.type_ids:
-                    if not exists_id("cache_types", oid):
-                        errors.append(f"type_in: unknown cache_type id '{oid}'")
+                for t in node.types:
+                    if t.cache_type_doc_id is not None and not exists_id(
+                        "cache_types", t.cache_type_doc_id
+                    ):
+                        errors.append(f"type_in: unknown cache_type id '{t.cache_type_doc_id}'")
             elif kind == "size_in":
-                for oid in node.size_ids:
-                    if not exists_id("cache_sizes", oid):
-                        errors.append(f"size_in: unknown cache_size id '{oid}'")
+                for s in node.sizes:
+                    if s.cache_size_doc_id is not None and not exists_id(
+                        "cache_sizes", s.cache_size_doc_id
+                    ):
+                        errors.append(f"size_in: unknown cache_size id '{s.cache_size_doc_id}'")
             elif kind == "state_in":
                 for oid in node.state_ids:
                     if not exists_id("states", oid):

@@ -300,17 +300,12 @@ async function saveAll() {
         // 2) Mettre à jour la liste locale si le backend renvoie tasks
         if (data?.tasks) {
             tasks.value = mapServerTasksToUI(data.tasks)
-            console.log(tasks)
         }
 
 
 
-        // 3) Recalcul du progrès pour ce seul UC
-        //const { data: progress } = await api.post<ProgressRes>(`/my/challenges/new/progress`)
-
-        // 4) Toast succès avec le récap
-        //const msg = `Progrès recalculé: évalués ${progress.evaluated_count}, ignorés ${progress.skipped_count}`
-        //toast?.value?.showToast(`Tâches enregistrées — ${msg}`, CheckCircleIcon)
+        // 3) Toast succès
+        toast?.value?.showToast('Tâches enregistrées', CheckCircleIcon)
 
     } catch (e: unknown) {
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail

@@ -272,7 +272,7 @@ class TestCreateChallengesFromCaches:
 
         assert result["matched"] == 1
         op = challenges_coll.bulk_write.call_args[0][0][0]
-        assert op._doc["$setOnInsert"]["name"] == "Challenge"
+        assert op._doc["$set"]["name"] == "Challenge"
 
 
 # ---------------------------------------------------------------------------

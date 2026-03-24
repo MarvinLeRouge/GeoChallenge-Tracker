@@ -230,8 +230,10 @@ class DataNormalizer:
         if raw_data.get("title"):
             metadata["title"] = str(raw_data["title"]).strip()
 
-        # Description
-        description = DataNormalizer.clean_html_content(raw_data.get("description"))
+        # Description — parser may provide either "description" (raw) or "description_html" (pre-cleaned)
+        description = DataNormalizer.clean_html_content(
+            raw_data.get("description") or raw_data.get("description_html")
+        )
         if description:
             metadata["description_html"] = description
 
@@ -279,6 +281,12 @@ class DataNormalizer:
         status = raw_data.get("status", "active").lower()
         if status in ["active", "disabled", "archived"]:
             metadata["status"] = status
+
+        # Country / state (string names — resolved to ObjectIds by map_cache_referentials)
+        if raw_data.get("country"):
+            metadata["country"] = str(raw_data["country"]).strip()
+        if raw_data.get("state"):
+            metadata["state"] = str(raw_data["state"]).strip()
 
         # Attributes (if present)
         if "attributes" in raw_data and isinstance(raw_data["attributes"], list):
