@@ -274,8 +274,10 @@ class TestValidateTaskExpressionMockedWalk:
         return validator
 
     def test_type_in_unknown_id_reports_error(self):
+        oid = ObjectId()
+        type_sel = MagicMock(cache_type_doc_id=oid)
         node = MagicMock()
-        node.type_ids = [ObjectId()]
+        node.types = [type_sel]
         validator = self._validator_with_walk([("type_in", node, "and")])
         with patch(
             "app.services.user_challenge_tasks.task_expression_validator.exists_id",
@@ -285,8 +287,10 @@ class TestValidateTaskExpressionMockedWalk:
         assert any("type_in" in e for e in errors)
 
     def test_type_in_known_id_no_error(self):
+        oid = ObjectId()
+        type_sel = MagicMock(cache_type_doc_id=oid)
         node = MagicMock()
-        node.type_ids = [ObjectId()]
+        node.types = [type_sel]
         validator = self._validator_with_walk([("type_in", node, "and")])
         with patch(
             "app.services.user_challenge_tasks.task_expression_validator.exists_id",
@@ -296,8 +300,10 @@ class TestValidateTaskExpressionMockedWalk:
         assert errors == []
 
     def test_size_in_unknown_id_reports_error(self):
+        oid = ObjectId()
+        size_sel = MagicMock(cache_size_doc_id=oid)
         node = MagicMock()
-        node.size_ids = [ObjectId()]
+        node.sizes = [size_sel]
         validator = self._validator_with_walk([("size_in", node, "and")])
         with patch(
             "app.services.user_challenge_tasks.task_expression_validator.exists_id",

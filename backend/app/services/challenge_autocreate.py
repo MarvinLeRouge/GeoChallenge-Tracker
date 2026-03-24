@@ -175,11 +175,11 @@ async def create_challenges_from_caches(
                 {
                     "$setOnInsert": {
                         "cache_id": cache_id,
-                        "name": title,
-                        "description": description,
                         "created_at": utcnow(),
                     },
                     "$set": {
+                        "name": title,
+                        "description": description,
                         "updated_at": utcnow(),
                     },
                 },
