@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -14,6 +15,8 @@ from app.core.utils import utcnow
 from .geo_utils import get_user_location
 from .target_evaluator import TargetEvaluator
 from .target_scorer import TargetScorer
+
+log = logging.getLogger(__name__)
 
 
 class TargetService:
@@ -64,11 +67,14 @@ class TargetService:
         # Validate ownership
         await self._validate_user_challenge_ownership(user_id, uc_id)
 
+        log.info("[targets] evaluate UC=%s user=%s force=%s", uc_id, user_id, force)
+
         # Short-circuit if not forcing and enough targets already exist
         if not force:
             existing_count = await self._count_existing_targets(user_id, uc_id)
             threshold = min(hard_limit_total, limit_per_task * 5)
             if existing_count >= threshold:
+                log.info("[targets] skipped UC=%s — %d existing targets", uc_id, existing_count)
                 return {
                     "ok": True,
                     "inserted": 0,
@@ -93,6 +99,8 @@ class TargetService:
             hard_limit_total=hard_limit_total,
         )
 
+        log.info("[targets] UC=%s — %d candidate(s) found", uc_id, len(candidates))
+
         # Score and persist
         result = await self._score_and_persist_targets(
             candidates=candidates,
@@ -104,6 +112,13 @@ class TargetService:
             evaluated_at=evaluated_at or utcnow(),
         )
 
+        log.info(
+            "[targets] UC=%s — inserted=%d updated=%d total=%d",
+            uc_id,
+            result["inserted"],
+            result["updated"],
+            result["total"],
+        )
         return result
 
     async def list_targets_for_user_challenge(
@@ -335,7 +350,7 @@ class TargetService:
                 "cache_owner": cache_data.get("owner"),
                 "cache_difficulty": cache_data.get("difficulty"),
                 "cache_terrain": cache_data.get("terrain"),
-                "cache_loc": cache_data.get("loc"),
+                "loc": cache_data.get("loc"),
                 "primary_task_id": primary_task_id,
                 "matched_tasks_count": len(matched_tasks),
                 "score": scores["composite"],
@@ -422,15 +437,64 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List targets with a geographic filter."""
-        # Simple implementation without $geoNear for now
-        # TODO: Optimize with a geographic aggregation pipeline
-        return await self._list_targets_with_pagination(
-            filters=base_filters,
-            page=page,
-            page_size=page_size,
-            sort=sort,
+        """List targets within a geographic radius using $geoNear.
+
+        Uses the 2dsphere index on the ``loc`` field to filter and compute
+        live distance from the provided coordinates.
+        """
+        coll_targets = self.db.targets
+
+        geo_stage: dict[str, Any] = {
+            "$geoNear": {
+                "near": {"type": "Point", "coordinates": [lon, lat]},
+                "distanceField": "distance_m",
+                "maxDistance": radius_km * 1000,
+                "spherical": True,
+                "query": base_filters,
+            }
+        }
+
+        # Build sort document for the aggregation pipeline
+        if sort == "distance":
+            sort_doc: dict[str, Any] = {"distance_m": 1}
+        else:
+            sort_doc = {}
+            for key in sort.split(","):
+                key = key.strip()
+                if key.startswith("-"):
+                    sort_doc[key[1:]] = -1
+                else:
+                    sort_doc[key] = 1
+
+        skip = (page - 1) * page_size
+
+        # Count matching documents
+        count_result = await coll_targets.aggregate([geo_stage, {"$count": "total"}]).to_list(
+            length=1
         )
+        total_count: int = count_result[0]["total"] if count_result else 0
+        nb_pages = (total_count + page_size - 1) // page_size if total_count else 0
+
+        # Fetch page
+        pipeline: list[dict[str, Any]] = [
+            geo_stage,
+            {"$sort": sort_doc},
+            {"$skip": skip},
+            {"$limit": page_size},
+        ]
+        items = await coll_targets.aggregate(pipeline).to_list(length=None)
+
+        log.debug(
+            "[targets] nearby lat=%s lon=%s r=%skm — %d result(s)", lat, lon, radius_km, total_count
+        )
+
+        return {
+            "items": items,
+            "nb_items": total_count,
+            "page": page,
+            "page_size": page_size,
+            "nb_pages": nb_pages,
+        }
 
     async def _list_targets_for_user_with_status_filter(
         self,
@@ -440,14 +504,33 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List targets with a UC status filter."""
-        base_filters = {"user_id": user_id}
+        """List targets with an optional UC status filter.
+
+        When ``status_filter`` is provided, resolves the matching
+        UserChallenge ids first, then filters targets accordingly.
+        """
+        base_filters: dict[str, Any] = {"user_id": user_id}
 
         if status_filter:
-            # Join with user_challenges to filter by status
-            # Simple implementation for now
-            # TODO: Optimize with an aggregation pipeline
-            pass
+            coll_uc = self.db.user_challenges
+            uc_docs = await coll_uc.find(
+                {"user_id": user_id, "status": status_filter},
+                {"_id": 1},
+            ).to_list(length=None)
+            uc_ids = [doc["_id"] for doc in uc_docs]
+
+            log.debug("[targets] status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids))
+
+            if not uc_ids:
+                return {
+                    "items": [],
+                    "nb_items": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "nb_pages": 0,
+                }
+
+            base_filters["user_challenge_id"] = {"$in": uc_ids}
 
         return await self._list_targets_with_pagination(
             filters=base_filters,
@@ -467,10 +550,35 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List nearby targets with a UC status filter."""
-        # Combined geo + status filters
-        # Simple implementation for now
-        base_filters = {"user_id": user_id}
+        """List nearby targets with an optional UC status filter.
+
+        Resolves matching UC ids when a status filter is provided,
+        then delegates to ``_list_targets_nearby``.
+        """
+        base_filters: dict[str, Any] = {"user_id": user_id}
+
+        if status_filter:
+            coll_uc = self.db.user_challenges
+            uc_docs = await coll_uc.find(
+                {"user_id": user_id, "status": status_filter},
+                {"_id": 1},
+            ).to_list(length=None)
+            uc_ids = [doc["_id"] for doc in uc_docs]
+
+            log.debug(
+                "[targets] nearby status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids)
+            )
+
+            if not uc_ids:
+                return {
+                    "items": [],
+                    "nb_items": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "nb_pages": 0,
+                }
+
+            base_filters["user_challenge_id"] = {"$in": uc_ids}
 
         return await self._list_targets_nearby(
             base_filters=base_filters,
