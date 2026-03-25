@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bson import ObjectId
 
-from app.services.user_stats import get_user_by_username, get_user_stats
+from app.services.user_stats import get_user_stats
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -134,48 +134,28 @@ class TestGetUserStatsSelf:
 
 class TestGetUserStatsAdmin:
     @pytest.mark.asyncio
-    async def test_admin_can_view_other_user_stats(self):
-        admin_id = ObjectId()
+    async def test_target_user_id_returns_that_user_stats(self):
+        caller_id = ObjectId()
         target_id = ObjectId()
 
-        admin_doc = {"_id": admin_id, "role": "admin"}
-        target_doc = {
-            "_id": target_id,
-            "username": "bob",
-            "created_at": _NOW,
-        }
+        target_doc = {"_id": target_id, "username": "bob", "created_at": _NOW}
 
         users_coll = _make_mock_coll()
-        users_coll.find_one = AsyncMock(side_effect=[admin_doc, target_doc])
+        users_coll.find_one = AsyncMock(return_value=target_doc)
 
         with _patch_collections(users=users_coll):
-            result = await get_user_stats(admin_id, target_username="bob")
+            result = await get_user_stats(caller_id, target_user_id=target_id)
 
         assert result.username == "bob"
 
     @pytest.mark.asyncio
-    async def test_non_admin_raises_permission_error(self):
-        user_id = ObjectId()
-        non_admin = {"_id": user_id, "role": "user"}
-
-        users_coll = _make_mock_coll()
-        users_coll.find_one = AsyncMock(return_value=non_admin)
-
-        with _patch_collections(users=users_coll):
-            with pytest.raises(PermissionError, match="Admin"):
-                await get_user_stats(user_id, target_username="bob")
-
-    @pytest.mark.asyncio
     async def test_raises_when_target_user_not_found(self):
-        admin_id = ObjectId()
-        admin_doc = {"_id": admin_id, "role": "admin"}
-
         users_coll = _make_mock_coll()
-        users_coll.find_one = AsyncMock(side_effect=[admin_doc, None])
+        users_coll.find_one = AsyncMock(return_value=None)
 
         with _patch_collections(users=users_coll):
             with pytest.raises(ValueError, match="not found"):
-                await get_user_stats(admin_id, target_username="ghost")
+                await get_user_stats(ObjectId(), target_user_id=ObjectId())
 
 
 # ---------------------------------------------------------------------------
@@ -288,39 +268,3 @@ class TestGetUserStatsCacheTypeStats:
             result = await get_user_stats(user_id)
 
         assert result.cache_types_stats is None
-
-
-# ---------------------------------------------------------------------------
-# get_user_by_username
-# ---------------------------------------------------------------------------
-
-
-class TestGetUserByUsername:
-    @pytest.mark.asyncio
-    async def test_returns_user_when_found(self):
-        oid = ObjectId()
-        user_doc = {"_id": oid, "username": "alice"}
-
-        users_coll = _make_mock_coll()
-        users_coll.find_one = AsyncMock(return_value=user_doc)
-
-        with patch(
-            "app.services.user_stats.get_collection",
-            return_value=users_coll,
-        ):
-            result = await get_user_by_username("alice")
-
-        assert result == user_doc
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_not_found(self):
-        users_coll = _make_mock_coll()
-        users_coll.find_one = AsyncMock(return_value=None)
-
-        with patch(
-            "app.services.user_stats.get_collection",
-            return_value=users_coll,
-        ):
-            result = await get_user_by_username("ghost")
-
-        assert result is None

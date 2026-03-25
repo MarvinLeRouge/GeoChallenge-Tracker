@@ -3,14 +3,17 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
+from app.api.dto.user_stats import UserStatsOut
 from app.core.security import get_current_user
 from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
+from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
 from app.services.user_profile_service import UserProfileService
+from app.services.user_stats import get_user_stats
 
 router = APIRouter(
     prefix="/my/profile", tags=["My profile"], dependencies=[Depends(get_current_user)]
@@ -92,6 +95,62 @@ async def get_my_location(user_id: CurrentUserId):
         )
 
     return location_data
+
+
+@router.post(
+    "/found-caches/sync",
+    status_code=status.HTTP_200_OK,
+    summary="Sync found caches from a text file",
+    description=(
+        "Uploads a plain-text file and extracts every GC code it contains.\n\n"
+        "The extracted list is treated as the **complete and authoritative** found-cache list "
+        "for the current user:\n"
+        "- Found caches **not in the list** are deleted.\n"
+        "- GC codes **not yet in found caches** are inserted.\n"
+        "- GC codes not matched to any known cache are reported as `unknown_gc_codes`."
+    ),
+)
+async def sync_my_found_caches(
+    user_id: CurrentUserId,
+    file: Annotated[UploadFile, File(..., description="Plain-text file containing GC codes.")],
+):
+    """Sync found caches from a canonical text file.
+
+    Args:
+        file (UploadFile): Text file whose content will be scanned for GC codes.
+
+    Returns:
+        dict: {nb_provided, nb_deleted, nb_added, nb_unknown_gc, unknown_gc_codes}.
+    """
+    content = await file.read()
+    await file.close()
+
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception as err:
+        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
+
+    gc_codes = extract_gc_codes(text)
+    db = get_db()
+    return await sync_found_caches(db=db, user_id=user_id, gc_codes=gc_codes)
+
+
+@router.get(
+    "/stats",
+    response_model=UserStatsOut,
+    summary="Get my statistics",
+    description="Returns summary statistics for the current user.",
+)
+async def get_my_stats(user_id: CurrentUserId) -> UserStatsOut:
+    """Get statistics for the current user.
+
+    Returns:
+        UserStatsOut: Computed statistics.
+    """
+    try:
+        return await get_user_stats(user_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
 
 
 # TODO: [BACKLOG] Route /my/profile (GET) to verify

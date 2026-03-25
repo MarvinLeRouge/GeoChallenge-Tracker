@@ -27,12 +27,15 @@ from fastapi import (
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUserId, require_admin
+from app.api.dto.user_stats import UserStatsOut
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
+from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
 from app.services.gpx_import.referential_mapper import ReferentialMapper
 from app.services.gpx_importer_service import import_gpx_payload
 from app.services.targets_service import evaluate_all_for_user
+from app.services.user_stats import get_user_stats
 
 # Confirmation key validity duration (in minutes)
 CONFIRMATION_KEY_TTL = 10
@@ -1084,3 +1087,75 @@ async def maintenance_evaluate_all_targets(
         raise HTTPException(status_code=422, detail="Invalid user_id.") from err
 
     return await evaluate_all_for_user(user_id=uid, force=True)
+
+
+@router.post(
+    "/users/{user_id}/found-caches/sync",
+    status_code=status.HTTP_200_OK,
+    summary="Sync found caches from a text file (admin)",
+    description=(
+        "Uploads a plain-text file and extracts every GC code it contains.\n\n"
+        "The extracted list is treated as the **complete and authoritative** found-cache list "
+        "for the given user:\n"
+        "- Found caches **not in the list** are deleted.\n"
+        "- GC codes **not yet in found caches** are inserted.\n"
+        "- GC codes not matched to any known cache are reported as `unknown_gc_codes`."
+    ),
+)
+async def maintenance_sync_found_caches(
+    user_id: Annotated[str, ApiPath(..., description="Target user identifier.")],
+    file: Annotated[UploadFile, File(..., description="Plain-text file containing GC codes.")],
+):
+    """Sync found caches for a given user from a canonical text file.
+
+    Args:
+        user_id (str): Target user identifier.
+        file (UploadFile): Text file whose content will be scanned for GC codes.
+
+    Returns:
+        dict: {nb_provided, nb_deleted, nb_added, nb_unknown_gc, unknown_gc_codes}.
+    """
+    try:
+        uid = ObjectId(user_id)
+    except Exception as err:
+        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+
+    content = await file.read()
+    await file.close()
+
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception as err:
+        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
+
+    gc_codes = extract_gc_codes(text)
+    db = get_db()
+    return await sync_found_caches(db=db, user_id=uid, gc_codes=gc_codes)
+
+
+@router.get(
+    "/users/{user_id}/stats",
+    response_model=UserStatsOut,
+    summary="Get statistics for a given user (admin)",
+    description="Returns summary statistics for the specified user.",
+)
+async def maintenance_get_user_stats(
+    user_id: str = ApiPath(..., description="Target user identifier."),
+) -> UserStatsOut:
+    """Get statistics for a given user.
+
+    Args:
+        user_id (str): Target user identifier.
+
+    Returns:
+        UserStatsOut: Computed statistics.
+    """
+    try:
+        uid = ObjectId(user_id)
+    except Exception as err:
+        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+
+    try:
+        return await get_user_stats(user_id=uid, target_user_id=uid)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
