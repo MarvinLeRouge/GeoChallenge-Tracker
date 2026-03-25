@@ -139,3 +139,18 @@ async def delete_targets_for_user_challenge(user_id: ObjectId, uc_id: ObjectId) 
     """Compatibility wrapper — delete targets for a UC."""
     service = get_target_service()
     return await service.delete_targets_for_user_challenge(user_id=user_id, uc_id=uc_id)
+
+
+async def evaluate_all_for_user(
+    user_id: ObjectId,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Compatibility wrapper — evaluate targets for all accepted UCs of a user."""
+    service = get_target_service()
+    return await service.evaluate_all_for_user(user_id=user_id, force=force)
+
+
+async def get_targets_refresh_status(user_id: ObjectId) -> dict[str, Any]:
+    """Compatibility wrapper — return targets refresh status for a user."""
+    service = get_target_service()
+    return await service.get_targets_refresh_status(user_id=user_id)

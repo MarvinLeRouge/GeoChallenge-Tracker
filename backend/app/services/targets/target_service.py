@@ -83,6 +83,11 @@ class TargetService:
                     "skipped": True,
                 }
 
+        # When forcing, wipe existing targets so stale entries don't survive
+        if force:
+            await self.db.targets.delete_many({"user_id": user_id, "user_challenge_id": uc_id})
+            log.info("[targets] force — existing targets deleted for UC=%s", uc_id)
+
         # Retrieve required data
         username = await self.evaluator.get_username(user_id)
         tasks = await self.evaluator.get_user_challenge_tasks(uc_id)
@@ -259,6 +264,97 @@ class TargetService:
             sort=sort,
         )
 
+    async def evaluate_all_for_user(
+        self,
+        user_id: ObjectId,
+        force: bool = False,
+    ) -> dict[str, Any]:
+        """Evaluate targets for all accepted UserChallenges of a user.
+
+        Args:
+            user_id: User identifier.
+            force: Force recalculation even if targets already exist.
+
+        Returns:
+            dict: {ok, evaluated, total_inserted, total_updated, last_targets_evaluated_at}.
+        """
+        coll_uc = self.db.user_challenges
+        uc_docs = await coll_uc.find(
+            {"user_id": user_id, "status": "accepted"}, {"_id": 1}
+        ).to_list(length=None)
+
+        log.info("[targets] evaluate_all user=%s — %d accepted UC(s)", user_id, len(uc_docs))
+
+        total_inserted = 0
+        total_updated = 0
+        evaluated = 0
+
+        for doc in uc_docs:
+            uc_id = doc["_id"]
+            try:
+                result = await self.evaluate_targets_for_user_challenge(
+                    user_id=user_id,
+                    uc_id=uc_id,
+                    force=force,
+                )
+                if not result.get("skipped"):
+                    total_inserted += result.get("inserted", 0)
+                    total_updated += result.get("updated", 0)
+                evaluated += 1
+            except Exception:
+                log.exception("[targets] evaluate_all — UC %s failed", uc_id)
+
+        now = utcnow()
+        await self.db.users.update_one(
+            {"_id": user_id},
+            {"$set": {"last_targets_evaluated_at": now}},
+        )
+
+        log.info(
+            "[targets] evaluate_all done — %d UC(s) evaluated, inserted=%d updated=%d",
+            evaluated,
+            total_inserted,
+            total_updated,
+        )
+
+        return {
+            "ok": True,
+            "evaluated": evaluated,
+            "total_inserted": total_inserted,
+            "total_updated": total_updated,
+            "last_targets_evaluated_at": now,
+        }
+
+    async def get_targets_refresh_status(self, user_id: ObjectId) -> dict[str, Any]:
+        """Return whether targets need to be refreshed for a user.
+
+        Compares ``last_not_found_import_at`` and ``last_targets_evaluated_at``
+        on the user document to determine staleness.
+
+        Args:
+            user_id: User identifier.
+
+        Returns:
+            dict: {needs_refresh, last_not_found_import_at, last_targets_evaluated_at}.
+        """
+        user = await self.db.users.find_one(
+            {"_id": user_id},
+            {"last_not_found_import_at": 1, "last_targets_evaluated_at": 1},
+        )
+
+        last_import = user.get("last_not_found_import_at") if user else None
+        last_eval = user.get("last_targets_evaluated_at") if user else None
+
+        needs_refresh = bool(
+            last_import is not None and (last_eval is None or last_import > last_eval)
+        )
+
+        return {
+            "needs_refresh": needs_refresh,
+            "last_not_found_import_at": last_import,
+            "last_targets_evaluated_at": last_eval,
+        }
+
     async def delete_targets_for_user_challenge(
         self, user_id: ObjectId, uc_id: ObjectId
     ) -> dict[str, Any]:
@@ -350,6 +446,7 @@ class TargetService:
                 "cache_owner": cache_data.get("owner"),
                 "cache_difficulty": cache_data.get("difficulty"),
                 "cache_terrain": cache_data.get("terrain"),
+                "cache_type_code": cache_data.get("type_code"),
                 "loc": cache_data.get("loc"),
                 "primary_task_id": primary_task_id,
                 "matched_tasks_count": len(matched_tasks),

@@ -143,7 +143,7 @@ class TestEvaluateTargetsForUserChallenge:
         task_id = ObjectId()
         tasks_cursor = AsyncMock()
         tasks_cursor.to_list = AsyncMock(
-            return_value=[{"_id": task_id, "expression": {"type": "and"}}]
+            return_value=[{"_id": task_id, "expression": {"kind": "and"}}]
         )
         db.user_challenge_tasks.find = MagicMock(return_value=tasks_cursor)
 

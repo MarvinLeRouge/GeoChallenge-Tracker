@@ -19,6 +19,10 @@ from fastapi import (
     Query,
     Request,
     UploadFile,
+    status,
+)
+from fastapi import (
+    Path as ApiPath,
 )
 from fastapi.responses import FileResponse
 
@@ -28,6 +32,7 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.gpx_import.referential_mapper import ReferentialMapper
 from app.services.gpx_importer_service import import_gpx_payload
+from app.services.targets_service import evaluate_all_for_user
 
 # Confirmation key validity duration (in minutes)
 CONFIRMATION_KEY_TTL = 10
@@ -1046,3 +1051,36 @@ async def referentials_duplicates(_: Request) -> dict[str, Any]:
         "duplicate_states": duplicate_states,
         "nb_duplicate_state_groups": len(duplicate_states),
     }
+
+
+# ---------------------------
+# Targets
+# ---------------------------
+
+
+@router.post(
+    "/users/{user_id}/targets/evaluate-all",
+    status_code=status.HTTP_200_OK,
+    summary="Force re-evaluate targets for a given user (admin)",
+    description=(
+        "Wipes and recomputes targets for **all** accepted UserChallenges of the given user.\n\n"
+        "Use this when a user reports stale or missing targets."
+    ),
+)
+async def maintenance_evaluate_all_targets(
+    user_id: str = ApiPath(..., description="User identifier."),
+):
+    """Force re-evaluate targets for a given user.
+
+    Args:
+        user_id (str): Target user identifier.
+
+    Returns:
+        dict: {ok, evaluated, total_inserted, total_updated, last_targets_evaluated_at}.
+    """
+    try:
+        uid = ObjectId(user_id)
+    except Exception as err:
+        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+
+    return await evaluate_all_for_user(user_id=uid, force=True)

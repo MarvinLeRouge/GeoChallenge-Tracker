@@ -116,7 +116,14 @@ const challengesRoutes = [
 ]
 
 // Targets
-//const targetsRoutes = []
+const targetsRoutes = [
+  {
+    path: '/my/targets',
+    name: 'my-targets',
+    component: () => import('@/pages/Targets.vue'),
+    meta: { dense: true, noFabPadding: true, title: 'Mes targets' },
+  },
+]
 // Help
 // const helpRoutes = []
 
@@ -133,7 +140,7 @@ const routes = [
     component: () => import('@/pages/misc/Legal.vue'),
     meta: { title: 'Mentions légales' },
   },
-  ...authRoutes, ...cachesRoutes, ...challengesRoutes,
+  ...authRoutes, ...cachesRoutes, ...challengesRoutes, ...targetsRoutes,
 
   {
     path: '/:pathMatch(.*)*',
