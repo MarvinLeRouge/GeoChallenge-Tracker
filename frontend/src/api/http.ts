@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosHeaders } from 'axios'
 import { useAuthStore } from '@/store/auth'
+import { toast } from 'vue-sonner'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
@@ -11,10 +12,11 @@ let refreshPromise: Promise<void> | null = null
 /** Logout + redirect to login with reason param (called when session cannot be recovered). */
 function handleSessionExpired(): void {
   useAuthStore().logout()
+  toast.error('Session expirée', { description: 'Veuillez vous reconnecter.' })
   // Dynamic import avoids circular dependency: http → router → auth → http
   import('@/router').then(({ default: router }) => {
     if (router.currentRoute.value.name !== 'auth/login') {
-      router.push({ name: 'auth/login', query: { reason: 'session_expired' } })
+      router.push({ name: 'auth/login' })
     }
   })
 }

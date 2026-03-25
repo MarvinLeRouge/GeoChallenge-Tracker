@@ -160,6 +160,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserChallenge } from '@/composables/useUserChallenge'
 import api from '@/api/http'
+import { toast } from 'vue-sonner'
 
 import {
     ArrowLeftIcon,
@@ -233,8 +234,11 @@ async function evaluateProgress() {
     try {
         await api.post(`/my/challenges/${id}/progress/evaluate`)
         await fetchProgress()
+        toast.success('Progression évaluée')
     } catch (e: unknown) {
-        error.value = e instanceof Error ? e.message : 'Erreur lors de l\'évaluation'
+        const msg = e instanceof Error ? e.message : 'Erreur lors de l\'évaluation'
+        error.value = msg
+        toast.error('Erreur d\'évaluation', { description: msg })
     } finally {
         evaluating.value = false
     }
@@ -246,8 +250,11 @@ async function patchStatus(status: Detail['status']) {
     try {
         await api.patch(`/my/challenges/${uc.value.id}`, { status })
         await fetchDetail()
+        toast.success('Statut mis à jour')
     } catch (e: unknown) {
-        error.value = e instanceof Error ? e.message : 'Erreur de mise à jour'
+        const msg = e instanceof Error ? e.message : 'Erreur de mise à jour'
+        error.value = msg
+        toast.error('Erreur de mise à jour', { description: msg })
     } finally {
         loading.value = false
     }
@@ -262,8 +269,11 @@ async function saveNotes() {
             override_reason: overrideReason.value || null,
         })
         await fetchDetail()
+        toast.success('Notes enregistrées')
     } catch (e: unknown) {
-        error.value = e instanceof Error ? e.message : 'Erreur enregistrement'
+        const msg = e instanceof Error ? e.message : 'Erreur enregistrement'
+        error.value = msg
+        toast.error('Erreur enregistrement', { description: msg })
     } finally {
         loading.value = false
     }

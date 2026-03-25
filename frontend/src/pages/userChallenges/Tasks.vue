@@ -163,13 +163,7 @@ import {
     ClipboardDocumentCheckIcon, // validate
     ArrowUpOnSquareIcon,        // save
 } from '@heroicons/vue/24/outline'
-import { inject, type Ref } from 'vue'
-import { CheckCircleIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/solid'
-import type { ToastArgs } from '@/components/BaseToast.vue'
-import type { Component } from 'vue'
-
-type ToastInstance = { showToast: (args: ToastArgs, iconComp?: Component, duration?: number) => void }
-const toast = inject<Ref<ToastInstance | null>>('toast')
+import { toast } from 'vue-sonner'
 
 type TaskExpr = unknown
 type Task = {
@@ -279,11 +273,11 @@ async function validateAll() {
     try {
         const payload = buildPayload()
         await api.post(`/my/challenges/${ucId}/tasks/validate`, payload)
-        toast?.value?.showToast('Validation réussie', CheckCircleIcon)
+        toast.success('Validation réussie')
     } catch (e: unknown) {
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
         error.value = detail ?? (e instanceof Error ? e.message : 'Validation invalide')
-        toast?.value?.showToast('Erreur de validation', ExclamationTriangleIcon)
+        toast.error('Erreur de validation', { description: error.value ?? undefined })
     } finally {
         loading.value = false
     }
@@ -304,12 +298,11 @@ async function saveAll() {
 
 
 
-        // 3) Toast succès
-        toast?.value?.showToast('Tâches enregistrées', CheckCircleIcon)
-
+        toast.success('Tâches enregistrées')
     } catch (e: unknown) {
         const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
         error.value = detail ?? (e instanceof Error ? e.message : 'Erreur enregistrement')
+        toast.error('Erreur enregistrement', { description: error.value ?? undefined })
     } finally {
         loading.value = false
     }

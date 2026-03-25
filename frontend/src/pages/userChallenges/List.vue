@@ -80,6 +80,7 @@ import UserChallengeCard from '@/components/userChallenges/UserChallengeCard.vue
 import { useChallengesStore } from '@/store/challenges'
 import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 import type { UserChallengeListItem } from '@/types/challenges'
+import { toast } from 'vue-sonner'
 
 import {
     CheckCircleIcon,
@@ -150,8 +151,11 @@ async function patchChallenge(ch: UserChallengeListItem, status: UCStatus) {
         await api.patch(`/my/challenges/${ch.id}`, { status })
         store.updateItem(ch.id, { status })
         await store.fetchList(filterStatus.value)
+        toast.success('Challenge mis à jour')
     } catch (e: unknown) {
-        store.error = handleApiError(e).message
+        const msg = handleApiError(e).message
+        store.error = msg
+        toast.error('Erreur de mise à jour', { description: msg })
     } finally {
         store.loading = false
     }

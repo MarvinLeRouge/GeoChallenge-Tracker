@@ -45,8 +45,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/store/auth'
 import { useApiErrorHandler } from '@/composables/useApiErrorHandler'
 
@@ -58,14 +58,6 @@ const { error, handleApiError, clearError } = useApiErrorHandler()
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
-const toast = inject<{ value: { showToast: (msg: string) => void } }>('toast')
-
-onMounted(() => {
-  if (route.query.reason === 'session_expired') {
-    toast?.value?.showToast('Session expirée, veuillez vous reconnecter')
-    router.replace({ name: 'auth/login' })
-  }
-})
 
 const submit = async () => {
   loading.value = true
