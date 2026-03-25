@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import math
 from typing import Annotated, Any, Literal
 
@@ -31,8 +33,10 @@ from app.core.settings import get_settings
 from app.db.mongodb import get_collection
 from app.services.challenge_autocreate import create_new_challenges_from_caches
 from app.services.gpx_importer_service import import_gpx_payload
+from app.services.progress import evaluate_progress
 from app.services.user_challenges_service import sync_user_challenges
 
+log = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/caches", tags=["Caches"], dependencies=[Depends(get_current_user)])
@@ -241,6 +245,46 @@ async def upload_gpx(
         result["sync_stats"] = await sync_user_challenges(ObjectId(str(user_id)))
     except Exception as e:
         result["sync_stats"] = {"error": str(e)}
+
+    if import_mode == "found":
+        try:
+            coll_uc = await get_collection("user_challenges")
+            uid = ObjectId(str(user_id))
+            accepted_docs = await coll_uc.find(
+                {"user_id": uid, "status": "accepted"},
+                {"_id": 1},
+            ).to_list(length=None)
+
+            log.info(
+                "[progress] GPX found import — evaluating %d accepted UC(s)", len(accepted_docs)
+            )
+
+            eval_results = await asyncio.gather(
+                *(evaluate_progress(uid, doc["_id"]) for doc in accepted_docs),
+                return_exceptions=True,
+            )
+
+            evaluated = 0
+            for doc, res in zip(accepted_docs, eval_results):
+                uc_id_str = str(doc["_id"])
+                if isinstance(res, BaseException):
+                    log.warning("[progress] UC %s — evaluation failed: %s", uc_id_str, res)
+                else:
+                    pct = res.get("percent", "?")
+                    done = res.get("tasks_done", "?")
+                    total = res.get("tasks_total", "?")
+                    log.info(
+                        "[progress] UC %s — %s%% (%s/%s tasks done)", uc_id_str, pct, done, total
+                    )
+                    evaluated += 1
+
+            result["progress_stats"] = {
+                "evaluated": evaluated,
+                "total": len(accepted_docs),
+            }
+        except Exception as e:
+            log.exception("[progress] Unexpected error during post-import evaluation")
+            result["progress_stats"] = {"error": str(e)}
 
     return result
 
