@@ -15,7 +15,9 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_db
 from app.services.targets_service import (
     delete_targets_for_user_challenge,
+    evaluate_all_for_user,
     evaluate_targets_for_user_challenge,
+    get_targets_refresh_status,
     list_targets_for_user,
     list_targets_for_user_challenge,
     list_targets_nearby_for_user,
@@ -386,6 +388,46 @@ async def list_targets_all_nearby(
         page_size=int(page_size),
         sort=sort,
     )
+
+
+# ---------------------------
+# Global evaluate / refresh status
+# ---------------------------
+
+
+@router.get(
+    "/targets/refresh-status",
+    summary="Check whether targets need a refresh",
+    description=(
+        "Returns `needs_refresh=true` if unfound caches have been imported since the last\n"
+        "target evaluation, meaning the targets list may be stale."
+    ),
+)
+async def targets_refresh_status(user_id: CurrentUserId):
+    """Return the targets refresh status for the current user.
+
+    Returns:
+        dict: {needs_refresh, last_not_found_import_at, last_targets_evaluated_at}.
+    """
+    return await get_targets_refresh_status(user_id=user_id)
+
+
+@router.post(
+    "/targets/evaluate-all",
+    status_code=status.HTTP_200_OK,
+    summary="Evaluate targets for all accepted challenges",
+    description=(
+        "Runs target evaluation for **all** accepted UserChallenges of the current user\n"
+        "and updates `last_targets_evaluated_at` on the user profile."
+    ),
+)
+async def evaluate_all_targets(user_id: CurrentUserId):
+    """Evaluate targets for all accepted UCs of the current user.
+
+    Returns:
+        dict: {ok, evaluated, total_inserted, total_updated, last_targets_evaluated_at}.
+    """
+    return await evaluate_all_for_user(user_id=user_id, force=False)
 
 
 # ---------------------------

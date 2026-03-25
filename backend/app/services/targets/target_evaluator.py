@@ -111,9 +111,9 @@ class TargetEvaluator:
             )
             pipeline.append(geo_stage)
 
-        # Base filter
+        # Base filter — exclude only explicitly disabled/archived caches
         base_match: dict[str, Any] = {
-            "status": {"$in": ["active"]},  # Active caches only
+            "status": {"$not": {"$in": ["disabled", "archived"]}},
         }
 
         # Exclude caches owned by the user
@@ -152,12 +152,56 @@ class TargetEvaluator:
         task_expression = task_doc.get("expression")
         if task_expression:
             try:
-                match_filters = compile_and_only(task_expression)
-                if match_filters:
+                _sig, match_filters, supported, _notes, agg_spec = compile_and_only(task_expression)
+                if supported and match_filters:
                     pipeline.append({"$match": match_filters})
+                # For dt_matrix tasks: enforce D/T bounds then exclude covered cells
+                if supported and agg_spec and agg_spec.get("kind") == "dt_matrix":
+                    max_d = float(agg_spec.get("max_difficulty", 5.0))
+                    max_t = float(agg_spec.get("max_terrain", 5.0))
+                    pipeline.append(
+                        {
+                            "$match": {
+                                "difficulty": {"$gte": 1.0, "$lte": max_d},
+                                "terrain": {"$gte": 1.0, "$lte": max_t},
+                            }
+                        }
+                    )
+                    covered = await self._get_covered_dt_cells(
+                        user_id, match_filters or {}, agg_spec
+                    )
+                    if covered:
+                        pipeline.append(
+                            {
+                                "$match": {
+                                    "$nor": [{"difficulty": d, "terrain": t} for d, t in covered]
+                                }
+                            }
+                        )
             except Exception:
                 # On compilation error, skip the filter
                 pass
+
+        # Resolve cache type code via lookup
+        pipeline.extend(
+            [
+                {
+                    "$lookup": {
+                        "from": "cache_types",
+                        "localField": "type_id",
+                        "foreignField": "_id",
+                        "as": "_ct",
+                    }
+                },
+                {
+                    "$addFields": {
+                        "type_code": {
+                            "$toLower": {"$ifNull": [{"$arrayElemAt": ["$_ct.code", 0]}, "unknown"]}
+                        }
+                    }
+                },
+            ]
+        )
 
         # Project the required fields
         projection = {
@@ -168,6 +212,7 @@ class TargetEvaluator:
             "owner": 1,
             "difficulty": 1,
             "terrain": 1,
+            "type_code": 1,
         }
 
         # Add distance_m if a geographic context is provided
@@ -178,6 +223,68 @@ class TargetEvaluator:
         pipeline.append({"$limit": limit_per_task})
 
         return pipeline
+
+    async def _get_covered_dt_cells(
+        self,
+        user_id: ObjectId,
+        match_filters: dict[str, Any],
+        agg_spec: dict[str, Any],
+    ) -> set[tuple[float, float]]:
+        """Return (difficulty, terrain) pairs already covered by the user for a dt_matrix task.
+
+        Args:
+            user_id: User identifier.
+            match_filters: Cache-level match conditions (same format as compile_and_only output).
+            agg_spec: Aggregate spec with ``max_difficulty`` and ``max_terrain``.
+
+        Returns:
+            set: Covered (difficulty, terrain) pairs within the matrix bounds.
+        """
+        fc = self.db.found_caches
+        pipeline: list[dict[str, Any]] = [
+            {"$match": {"user_id": user_id}},
+            {
+                "$lookup": {
+                    "from": "caches",
+                    "localField": "cache_id",
+                    "foreignField": "_id",
+                    "as": "cache",
+                }
+            },
+            {"$unwind": "$cache"},
+        ]
+
+        # Apply match_filters on cache.* fields (same pattern as progress service)
+        conds: list[dict[str, Any]] = []
+        for field, cond in match_filters.items():
+            if isinstance(cond, list):
+                for c in cond:
+                    conds.append({f"cache.{field}": c})
+            else:
+                conds.append({f"cache.{field}": cond})
+        if conds:
+            pipeline.append({"$match": {"$and": conds}})
+
+        pipeline.append({"$group": {"_id": {"d": "$cache.difficulty", "t": "$cache.terrain"}}})
+
+        rows = await fc.aggregate(pipeline, allowDiskUse=False).to_list(length=None)
+
+        max_d = float(agg_spec.get("max_difficulty", 5.0))
+        max_t = float(agg_spec.get("max_terrain", 5.0))
+        d_values = {round(1.0 + i * 0.5, 1) for i in range(round((max_d - 1.0) / 0.5) + 1)}
+        t_values = {round(1.0 + i * 0.5, 1) for i in range(round((max_t - 1.0) / 0.5) + 1)}
+
+        covered: set[tuple[float, float]] = set()
+        for r in rows:
+            d = r["_id"].get("d")
+            t = r["_id"].get("t")
+            if d is not None and t is not None:
+                dr = round(float(d), 1)
+                tr = round(float(t), 1)
+                if dr in d_values and tr in t_values:
+                    covered.add((dr, tr))
+
+        return covered
 
     async def evaluate_cache_candidates(
         self,
@@ -208,8 +315,13 @@ class TargetEvaluator:
         total_seen = 0
 
         for task_doc in tasks:
-            # Skip OR/NOT tasks (complex expressions)
-            if task_doc.get("expression", {}).get("type") != "and":
+            # Skip OR/NOT tasks (complex expressions) — expression uses "kind", not "type"
+            if task_doc.get("expression", {}).get("kind") != "and":
+                continue
+
+            # Skip fully completed tasks — no point in finding more candidates
+            task_progress = progress_map.get(task_doc["_id"], {})
+            if task_progress.get("percent", 0) >= 100:
                 continue
 
             # Build and execute the pipeline
@@ -235,18 +347,13 @@ class TargetEvaluator:
                         break
 
                 # Calculate task metrics
-                min_count = self.scorer.get_task_constraints_min_count(task_doc)
-                current_count = progress_map.get(task_doc["_id"], {}).get("current_count", 0)
-                remaining = max(0, min_count - current_count)
-                ratio = current_count / max(min_count, 1) if min_count > 0 else 0.0
+                task_progress = progress_map.get(task_doc["_id"], {})
+                ratio = task_progress.get("percent", 0.0) / 100.0
 
                 # Add task info
                 unique_by_cache[cache_id]["matched_tasks"].append(
                     {
                         "_id": task_doc["_id"],
-                        "min_count": min_count,
-                        "current_count": current_count,
-                        "remaining": remaining,
                         "ratio": ratio,
                     }
                 )

@@ -5,13 +5,13 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---- Common types ----
 
 
 class LocOut(BaseModel):
-    """Decimal coordinates.
+    """Decimal coordinates (lat/lng).
 
     Attributes:
         lat (float): Latitude.
@@ -29,41 +29,71 @@ class TargetListItemOut(BaseModel):
     """Target list item.
 
     Description:
-        Represents a candidate cache that satisfies ≥1 task. `distance_km` is only present
-        for "nearby" endpoints.
+        Represents a candidate cache that satisfies ≥1 task.
+        Accepts raw MongoDB documents: ObjectIds are coerced to strings and
+        GeoJSON ``loc`` is converted to a ``{lat, lng}`` pair.
 
     Attributes:
-        id (str): Target document id.
+        id (str): Target document id (from ``_id``).
         user_challenge_id (str): Relevant UserChallenge.
         cache_id (str): Targeted cache.
-        GC (str | None): GC code (if joined).
-        name (str | None): Cache name (if joined).
-        loc (LocOut | None): Coordinates (if joined).
-        matched_task_ids (list[str]): Matched tasks.
-        primary_task_id (str | None): Primary task.
-        score (float): Sort score.
-        reasons (list[str]): Textual reasons.
-        pinned (bool): Pinned.
-        distance_km (float | None): Distance (if nearby mode).
+        cache_GC (str | None): GC code.
+        cache_title (str | None): Cache name.
+        cache_difficulty (float | None): Difficulty rating.
+        cache_terrain (float | None): Terrain rating.
+        loc (LocOut | None): Coordinates.
+        primary_task_id (str | None): Primary matched task.
+        matched_tasks_count (int): Number of tasks covered.
+        score (float): Composite sort score.
+        score_details (dict | None): Score breakdown.
+        distance_m (float | None): Distance in metres (nearby mode only).
     """
 
-    id: str  # target document id
+    id: str
     user_challenge_id: str
     cache_id: str
 
-    # Cache summary (optional depending on the join performed by the service)
-    GC: str | None = None
-    name: str | None = None
+    cache_GC: str | None = None
+    cache_title: str | None = None
+    cache_difficulty: float | None = None
+    cache_terrain: float | None = None
+    cache_type_code: str | None = None
     loc: LocOut | None = None
 
-    matched_task_ids: list[str] = Field(default_factory=list)
     primary_task_id: str | None = None
+    matched_tasks_count: int = 0
 
     score: float
-    reasons: list[str] = Field(default_factory=list)
-    pinned: bool = False
+    score_details: dict[str, Any] | None = None
 
-    distance_km: float | None = None  # if ‘nearby’ search
+    distance_m: float | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_mongo_doc(cls, data: Any) -> Any:
+        """Coerce ObjectIds → str and GeoJSON → LocOut before field validation."""
+        if not isinstance(data, dict):
+            return data
+
+        # _id → id
+        if "_id" in data:
+            data["id"] = str(data["_id"])
+
+        # ObjectId fields → str
+        for field in ("cache_id", "user_challenge_id", "user_id", "primary_task_id"):
+            if data.get(field) is not None:
+                data[field] = str(data[field])
+
+        # GeoJSON Point → {lat, lng}
+        loc = data.get("loc")
+        if isinstance(loc, dict) and loc.get("type") == "Point":
+            coords = loc.get("coordinates", [])
+            if len(coords) >= 2:
+                data["loc"] = {"lng": coords[0], "lat": coords[1]}
+            else:
+                data["loc"] = None
+
+        return data
 
 
 class TargetListResponse(BaseModel):

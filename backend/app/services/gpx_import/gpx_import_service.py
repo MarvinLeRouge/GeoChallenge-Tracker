@@ -185,6 +185,22 @@ class GpxImportService:
 
             data_logger.log_data("gpx_import", import_summary)
 
+            # Step 9: Flag the user if new unfound caches were imported
+            not_found_count = stats["nb_total_items"] - (
+                stats["nb_inserted_found_caches"] + stats["nb_updated_found_caches"]
+            )
+            if user_id and not_found_count > 0:
+                from app.core.utils import utcnow  # local import to avoid circular dependency
+
+                await self.db.users.update_one(
+                    {"_id": user_id},
+                    {"$set": {"last_not_found_import_at": utcnow()}},
+                )
+                logger_import.info(
+                    "[targets] %d unfound cache(s) imported — last_not_found_import_at updated",
+                    not_found_count,
+                )
+
         finally:
             # Clean up temporary files
             if "gpx_paths" in locals():
