@@ -211,6 +211,7 @@ import { ref, onMounted, computed } from 'vue'
 import api from '@/api/http'
 import type { CalendarResult, CacheType, CacheSize } from '@/types/challenges'
 import { useCalendarData } from '@/composables/useCalendarData'
+import { toast } from 'vue-sonner'
 
 const loading = ref(false)
 const error = ref('')
@@ -280,8 +281,8 @@ async function fetchCacheTypes() {
     cacheTypes.value = response.data
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Erreur chargement types:', e)
     error.value = `Erreur chargement types: ${msg}`
+    toast.error('Erreur chargement types', { description: msg })
   }
 }
 
@@ -291,8 +292,8 @@ async function fetchCacheSizes() {
     cacheSizes.value = response.data
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    console.error('Erreur chargement tailles:', e)
     error.value = `Erreur chargement tailles: ${msg}`
+    toast.error('Erreur chargement tailles', { description: msg })
   }
 }
 
@@ -316,6 +317,7 @@ async function fetchCalendar() {
     const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
     const msg = e instanceof Error ? e.message : String(e)
     error.value = detail || msg || 'Erreur lors du chargement du calendrier'
+    toast.error('Erreur chargement calendrier', { description: error.value })
   } finally {
     loading.value = false
   }
