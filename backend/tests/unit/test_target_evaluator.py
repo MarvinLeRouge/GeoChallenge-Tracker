@@ -291,7 +291,7 @@ class TestEvaluateCacheCandidates:
         ev = TargetEvaluator(db)
         ev.scorer.get_task_constraints_min_count = MagicMock(return_value=5)
 
-        tasks = [{"_id": task_id, "expression": {"type": "and"}}]
+        tasks = [{"_id": task_id, "expression": {"kind": "and"}}]
 
         result = await ev.evaluate_cache_candidates(
             tasks=tasks,
@@ -331,8 +331,8 @@ class TestEvaluateCacheCandidates:
         ev.scorer.get_task_constraints_min_count = MagicMock(return_value=1)
 
         tasks = [
-            {"_id": task_id, "expression": {"type": "and"}},
-            {"_id": ObjectId(), "expression": {"type": "and"}},
+            {"_id": task_id, "expression": {"kind": "and"}},
+            {"_id": ObjectId(), "expression": {"kind": "and"}},
         ]
 
         result = await ev.evaluate_cache_candidates(
