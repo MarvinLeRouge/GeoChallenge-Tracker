@@ -32,7 +32,7 @@ def _make_service(db=None):
 
 
 def _paginated_db(db, items=None, count=0):
-    """Configure db.targets for pagination queries."""
+    """Configure db.targets for find/count_documents pagination queries."""
     items = items or []
     db.targets.count_documents = AsyncMock(return_value=count)
     cursor = AsyncMock()
@@ -41,6 +41,34 @@ def _paginated_db(db, items=None, count=0):
     cursor.limit = MagicMock(return_value=cursor)
     cursor.to_list = AsyncMock(return_value=items)
     db.targets.find = MagicMock(return_value=cursor)
+    return db
+
+
+def _geo_db(db, items=None, count=0):
+    """Configure db.targets for $geoNear aggregate queries.
+
+    The method calls aggregate twice in sequence:
+    - first call: count pipeline → [{"total": count}]
+    - second call: data pipeline → items
+    """
+    items = items or []
+
+    count_cursor = AsyncMock()
+    count_cursor.to_list = AsyncMock(return_value=[{"total": count}] if count else [])
+
+    data_cursor = AsyncMock()
+    data_cursor.to_list = AsyncMock(return_value=items)
+
+    db.targets.aggregate = MagicMock(side_effect=[count_cursor, data_cursor])
+    return db
+
+
+def _uc_cursor(db, uc_docs=None):
+    """Configure db.user_challenges.find for the two-step join in status filters."""
+    uc_docs = uc_docs or []
+    cursor = AsyncMock()
+    cursor.to_list = AsyncMock(return_value=uc_docs)
+    db.user_challenges.find = MagicMock(return_value=cursor)
     return db
 
 
@@ -172,14 +200,26 @@ class TestListTargetsForUserChallenge:
 
 class TestListTargetsNearbyForUserChallenge:
     @pytest.mark.asyncio
-    async def test_delegates_to_pagination(self):
-        db = _paginated_db(_make_db(), count=0)
+    async def test_delegates_to_geonear(self):
+        db = _geo_db(_make_db(), count=0)
         service = _make_service(db)
 
         result = await service.list_targets_nearby_for_user_challenge(
             ObjectId(), ObjectId(), lat=48.85, lon=2.35, radius_km=5
         )
         assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_returns_items_with_distance(self):
+        item = {"_id": ObjectId(), "distance_m": 1200.0}
+        db = _geo_db(_make_db(), items=[item], count=1)
+        service = _make_service(db)
+
+        result = await service.list_targets_nearby_for_user_challenge(
+            ObjectId(), ObjectId(), lat=48.85, lon=2.35, radius_km=10
+        )
+        assert result["nb_items"] == 1
+        assert result["items"][0]["distance_m"] == 1200.0
 
 
 # ---------------------------------------------------------------------------
@@ -197,12 +237,24 @@ class TestListTargetsForUser:
         assert result["nb_items"] == 2
 
     @pytest.mark.asyncio
-    async def test_with_status_filter(self):
+    async def test_with_status_filter_returns_items(self):
+        uc_id = ObjectId()
         db = _paginated_db(_make_db(), count=1)
+        _uc_cursor(db, uc_docs=[{"_id": uc_id}])
+
+        service = _make_service(db)
+        result = await service.list_targets_for_user(ObjectId(), status_filter="accepted")
+        assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_with_status_filter_no_uc_returns_empty(self):
+        db = _make_db()
+        _uc_cursor(db, uc_docs=[])
         service = _make_service(db)
 
         result = await service.list_targets_for_user(ObjectId(), status_filter="accepted")
-        assert "items" in result
+        assert result["nb_items"] == 0
+        assert result["items"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +265,7 @@ class TestListTargetsForUser:
 class TestListTargetsNearbyForUser:
     @pytest.mark.asyncio
     async def test_uses_provided_lat_lon(self):
-        db = _paginated_db(_make_db())
+        db = _geo_db(_make_db())
         service = _make_service(db)
 
         result = await service.list_targets_nearby_for_user(ObjectId(), lat=48.85, lon=2.35)
@@ -233,7 +285,7 @@ class TestListTargetsNearbyForUser:
 
     @pytest.mark.asyncio
     async def test_uses_saved_location_when_lat_lon_none(self):
-        db = _paginated_db(_make_db())
+        db = _geo_db(_make_db())
         service = _make_service(db)
 
         with patch(
@@ -243,6 +295,248 @@ class TestListTargetsNearbyForUser:
             result = await service.list_targets_nearby_for_user(ObjectId())
 
         assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_with_status_filter_no_uc_returns_empty(self):
+        db = _make_db()
+        _uc_cursor(db, uc_docs=[])
+        service = _make_service(db)
+
+        result = await service.list_targets_nearby_for_user(
+            ObjectId(), lat=48.85, lon=2.35, status_filter="accepted"
+        )
+        assert result["nb_items"] == 0
+        assert result["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_with_status_filter_uc_found(self):
+        uc_id = ObjectId()
+        db = _geo_db(_make_db(), count=2)
+        _uc_cursor(db, uc_docs=[{"_id": uc_id}])
+        service = _make_service(db)
+
+        result = await service.list_targets_nearby_for_user(
+            ObjectId(), lat=48.85, lon=2.35, status_filter="accepted"
+        )
+        assert result["nb_items"] == 2
+
+
+# ---------------------------------------------------------------------------
+# _list_targets_nearby — direct tests
+# ---------------------------------------------------------------------------
+
+
+class TestListTargetsNearby:
+    @pytest.mark.asyncio
+    async def test_returns_empty_when_count_zero(self):
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        result = await service._list_targets_nearby(
+            base_filters={},
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+        assert result["nb_items"] == 0
+        assert result["nb_pages"] == 0
+        assert result["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_returns_correct_count_and_items(self):
+        items = [{"_id": ObjectId()}, {"_id": ObjectId()}]
+        db = _geo_db(_make_db(), items=items, count=2)
+        service = _make_service(db)
+
+        result = await service._list_targets_nearby(
+            base_filters={},
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+        assert result["nb_items"] == 2
+        assert len(result["items"]) == 2
+        assert result["nb_pages"] == 1
+
+    @pytest.mark.asyncio
+    async def test_sort_by_distance_uses_distance_m_ascending(self):
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        await service._list_targets_nearby(
+            base_filters={},
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+
+        # Second aggregate call carries the sort stage
+        data_pipeline = db.targets.aggregate.call_args_list[1][0][0]
+        sort_stage = next(s for s in data_pipeline if "$sort" in s)
+        assert sort_stage["$sort"] == {"distance_m": 1}
+
+    @pytest.mark.asyncio
+    async def test_sort_by_descending_score(self):
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        await service._list_targets_nearby(
+            base_filters={}, lat=48.85, lon=2.35, radius_km=10, page=1, page_size=50, sort="-score"
+        )
+
+        data_pipeline = db.targets.aggregate.call_args_list[1][0][0]
+        sort_stage = next(s for s in data_pipeline if "$sort" in s)
+        assert sort_stage["$sort"] == {"score": -1}
+
+    @pytest.mark.asyncio
+    async def test_geonear_uses_lon_lat_order(self):
+        """GeoJSON coordinates must be [longitude, latitude]."""
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        lat, lon = 48.85, 2.35
+        await service._list_targets_nearby(
+            base_filters={}, lat=lat, lon=lon, radius_km=10, page=1, page_size=50, sort="distance"
+        )
+
+        count_pipeline = db.targets.aggregate.call_args_list[0][0][0]
+        geo_stage = count_pipeline[0]["$geoNear"]
+        assert geo_stage["near"]["coordinates"] == [lon, lat]
+
+    @pytest.mark.asyncio
+    async def test_radius_converted_to_meters(self):
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        await service._list_targets_nearby(
+            base_filters={}, lat=48.85, lon=2.35, radius_km=5, page=1, page_size=50, sort="distance"
+        )
+
+        count_pipeline = db.targets.aggregate.call_args_list[0][0][0]
+        geo_stage = count_pipeline[0]["$geoNear"]
+        assert geo_stage["maxDistance"] == 5000
+
+
+# ---------------------------------------------------------------------------
+# _list_targets_for_user_with_status_filter — direct tests
+# ---------------------------------------------------------------------------
+
+
+class TestListTargetsForUserWithStatusFilter:
+    @pytest.mark.asyncio
+    async def test_without_filter_skips_uc_lookup(self):
+        db = _paginated_db(_make_db(), count=3)
+        service = _make_service(db)
+
+        result = await service._list_targets_for_user_with_status_filter(
+            user_id=ObjectId(), status_filter=None, page=1, page_size=50, sort="-score"
+        )
+
+        db.user_challenges.find.assert_not_called()
+        assert result["nb_items"] == 3
+
+    @pytest.mark.asyncio
+    async def test_with_filter_queries_uc_collection(self):
+        uc_id = ObjectId()
+        db = _paginated_db(_make_db(), count=1)
+        _uc_cursor(db, uc_docs=[{"_id": uc_id}])
+
+        service = _make_service(db)
+        result = await service._list_targets_for_user_with_status_filter(
+            user_id=ObjectId(), status_filter="accepted", page=1, page_size=50, sort="-score"
+        )
+
+        db.user_challenges.find.assert_called_once()
+        assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_with_filter_no_uc_returns_early_empty(self):
+        db = _make_db()
+        _uc_cursor(db, uc_docs=[])
+
+        service = _make_service(db)
+        result = await service._list_targets_for_user_with_status_filter(
+            user_id=ObjectId(), status_filter="accepted", page=1, page_size=50, sort="-score"
+        )
+
+        db.targets.find.assert_not_called()
+        assert result == {"items": [], "nb_items": 0, "page": 1, "page_size": 50, "nb_pages": 0}
+
+
+# ---------------------------------------------------------------------------
+# _list_targets_nearby_for_user_with_status_filter — direct tests
+# ---------------------------------------------------------------------------
+
+
+class TestListTargetsNearbyForUserWithStatusFilter:
+    @pytest.mark.asyncio
+    async def test_without_filter_delegates_to_geonear(self):
+        db = _geo_db(_make_db(), count=0)
+        service = _make_service(db)
+
+        result = await service._list_targets_nearby_for_user_with_status_filter(
+            user_id=ObjectId(),
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            status_filter=None,
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+
+        db.user_challenges.find.assert_not_called()
+        assert "items" in result
+
+    @pytest.mark.asyncio
+    async def test_with_filter_resolves_uc_ids(self):
+        uc_id = ObjectId()
+        db = _geo_db(_make_db(), count=1)
+        _uc_cursor(db, uc_docs=[{"_id": uc_id}])
+
+        service = _make_service(db)
+        result = await service._list_targets_nearby_for_user_with_status_filter(
+            user_id=ObjectId(),
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            status_filter="accepted",
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+
+        db.user_challenges.find.assert_called_once()
+        assert result["nb_items"] == 1
+
+    @pytest.mark.asyncio
+    async def test_with_filter_no_uc_returns_early_empty(self):
+        db = _make_db()
+        _uc_cursor(db, uc_docs=[])
+
+        service = _make_service(db)
+        result = await service._list_targets_nearby_for_user_with_status_filter(
+            user_id=ObjectId(),
+            lat=48.85,
+            lon=2.35,
+            radius_km=10,
+            status_filter="accepted",
+            page=1,
+            page_size=50,
+            sort="distance",
+        )
+
+        db.targets.aggregate.assert_not_called()
+        assert result == {"items": [], "nb_items": 0, "page": 1, "page_size": 50, "nb_pages": 0}
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +582,7 @@ class TestValidateUserChallengeOwnership:
 
 
 # ---------------------------------------------------------------------------
-# _score_and_persist_targets — updated vs inserted branches
+# _score_and_persist_targets
 # ---------------------------------------------------------------------------
 
 
@@ -366,3 +660,42 @@ class TestScoreAndPersistTargets:
         call_update = db.targets.update_one.call_args[0][1]["$set"]
         assert "distance_m" in call_update
         assert call_update["distance_m"] == 1500.0
+
+    @pytest.mark.asyncio
+    async def test_persists_loc_field_not_cache_loc(self):
+        """Regression: 2dsphere index is on 'loc', not 'cache_loc'."""
+        user_id = ObjectId()
+        uc_id = ObjectId()
+        cache_id = ObjectId()
+        geo_point = {"type": "Point", "coordinates": [2.35, 48.85]}
+
+        db = _make_db()
+        db.targets.count_documents = AsyncMock(return_value=0)
+        update_result = MagicMock()
+        update_result.upserted_id = ObjectId()
+        update_result.modified_count = 0
+        db.targets.update_one = AsyncMock(return_value=update_result)
+
+        service = _make_service(db)
+
+        candidates = {
+            cache_id: {
+                "cache": {"_id": cache_id, "loc": geo_point},
+                "matched_tasks": [],
+            }
+        }
+
+        await service._score_and_persist_targets(
+            candidates=candidates,
+            user_id=user_id,
+            uc_id=uc_id,
+            tasks=[],
+            progress_map={},
+            geo_ctx=None,
+            evaluated_at=dt.datetime.utcnow(),
+        )
+
+        doc_set = db.targets.update_one.call_args[0][1]["$set"]
+        assert "loc" in doc_set
+        assert "cache_loc" not in doc_set
+        assert doc_set["loc"] == geo_point
