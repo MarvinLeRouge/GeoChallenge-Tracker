@@ -14,7 +14,6 @@ from .my_challenge_tasks import router as my_challenge_tasks_router
 from .my_challenges import router as my_challenges_router
 from .my_profile import router as my_profile_router
 from .referentials import router as referentials_router
-from .user_stats import router as user_stats_router
 
 routers = [
     health_router,
@@ -29,6 +28,5 @@ routers = [
     my_challenge_progress_router,
     my_challenge_targets_router,
     my_profile_router,
-    user_stats_router,
     maintenance_router,
 ]

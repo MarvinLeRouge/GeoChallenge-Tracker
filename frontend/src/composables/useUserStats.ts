@@ -14,7 +14,7 @@ export function useUserStats() {
     error.value = null
 
     try {
-      const response = await api.get('/user-stats')
+      const response = await api.get('/my/profile/stats')
       stats.value = response.data
     } catch (err: unknown) {
       error.value = handleApiError(err).message
