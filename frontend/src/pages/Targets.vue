@@ -225,7 +225,7 @@ function drawCircle(lat: number, lon: number) {
   if (!map) return
   circle?.remove()
   circle = L.circle([lat, lon], { radius: radiusKm.value * 1000, color: '#2563eb' }).addTo(map)
-  map.fitBounds(circle.getBounds(), { padding: [20, 20] })
+  map.fitBounds(circle.getBounds(), { padding: [20, 20], maxZoom: 13 })
 }
 
 function startPick() {
@@ -300,7 +300,7 @@ function plotTargets(items: TargetItem[]) {
 
   if (!nearbyMode.value && map && items.length > 0) {
     const bounds = cluster.getBounds()
-    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40] })
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 })
   }
 }
 
