@@ -11,6 +11,7 @@
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![CI](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions)
+[![codecov](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker/graph/badge.svg)](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
 ![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds)
 
 ## Concept
@@ -52,8 +53,6 @@ The application enables passionate geocachers to:
 - **Heroicons Vue** - Elegant SVG icons
 - **Lucide Vue** - Lightweight SVG icons
 - **Vite** - Development environment
-- **Vitest** - Fast test runner for Vue and Vite
-- **Playwright** - End-to-end testing framework
 
 ### DevOps & Deployment
 - **Docker** - Containerization platform
@@ -63,10 +62,8 @@ The application enables passionate geocachers to:
 
 ### Testing
 - **Pytest** - Testing framework for Python (backend)
-- **Vitest** - Fast test runner for Vite and Vue.js (frontend)
-- **Playwright** - End-to-end testing framework for frontend
-- **@vitest/coverage-v8** - Code coverage tool for Vitest
-- **JSDOM** - JavaScript implementation of web standards for testing
+- **pytest-cov** - Coverage reporting for pytest
+- **Codecov** - Coverage tracking and reporting
 
 ---
 
@@ -168,6 +165,8 @@ The application enables passionate geocachers to:
 - `PUT /my/profile/location` - Set location
 - `GET /my/profile/location` - Get location
 - `GET /my/profile` - Get user profile
+- `GET /my/profile/stats` - Get user statistics (found count, challenge count, etc.)
+- `POST /my/profile/found-caches/sync` - Sync found caches from a text/GPX/JSON file
 
 ### My targets (`/my`)
 - `POST /my/challenges/{uc_id}/targets/evaluate` - Evaluate targets for a UserChallenge
@@ -185,7 +184,7 @@ The application enables passionate geocachers to:
 ### Cache elevation (`/caches_elevation`)
 - `POST /caches_elevation/caches/elevation/backfill` - Backfill missing elevation (admin)
 
-### Maintenance (`/maintenance`)
+### Maintenance (`/maintenance`) — admin only
 - `GET /maintenance/db_cleanup` - Analyze database for orphans
 - `DELETE /maintenance/db_cleanup` - Execute orphan cleanup
 - `GET /maintenance/db_cleanup/backups` - List cleanup backup files
@@ -193,6 +192,9 @@ The application enables passionate geocachers to:
 - `POST /maintenance/db_full_backup` - Create full backup
 - `POST /maintenance/db_full_restore/{filename}` - Restore from backup
 - `GET /maintenance/db_backups` - List all backup files
+- `POST /maintenance/upload-gpx` - Re-import cache attributes from a GPX file
+- `GET /maintenance/users/{user_id}/stats` - Get stats for a specific user
+- `POST /maintenance/users/{user_id}/found-caches/sync` - Sync found caches for a specific user
 
 ---
 
@@ -236,12 +238,8 @@ VITE_API_URL=http://localhost:8000/api
 ```bash
 # Backend tests
 cd backend
-poetry run pytest
-
-# Frontend tests
-cd frontend
-npm run test:unit
-npm run test:e2e
+pip install -r requirements.txt -r requirements-dev.txt
+pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ---
@@ -281,8 +279,6 @@ curl http://localhost:8000/version
 4. Test the application
 5. Push to GitHub
 
-**TODO (Phase 4)**: Automate build date via GitHub Actions during production deployment.
-
 ---
 
 ## 🤝 Contribution
@@ -296,9 +292,11 @@ Contributions are welcome! Here's how you can contribute:
 5. Open a Pull Request
 
 ### Branch naming convention
-- Backend features: `backend/feat/feature-name`
-- Frontend features: `frontend/feat/feature-name`
-- Fixes: `fix/fix-name`
+- Features: `feat/short-description`
+- Fixes: `fix/short-description`
+- Chores / CI: `chore/short-description`
+- Documentation: `docs/short-description`
+- Tests: `test/short-description`
 
 ---
 

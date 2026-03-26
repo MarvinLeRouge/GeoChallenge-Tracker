@@ -11,6 +11,7 @@
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![CI](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions)
+[![codecov](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker/graph/badge.svg)](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
 ![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds)
 
 ## Concept
@@ -52,8 +53,6 @@ L'application permet aux géocacheurs passionnés de :
 - **Heroicons Vue** - Icônes SVG élégantes
 - **Lucide Vue** - Icônes SVG légères
 - **Vite** - Environnement de développement rapide
-- **Vitest** - Exécuteur de tests rapide pour Vue et Vite
-- **Playwright** - Framework de test de bout en bout
 
 ### DevOps & Déploiement
 - **Docker** - Plateforme de conteneurisation
@@ -63,10 +62,8 @@ L'application permet aux géocacheurs passionnés de :
 
 ### Tests
 - **Pytest** - Framework de test pour Python (backend)
-- **Vitest** - Exécuteur de tests rapide pour Vite et Vue.js (frontend)
-- **Playwright** - Framework de test de bout en bout pour frontend
-- **@vitest/coverage-v8** - Outil de couverture de code pour Vitest
-- **JSDOM** - Implémentation JavaScript des standards du web pour les tests
+- **pytest-cov** - Rapport de couverture pour pytest
+- **Codecov** - Suivi et rapport de couverture de code
 
 ---
 
@@ -168,6 +165,8 @@ L'application permet aux géocacheurs passionnés de :
 - `PUT /my/profile/location` - Enregistrement de la localisation
 - `GET /my/profile/location` - Récupération de la localisation
 - `GET /my/profile` - Récupération du profil utilisateur
+- `GET /my/profile/stats` - Statistiques utilisateur (nb trouvailles, challenges, etc.)
+- `POST /my/profile/found-caches/sync` - Synchronisation des trouvailles depuis un fichier texte/GPX/JSON
 
 ### Mes cibles (`/my`)
 - `POST /my/challenges/{uc_id}/targets/evaluate` - Évaluation des cibles d'un UserChallenge
@@ -185,7 +184,7 @@ L'application permet aux géocacheurs passionnés de :
 ### Élévation des caches (`/caches_elevation`)
 - `POST /caches_elevation/caches/elevation/backfill` - Backfill de l'altitude manquante (admin)
 
-### Maintenance (`/maintenance`) <span style="color:white; background-color:#cc0000">&nbsp;Réservé admin&nbsp;</span>
+### Maintenance (`/maintenance`) — réservé admin
 - `GET /maintenance/db_cleanup` - Analyse de la base de données pour orphelins
 - `DELETE /maintenance/db_cleanup` - Exécution du nettoyage des orphelins
 - `GET /maintenance/db_cleanup/backups` - Liste des sauvegardes de nettoyage
@@ -194,6 +193,8 @@ L'application permet aux géocacheurs passionnés de :
 - `POST /maintenance/db_full_restore/{filename}` - Restauration depuis une sauvegarde
 - `GET /maintenance/db_backups` - Liste de tous les fichiers de sauvegarde
 - `POST /maintenance/upload-gpx` - Réimport des attributs des caches à partir d'un fichier GPX
+- `GET /maintenance/users/{user_id}/stats` - Statistiques d'un utilisateur spécifique
+- `POST /maintenance/users/{user_id}/found-caches/sync` - Synchronisation des trouvailles d'un utilisateur
 
 ---
 
@@ -237,12 +238,8 @@ VITE_API_URL=http://localhost:8000/api
 ```bash
 # Backend tests
 cd backend
-poetry run pytest
-
-# Frontend tests
-cd frontend
-npm run test:unit
-npm run test:e2e
+pip install -r requirements.txt -r requirements-dev.txt
+pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ---
@@ -282,8 +279,6 @@ curl http://localhost:8000/version
 4. Tester l'application
 5. Push sur GitHub
 
-**TODO (Phase 4)** : Automatiser la build date via GitHub Actions lors du déploiement en production.
-
 ---
 
 ## 🤝 Contribution
@@ -297,9 +292,11 @@ Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
 5. Ouverture d'une Pull Request
 
 ### Convention de nommage des branches
-- Backend features : `backend/feat/nom-fonctionnalite`
-- Frontend features : `frontend/feat/nom-fonctionnalite`
-- Corrections : `fix/nom-correction`
+- Fonctionnalités : `feat/description-courte`
+- Corrections : `fix/description-courte`
+- Chores / CI : `chore/description-courte`
+- Documentation : `docs/description-courte`
+- Tests : `test/description-courte`
 
 ---
 
