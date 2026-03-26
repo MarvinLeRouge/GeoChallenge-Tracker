@@ -122,6 +122,21 @@ class TargetEvaluator:
 
         pipeline.append({"$match": base_match})
 
+        # Apply task filters before the $lookup to allow index usage on caches
+        task_expression = task_doc.get("expression")
+        agg_spec = None
+        match_filters: dict[str, Any] = {}
+        if task_expression:
+            try:
+                _sig, match_filters, supported, _notes, agg_spec = compile_and_only(task_expression)
+                if supported and match_filters:
+                    pipeline.append({"$match": match_filters})
+                if not supported:
+                    agg_spec = None
+            except Exception:
+                match_filters = {}
+                agg_spec = None
+
         # Anti-join with the user's found_caches
         pipeline.extend(
             [
@@ -148,39 +163,23 @@ class TargetEvaluator:
             ]
         )
 
-        # Apply task filters
-        task_expression = task_doc.get("expression")
-        if task_expression:
-            try:
-                _sig, match_filters, supported, _notes, agg_spec = compile_and_only(task_expression)
-                if supported and match_filters:
-                    pipeline.append({"$match": match_filters})
-                # For dt_matrix tasks: enforce D/T bounds then exclude covered cells
-                if supported and agg_spec and agg_spec.get("kind") == "dt_matrix":
-                    max_d = float(agg_spec.get("max_difficulty", 5.0))
-                    max_t = float(agg_spec.get("max_terrain", 5.0))
-                    pipeline.append(
-                        {
-                            "$match": {
-                                "difficulty": {"$gte": 1.0, "$lte": max_d},
-                                "terrain": {"$gte": 1.0, "$lte": max_t},
-                            }
-                        }
-                    )
-                    covered = await self._get_covered_dt_cells(
-                        user_id, match_filters or {}, agg_spec
-                    )
-                    if covered:
-                        pipeline.append(
-                            {
-                                "$match": {
-                                    "$nor": [{"difficulty": d, "terrain": t} for d, t in covered]
-                                }
-                            }
-                        )
-            except Exception:
-                # On compilation error, skip the filter
-                pass
+        # For dt_matrix tasks: enforce D/T bounds then exclude covered cells
+        if agg_spec and agg_spec.get("kind") == "dt_matrix":
+            max_d = float(agg_spec.get("max_difficulty", 5.0))
+            max_t = float(agg_spec.get("max_terrain", 5.0))
+            pipeline.append(
+                {
+                    "$match": {
+                        "difficulty": {"$gte": 1.0, "$lte": max_d},
+                        "terrain": {"$gte": 1.0, "$lte": max_t},
+                    }
+                }
+            )
+            covered = await self._get_covered_dt_cells(user_id, match_filters or {}, agg_spec)
+            if covered:
+                pipeline.append(
+                    {"$match": {"$nor": [{"difficulty": d, "terrain": t} for d, t in covered]}}
+                )
 
         # Resolve cache type code via lookup
         pipeline.extend(

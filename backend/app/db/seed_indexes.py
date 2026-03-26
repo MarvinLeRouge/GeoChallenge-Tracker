@@ -334,6 +334,7 @@ async def ensure_indexes() -> None:
     await ensure_index("caches", [("difficulty", ASCENDING)])
     await ensure_index("caches", [("terrain", ASCENDING)])
     await ensure_index("caches", [("placed_at", DESCENDING)])
+    await ensure_index("caches", [("favorites", DESCENDING)], name="ix_caches__favorites_desc")
     await ensure_text_index("caches", ["title", "description_html"], name="text_title_desc")
     await ensure_index("caches", [("loc", "2dsphere")], name="geo_loc_2dsphere")
     # Caches: accelerate attribute-based filters (RuleAttributes)
@@ -355,6 +356,11 @@ async def ensure_indexes() -> None:
         "caches",
         [("difficulty", ASCENDING), ("terrain", ASCENDING)],
         name="ix_caches__difficulty_terrain",
+    )
+    await ensure_index(
+        "caches",
+        [("type_id", ASCENDING), ("difficulty", ASCENDING), ("terrain", ASCENDING)],
+        name="ix_caches__type_difficulty_terrain",
     )
 
     # ---------- found_caches ----------
