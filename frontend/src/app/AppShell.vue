@@ -290,48 +290,18 @@
 
             <!-- Targets -->
             <div>
-              <button
-                class="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100"
-                :aria-expanded="openSections.account"
-                @click="toggle('targets')"
+              <RouterLink
+                to="/my/targets"
+                class="w-full flex items-center px-2 py-2 rounded hover:bg-gray-100"
               >
-                <span class="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">
+                <span class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   <Target
                     class="w-4 h-4"
                     aria-hidden="true"
                   />
                   <span>Targets</span>
                 </span>
-              </button>
-              <ul
-                v-show="openSections.targets"
-                class="space-y-1"
-              >
-                <li>
-                  <RouterLink
-                    to="/my/targets"
-                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
-                  >
-                    <Target
-                      class="w-5 h-5 shrink-0 text-gray-700"
-                      aria-hidden="true"
-                    />
-                    <span>Tous mes targets</span>
-                  </RouterLink>
-                </li>
-                <li>
-                  <RouterLink
-                    to="/my/targets/nearby"
-                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300"
-                  >
-                    <LocateFixed
-                      class="w-5 h-5 shrink-0 text-gray-700"
-                      aria-hidden="true"
-                    />
-                    <span>À proximité</span>
-                  </RouterLink>
-                </li>
-              </ul>
+              </RouterLink>
             </div>
 
             <!-- Aide / FAQ -->
@@ -440,7 +410,7 @@ import {
   QuestionMarkCircleIcon,
   DocumentTextIcon, ChartBarIcon
 } from '@heroicons/vue/24/outline'
-import { Mountain, Trophy, Target, LocateFixed } from 'lucide-vue-next'
+import { Mountain, Trophy, Target } from 'lucide-vue-next'
 import { Toaster } from 'vue-sonner'
 
 const mainPadding = computed(() => (route.meta?.dense ? 'p-0' : 'p-3 md:p-4'))
@@ -460,12 +430,11 @@ const { isAuthenticated } = storeToRefs(auth)
 auth.init().catch(() => { })
 
 /** ---------- Accordéons par section ---------- */
-type SectionKey = 'account' | 'caches' | 'challenges' | 'targets' | 'help' | 'admin'
+type SectionKey = 'account' | 'caches' | 'challenges' | 'help' | 'admin'
 const openSections = reactive<Record<SectionKey, boolean>>({
   account: false,
   caches: false,
   challenges: false,
-  targets: false,
   help: false,
   admin: false,
 })
@@ -482,7 +451,6 @@ function openSectionForRoute(path: string) {
   else if (path.startsWith('/my/stats')) openSections.account = true
   else if (path.startsWith('/caches')) openSections.caches = true
   else if (path.startsWith('/my/challenges')) openSections.challenges = true
-  else if (path.startsWith('/my/targets')) openSections.targets = true
   else if (path.startsWith('/help')) openSections.help = true
   else openSections.account = true // fallback sûr
 }
