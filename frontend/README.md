@@ -1,5 +1,48 @@
-# Vue 3 + Vite
+[🇫🇷 Version française](README.fr.md) | 🇬🇧 English version
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+---
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+# GeoChallenge Tracker — Frontend
+
+Vue.js 3 SPA with TypeScript, Pinia, Vue Router, Tailwind CSS, and Leaflet maps.
+
+## Local setup
+
+```bash
+cd frontend
+npm install
+```
+
+Create a `.env` file in `frontend/`:
+
+```env
+VITE_API_URL=http://localhost:8000/api
+```
+
+Start the dev server:
+
+```bash
+npm run dev
+# Available at http://localhost:5173
+```
+
+## Available scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server with hot-reload |
+| `npm run build` | Production build |
+| `npm run lint` | ESLint check |
+| `npm run typecheck` | TypeScript type check |
+
+## Project structure
+
+```
+frontend/src/
+├── api/            # Axios instances and API call functions
+├── app/            # App shell, layout, router
+├── composables/    # Reusable composition functions
+├── pages/          # Route-level Vue components
+├── stores/         # Pinia stores
+└── components/     # Shared UI components
+```
