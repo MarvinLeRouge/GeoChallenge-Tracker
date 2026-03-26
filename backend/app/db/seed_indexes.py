@@ -356,6 +356,11 @@ async def ensure_indexes() -> None:
         [("difficulty", ASCENDING), ("terrain", ASCENDING)],
         name="ix_caches__difficulty_terrain",
     )
+    await ensure_index(
+        "caches",
+        [("type_id", ASCENDING), ("difficulty", ASCENDING), ("terrain", ASCENDING)],
+        name="ix_caches__type_difficulty_terrain",
+    )
 
     # ---------- found_caches ----------
     await ensure_index(
