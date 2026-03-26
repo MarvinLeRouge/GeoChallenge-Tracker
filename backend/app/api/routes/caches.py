@@ -395,8 +395,22 @@ async def by_filter(
         )
     if payload.bbox:
         bb = payload.bbox
-        q["lat"] = {"$gte": bb.min_lat, "$lte": bb.max_lat}
-        q["lon"] = {"$gte": bb.min_lon, "$lte": bb.max_lon}
+        q["loc"] = {
+            "$geoWithin": {
+                "$geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [bb.min_lon, bb.min_lat],
+                            [bb.max_lon, bb.min_lat],
+                            [bb.max_lon, bb.max_lat],
+                            [bb.min_lon, bb.max_lat],
+                            [bb.min_lon, bb.min_lat],
+                        ]
+                    ],
+                }
+            }
+        }
 
     # sort
     sort_map = {
@@ -486,8 +500,22 @@ async def within_bbox(
     """
     coll = await get_collection("caches")
     q: dict[str, Any] = {
-        "lat": {"$gte": min_lat, "$lte": max_lat},
-        "lon": {"$gte": min_lon, "$lte": max_lon},
+        "loc": {
+            "$geoWithin": {
+                "$geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [min_lon, min_lat],
+                            [max_lon, min_lat],
+                            [max_lon, max_lat],
+                            [min_lon, max_lat],
+                            [min_lon, min_lat],
+                        ]
+                    ],
+                }
+            }
+        }
     }
     if type_id:
         q["type_id"] = _oid(type_id)
