@@ -1,11 +1,71 @@
-deploy:
+name: build-and-push
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      owner_lc: ${{ steps.names.outputs.owner_lc }}
+      repo_lc: ${{ steps.names.outputs.repo_lc }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute lowercase owner & repo
+        id: names
+        run: |
+          REPO_LC="${GITHUB_REPOSITORY##*/}"
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER}"
+          echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
+          echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
+          echo "owner_lc=${OWNER_LC,,}" >> $GITHUB_OUTPUT
+          echo "repo_lc=${REPO_LC,,}" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR (GITHUB_TOKEN)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & Push backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:latest
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:sha-${{ github.sha }}
+
+      - name: Build & Push frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
+            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
+
+  deploy:
     runs-on: ubuntu-latest
     needs: build
     env:
       OWNER_LC: ${{ needs.build.outputs.owner_lc }}
       REPO_LC: ${{ needs.build.outputs.repo_lc }}
       SHA_TAG: sha-${{ github.sha }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,3 +114,7 @@ deploy:
             docker compose --env-file ../shared/env/app.env pull
 
             echo "== up -d =="
+            docker compose --env-file ../shared/env/app.env up -d --remove-orphans
+
+            echo "== ps =="
+            docker compose --env-file ../shared/env/app.env ps
