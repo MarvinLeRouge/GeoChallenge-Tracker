@@ -1,67 +1,4 @@
-name: build-and-push
-
-on:
-  push:
-    branches: ["main"]
-  workflow_dispatch: {}
-
-permissions:
-  contents: read
-  packages: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    # ✅ Expose les valeurs en outputs pour le job deploy
-    outputs:
-      owner_lc: ${{ steps.names.outputs.owner_lc }}
-      repo_lc: ${{ steps.names.outputs.repo_lc }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Compute lowercase owner & repo
-        id: names
-        run: |
-          REPO_LC="${GITHUB_REPOSITORY##*/}"
-          OWNER_LC="${GITHUB_REPOSITORY_OWNER}"
-          # Pour ce job (build), on exporte dans l'env
-          echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
-          echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
-          # Pour le job suivant (deploy), on expose en outputs
-          echo "owner_lc=${OWNER_LC,,}" >> $GITHUB_OUTPUT
-          echo "repo_lc=${REPO_LC,,}" >> $GITHUB_OUTPUT
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR (GITHUB_TOKEN)
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build & Push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:latest
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:sha-${{ github.sha }}
-
-      - name: Build & Push frontend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
-  deploy:
+deploy:
     runs-on: ubuntu-latest
     needs: build
     env:
@@ -70,7 +7,7 @@ jobs:
       SHA_TAG: sha-${{ github.sha }}
 
     steps:
-      - name: Checkout (pour récupérer ops/nginx/tiles.conf et docker-compose)
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Copy tiles nginx config files to server
@@ -80,26 +17,26 @@ jobs:
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           source: "ops/nginx/*"
-          target: "/home/deploy/apps/gctracker/shared/"
+          target: "/home/mlr/marvinlerouge.dev/gc-tracker/shared/"
           strip_components: 0
           timeout: 2m
           command_timeout: 10m
           overwrite: true
 
-      - name: Copy updated docker-compose.yml to server
+      - name: Copy docker-compose.yml to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
           source: "ops/deploy/docker-compose.yml"
-          target: "/home/deploy/apps/gctracker/compose/"
+          target: "/home/mlr/marvinlerouge.dev/gc-tracker/compose/"
           strip_components: 2
           timeout: 2m
           command_timeout: 10m
           overwrite: true
 
-      - name: Deploy over SSH (compose pull + up) — Variante A (latest)
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
@@ -111,30 +48,9 @@ jobs:
             echo "== whoami ==" && whoami
             echo "== date ==" && date -Is
 
-            echo "== go to compose dir =="
-            cd /home/deploy/apps/gctracker/compose
-            echo "PWD: $(pwd)"
-
-            echo "== list files =="
-            ls -la
-
-            echo "== show env entries from ../shared/env/app.env =="
-            grep -E '^(IMAGE_BACKEND|IMAGE_FRONTEND|BACKEND_PORT|FRONTEND_PORT)=' ../shared/env/app.env || true
-
-            echo "== docker compose version =="
-            docker compose version
-
-            echo "== preview resolved compose (with --env-file) =="
-            docker compose --env-file ../shared/env/app.env config
+            cd /home/mlr/marvinlerouge.dev/gc-tracker/compose
 
             echo "== pull images =="
             docker compose --env-file ../shared/env/app.env pull
 
-            echo "== up -d (remove orphans) =="
-            docker compose --env-file ../shared/env/app.env up -d --remove-orphans
-
-            echo "== ps =="
-            docker compose --env-file ../shared/env/app.env ps
-
-            echo "== logs tiles (last 20 lines) =="
-            docker compose --env-file ../shared/env/app.env logs --tail=20 tiles || echo "No tiles service yet"
+            echo "== up -d =="
