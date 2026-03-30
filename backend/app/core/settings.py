@@ -63,6 +63,7 @@ class Settings(BaseSettings):
     smtp_port: int
     smtp_username: str
     smtp_password: str
+    app_frontend_url: str = "http://localhost:5173"
 
     # === ELEVATION ===
     elevation_provider: str

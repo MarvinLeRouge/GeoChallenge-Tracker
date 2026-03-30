@@ -7,6 +7,9 @@ Ces tests vérifient :
 - Que les routes API authentifiées fonctionnent
 """
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 # =============================================================================
 # TAG: MY-CHALLENGES - Authenticated Endpoints
@@ -48,3 +51,36 @@ class TestAuthenticatedEndpoints:
         data = response.json()
         assert isinstance(data, dict)
         assert "items" in data or isinstance(data, list)
+
+
+# =============================================================================
+# TAG: MAINTENANCE - Test email endpoint
+# =============================================================================
+
+
+class TestMaintenanceTestEmail:
+    """Tests for the POST /maintenance/test-email admin endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_sends_test_email(self, auth_client, seeded_admin):
+        """Test that the endpoint sends an email and returns stats."""
+        with patch(
+            "app.api.routes.maintenance.send_test_email", new_callable=AsyncMock
+        ) as mock_send:
+            mock_send.return_value = None
+            response = await auth_client.post("/maintenance/test-email?to_email=test@example.com")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "test@example.com" in data["message"]
+        assert "stats" in data
+        assert "users" in data["stats"]
+        assert "caches" in data["stats"]
+        assert "challenges" in data["stats"]
+        mock_send.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_requires_authentication(self, client):
+        """Test that the endpoint rejects unauthenticated requests."""
+        response = await client.post("/maintenance/test-email?to_email=test@example.com")
+        assert response.status_code == 401

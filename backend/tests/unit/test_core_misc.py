@@ -163,9 +163,146 @@ class TestSendVerificationEmail:
 
         mock_send.assert_called_once()
         msg = mock_send.call_args[0][0]
-        # The EmailMessage should have the recipient set
         assert msg["To"] == "user@example.com"
         assert "abc123" in msg.get_content()
+
+    @pytest.mark.asyncio
+    async def test_uses_frontend_url_in_link(self):
+        with (
+            patch("app.core.email.send", new_callable=AsyncMock) as mock_send,
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.app_frontend_url = "https://my-app.example.com"
+            mock_settings.smtp_host = "localhost"
+            mock_settings.smtp_port = 25
+            mock_settings.smtp_username = None
+            mock_settings.smtp_password = None
+
+            from app.core.email import send_verification_email
+
+            await send_verification_email("user@example.com", "alice", "mycode")
+
+        msg = mock_send.call_args[0][0]
+        assert "https://my-app.example.com/verify-email?code=mycode" in msg.get_content()
+
+    @pytest.mark.asyncio
+    async def test_start_tls_on_port_587(self):
+        with (
+            patch("app.core.email.send", new_callable=AsyncMock) as mock_send,
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.app_frontend_url = "http://localhost:5173"
+            mock_settings.smtp_host = "localhost"
+            mock_settings.smtp_port = 587
+            mock_settings.smtp_username = "user"
+            mock_settings.smtp_password = "pass"
+
+            from app.core.email import send_verification_email
+
+            await send_verification_email("user@example.com", "alice", "code")
+
+        kwargs = mock_send.call_args[1]
+        assert kwargs["start_tls"] is True
+        assert kwargs["use_tls"] is False
+
+    @pytest.mark.asyncio
+    async def test_use_tls_on_port_465(self):
+        with (
+            patch("app.core.email.send", new_callable=AsyncMock) as mock_send,
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.app_frontend_url = "http://localhost:5173"
+            mock_settings.smtp_host = "localhost"
+            mock_settings.smtp_port = 465
+            mock_settings.smtp_username = "user"
+            mock_settings.smtp_password = "pass"
+
+            from app.core.email import send_verification_email
+
+            await send_verification_email("user@example.com", "alice", "code")
+
+        kwargs = mock_send.call_args[1]
+        assert kwargs["use_tls"] is True
+        assert kwargs["start_tls"] is False
+
+    @pytest.mark.asyncio
+    async def test_logs_exception_does_not_raise(self):
+        with patch(
+            "app.core.email.send", new_callable=AsyncMock, side_effect=Exception("SMTP down")
+        ):
+            from app.core.email import send_verification_email
+
+            await send_verification_email("user@example.com", "alice", "code")
+
+
+class TestSendTestEmail:
+    @pytest.mark.asyncio
+    async def test_sends_email_with_stats(self):
+        with (
+            patch("app.core.email.send", new_callable=AsyncMock) as mock_send,
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.smtp_host = "localhost"
+            mock_settings.smtp_port = 25
+            mock_settings.smtp_username = None
+            mock_settings.smtp_password = None
+
+            from app.core.email import send_test_email
+
+            await send_test_email(
+                "admin@example.com", user_count=42, cache_count=100, challenge_count=5
+            )
+
+        mock_send.assert_called_once()
+        msg = mock_send.call_args[0][0]
+        assert msg["To"] == "admin@example.com"
+        content = msg.get_content()
+        assert "42" in content
+        assert "100" in content
+        assert "5" in content
+
+    @pytest.mark.asyncio
+    async def test_start_tls_on_port_587(self):
+        with (
+            patch("app.core.email.send", new_callable=AsyncMock) as mock_send,
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.smtp_host = "smtp-relay.brevo.com"
+            mock_settings.smtp_port = 587
+            mock_settings.smtp_username = "user"
+            mock_settings.smtp_password = "key"
+
+            from app.core.email import send_test_email
+
+            await send_test_email("admin@example.com", 1, 2, 3)
+
+        kwargs = mock_send.call_args[1]
+        assert kwargs["start_tls"] is True
+        assert kwargs["use_tls"] is False
+
+    @pytest.mark.asyncio
+    async def test_raises_on_smtp_failure(self):
+        with (
+            patch(
+                "app.core.email.send", new_callable=AsyncMock, side_effect=Exception("SMTP error")
+            ),
+            patch("app.core.email.settings") as mock_settings,
+        ):
+            mock_settings.mail_from = "noreply@example.com"
+            mock_settings.smtp_host = "localhost"
+            mock_settings.smtp_port = 25
+            mock_settings.smtp_username = None
+            mock_settings.smtp_password = None
+
+            from app.core.email import send_test_email
+
+            with pytest.raises(Exception, match="SMTP error"):
+                await send_test_email("admin@example.com", 1, 2, 3)
 
 
 # ---------------------------------------------------------------------------
