@@ -70,6 +70,7 @@ class TestSettingsLoading:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         assert settings.environment == "development"
@@ -98,6 +99,7 @@ class TestSettingsLoading:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         # api_version is loaded from .env (0.5.0 in current environment)
@@ -134,6 +136,7 @@ class TestSettingsMongoDB:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         uri = settings.mongodb_uri
@@ -167,6 +170,7 @@ class TestSettingsMongoDB:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         uri = settings.mongodb_uri
@@ -201,6 +205,7 @@ class TestSettingsUpload:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         assert settings.max_upload_bytes == 20 * 1048576  # 20 MB
@@ -229,6 +234,7 @@ class TestSettingsUpload:
             one_mb=1048576,
             max_upload_mb=50,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         assert settings.max_upload_bytes == 50 * 1048576  # 50 MB
@@ -391,6 +397,7 @@ class TestSettingsMissingRequiredFields:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         assert settings.app_frontend_url == "http://localhost:5173"
@@ -419,6 +426,7 @@ class TestSettingsMissingRequiredFields:
             one_mb=1048576,
             max_upload_mb=20,
             test="test",
+            admin_dest_email="test@example.com",
         )
 
         assert settings is not None

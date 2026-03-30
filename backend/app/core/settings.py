@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     smtp_username: str
     smtp_password: str
     app_frontend_url: str = "http://localhost:5173"
+    admin_dest_email: str
 
     # === ELEVATION ===
     elevation_provider: str
