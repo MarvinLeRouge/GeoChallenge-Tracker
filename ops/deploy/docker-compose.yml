@@ -19,7 +19,7 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gctracker-api.rule=Host(`api.gc-tracker.marvinlerouge.dev`)"
+      - "traefik.http.routers.gctracker-api.rule=Host(`api-gc-tracker.marvinlerouge.dev`)"
       - "traefik.http.routers.gctracker-api.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.gctracker-api.loadbalancer.server.port=8000"
