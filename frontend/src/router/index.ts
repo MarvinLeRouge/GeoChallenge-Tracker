@@ -15,6 +15,12 @@ const authRoutes = [
     component: () => import('@/pages/auth/Register.vue'),
     meta: { title: 'Inscription' }
   },
+  {
+    path: '/verify-email',
+    name: 'auth/verify-email',
+    component: () => import('@/pages/auth/VerifyEmail.vue'),
+    meta: { title: 'Vérification e-mail' }
+  },
 ]
 
 // Caches

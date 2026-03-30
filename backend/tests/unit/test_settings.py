@@ -367,6 +367,34 @@ class TestSettingsMissingRequiredFields:
     # These tests verify that Settings can be instantiated with all required fields
     # and that the validation works correctly
 
+    def test_app_frontend_url_default(self):
+        """Test default app_frontend_url value."""
+        settings = Settings(
+            mongodb_user="test",
+            mongodb_password="test",
+            mongodb_uri_tpl="mongodb://test",
+            mongodb_db="test",
+            jwt_secret_key="test",
+            admin_username="test",
+            admin_email="test@example.com",
+            admin_password="test",
+            mail_from="test@example.com",
+            smtp_host="localhost",
+            smtp_port=25,
+            smtp_username="test",
+            smtp_password="test",
+            elevation_provider="test",
+            elevation_provider_endpoint="http://test.com",
+            elevation_provider_max_points_per_req=100,
+            elevation_provider_rate_delay_s=1,
+            elevation_enabled=True,
+            one_mb=1048576,
+            max_upload_mb=20,
+            test="test",
+        )
+
+        assert settings.app_frontend_url == "http://localhost:5173"
+
     def test_settings_with_all_required_fields(self):
         """Test Settings creation with all required fields."""
         settings = Settings(
