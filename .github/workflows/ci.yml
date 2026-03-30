@@ -49,6 +49,7 @@ jobs:
       ADMIN_EMAIL: admin@ci.local
       ADMIN_PASSWORD: ci-admin-password
       MAIL_FROM: ci@ci.local
+      ADMIN_DEST_EMAIL: ci@ci.local
       SMTP_HOST: localhost
       SMTP_PORT: 25
       SMTP_USERNAME: ci
