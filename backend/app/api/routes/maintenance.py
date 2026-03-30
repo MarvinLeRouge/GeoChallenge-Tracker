@@ -29,6 +29,7 @@ from fastapi.responses import FileResponse
 from app.api.deps import CurrentUserId, require_admin
 from app.api.dto.user_stats import UserStatsOut
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
+from app.core.email import send_test_email
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
@@ -1159,3 +1160,48 @@ async def maintenance_get_user_stats(
         return await get_user_stats(user_id=uid, target_user_id=uid)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+
+
+@router.post(
+    "/test-email",
+    summary="Send a test email",
+    description=(
+        "Sends a test email to the specified address.\n\n"
+        "The email includes the current date/time and basic database statistics "
+        "(users, caches, challenges) to avoid spam filters."
+    ),
+)
+async def test_email(
+    to_email: Annotated[str, Query(..., description="Recipient email address.")],
+):
+    """Sends a test email with basic app statistics.
+
+    Args:
+        to_email (str): Recipient email address.
+
+    Returns:
+        dict: Confirmation message and stats included in the email.
+    """
+    coll_users = await get_collection("users")
+    coll_caches = await get_collection("caches")
+    coll_challenges = await get_collection("challenges")
+
+    user_count = await coll_users.count_documents({})
+    cache_count = await coll_caches.count_documents({})
+    challenge_count = await coll_challenges.count_documents({})
+
+    await send_test_email(
+        to_email=to_email,
+        user_count=user_count,
+        cache_count=cache_count,
+        challenge_count=challenge_count,
+    )
+
+    return {
+        "message": f"Test email sent to {to_email}",
+        "stats": {
+            "users": user_count,
+            "caches": cache_count,
+            "challenges": challenge_count,
+        },
+    }
