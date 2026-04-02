@@ -1,6 +1,12 @@
 name: Build, Push & Deploy
 
 on:
+  # Triggered automatically when CI passes on main
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  # Manual trigger — bypasses CI gate (hotfixes, rollbacks, redeploys)
   workflow_dispatch: {}
 
 permissions:
@@ -13,6 +19,11 @@ jobs:
   # ---------------------------------------------------------------------------
   build-and-push:
     runs-on: ubuntu-latest
+    # On workflow_run: only proceed if CI succeeded
+    # On workflow_dispatch: always proceed
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     outputs:
       image_tag: ${{ steps.meta.outputs.tag }}
       head_sha: ${{ steps.meta.outputs.sha }}
@@ -21,7 +32,7 @@ jobs:
       - name: Resolve commit SHA
         id: meta
         run: |
-          SHA="${{ github.sha }}"
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
           echo "tag=sha-${SHA::7}" >> $GITHUB_OUTPUT
           echo "sha=${SHA}" >> $GITHUB_OUTPUT
 
