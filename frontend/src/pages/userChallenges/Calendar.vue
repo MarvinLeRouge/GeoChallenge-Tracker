@@ -3,9 +3,7 @@
     <!-- En-tête -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">
-          Calendar Challenge
-        </h1>
+        <h1 class="text-2xl font-bold">Calendar Challenge</h1>
         <p class="text-gray-600">
           Vérification de completion des 365/366 jours de l'année
         </p>
@@ -14,43 +12,41 @@
 
     <!-- Filtres -->
     <div class="rounded-lg border bg-white p-4 shadow-sm">
-      <h2 class="font-semibold mb-3">
-        Filtres
-      </h2>
+      <h2 class="font-semibold mb-3">Filtres</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Type de cache</label>
-          <select 
-            v-model="selectedCacheType" 
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Type de cache</label
+          >
+          <select
+            v-model="selectedCacheType"
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchCalendar"
           >
-            <option value="">
-              Tous les types
-            </option>
-            <option 
-              v-for="type in sortedCacheTypes" 
-              :key="type._id" 
+            <option value="">Tous les types</option>
+            <option
+              v-for="type in sortedCacheTypes"
+              :key="type._id"
               :value="type.code"
             >
               {{ type.name }} ({{ type.code }})
             </option>
           </select>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Taille de cache</label>
-          <select 
-            v-model="selectedCacheSize" 
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Taille de cache</label
+          >
+          <select
+            v-model="selectedCacheSize"
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchCalendar"
           >
-            <option value="">
-              Toutes les tailles
-            </option>
-            <option 
-              v-for="size in sortedCacheSizes" 
-              :key="size._id" 
+            <option value="">Toutes les tailles</option>
+            <option
+              v-for="size in sortedCacheSizes"
+              :key="size._id"
               :value="size.code"
             >
               {{ size.name }} ({{ size.code }})
@@ -61,10 +57,7 @@
     </div>
 
     <!-- Loading/Error -->
-    <div
-      v-if="loading"
-      class="text-center text-gray-500 py-8"
-    >
+    <div v-if="loading" class="text-center text-gray-500 py-8">
       Chargement du calendrier...
     </div>
     <div
@@ -75,31 +68,22 @@
     </div>
 
     <!-- Résultats Calendar -->
-    <div
-      v-if="calendarResult && !loading"
-      class="space-y-4"
-    >
+    <div v-if="calendarResult && !loading" class="space-y-4">
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">
-          Résumé
-        </h2>
+        <h2 class="font-semibold mb-3">Résumé</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
               {{ calendarResult.completed_days.length }}
             </div>
-            <div class="text-sm text-green-600">
-              Jours complétés
-            </div>
+            <div class="text-sm text-green-600">Jours complétés</div>
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
               {{ (calendarResult.completion_rate_365 * 100).toFixed(1) }}%
             </div>
-            <div class="text-sm text-blue-600">
-              Completion 365 jours
-            </div>
+            <div class="text-sm text-blue-600">Completion 365 jours</div>
           </div>
           <div class="bg-purple-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-purple-800">
@@ -114,21 +98,15 @@
 
       <!-- Calendrier visuel -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">
-          Calendrier annuel
-        </h2>
+        <h2 class="font-semibold mb-3">Calendrier annuel</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div
-            v-for="month in 12"
-            :key="month"
-            class="border rounded-lg p-2"
-          >
+          <div v-for="month in 12" :key="month" class="border rounded-lg p-2">
             <h3 class="text-sm font-medium text-center mb-2">
               {{ monthNames[month - 1] }}
             </h3>
             <div class="grid grid-cols-7 gap-1 text-xs">
               <!-- Jours du mois -->
-              <div 
+              <div
                 v-for="day in getDaysInMonth(month)"
                 :key="`${month}-${day}`"
                 class="w-6 h-6 flex items-center justify-center rounded text-xs"
@@ -143,11 +121,14 @@
               v-if="getMissingDaysCount(month) > 0"
               class="text-xs text-red-600 mt-1"
             >
-              {{ getMissingDaysCount(month) }} jour{{ getMissingDaysCount(month) > 1 ? 's' : '' }} manquant{{ getMissingDaysCount(month) > 1 ? 's' : '' }}
+              {{ getMissingDaysCount(month) }} jour{{
+                getMissingDaysCount(month) > 1 ? "s" : ""
+              }}
+              manquant{{ getMissingDaysCount(month) > 1 ? "s" : "" }}
             </div>
           </div>
         </div>
-        
+
         <!-- Légende -->
         <div class="mt-4 flex flex-wrap gap-4 text-xs">
           <div class="flex items-center gap-1">
@@ -167,15 +148,9 @@
 
       <!-- Statistiques détaillées par mois -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">
-          Détails par mois
-        </h2>
+        <h2 class="font-semibold mb-3">Détails par mois</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div 
-            v-for="month in 12" 
-            :key="month"
-            class="border rounded-lg p-3"
-          >
+          <div v-for="month in 12" :key="month" class="border rounded-lg p-3">
             <h3 class="font-medium">
               {{ monthNames[month - 1] }}
             </h3>
@@ -183,7 +158,9 @@
               <div class="flex justify-between">
                 <span>Complétés:</span>
                 <span class="text-green-600 font-medium">
-                  {{ getCompletedDaysInMonth(month) }}/{{ getDaysInMonth(month) }}
+                  {{ getCompletedDaysInMonth(month) }}/{{
+                    getDaysInMonth(month)
+                  }}
                 </span>
               </div>
               <div class="flex justify-between">
@@ -195,7 +172,12 @@
               <div class="flex justify-between">
                 <span>Taux:</span>
                 <span class="font-medium">
-                  {{ ((getCompletedDaysInMonth(month) / getDaysInMonth(month)) * 100).toFixed(1) }}%
+                  {{
+                    (
+                      (getCompletedDaysInMonth(month) / getDaysInMonth(month)) *
+                      100
+                    ).toFixed(1)
+                  }}%
                 </span>
               </div>
             </div>
@@ -207,127 +189,125 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import api from '@/api/http'
-import type { CalendarResult, CacheType, CacheSize } from '@/types/challenges'
-import { useCalendarData } from '@/composables/useCalendarData'
-import { toast } from 'vue-sonner'
+import { ref, onMounted, computed } from "vue";
+import api from "@/api/http";
+import type { CalendarResult, CacheType, CacheSize } from "@/types/challenges";
+import { useCalendarData } from "@/composables/useCalendarData";
+import { toast } from "vue-sonner";
 
-const loading = ref(false)
-const error = ref('')
-const calendarResult = ref<CalendarResult | null>(null)
-const cacheTypes = ref<CacheType[]>([])
-const cacheSizes = ref<CacheSize[]>([])
-const selectedCacheType = ref('')
-const selectedCacheSize = ref('')
+const loading = ref(false);
+const error = ref("");
+const calendarResult = ref<CalendarResult | null>(null);
+const cacheTypes = ref<CacheType[]>([]);
+const cacheSizes = ref<CacheSize[]>([]);
+const selectedCacheType = ref("");
+const selectedCacheSize = ref("");
 
 // Use the new composable for calendar data processing
-const { calendarData, monthNames, getDaysInMonth } = useCalendarData(calendarResult)
+const { calendarData, monthNames, getDaysInMonth } =
+  useCalendarData(calendarResult);
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {
-  return [...cacheTypes.value].sort((a, b) => a.name.localeCompare(b.name))
-})
+  return [...cacheTypes.value].sort((a, b) => a.name.localeCompare(b.name));
+});
 
 // Tri des tailles par ordre logique
 const sortedCacheSizes = computed(() => {
-  const sizeOrder = ['Micro', 'Small', 'Regular', 'Large', 'Other']
+  const sizeOrder = ["Micro", "Small", "Regular", "Large", "Other"];
   return [...cacheSizes.value].sort((a, b) => {
-    const aIndex = sizeOrder.indexOf(a.name)
-    const bIndex = sizeOrder.indexOf(b.name)
-    return aIndex - bIndex
-  })
-})
+    const aIndex = sizeOrder.indexOf(a.name);
+    const bIndex = sizeOrder.indexOf(b.name);
+    return aIndex - bIndex;
+  });
+});
 
 function getDayClass(month: number, day: number): string {
-  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1]
-  if (!calendarDay) return 'bg-gray-100 text-gray-600'
+  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1];
+  if (!calendarDay) return "bg-gray-100 text-gray-600";
 
   if (calendarDay.isCompleted) {
-    return 'bg-green-200 text-green-800'
+    return "bg-green-200 text-green-800";
   } else if (calendarDay.isMissing) {
-    return 'bg-red-200 text-red-800'
+    return "bg-red-200 text-red-800";
   } else {
-    return 'bg-gray-100 text-gray-600'
+    return "bg-gray-100 text-gray-600";
   }
 }
 
 function getDayTitle(month: number, day: number): string {
-  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1]
-  if (!calendarDay) return `${day}/${month}`
+  const calendarDay = calendarData.value.months[month - 1]?.days[day - 1];
+  if (!calendarDay) return `${day}/${month}`;
 
   if (calendarDay.count > 0) {
-    return `${day}/${month} - ${calendarDay.count} cache${calendarDay.count > 1 ? 's' : ''}`
+    return `${day}/${month} - ${calendarDay.count} cache${calendarDay.count > 1 ? "s" : ""}`;
   } else if (calendarDay.isMissing) {
-    return `${day}/${month} - Jour manquant`
+    return `${day}/${month} - Jour manquant`;
   } else {
-    return `${day}/${month}`
+    return `${day}/${month}`;
   }
 }
 
 function getMissingDaysCount(month: number): number {
-  const calendarMonth = calendarData.value.months[month - 1]
-  return calendarMonth ? calendarMonth.missingCount : 0
+  const calendarMonth = calendarData.value.months[month - 1];
+  return calendarMonth ? calendarMonth.missingCount : 0;
 }
 
 function getCompletedDaysInMonth(month: number): number {
-  const calendarMonth = calendarData.value.months[month - 1]
-  return calendarMonth ? calendarMonth.completedCount : 0
+  const calendarMonth = calendarData.value.months[month - 1];
+  return calendarMonth ? calendarMonth.completedCount : 0;
 }
 
 async function fetchCacheTypes() {
   try {
-    const response = await api.get('/cache_types')
-    cacheTypes.value = response.data
+    const response = await api.get("/cache_types");
+    cacheTypes.value = response.data;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = `Erreur chargement types: ${msg}`
-    toast.error('Erreur chargement types', { description: msg })
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = `Erreur chargement types: ${msg}`;
+    toast.error("Erreur chargement types", { description: msg });
   }
 }
 
 async function fetchCacheSizes() {
   try {
-    const response = await api.get('/cache_sizes')
-    cacheSizes.value = response.data
+    const response = await api.get("/cache_sizes");
+    cacheSizes.value = response.data;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = `Erreur chargement tailles: ${msg}`
-    toast.error('Erreur chargement tailles', { description: msg })
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = `Erreur chargement tailles: ${msg}`;
+    toast.error("Erreur chargement tailles", { description: msg });
   }
 }
 
 async function fetchCalendar() {
-  loading.value = true
-  error.value = ''
-  
+  loading.value = true;
+  error.value = "";
+
   try {
-    const params = new URLSearchParams()
+    const params = new URLSearchParams();
     if (selectedCacheType.value) {
-      params.append('cache_type', selectedCacheType.value)
+      params.append("cache_type", selectedCacheType.value);
     }
     if (selectedCacheSize.value) {
-      params.append('cache_size', selectedCacheSize.value)
+      params.append("cache_size", selectedCacheSize.value);
     }
-    
-    const response = await api.get(`/my/challenges/basics/calendar?${params}`)
-    console.log('Calendar API response:', response.data)
-    calendarResult.value = response.data
+
+    const response = await api.get(`/my/challenges/basics/calendar?${params}`);
+    console.log("Calendar API response:", response.data);
+    calendarResult.value = response.data;
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = detail || msg || 'Erreur lors du chargement du calendrier'
-    toast.error('Erreur chargement calendrier', { description: error.value })
+    const detail = (e as { response?: { data?: { detail?: string } } })
+      ?.response?.data?.detail;
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = detail || msg || "Erreur lors du chargement du calendrier";
+    toast.error("Erreur chargement calendrier", { description: error.value });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 onMounted(async () => {
-  await Promise.all([
-    fetchCacheTypes(),
-    fetchCacheSizes(),
-    fetchCalendar()
-  ])
-})
+  await Promise.all([fetchCacheTypes(), fetchCacheSizes(), fetchCalendar()]);
+});
 </script>

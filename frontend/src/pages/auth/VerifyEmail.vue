@@ -1,27 +1,17 @@
 <template>
   <div class="space-y-4 max-w-sm">
-    <h2 class="text-xl font-semibold">
-      Vérification de l'adresse e-mail
-    </h2>
+    <h2 class="text-xl font-semibold">Vérification de l'adresse e-mail</h2>
 
-    <p
-      v-if="status === 'pending'"
-      class="text-sm text-gray-500"
-    >
+    <p v-if="status === 'pending'" class="text-sm text-gray-500">
       Vérification en cours…
     </p>
 
-    <p
-      v-else-if="status === 'success'"
-      class="text-sm text-green-600"
-    >
-      Votre adresse e-mail a bien été vérifiée. Vous pouvez maintenant vous connecter.
+    <p v-else-if="status === 'success'" class="text-sm text-green-600">
+      Votre adresse e-mail a bien été vérifiée. Vous pouvez maintenant vous
+      connecter.
     </p>
 
-    <p
-      v-else-if="status === 'error'"
-      class="text-sm text-red-600"
-    >
+    <p v-else-if="status === 'error'" class="text-sm text-red-600">
       {{ error }}
     </p>
 
@@ -36,32 +26,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import api from '@/api/http'
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
+import api from "@/api/http";
 
-type Status = 'pending' | 'success' | 'error'
+type Status = "pending" | "success" | "error";
 
-const route = useRoute()
-const status = ref<Status>('pending')
-const error = ref('')
+const route = useRoute();
+const status = ref<Status>("pending");
+const error = ref("");
 
 onMounted(async () => {
-  const code = route.query.code as string | undefined
+  const code = route.query.code as string | undefined;
 
   if (!code) {
-    status.value = 'error'
-    error.value = 'Lien de vérification invalide ou incomplet.'
-    return
+    status.value = "error";
+    error.value = "Lien de vérification invalide ou incomplet.";
+    return;
   }
 
   try {
-    await api.get('/auth/verify-email', { params: { code } })
-    status.value = 'success'
+    await api.get("/auth/verify-email", { params: { code } });
+    status.value = "success";
   } catch (e: unknown) {
-    status.value = 'error'
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    error.value = msg ?? 'Le lien est invalide ou a expiré.'
+    status.value = "error";
+    const msg = (e as { response?: { data?: { detail?: string } } })?.response
+      ?.data?.detail;
+    error.value = msg ?? "Le lien est invalide ou a expiré.";
   }
-})
+});
 </script>

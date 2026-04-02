@@ -3,11 +3,10 @@
   <!-- Contexte UC -->
   <div class="rounded-lg border bg-white p-4 shadow-sm">
     <h1 class="font-semibold text-lg break-words flex items-center gap-2">
-      {{ uc?.challenge?.name || 'Challenge' }}
-      <span
-        v-if="uc?.cache?.GC"
-        class="text-sm text-gray-500"
-      >· GC: {{ uc.cache.GC }}</span>
+      {{ uc?.challenge?.name || "Challenge" }}
+      <span v-if="uc?.cache?.GC" class="text-sm text-gray-500"
+        >· GC: {{ uc.cache.GC }}</span
+      >
     </h1>
 
     <details class="mt-2">
@@ -15,10 +14,7 @@
         Voir la description
       </summary>
       <!-- eslint-disable vue/no-v-html -->
-      <div
-        class="prose prose-sm max-w-none mt-2"
-        v-html="safeDescription"
-      />
+      <div class="prose prose-sm max-w-none mt-2" v-html="safeDescription" />
       <!-- eslint-enable vue/no-v-html -->
     </details>
   </div>
@@ -62,18 +58,10 @@
       </div>
     </div>
 
-    <div
-      v-if="error"
-      class="text-center text-red-600 text-sm"
-    >
+    <div v-if="error" class="text-center text-red-600 text-sm">
       {{ error }}
     </div>
-    <div
-      v-if="loading"
-      class="text-center text-gray-500"
-    >
-      Chargement…
-    </div>
+    <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
 
     <!-- Liste ordonnable -->
     <draggable
@@ -104,20 +92,23 @@
                   type="text"
                   class="w-full border rounded px-3 py-2"
                   placeholder="Titre de la tâche"
-                >
+                />
               </div>
 
               <!-- Expression (textarea simple) -->
               <div>
-                <label class="block text-xs text-gray-500 mb-1">Expression (JSON minimal)</label>
+                <label class="block text-xs text-gray-500 mb-1"
+                  >Expression (JSON minimal)</label
+                >
                 <textarea
                   v-model="t.expression_json"
                   class="w-full border rounded px-3 py-2 font-mono text-xs"
                   rows="6"
-                  placeholder="{\n  &quot;kind&quot;: &quot;size_in&quot;,\n  &quot;sizes&quot;: [{ &quot;code&quot;: &quot;L&quot; }]\n}"
+                  placeholder='{\n  "kind": "size_in",\n  "sizes": [{ "code": "L" }]\n}'
                 />
                 <p class="text-[11px] text-gray-500 mt-1">
-                  Saisir seulement l’objet <code>expression</code> (pas la tâche complète).
+                  Saisir seulement l’objet <code>expression</code> (pas la tâche
+                  complète).
                 </p>
               </div>
 
@@ -129,7 +120,7 @@
                   type="number"
                   min="0"
                   class="w-24 border rounded px-2 py-1"
-                >
+                />
               </div>
 
               <!-- Actions par ligne -->
@@ -150,167 +141,179 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import api from '@/api/http'
-import { useUserChallenge } from '@/composables/useUserChallenge'
-import draggable from 'vuedraggable'
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import api from "@/api/http";
+import { useUserChallenge } from "@/composables/useUserChallenge";
+import draggable from "vuedraggable";
 import {
-    ArrowLeftIcon,
-    PlusIcon,
-    TrashIcon,
-    Bars3Icon,
-    ClipboardDocumentCheckIcon, // validate
-    ArrowUpOnSquareIcon,        // save
-} from '@heroicons/vue/24/outline'
-import { toast } from 'vue-sonner'
+  ArrowLeftIcon,
+  PlusIcon,
+  TrashIcon,
+  Bars3Icon,
+  ClipboardDocumentCheckIcon, // validate
+  ArrowUpOnSquareIcon, // save
+} from "@heroicons/vue/24/outline";
+import { toast } from "vue-sonner";
 
-type TaskExpr = unknown
+type TaskExpr = unknown;
 type Task = {
-    id?: string
-    title: string
-    expression: TaskExpr | null
-    constraints: Record<string, unknown>
-    status?: string | null
-}
+  id?: string;
+  title: string;
+  expression: TaskExpr | null;
+  constraints: Record<string, unknown>;
+  status?: string | null;
+};
 
 // UI-only: champs éditables
 type TaskUI = Task & {
-    expression_json: string     // texte du textarea
-    min_count: number | null    // pour constraints.min_count
-}
+  expression_json: string; // texte du textarea
+  min_count: number | null; // pour constraints.min_count
+};
 
-const tasks = ref<TaskUI[]>([])
+const tasks = ref<TaskUI[]>([]);
 
-const route = useRoute()
-const router = useRouter()
-const ucId = route.params.id as string
-const { uc, safeDescription, fetchDetail } = useUserChallenge(ucId)
+const route = useRoute();
+const router = useRouter();
+const ucId = route.params.id as string;
+const { uc, safeDescription, fetchDetail } = useUserChallenge(ucId);
 
-const loading = ref(false)
-const error = ref<string | null>(null)
+const loading = ref(false);
+const error = ref<string | null>(null);
 
 async function fetchTasks() {
-    loading.value = true
-    error.value = null
-    try {
-        const { data } = await api.get(`/my/challenges/${ucId}/tasks`)
-        const serverTasks: Task[] = (data?.tasks ?? []) as Task[]
+  loading.value = true;
+  error.value = null;
+  try {
+    const { data } = await api.get(`/my/challenges/${ucId}/tasks`);
+    const serverTasks: Task[] = (data?.tasks ?? []) as Task[];
 
-        tasks.value = serverTasks.map((t) => {
-            const exprStr = t.expression ? JSON.stringify(t.expression, null, 2) : ''
-            const minCount = typeof t.constraints?.min_count === 'number' ? t.constraints.min_count : null
-            return {
-                ...t,
-                expression_json: exprStr,
-                min_count: minCount,
-                constraints: t.constraints ?? {},
-            }
-        })
-    } catch (e: unknown) {
-        error.value = e instanceof Error ? e.message : 'Erreur de chargement'
-    } finally {
-        loading.value = false
-    }
+    tasks.value = serverTasks.map((t) => {
+      const exprStr = t.expression ? JSON.stringify(t.expression, null, 2) : "";
+      const minCount =
+        typeof t.constraints?.min_count === "number"
+          ? t.constraints.min_count
+          : null;
+      return {
+        ...t,
+        expression_json: exprStr,
+        min_count: minCount,
+        constraints: t.constraints ?? {},
+      };
+    });
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : "Erreur de chargement";
+  } finally {
+    loading.value = false;
+  }
 }
 
 function addTask() {
-    const defaultExpr = {
-        kind: 'size_in',
-        sizes: [{ code: 'L' }],
-    }
-    tasks.value.push({
-        title: 'Nouvelle tâche',
-        expression: defaultExpr,
-        expression_json: JSON.stringify(defaultExpr, null, 2),
-        min_count: 1,
-        constraints: { min_count: 1 },
-        status: 'todo',
-    })
+  const defaultExpr = {
+    kind: "size_in",
+    sizes: [{ code: "L" }],
+  };
+  tasks.value.push({
+    title: "Nouvelle tâche",
+    expression: defaultExpr,
+    expression_json: JSON.stringify(defaultExpr, null, 2),
+    min_count: 1,
+    constraints: { min_count: 1 },
+    status: "todo",
+  });
 }
 
 function removeTask(i: number) {
-    tasks.value.splice(i, 1)
+  tasks.value.splice(i, 1);
 }
 
 function buildPayload() {
-    const out = tasks.value.map((t, i) => {
-        let parsed: unknown = null
-        // tenter de parser le JSON tapé
-        try {
-            parsed = t.expression_json ? JSON.parse(t.expression_json) : null
-        } catch {
-            // on laisse parsed=null → validation backend plantera, on remonte l’erreur
-        }
+  const out = tasks.value.map((t, i) => {
+    let parsed: unknown = null;
+    // tenter de parser le JSON tapé
+    try {
+      parsed = t.expression_json ? JSON.parse(t.expression_json) : null;
+    } catch {
+      // on laisse parsed=null → validation backend plantera, on remonte l’erreur
+    }
 
-        return {
-            id: t.id,
-            title: t.title || `Task #${i + 1}`,
-            expression: parsed,                      // <— requis
-            constraints: { min_count: t.min_count ?? 0 },  // <— objet simple
-            status: t.status ?? 'todo',
-        }
-    })
-    return { tasks: out }
+    return {
+      id: t.id,
+      title: t.title || `Task #${i + 1}`,
+      expression: parsed, // <— requis
+      constraints: { min_count: t.min_count ?? 0 }, // <— objet simple
+      status: t.status ?? "todo",
+    };
+  });
+  return { tasks: out };
 }
 
 function mapServerTasksToUI(serverTasks: Task[]) {
-    return (serverTasks ?? []).map((t) => {
-        const exprStr = t.expression ? JSON.stringify(t.expression, null, 2) : ''
-        const minCount = typeof t.constraints?.min_count === 'number' ? t.constraints.min_count : null
-        return {
-            ...t,
-            expression_json: exprStr,
-            min_count: minCount,
-            constraints: t.constraints ?? {},
-        }
-    })
+  return (serverTasks ?? []).map((t) => {
+    const exprStr = t.expression ? JSON.stringify(t.expression, null, 2) : "";
+    const minCount =
+      typeof t.constraints?.min_count === "number"
+        ? t.constraints.min_count
+        : null;
+    return {
+      ...t,
+      expression_json: exprStr,
+      min_count: minCount,
+      constraints: t.constraints ?? {},
+    };
+  });
 }
 
 async function validateAll() {
-    loading.value = true
-    error.value = null
-    try {
-        const payload = buildPayload()
-        await api.post(`/my/challenges/${ucId}/tasks/validate`, payload)
-        toast.success('Validation réussie')
-    } catch (e: unknown) {
-        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        error.value = detail ?? (e instanceof Error ? e.message : 'Validation invalide')
-        toast.error('Erreur de validation', { description: error.value ?? undefined })
-    } finally {
-        loading.value = false
-    }
+  loading.value = true;
+  error.value = null;
+  try {
+    const payload = buildPayload();
+    await api.post(`/my/challenges/${ucId}/tasks/validate`, payload);
+    toast.success("Validation réussie");
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })
+      ?.response?.data?.detail;
+    error.value =
+      detail ?? (e instanceof Error ? e.message : "Validation invalide");
+    toast.error("Erreur de validation", {
+      description: error.value ?? undefined,
+    });
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function saveAll() {
-    loading.value = true
-    error.value = null
-    try {
-        const payload = buildPayload()
-        // 1) Enregistrer
-        const { data } = await api.put(`/my/challenges/${ucId}/tasks`, payload)
+  loading.value = true;
+  error.value = null;
+  try {
+    const payload = buildPayload();
+    // 1) Enregistrer
+    const { data } = await api.put(`/my/challenges/${ucId}/tasks`, payload);
 
-        // 2) Mettre à jour la liste locale si le backend renvoie tasks
-        if (data?.tasks) {
-            tasks.value = mapServerTasksToUI(data.tasks)
-        }
-
-
-
-        toast.success('Tâches enregistrées')
-    } catch (e: unknown) {
-        const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-        error.value = detail ?? (e instanceof Error ? e.message : 'Erreur enregistrement')
-        toast.error('Erreur enregistrement', { description: error.value ?? undefined })
-    } finally {
-        loading.value = false
+    // 2) Mettre à jour la liste locale si le backend renvoie tasks
+    if (data?.tasks) {
+      tasks.value = mapServerTasksToUI(data.tasks);
     }
+
+    toast.success("Tâches enregistrées");
+  } catch (e: unknown) {
+    const detail = (e as { response?: { data?: { detail?: string } } })
+      ?.response?.data?.detail;
+    error.value =
+      detail ?? (e instanceof Error ? e.message : "Erreur enregistrement");
+    toast.error("Erreur enregistrement", {
+      description: error.value ?? undefined,
+    });
+  } finally {
+    loading.value = false;
+  }
 }
 
 onMounted(async () => {
-    await Promise.all([fetchDetail(), fetchTasks()])
-})
+  await Promise.all([fetchDetail(), fetchTasks()]);
+});
 </script>
 
 <style scoped>

@@ -3,9 +3,7 @@
     <!-- En-tête -->
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold">
-          Matrix D/T Challenge
-        </h1>
+        <h1 class="text-2xl font-bold">Matrix D/T Challenge</h1>
         <p class="text-gray-600">
           Vérification de completion des combinaisons Difficulté/Terrain
         </p>
@@ -14,43 +12,41 @@
 
     <!-- Filtres -->
     <div class="rounded-lg border bg-white p-4 shadow-sm">
-      <h2 class="font-semibold mb-3">
-        Filtres
-      </h2>
+      <h2 class="font-semibold mb-3">Filtres</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Type de cache</label>
-          <select 
-            v-model="selectedCacheType" 
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Type de cache</label
+          >
+          <select
+            v-model="selectedCacheType"
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchMatrix"
           >
-            <option value="">
-              Tous les types
-            </option>
-            <option 
-              v-for="type in sortedCacheTypes" 
-              :key="type._id" 
+            <option value="">Tous les types</option>
+            <option
+              v-for="type in sortedCacheTypes"
+              :key="type._id"
               :value="type.code"
             >
               {{ type.name }} ({{ type.code }})
             </option>
           </select>
         </div>
-        
+
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Taille de cache</label>
-          <select 
-            v-model="selectedCacheSize" 
+          <label class="block text-sm font-medium text-gray-700 mb-1"
+            >Taille de cache</label
+          >
+          <select
+            v-model="selectedCacheSize"
             class="w-full border rounded px-3 py-2 bg-white"
             @change="fetchMatrix"
           >
-            <option value="">
-              Toutes les tailles
-            </option>
-            <option 
-              v-for="size in sortedCacheSizes" 
-              :key="size._id" 
+            <option value="">Toutes les tailles</option>
+            <option
+              v-for="size in sortedCacheSizes"
+              :key="size._id"
               :value="size.code"
             >
               {{ size.name }} ({{ size.code }})
@@ -61,10 +57,7 @@
     </div>
 
     <!-- Loading/Error -->
-    <div
-      v-if="loading"
-      class="text-center text-gray-500 py-8"
-    >
+    <div v-if="loading" class="text-center text-gray-500 py-8">
       Chargement de la matrice...
     </div>
     <div
@@ -75,15 +68,10 @@
     </div>
 
     <!-- Résultats Matrix -->
-    <div
-      v-if="matrixResult && !loading"
-      class="space-y-4"
-    >
+    <div v-if="matrixResult && !loading" class="space-y-4">
       <!-- Statistiques -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-3">
-          Résumé
-        </h2>
+        <h2 class="font-semibold mb-3">Résumé</h2>
         <div
           v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0"
           class="grid grid-cols-1 md:grid-cols-4 gap-4"
@@ -92,13 +80,17 @@
             <div class="text-2xl font-bold text-green-800">
               {{ matrixResult.completed_combinations_count }}
             </div>
-            <div class="text-sm text-green-600">
-              Combinaisons complétées
-            </div>
+            <div class="text-sm text-green-600">Combinaisons complétées</div>
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
-              {{ ((matrixResult.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100).toFixed(1) }}%
+              {{
+                (
+                  (matrixResult.completed_combinations_count /
+                    MATRIX_DT_TOTAL_COMBINATIONS) *
+                  100
+                ).toFixed(1)
+              }}%
             </div>
             <div class="text-sm text-blue-600">
               Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons)
@@ -109,7 +101,11 @@
               {{ matrixResult.matrix_tours }}
             </div>
             <div class="text-sm text-purple-600">
-              {{ matrixResult.matrix_tours > 1 ? 'Tours de matrice' : 'Tour de matrice' }}
+              {{
+                matrixResult.matrix_tours > 1
+                  ? "Tours de matrice"
+                  : "Tour de matrice"
+              }}
             </div>
           </div>
           <div class="bg-indigo-50 p-3 rounded-lg">
@@ -117,25 +113,29 @@
               {{ (matrixResult.next_round_completion_rate * 100).toFixed(1) }}%
             </div>
             <div class="text-sm text-indigo-600">
-              Next round : {{ matrixResult.next_round_completed_count }}/{{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons
+              Next round : {{ matrixResult.next_round_completed_count }}/{{
+                MATRIX_DT_TOTAL_COMBINATIONS
+              }}
+              combinaisons
             </div>
           </div>
         </div>
-        <div
-          v-else
-          class="grid grid-cols-1 md:grid-cols-2 gap-4"
-        >
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-green-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-green-800">
               {{ matrixResult.completed_combinations_count }}
             </div>
-            <div class="text-sm text-green-600">
-              Combinaisons complétées
-            </div>
+            <div class="text-sm text-green-600">Combinaisons complétées</div>
           </div>
           <div class="bg-blue-50 p-3 rounded-lg">
             <div class="text-2xl font-bold text-blue-800">
-              {{ ((matrixResult.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100).toFixed(1) }}%
+              {{
+                (
+                  (matrixResult.completed_combinations_count /
+                    MATRIX_DT_TOTAL_COMBINATIONS) *
+                  100
+                ).toFixed(1)
+              }}%
             </div>
             <div class="text-sm text-blue-600">
               Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }} combinaisons)
@@ -146,18 +146,14 @@
 
       <!-- Matrix Grid -->
       <div class="rounded-lg border bg-white p-4 shadow-sm overflow-x-auto">
-        <h2 class="font-semibold mb-3">
-          Matrice Difficulté/Terrain
-        </h2>
+        <h2 class="font-semibold mb-3">Matrice Difficulté/Terrain</h2>
         <div class="min-w-max">
           <table class="w-full border-collapse">
             <thead>
               <tr>
-                <th class="border p-2 bg-gray-50 text-sm">
-                  D\T
-                </th>
-                <th 
-                  v-for="terrain in terrainValues" 
+                <th class="border p-2 bg-gray-50 text-sm">D\T</th>
+                <th
+                  v-for="terrain in terrainValues"
                   :key="terrain"
                   class="border p-2 bg-gray-50 text-sm"
                 >
@@ -166,15 +162,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="difficulty in difficultyValues"
-                :key="difficulty"
-              >
+              <tr v-for="difficulty in difficultyValues" :key="difficulty">
                 <td class="border p-2 bg-gray-50 font-medium text-sm">
                   {{ difficulty }}
                 </td>
-                <td 
-                  v-for="terrain in terrainValues" 
+                <td
+                  v-for="terrain in terrainValues"
                   :key="`${difficulty}-${terrain}`"
                   class="border p-2 text-center text-sm"
                   :class="getCellClass(difficulty, terrain)"
@@ -186,10 +179,16 @@
           </table>
         </div>
         <div class="mt-2 text-xs text-gray-500">
-          <span class="inline-block w-4 h-4 bg-green-100 border mr-1" />Complété (≥1)
-          <span class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3" />Non complété (0)
-          <span v-if="matrixResult?.matrix_tours && matrixResult.matrix_tours > 0">
-            <span class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3" />Next round
+          <span class="inline-block w-4 h-4 bg-green-100 border mr-1" />Complété
+          (≥1)
+          <span class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3" />Non
+          complété (0)
+          <span
+            v-if="matrixResult?.matrix_tours && matrixResult.matrix_tours > 0"
+          >
+            <span
+              class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3"
+            />Next round
           </span>
         </div>
       </div>
@@ -198,117 +197,121 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import api from '@/api/http'
-import type { MatrixResult, CacheType, CacheSize } from '@/types/challenges'
-import { useMatrixData } from '@/composables/useMatrixData'
-import { MATRIX_DT_TOTAL_COMBINATIONS } from '@/constants/matrix'
-import { toast } from 'vue-sonner'
+import { ref, onMounted, computed } from "vue";
+import api from "@/api/http";
+import type { MatrixResult, CacheType, CacheSize } from "@/types/challenges";
+import { useMatrixData } from "@/composables/useMatrixData";
+import { MATRIX_DT_TOTAL_COMBINATIONS } from "@/constants/matrix";
+import { toast } from "vue-sonner";
 
-const loading = ref(false)
-const error = ref('')
-const matrixResult = ref<MatrixResult | null>(null)
-const cacheTypes = ref<CacheType[]>([])
-const cacheSizes = ref<CacheSize[]>([])
-const selectedCacheType = ref('')
-const selectedCacheSize = ref('')
+const loading = ref(false);
+const error = ref("");
+const matrixResult = ref<MatrixResult | null>(null);
+const cacheTypes = ref<CacheType[]>([]);
+const cacheSizes = ref<CacheSize[]>([]);
+const selectedCacheType = ref("");
+const selectedCacheSize = ref("");
 
 // Use the new composable for matrix data processing
-const { matrixData, terrainValues, difficultyValues } = useMatrixData(matrixResult)
+const { matrixData, terrainValues, difficultyValues } =
+  useMatrixData(matrixResult);
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {
-  return [...cacheTypes.value].sort((a, b) => a.name.localeCompare(b.name))
-})
+  return [...cacheTypes.value].sort((a, b) => a.name.localeCompare(b.name));
+});
 
 // Tri des tailles par ordre logique
 const sortedCacheSizes = computed(() => {
-  const sizeOrder = ['Micro', 'Small', 'Regular', 'Large', 'Other']
+  const sizeOrder = ["Micro", "Small", "Regular", "Large", "Other"];
   return [...cacheSizes.value].sort((a, b) => {
-    const aIndex = sizeOrder.indexOf(a.name)
-    const bIndex = sizeOrder.indexOf(b.name)
-    return aIndex - bIndex
-  })
-})
+    const aIndex = sizeOrder.indexOf(a.name);
+    const bIndex = sizeOrder.indexOf(b.name);
+    return aIndex - bIndex;
+  });
+});
 
 async function fetchCacheTypes() {
   try {
-    const response = await api.get('/cache_types')
-    cacheTypes.value = response.data
+    const response = await api.get("/cache_types");
+    cacheTypes.value = response.data;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = `Erreur chargement types: ${msg}`
-    toast.error('Erreur chargement types', { description: msg })
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = `Erreur chargement types: ${msg}`;
+    toast.error("Erreur chargement types", { description: msg });
   }
 }
 
 async function fetchCacheSizes() {
   try {
-    const response = await api.get('/cache_sizes')
-    cacheSizes.value = response.data
+    const response = await api.get("/cache_sizes");
+    cacheSizes.value = response.data;
   } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = `Erreur chargement tailles: ${msg}`
-    toast.error('Erreur chargement tailles', { description: msg })
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = `Erreur chargement tailles: ${msg}`;
+    toast.error("Erreur chargement tailles", { description: msg });
   }
 }
 
 async function fetchMatrix() {
-  loading.value = true
-  error.value = ''
+  loading.value = true;
+  error.value = "";
 
   try {
-    const params = new URLSearchParams()
+    const params = new URLSearchParams();
     if (selectedCacheType.value) {
-      params.append('cache_type', selectedCacheType.value)
+      params.append("cache_type", selectedCacheType.value);
     }
     if (selectedCacheSize.value) {
-      params.append('cache_size', selectedCacheSize.value)
+      params.append("cache_size", selectedCacheSize.value);
     }
 
-    const response = await api.get(`/my/challenges/basics/matrix?${params}`)
-    console.log('Matrix API response:', response.data)
-    matrixResult.value = response.data
+    const response = await api.get(`/my/challenges/basics/matrix?${params}`);
+    console.log("Matrix API response:", response.data);
+    matrixResult.value = response.data;
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
-    const msg = e instanceof Error ? e.message : String(e)
-    error.value = detail || msg || 'Erreur lors du chargement de la matrice'
-    toast.error('Erreur chargement matrice', { description: error.value })
+    const detail = (e as { response?: { data?: { detail?: string } } })
+      ?.response?.data?.detail;
+    const msg = e instanceof Error ? e.message : String(e);
+    error.value = detail || msg || "Erreur lors du chargement de la matrice";
+    toast.error("Erreur chargement matrice", { description: error.value });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function getMatrixValue(diff: number, terr: number): number {
   // Find the combination in the processed matrix data
-  const row = matrixData.value.rows.find(r => r.difficulty === diff)
-  if (!row) return 0
+  const row = matrixData.value.rows.find((r) => r.difficulty === diff);
+  if (!row) return 0;
 
-  const cell = row.cells.find(c => c.terrain === terr)
-  return cell ? cell.count : 0
+  const cell = row.cells.find((c) => c.terrain === terr);
+  return cell ? cell.count : 0;
 }
 
 function getCellClass(diff: number, terr: number): string {
   // Find the combination in the processed matrix data
-  const row = matrixData.value.rows.find(r => r.difficulty === diff)
-  if (!row) return 'bg-red-100 text-red-800'
+  const row = matrixData.value.rows.find((r) => r.difficulty === diff);
+  if (!row) return "bg-red-100 text-red-800";
 
-  const cell = row.cells.find(c => c.terrain === terr)
-  if (!cell) return 'bg-red-100 text-red-800'
+  const cell = row.cells.find((c) => c.terrain === terr);
+  if (!cell) return "bg-red-100 text-red-800";
 
   // Check if this cell is needed for the next round
-  if (matrixResult.value && matrixResult.value.matrix_tours > 0 && cell.count === matrixResult.value.matrix_tours) {
-    return 'bg-indigo-100 text-indigo-800'; // Color for next round target cells
+  if (
+    matrixResult.value &&
+    matrixResult.value.matrix_tours > 0 &&
+    cell.count === matrixResult.value.matrix_tours
+  ) {
+    return "bg-indigo-100 text-indigo-800"; // Color for next round target cells
   }
 
-  return cell.isCompleted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+  return cell.isCompleted
+    ? "bg-green-100 text-green-800"
+    : "bg-red-100 text-red-800";
 }
 
 onMounted(async () => {
-  await Promise.all([
-    fetchCacheTypes(),
-    fetchCacheSizes(),
-    fetchMatrix()
-  ])
-})
+  await Promise.all([fetchCacheTypes(), fetchCacheSizes(), fetchMatrix()]);
+});
 </script>
