@@ -1,7 +1,7 @@
 // src/composables/useMatrixData.ts
-import { computed, type Ref } from 'vue';
-import type { MatrixResult } from '@/types/challenges';
-import { MATRIX_DT_TOTAL_COMBINATIONS } from '@/constants/matrix';
+import { computed, type Ref } from "vue";
+import type { MatrixResult } from "@/types/challenges";
+import { MATRIX_DT_TOTAL_COMBINATIONS } from "@/constants/matrix";
 
 export interface MatrixCell {
   difficulty: number;
@@ -33,7 +33,7 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
         rows: [],
         completionRate: 0,
         completedCombinations: 0,
-        totalCombinations: 0
+        totalCombinations: 0,
       };
     }
 
@@ -45,7 +45,8 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
       for (const terrain of terrainValues) {
         // Check if this combination is in missing_combinations
         const isMissing = matrixResult.value.missing_combinations.some(
-          combo => combo.difficulty === difficulty && combo.terrain === terrain
+          (combo) =>
+            combo.difficulty === difficulty && combo.terrain === terrain,
         );
 
         if (isMissing) {
@@ -54,13 +55,15 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
             difficulty,
             terrain,
             count: 0,
-            isCompleted: false
+            isCompleted: false,
           });
         } else {
           // Find the combination in completed_combinations_details
-          const combination = matrixResult.value.completed_combinations_details.find(
-            combo => combo.difficulty === difficulty && combo.terrain === terrain
-          );
+          const combination =
+            matrixResult.value.completed_combinations_details.find(
+              (combo) =>
+                combo.difficulty === difficulty && combo.terrain === terrain,
+            );
 
           const count = combination ? combination.count : 0;
           const isCompleted = count >= 1;
@@ -69,28 +72,31 @@ export function useMatrixData(matrixResult: Ref<MatrixResult | null>) {
             difficulty,
             terrain,
             count,
-            isCompleted
+            isCompleted,
           });
         }
       }
 
       rows.push({
         difficulty,
-        cells
+        cells,
       });
     }
 
     return {
       rows,
-      completionRate: (matrixResult.value.completed_combinations_count / MATRIX_DT_TOTAL_COMBINATIONS) * 100,
+      completionRate:
+        (matrixResult.value.completed_combinations_count /
+          MATRIX_DT_TOTAL_COMBINATIONS) *
+        100,
       completedCombinations: matrixResult.value.completed_combinations_count,
-      totalCombinations: MATRIX_DT_TOTAL_COMBINATIONS
+      totalCombinations: MATRIX_DT_TOTAL_COMBINATIONS,
     };
   });
 
   return {
     matrixData,
     difficultyValues,
-    terrainValues
+    terrainValues,
   };
 }

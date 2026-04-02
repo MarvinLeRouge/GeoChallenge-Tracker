@@ -12,7 +12,11 @@ export function installCrosshairPicker(
   onPick: (latlng: L.LatLng) => void,
 ): CrosshairPicker {
   // Réticule centré ajouté dans le container de la map
-  const overlay = L.DomUtil.create("div", "leaflet-crosshair-overlay", map.getContainer());
+  const overlay = L.DomUtil.create(
+    "div",
+    "leaflet-crosshair-overlay",
+    map.getContainer(),
+  );
   overlay.innerHTML = `
     <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
       <circle cx="12" cy="12" r="5" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -27,7 +31,7 @@ export function installCrosshairPicker(
 
   const handlePick = (e: L.LeafletMouseEvent) => {
     disable();
-    onPick(e.latlng);       // ou map.getCenter() si tu préfères le centre
+    onPick(e.latlng); // ou map.getCenter() si tu préfères le centre
   };
 
   function enable() {

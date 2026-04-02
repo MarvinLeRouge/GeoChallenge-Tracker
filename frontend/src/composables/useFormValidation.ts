@@ -1,5 +1,5 @@
 // src/composables/useFormValidation.ts
-import { reactive, computed } from 'vue';
+import { reactive, computed } from "vue";
 
 export interface ValidationRule {
   validate: (value: unknown) => boolean | Promise<boolean>;
@@ -16,7 +16,7 @@ export interface FieldState {
 
 export function useFormValidation(initialValues: Record<string, unknown> = {}) {
   const fields = reactive<Record<string, FieldState>>({});
-  
+
   // Initialize fields with initial values
   Object.entries(initialValues).forEach(([name, value]) => {
     fields[name] = {
@@ -24,7 +24,7 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
       errors: [],
       isValid: true,
       isDirty: false,
-      isTouched: false
+      isTouched: false,
     };
   });
 
@@ -34,7 +34,7 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
       errors: [],
       isValid: true,
       isDirty: false,
-      isTouched: false
+      isTouched: false,
     };
   };
 
@@ -70,7 +70,7 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
 
   const validateForm = async (fieldRules: Record<string, ValidationRule[]>) => {
     let isFormValid = true;
-    
+
     for (const fieldName in fieldRules) {
       const isValid = await validateField(fieldName, fieldRules[fieldName]);
       if (!isValid) {
@@ -92,7 +92,7 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
   };
 
   const resetForm = () => {
-    Object.keys(fields).forEach(key => {
+    Object.keys(fields).forEach((key) => {
       fields[key].value = initialValues[key] || null;
       fields[key].errors = [];
       fields[key].isValid = true;
@@ -102,11 +102,11 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
   };
 
   const isFormValid = computed(() => {
-    return Object.values(fields).every(field => field.isValid);
+    return Object.values(fields).every((field) => field.isValid);
   });
 
   const isFormDirty = computed(() => {
-    return Object.values(fields).some(field => field.isDirty);
+    return Object.values(fields).some((field) => field.isDirty);
   });
 
   return {
@@ -119,6 +119,6 @@ export function useFormValidation(initialValues: Record<string, unknown> = {}) {
     resetField,
     resetForm,
     isFormValid,
-    isFormDirty
+    isFormDirty,
   };
 }

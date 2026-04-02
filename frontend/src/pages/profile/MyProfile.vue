@@ -2,20 +2,17 @@
   <div class="max-w-4xl mx-auto">
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900 mb-2">
-        Mon profil
-      </h1>
+      <h1 class="text-2xl font-bold text-gray-900 mb-2">Mon profil</h1>
       <p class="text-gray-600">
         Gérez vos informations personnelles et votre localisation
       </p>
     </div>
 
     <!-- Loading state -->
-    <div
-      v-if="loading"
-      class="flex items-center justify-center py-12"
-    >
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    <div v-if="loading" class="flex items-center justify-center py-12">
+      <div
+        class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"
+      />
       <span class="ml-2 text-gray-600">Chargement du profil...</span>
     </div>
 
@@ -27,14 +24,12 @@
       <div class="flex">
         <ExclamationTriangleIcon class="h-5 w-5 text-red-400 mt-0.5" />
         <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800">
-            Erreur de chargement
-          </h3>
+          <h3 class="text-sm font-medium text-red-800">Erreur de chargement</h3>
           <p class="text-sm text-red-700 mt-1">
             {{ error }}
           </p>
-          <button 
-            class="mt-2 text-sm text-red-800 underline hover:text-red-900" 
+          <button
+            class="mt-2 text-sm text-red-800 underline hover:text-red-900"
             @click="loadProfile"
           >
             Réessayer
@@ -44,10 +39,7 @@
     </div>
 
     <!-- Profile content -->
-    <div
-      v-else-if="profile"
-      class="space-y-6"
-    >
+    <div v-else-if="profile" class="space-y-6">
       <!-- Informations personnelles -->
       <div class="bg-white rounded-lg border border-gray-200 p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -80,15 +72,16 @@
           <MapPinIcon class="h-5 w-5 mr-2 text-gray-600" />
           Ma localisation
         </h3>
-        
+
         <!-- Message d'information -->
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div class="flex">
             <InformationCircleIcon class="h-5 w-5 text-blue-400 mt-0.5" />
             <div class="ml-3">
               <p class="text-sm text-blue-700">
-                Votre localisation sert de point de référence pour les calculs de distance dans vos challenges.
-                Elle reste privée et n'est visible que par vous.
+                Votre localisation sert de point de référence pour les calculs
+                de distance dans vos challenges. Elle reste privée et n'est
+                visible que par vous.
               </p>
             </div>
           </div>
@@ -130,10 +123,7 @@
         </div>
 
         <!-- Formulaire de localisation -->
-        <form
-          class="space-y-4"
-          @submit.prevent="handleLocationSubmit"
-        >
+        <form class="space-y-4" @submit.prevent="handleLocationSubmit">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label
@@ -152,7 +142,7 @@
                 placeholder="Ex: 46.603354"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 :class="{ 'border-red-300': locationFormErrors.lat }"
-              >
+              />
               <p
                 v-if="locationFormErrors.lat"
                 class="mt-1 text-sm text-red-600"
@@ -177,7 +167,7 @@
                 placeholder="Ex: 1.888334"
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 :class="{ 'border-red-300': locationFormErrors.lon }"
-              >
+              />
               <p
                 v-if="locationFormErrors.lon"
                 class="mt-1 text-sm text-red-600"
@@ -198,9 +188,9 @@
                 v-if="saving"
                 class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
               />
-              {{ saving ? 'Sauvegarde...' : 'Sauvegarder' }}
+              {{ saving ? "Sauvegarde..." : "Sauvegarder" }}
             </button>
-            
+
             <button
               type="button"
               :disabled="gettingLocation"
@@ -211,11 +201,8 @@
                 v-if="gettingLocation"
                 class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
               />
-              <LocateFixed
-                v-else
-                class="h-4 w-4 mr-2"
-              />
-              {{ gettingLocation ? 'Localisation...' : 'Ma position actuelle' }}
+              <LocateFixed v-else class="h-4 w-4 mr-2" />
+              {{ gettingLocation ? "Localisation..." : "Ma position actuelle" }}
             </button>
 
             <button
@@ -257,7 +244,9 @@
 
         <!-- Aide -->
         <div class="mt-6 text-xs text-gray-500">
-          <p><strong>Formats acceptés :</strong> Degrés décimaux (DD). Exemples :</p>
+          <p>
+            <strong>Formats acceptés :</strong> Degrés décimaux (DD). Exemples :
+          </p>
           <ul class="mt-1 ml-4 space-y-1">
             <li>• Paris : 48.8566, 2.3522</li>
             <li>• Toulouse : 43.6047, 1.4442</li>
@@ -274,11 +263,14 @@
 
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div class="flex">
-            <InformationCircleIcon class="h-5 w-5 text-blue-400 mt-0.5 shrink-0" />
+            <InformationCircleIcon
+              class="h-5 w-5 text-blue-400 mt-0.5 shrink-0"
+            />
             <p class="ml-3 text-sm text-blue-700">
               Fournissez un fichier (texte, GPX, JSON…) contenant vos codes GC.
-              Cette liste sera traitée comme la liste complète et définitive de vos found caches :
-              les entrées absentes seront supprimées, les nouvelles ajoutées.
+              Cette liste sera traitée comme la liste complète et définitive de
+              vos found caches : les entrées absentes seront supprimées, les
+              nouvelles ajoutées.
             </p>
           </div>
         </div>
@@ -293,14 +285,18 @@
         >
           <DocumentArrowUpIcon class="h-8 w-8 text-gray-400 mb-1" />
           <span class="text-sm text-gray-500">
-            {{ syncFile ? syncFile.name : 'Glissez un fichier ou cliquez pour choisir' }}
+            {{
+              syncFile
+                ? syncFile.name
+                : "Glissez un fichier ou cliquez pour choisir"
+            }}
           </span>
           <input
             ref="syncFileInput"
             type="file"
             class="hidden"
             @change="onSyncFileChange"
-          >
+          />
         </label>
 
         <div class="mt-3 flex items-center gap-3">
@@ -314,41 +310,45 @@
               v-if="syncLoading"
               class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"
             />
-            {{ syncLoading ? 'Synchronisation…' : 'Synchroniser' }}
+            {{ syncLoading ? "Synchronisation…" : "Synchroniser" }}
           </button>
-          <span
-            v-if="syncFile"
-            class="text-xs text-gray-500"
-          >{{ syncFile.name }}</span>
+          <span v-if="syncFile" class="text-xs text-gray-500">{{
+            syncFile.name
+          }}</span>
         </div>
 
         <!-- Result -->
         <div
           v-if="syncResult"
           class="mt-4 rounded-lg border p-4 space-y-1 text-sm"
-          :class="syncResult.nb_unknown_gc > 0 ? 'border-yellow-200 bg-yellow-50' : 'border-green-200 bg-green-50'"
+          :class="
+            syncResult.nb_unknown_gc > 0
+              ? 'border-yellow-200 bg-yellow-50'
+              : 'border-green-200 bg-green-50'
+          "
         >
-          <p><span class="font-medium">Codes GC fournis :</span> {{ syncResult.nb_provided }}</p>
-          <p><span class="font-medium">Ajoutés :</span> {{ syncResult.nb_added }}</p>
-          <p><span class="font-medium">Supprimés :</span> {{ syncResult.nb_deleted }}</p>
           <p>
-            <span class="font-medium">Codes inconnus :</span> {{ syncResult.nb_unknown_gc }}
-            <span
-              v-if="syncResult.nb_unknown_gc > 0"
-              class="text-yellow-700"
-            >
+            <span class="font-medium">Codes GC fournis :</span>
+            {{ syncResult.nb_provided }}
+          </p>
+          <p>
+            <span class="font-medium">Ajoutés :</span> {{ syncResult.nb_added }}
+          </p>
+          <p>
+            <span class="font-medium">Supprimés :</span>
+            {{ syncResult.nb_deleted }}
+          </p>
+          <p>
+            <span class="font-medium">Codes inconnus :</span>
+            {{ syncResult.nb_unknown_gc }}
+            <span v-if="syncResult.nb_unknown_gc > 0" class="text-yellow-700">
               — importez un GPX pour les ajouter à la base
             </span>
           </p>
-          <div
-            v-if="syncResult.unknown_gc_codes.length > 0"
-            class="mt-2"
-          >
-            <p class="font-medium text-yellow-800 mb-1">
-              Codes non reconnus :
-            </p>
+          <div v-if="syncResult.unknown_gc_codes.length > 0" class="mt-2">
+            <p class="font-medium text-yellow-800 mb-1">Codes non reconnus :</p>
             <p class="font-mono text-xs text-yellow-700 break-all">
-              {{ syncResult.unknown_gc_codes.join(', ') }}
+              {{ syncResult.unknown_gc_codes.join(", ") }}
             </p>
           </div>
         </div>
@@ -358,8 +358,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue'
-import { useUserProfile } from '@/composables/useUserProfile'
+import { onMounted, ref, reactive } from "vue";
+import { useUserProfile } from "@/composables/useUserProfile";
 import {
   UserCircleIcon,
   MapPinIcon,
@@ -368,88 +368,88 @@ import {
   CheckCircleIcon,
   ArrowPathIcon,
   DocumentArrowUpIcon,
-} from '@heroicons/vue/24/outline'
-import { LocateFixed } from 'lucide-vue-next'
-import api from '@/api/http'
-import { toast } from 'vue-sonner'
-import type { UserLocationIn } from '@/types/index'
+} from "@heroicons/vue/24/outline";
+import { LocateFixed } from "lucide-vue-next";
+import api from "@/api/http";
+import { toast } from "vue-sonner";
+import type { UserLocationIn } from "@/types/index";
 
 interface SyncResult {
-  nb_provided: number
-  nb_added: number
-  nb_deleted: number
-  nb_unknown_gc: number
-  unknown_gc_codes: string[]
+  nb_provided: number;
+  nb_added: number;
+  nb_deleted: number;
+  nb_unknown_gc: number;
+  unknown_gc_codes: string[];
 }
 
-const { 
-  profile, 
-  location, 
-  loading, 
-  error, 
-  saving, 
-  saveError, 
-  loadProfile, 
-  updateLocation, 
-  hasLocation, 
-  locationString 
-} = useUserProfile()
+const {
+  profile,
+  location,
+  loading,
+  error,
+  saving,
+  saveError,
+  loadProfile,
+  updateLocation,
+  hasLocation,
+  locationString,
+} = useUserProfile();
 
 // Formulaire de localisation
 const locationForm = reactive({
   lat: null as number | null,
-  lon: null as number | null
-})
+  lon: null as number | null,
+});
 
 const locationFormErrors = reactive({
-  lat: '',
-  lon: ''
-})
+  lat: "",
+  lon: "",
+});
 
-const gettingLocation = ref(false)
-const showSuccessMessage = ref(false)
+const gettingLocation = ref(false);
+const showSuccessMessage = ref(false);
 
 // Validation du formulaire
 function validateLocationForm(): boolean {
-  locationFormErrors.lat = ''
-  locationFormErrors.lon = ''
-  
-  let isValid = true
-  
+  locationFormErrors.lat = "";
+  locationFormErrors.lon = "";
+
+  let isValid = true;
+
   if (locationForm.lat === null || locationForm.lat === undefined) {
-    locationFormErrors.lat = 'La latitude est obligatoire'
-    isValid = false
+    locationFormErrors.lat = "La latitude est obligatoire";
+    isValid = false;
   } else if (locationForm.lat < -90 || locationForm.lat > 90) {
-    locationFormErrors.lat = 'La latitude doit être entre -90 et 90'
-    isValid = false
+    locationFormErrors.lat = "La latitude doit être entre -90 et 90";
+    isValid = false;
   }
-  
+
   if (locationForm.lon === null || locationForm.lon === undefined) {
-    locationFormErrors.lon = 'La longitude est obligatoire'
-    isValid = false
+    locationFormErrors.lon = "La longitude est obligatoire";
+    isValid = false;
   } else if (locationForm.lon < -180 || locationForm.lon > 180) {
-    locationFormErrors.lon = 'La longitude doit être entre -180 et 180'
-    isValid = false
+    locationFormErrors.lon = "La longitude doit être entre -180 et 180";
+    isValid = false;
   }
-  
-  return isValid
+
+  return isValid;
 }
 
 // Soumission du formulaire
 async function handleLocationSubmit() {
-  if (!validateLocationForm()) return
-  
+  if (!validateLocationForm()) return;
+
   const locationData: UserLocationIn = {
     lat: locationForm.lat,
-    lon: locationForm.lon
-  }
-  
+    lon: locationForm.lon,
+  };
+
   try {
-    await updateLocation(locationData)
-    showSuccessMessage.value = true
+    await updateLocation(locationData);
+    showSuccessMessage.value = true;
     setTimeout(() => {
-      showSuccessMessage.value = false
-    }, 3000)
+      showSuccessMessage.value = false;
+    }, 3000);
   } catch {
     // Erreur gérée par le composable
   }
@@ -458,48 +458,53 @@ async function handleLocationSubmit() {
 // Géolocalisation
 function getCurrentLocation() {
   if (!navigator.geolocation) {
-    alert('La géolocalisation n\'est pas supportée par votre navigateur')
-    return
+    alert("La géolocalisation n'est pas supportée par votre navigateur");
+    return;
   }
-  
-  gettingLocation.value = true
-  
+
+  gettingLocation.value = true;
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      locationForm.lat = Math.round(position.coords.latitude * 1000000) / 1000000
-      locationForm.lon = Math.round(position.coords.longitude * 1000000) / 1000000
-      gettingLocation.value = false
+      locationForm.lat =
+        Math.round(position.coords.latitude * 1000000) / 1000000;
+      locationForm.lon =
+        Math.round(position.coords.longitude * 1000000) / 1000000;
+      gettingLocation.value = false;
     },
     (err) => {
-      console.error('Erreur de géolocalisation:', err)
-      alert('Impossible d\'obtenir votre position. Vérifiez les autorisations de votre navigateur.')
-      gettingLocation.value = false
+      console.error("Erreur de géolocalisation:", err);
+      alert(
+        "Impossible d'obtenir votre position. Vérifiez les autorisations de votre navigateur.",
+      );
+      gettingLocation.value = false;
     },
     {
       enableHighAccuracy: true,
       timeout: 10000,
-      maximumAge: 0
-    }
-  )
+      maximumAge: 0,
+    },
+  );
 }
 
 // Supprimer la localisation
 async function clearLocation() {
-  if (!confirm('Êtes-vous sûr de vouloir supprimer votre localisation ?')) return
-  
+  if (!confirm("Êtes-vous sûr de vouloir supprimer votre localisation ?"))
+    return;
+
   const locationData: UserLocationIn = {
     lat: null,
-    lon: null
-  }
-  
+    lon: null,
+  };
+
   try {
-    await updateLocation(locationData)
-    locationForm.lat = null
-    locationForm.lon = null
-    showSuccessMessage.value = true
+    await updateLocation(locationData);
+    locationForm.lat = null;
+    locationForm.lon = null;
+    showSuccessMessage.value = true;
     setTimeout(() => {
-      showSuccessMessage.value = false
-    }, 3000)
+      showSuccessMessage.value = false;
+    }, 3000);
   } catch {
     // Erreur gérée par le composable
   }
@@ -507,59 +512,63 @@ async function clearLocation() {
 
 // --- Found caches sync ---
 
-const syncFile = ref<File | null>(null)
-const syncLoading = ref(false)
-const syncResult = ref<SyncResult | null>(null)
-const syncDragOver = ref(false)
-const syncFileInput = ref<HTMLInputElement | null>(null)
+const syncFile = ref<File | null>(null);
+const syncLoading = ref(false);
+const syncResult = ref<SyncResult | null>(null);
+const syncDragOver = ref(false);
+const syncFileInput = ref<HTMLInputElement | null>(null);
 
 function onSyncFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  syncFile.value = input.files?.[0] ?? null
-  syncResult.value = null
+  const input = e.target as HTMLInputElement;
+  syncFile.value = input.files?.[0] ?? null;
+  syncResult.value = null;
 }
 
 function onSyncDrop(e: DragEvent) {
-  syncDragOver.value = false
-  const file = e.dataTransfer?.files?.[0]
+  syncDragOver.value = false;
+  const file = e.dataTransfer?.files?.[0];
   if (file) {
-    syncFile.value = file
-    syncResult.value = null
+    syncFile.value = file;
+    syncResult.value = null;
   }
 }
 
 async function submitSync() {
-  if (!syncFile.value) return
-  syncLoading.value = true
-  syncResult.value = null
+  if (!syncFile.value) return;
+  syncLoading.value = true;
+  syncResult.value = null;
   try {
-    const form = new FormData()
-    form.append('file', syncFile.value)
-    const { data } = await api.post<SyncResult>('/my/profile/found-caches/sync', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    syncResult.value = data
-    toast.success('Synchronisation effectuée', {
+    const form = new FormData();
+    form.append("file", syncFile.value);
+    const { data } = await api.post<SyncResult>(
+      "/my/profile/found-caches/sync",
+      form,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    syncResult.value = data;
+    toast.success("Synchronisation effectuée", {
       description: `${data.nb_added} ajouté(s), ${data.nb_deleted} supprimé(s)`,
-    })
+    });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    toast.error('Erreur lors de la synchronisation', { description: msg })
+    const msg = err instanceof Error ? err.message : String(err);
+    toast.error("Erreur lors de la synchronisation", { description: msg });
   } finally {
-    syncLoading.value = false
+    syncLoading.value = false;
   }
 }
 
 // Initialisation
 function initializeForm() {
   if (location.value) {
-    locationForm.lat = location.value.lat
-    locationForm.lon = location.value.lon
+    locationForm.lat = location.value.lat;
+    locationForm.lon = location.value.lon;
   }
 }
 
 onMounted(async () => {
-  await loadProfile()
-  initializeForm()
-})
+  await loadProfile();
+  initializeForm();
+});
 </script>

@@ -1,6 +1,6 @@
 // src/composables/useApiErrorHandler.ts
-import { ref } from 'vue';
-import { isAxiosError, type AxiosError } from 'axios';
+import { ref } from "vue";
+import { isAxiosError, type AxiosError } from "axios";
 
 export interface ApiError {
   status?: number;
@@ -9,39 +9,42 @@ export interface ApiError {
 }
 
 export function useApiErrorHandler() {
-  const error = ref<string>('');
+  const error = ref<string>("");
 
   const handleApiError = (e: unknown): ApiError => {
-    let apiError: ApiError = { message: 'Erreur inconnue' };
+    let apiError: ApiError = { message: "Erreur inconnue" };
 
     if (isAxiosError(e)) {
       const axiosError = e as AxiosError;
-      
+
       if (axiosError.response) {
         // HTTP error with response
         const status = axiosError.response.status;
-        const detail = (axiosError.response.data as { detail?: string } | undefined)?.detail;
+        const detail = (
+          axiosError.response.data as { detail?: string } | undefined
+        )?.detail;
 
         apiError = {
           status,
           message: detail || `Erreur ${status}`,
-          detail
+          detail,
         };
       } else if (axiosError.request) {
         // Network error
         apiError = {
-          message: 'Erreur réseau - impossible de contacter le serveur'
+          message: "Erreur réseau - impossible de contacter le serveur",
         };
       } else {
         // Request config error
         apiError = {
-          message: axiosError.message || 'Erreur de configuration de la requête'
+          message:
+            axiosError.message || "Erreur de configuration de la requête",
         };
       }
     } else {
       // Non-Axios error
       apiError = {
-        message: (e as Error)?.message || 'Erreur inconnue'
+        message: (e as Error)?.message || "Erreur inconnue",
       };
     }
 
@@ -52,12 +55,12 @@ export function useApiErrorHandler() {
   };
 
   const clearError = () => {
-    error.value = '';
+    error.value = "";
   };
 
   return {
     error,
     handleApiError,
-    clearError
+    clearError,
   };
 }

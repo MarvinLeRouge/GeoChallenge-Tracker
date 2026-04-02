@@ -8,23 +8,12 @@
       <ArrowLeftIcon class="w-5 h-5" /> Retour
     </button>
 
-    <div
-      v-if="loading"
-      class="text-center text-gray-500"
-    >
-      Chargement…
-    </div>
-    <div
-      v-if="error"
-      class="text-center text-red-600 text-sm"
-    >
+    <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
+    <div v-if="error" class="text-center text-red-600 text-sm">
       {{ error }}
     </div>
 
-    <div
-      v-if="uc"
-      class="space-y-4"
-    >
+    <div v-if="uc" class="space-y-4">
       <!-- En-tête -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
         <div class="flex justify-between items-start gap-3">
@@ -32,21 +21,29 @@
             <h1 class="font-semibold text-lg break-words">
               {{ uc.challenge.name }}
             </h1>
-            <p class="text-sm text-gray-500">
-              GC: {{ uc.cache.GC }}
-            </p>
+            <p class="text-sm text-gray-500">GC: {{ uc.cache.GC }}</p>
             <p class="text-xs text-gray-400">
-              Créé: {{ uc.created_at ? new Date(uc.created_at).toLocaleDateString() : '—' }} · Màj:
-              {{ uc.updated_at ? new Date(uc.updated_at).toLocaleDateString() : '—' }}
+              Créé:
+              {{
+                uc.created_at
+                  ? new Date(uc.created_at).toLocaleDateString()
+                  : "—"
+              }}
+              · Màj:
+              {{
+                uc.updated_at
+                  ? new Date(uc.updated_at).toLocaleDateString()
+                  : "—"
+              }}
             </p>
             <p class="text-sm mt-1">
               Statut: <span class="font-medium">{{ uc.status }}</span>
-              <span
-                v-if="uc.computed_status"
-                class="text-gray-500"
-              > (computed: {{ uc.computed_status
-              }})</span>
-              <span class="text-gray-500"> → effective: {{ uc.effective_status }}</span>
+              <span v-if="uc.computed_status" class="text-gray-500">
+                (computed: {{ uc.computed_status }})</span
+              >
+              <span class="text-gray-500">
+                → effective: {{ uc.effective_status }}</span
+              >
             </p>
           </div>
           <InformationCircleIcon class="w-6 h-6 text-gray-500 shrink-0" />
@@ -54,33 +51,27 @@
 
         <!-- Progress -->
         <div class="mt-3">
-          <div
-            v-if="progressSnapshot"
-            class="space-y-1"
-          >
+          <div v-if="progressSnapshot" class="space-y-1">
             <div class="flex justify-between text-xs text-gray-500">
-              <span>{{ progressSnapshot.tasks_done }}/{{ progressSnapshot.tasks_total }} tâches</span>
+              <span
+                >{{ progressSnapshot.tasks_done }}/{{
+                  progressSnapshot.tasks_total
+                }}
+                tâches</span
+              >
               <span>{{ Math.round(progressSnapshot.percent) }}%</span>
             </div>
             <div class="w-full bg-gray-200 rounded h-2 overflow-hidden">
-              <div
-                class="h-full"
-                :style="progressBarStyle"
-              />
+              <div class="h-full" :style="progressBarStyle" />
             </div>
           </div>
-          <p
-            v-else
-            class="text-xs text-gray-400"
-          >
-            Pas encore commencé
-          </p>
+          <p v-else class="text-xs text-gray-400">Pas encore commencé</p>
           <button
             class="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
             :disabled="evaluating"
             @click="evaluateProgress"
           >
-            {{ evaluating ? 'Évaluation…' : 'Évaluer la progression' }}
+            {{ evaluating ? "Évaluation…" : "Évaluer la progression" }}
           </button>
         </div>
 
@@ -109,23 +100,16 @@
 
       <!-- Description du challenge -->
       <div class="rounded-lg border bg-white p-4 shadow-sm">
-        <h2 class="font-semibold mb-2">
-          Description
-        </h2>
+        <h2 class="font-semibold mb-2">Description</h2>
         <!-- Rendu HTML sanitisé -->
         <!-- eslint-disable vue/no-v-html -->
-        <div
-          class="prose prose-sm max-w-none"
-          v-html="safeDescription"
-        />
+        <div class="prose prose-sm max-w-none" v-html="safeDescription" />
         <!-- eslint-enable vue/no-v-html -->
       </div>
 
       <!-- Notes & override -->
       <div class="rounded-lg border bg-white p-4 shadow-sm space-y-3">
-        <h2 class="font-semibold">
-          Notes
-        </h2>
+        <h2 class="font-semibold">Notes</h2>
         <textarea
           v-model="notes"
           rows="3"
@@ -133,13 +117,15 @@
           placeholder="Ajouter une note…"
         />
         <div class="text-sm text-gray-600">
-          <label class="block mb-1 font-medium">Raison d’override (optionnel)</label>
+          <label class="block mb-1 font-medium"
+            >Raison d’override (optionnel)</label
+          >
           <input
             v-model="overrideReason"
             type="text"
             class="w-full border rounded px-3 py-2"
             placeholder="Ex: contrôle manuel…"
-          >
+          />
         </div>
         <div class="flex gap-2">
           <button
@@ -156,128 +142,141 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useUserChallenge } from '@/composables/useUserChallenge'
-import api from '@/api/http'
-import { toast } from 'vue-sonner'
+import { onMounted, ref, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useUserChallenge } from "@/composables/useUserChallenge";
+import api from "@/api/http";
+import { toast } from "vue-sonner";
 
 import {
-    ArrowLeftIcon,
-    CheckIcon,
-    XMarkIcon,
-    InformationCircleIcon,
-} from '@heroicons/vue/24/outline'
+  ArrowLeftIcon,
+  CheckIcon,
+  XMarkIcon,
+  InformationCircleIcon,
+} from "@heroicons/vue/24/outline";
 
 type ProgressSnapshot = {
-    percent: number
-    tasks_done: number
-    tasks_total: number
-    checked_at: string
-}
+  percent: number;
+  tasks_done: number;
+  tasks_total: number;
+  checked_at: string;
+};
 type Detail = {
-    id: string
-    status: 'pending' | 'accepted' | 'dismissed' | 'completed'
-    computed_status: 'pending' | 'accepted' | 'dismissed' | 'completed' | null
-    effective_status: 'pending' | 'accepted' | 'dismissed' | 'completed'
-    updated_at: string
-    created_at: string
-    manual_override: boolean
-    override_reason: string | null
-    notes: string | null
-    challenge: { id: string; name: string; description?: string | null }
-    cache: { id: string; GC: string }
-}
+  id: string;
+  status: "pending" | "accepted" | "dismissed" | "completed";
+  computed_status: "pending" | "accepted" | "dismissed" | "completed" | null;
+  effective_status: "pending" | "accepted" | "dismissed" | "completed";
+  updated_at: string;
+  created_at: string;
+  manual_override: boolean;
+  override_reason: string | null;
+  notes: string | null;
+  challenge: { id: string; name: string; description?: string | null };
+  cache: { id: string; GC: string };
+};
 
-const route = useRoute()
-const router = useRouter()
-const id = route.params.id as string
-const { uc, loadingDetail: loading, errorDetail: error, safeDescription, fetchDetail } =
-  useUserChallenge(id)
+const route = useRoute();
+const router = useRouter();
+const id = route.params.id as string;
+const {
+  uc,
+  loadingDetail: loading,
+  errorDetail: error,
+  safeDescription,
+  fetchDetail,
+} = useUserChallenge(id);
 
-const progressSnapshot = ref<ProgressSnapshot | null>(null)
-const evaluating = ref(false)
-const notes = ref('')
-const overrideReason = ref('')
+const progressSnapshot = ref<ProgressSnapshot | null>(null);
+const evaluating = ref(false);
+const notes = ref("");
+const overrideReason = ref("");
 
 const progressBarStyle = computed(() => {
-    if (!progressSnapshot.value) return {}
-    const pct = Math.min(progressSnapshot.value.percent, 100)
-    if (pct >= 100) {
-        return { width: '100%', background: '#22c55e' }
-    }
-    return {
-        width: '100%',
-        background: 'linear-gradient(to right, #ef4444 0%, #f97316 20%, #22c55e 55%)',
-        clipPath: `inset(0 ${100 - pct}% 0 0)`,
-    }
-})
+  if (!progressSnapshot.value) return {};
+  const pct = Math.min(progressSnapshot.value.percent, 100);
+  if (pct >= 100) {
+    return { width: "100%", background: "#22c55e" };
+  }
+  return {
+    width: "100%",
+    background:
+      "linear-gradient(to right, #ef4444 0%, #f97316 20%, #22c55e 55%)",
+    clipPath: `inset(0 ${100 - pct}% 0 0)`,
+  };
+});
 
-const canAccept = computed(() =>
-    uc.value && !['accepted', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
-)
-const canDismiss = computed(() =>
-    uc.value && !['dismissed', 'completed'].includes(uc.value.status) && uc.value.computed_status !== 'completed'
-)
+const canAccept = computed(
+  () =>
+    uc.value &&
+    !["accepted", "completed"].includes(uc.value.status) &&
+    uc.value.computed_status !== "completed",
+);
+const canDismiss = computed(
+  () =>
+    uc.value &&
+    !["dismissed", "completed"].includes(uc.value.status) &&
+    uc.value.computed_status !== "completed",
+);
 
 async function fetchProgress() {
-    try {
-        const { data } = await api.get(`/my/challenges/${id}/progress`)
-        progressSnapshot.value = (data?.latest?.aggregate as ProgressSnapshot) ?? null
-    } catch {
-        progressSnapshot.value = null
-    }
+  try {
+    const { data } = await api.get(`/my/challenges/${id}/progress`);
+    progressSnapshot.value =
+      (data?.latest?.aggregate as ProgressSnapshot) ?? null;
+  } catch {
+    progressSnapshot.value = null;
+  }
 }
 
 async function evaluateProgress() {
-    evaluating.value = true
-    try {
-        await api.post(`/my/challenges/${id}/progress/evaluate`)
-        await fetchProgress()
-        toast.success('Progression évaluée')
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Erreur lors de l\'évaluation'
-        error.value = msg
-        toast.error('Erreur d\'évaluation', { description: msg })
-    } finally {
-        evaluating.value = false
-    }
+  evaluating.value = true;
+  try {
+    await api.post(`/my/challenges/${id}/progress/evaluate`);
+    await fetchProgress();
+    toast.success("Progression évaluée");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erreur lors de l'évaluation";
+    error.value = msg;
+    toast.error("Erreur d'évaluation", { description: msg });
+  } finally {
+    evaluating.value = false;
+  }
 }
 
-async function patchStatus(status: Detail['status']) {
-    if (!uc.value) return
-    loading.value = true
-    try {
-        await api.patch(`/my/challenges/${uc.value.id}`, { status })
-        await fetchDetail()
-        toast.success('Statut mis à jour')
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Erreur de mise à jour'
-        error.value = msg
-        toast.error('Erreur de mise à jour', { description: msg })
-    } finally {
-        loading.value = false
-    }
+async function patchStatus(status: Detail["status"]) {
+  if (!uc.value) return;
+  loading.value = true;
+  try {
+    await api.patch(`/my/challenges/${uc.value.id}`, { status });
+    await fetchDetail();
+    toast.success("Statut mis à jour");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erreur de mise à jour";
+    error.value = msg;
+    toast.error("Erreur de mise à jour", { description: msg });
+  } finally {
+    loading.value = false;
+  }
 }
 
 async function saveNotes() {
-    if (!uc.value) return
-    loading.value = true
-    try {
-        await api.patch(`/my/challenges/${uc.value.id}`, {
-            notes: notes.value || null,
-            override_reason: overrideReason.value || null,
-        })
-        await fetchDetail()
-        toast.success('Notes enregistrées')
-    } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : 'Erreur enregistrement'
-        error.value = msg
-        toast.error('Erreur enregistrement', { description: msg })
-    } finally {
-        loading.value = false
-    }
+  if (!uc.value) return;
+  loading.value = true;
+  try {
+    await api.patch(`/my/challenges/${uc.value.id}`, {
+      notes: notes.value || null,
+      override_reason: overrideReason.value || null,
+    });
+    await fetchDetail();
+    toast.success("Notes enregistrées");
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Erreur enregistrement";
+    error.value = msg;
+    toast.error("Erreur enregistrement", { description: msg });
+  } finally {
+    loading.value = false;
+  }
 }
 
-onMounted(() => Promise.all([fetchDetail(), fetchProgress()]))
+onMounted(() => Promise.all([fetchDetail(), fetchProgress()]));
 </script>
