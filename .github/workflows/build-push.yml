@@ -1,8 +1,6 @@
-name: build-and-push
+name: Build, Push & Deploy
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch: {}
 
 permissions:
@@ -10,111 +8,117 @@ permissions:
   packages: write
 
 jobs:
-  build:
+  # ---------------------------------------------------------------------------
+  # Job 1 — Build Docker images and push to GHCR
+  # ---------------------------------------------------------------------------
+  build-and-push:
     runs-on: ubuntu-latest
     outputs:
-      owner_lc: ${{ steps.names.outputs.owner_lc }}
-      repo_lc: ${{ steps.names.outputs.repo_lc }}
+      image_tag: ${{ steps.meta.outputs.tag }}
+      head_sha: ${{ steps.meta.outputs.sha }}
+
     steps:
+      - name: Resolve commit SHA
+        id: meta
+        run: |
+          SHA="${{ github.sha }}"
+          echo "tag=sha-${SHA::7}" >> $GITHUB_OUTPUT
+          echo "sha=${SHA}" >> $GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Compute lowercase owner & repo
-        id: names
-        run: |
-          REPO_LC="${GITHUB_REPOSITORY##*/}"
-          OWNER_LC="${GITHUB_REPOSITORY_OWNER}"
-          echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
-          echo "OWNER_LC=${OWNER_LC,,}" >> $GITHUB_ENV
-          echo "owner_lc=${OWNER_LC,,}" >> $GITHUB_OUTPUT
-          echo "repo_lc=${REPO_LC,,}" >> $GITHUB_OUTPUT
+        with:
+          ref: ${{ steps.meta.outputs.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR (GITHUB_TOKEN)
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push backend
+      - name: Build & push — backend
         uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: ./backend/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:latest
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/backend:sha-${{ github.sha }}
+            ghcr.io/marvinlerouge/geochallenge-tracker/backend:${{ steps.meta.outputs.tag }}
+            ghcr.io/marvinlerouge/geochallenge-tracker/backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build & Push frontend
+      - name: Build & push — frontend
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:latest
-            ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}/frontend:sha-${{ github.sha }}
+            ghcr.io/marvinlerouge/geochallenge-tracker/frontend:${{ steps.meta.outputs.tag }}
+            ghcr.io/marvinlerouge/geochallenge-tracker/frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
+  # ---------------------------------------------------------------------------
+  # Job 2 — Deploy to production server over SSH
+  # ---------------------------------------------------------------------------
   deploy:
     runs-on: ubuntu-latest
-    needs: build
-    env:
-      OWNER_LC: ${{ needs.build.outputs.owner_lc }}
-      REPO_LC: ${{ needs.build.outputs.repo_lc }}
-      SHA_TAG: sha-${{ github.sha }}
+    needs: build-and-push
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Copy tiles nginx config files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          source: "ops/nginx/*"
-          target: "/home/mlr/marvinlerouge.dev/gc-tracker/shared/"
-          strip_components: 0
-          timeout: 2m
-          command_timeout: 10m
-          overwrite: true
-
-      - name: Copy docker-compose.yml to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_SSH_HOST }}
-          username: ${{ secrets.DEPLOY_SSH_USER }}
-          key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          source: "ops/deploy/docker-compose.yml"
-          target: "/home/mlr/marvinlerouge.dev/gc-tracker/compose/"
-          strip_components: 2
-          timeout: 2m
-          command_timeout: 10m
-          overwrite: true
-
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+          GITHUB_SHA: ${{ needs.build-and-push.outputs.head_sha }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DEPLOY_PATH: /home/mlr/marvinlerouge.dev/gc-tracker/compose
+          SHARED_PATH: /home/mlr/marvinlerouge.dev/gc-tracker/shared
         with:
           host: ${{ secrets.DEPLOY_SSH_HOST }}
           username: ${{ secrets.DEPLOY_SSH_USER }}
           key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          envs: GHCR_TOKEN,GHCR_USER,IMAGE_TAG,GITHUB_SHA,GITHUB_REPOSITORY,DEPLOY_PATH,SHARED_PATH
           script_stop: true
           script: |
             set -Eeuo pipefail
-            echo "== whoami ==" && whoami
-            echo "== date ==" && date -Is
 
-            cd /home/mlr/marvinlerouge.dev/gc-tracker/compose
+            echo "==> Authenticate to GHCR"
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
-            echo "== pull images =="
+            REPO_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}"
+            REGISTRY="ghcr.io/${GITHUB_REPOSITORY,,}"
+
+            echo "==> Fetch docker-compose.yml (commit: ${GITHUB_SHA})"
+            curl -fsSL "${REPO_URL}/ops/deploy/docker-compose.yml" \
+              -o "${DEPLOY_PATH}/docker-compose.yml"
+
+            echo "==> Fetch nginx config files"
+            mkdir -p "${SHARED_PATH}/ops/nginx/www/tiles"
+            curl -fsSL "${REPO_URL}/ops/nginx/tiles.conf" \
+              -o "${SHARED_PATH}/ops/nginx/tiles.conf"
+            curl -fsSL "${REPO_URL}/ops/nginx/www/tiles/_health.png" \
+              -o "${SHARED_PATH}/ops/nginx/www/tiles/_health.png"
+
+            cd "${DEPLOY_PATH}"
+
+            echo "==> Pull images (tag: ${IMAGE_TAG})"
+            IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
+            IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
             docker compose --env-file ../shared/env/app.env pull
 
-            echo "== up -d =="
+            echo "==> Redeploy stack"
+            IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
+            IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
             docker compose --env-file ../shared/env/app.env up -d --remove-orphans
 
-            echo "== ps =="
+            echo "==> Stack status"
             docker compose --env-file ../shared/env/app.env ps
