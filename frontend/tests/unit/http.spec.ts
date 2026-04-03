@@ -46,4 +46,16 @@ describe("http utils (FastAPI detail)", () => {
       getDetail({ detail: [{ loc: "password" }] as unknown }),
     ).toBeUndefined();
   });
+
+  it("detailToText retourne le string directement (branche string)", () => {
+    expect(detailToText("message d'erreur")).toBe("message d'erreur");
+  });
+
+  it("detailToText filtre les items sans msg (branche ?? '')", () => {
+    const arr = [
+      { loc: ["body"], msg: "first error" },
+      { loc: ["query"] } as unknown as FastAPIValidationItem, // msg absent
+    ];
+    expect(detailToText(arr)).toBe("first error");
+  });
 });
