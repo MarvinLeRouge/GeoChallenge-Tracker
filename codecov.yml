@@ -5,7 +5,7 @@ flag_management:
 flags:
   frontend:
     paths:
-      - src/
+      - frontend/src/
   backend:
     paths:
       - backend/
