@@ -1,13 +1,14 @@
 flag_management:
-  individual_flags:
-    - name: backend
-      paths:
-        - backend/
-      after_n_builds: 1
-    - name: frontend
-      paths:
-        - src/
-      after_n_builds: 1
+  default_rules:
+    after_n_builds: 1
+
+flags:
+  frontend:
+    paths:
+      - src/
+  backend:
+    paths:
+      - backend/
 
 ignore:
   # Namespace files — no logic to cover
