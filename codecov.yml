@@ -6,7 +6,7 @@ flag_management:
       after_n_builds: 1
     - name: frontend
       paths:
-        - frontend/src/
+        - src/
       after_n_builds: 1
 
 ignore:

@@ -155,6 +155,5 @@ jobs:
         with:
           files: frontend/coverage/lcov.info
           flags: frontend
-          root_dir: frontend
           fail_ci_if_error: false
           use_oidc: true
