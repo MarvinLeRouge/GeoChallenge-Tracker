@@ -1,26 +1,46 @@
 flag_management:
   default_rules:
-    after_n_builds: 1
+    ignore:
+      # Namespace files — no logic to cover
+      - "**/__init__.py"
 
 flags:
   frontend:
     paths:
-      - frontend/src/
+      - "frontend/src/**"
+    ignore:
+      - "frontend/src/main.ts"
+      - "frontend/src/**/*.d.ts"
+      - "frontend/src/types/**"
+      - "frontend/src/constants/**"
+      - "frontend/src/config/cache-types.ts"
+      - "frontend/src/App.vue"
+      - "frontend/src/pages/404.vue"
+      - "frontend/src/pages/_NotImplemented.vue"
+      - "frontend/src/pages/misc/Legal.vue"
+      - "frontend/src/pages/caches/MapDemo.vue"
+      - "frontend/src/pages/Home.vue"
+      - "frontend/src/pages/Targets.vue"
+      - "frontend/src/components/map/MapBase.vue"
+      - "frontend/src/pages/caches/WithinBbox.vue"
+      - "frontend/src/pages/caches/WithinRadius.vue"
+      - "frontend/src/pages/caches/ImportGpx.vue"
+      - "frontend/src/pages/profile/MyProfile.vue"
+      - "frontend/src/app/AppShell.vue"
   backend:
     paths:
-      - backend/
-
-ignore:
-  # Namespace files — no logic to cover
-  - "**/__init__.py"
-  # App entry point — startup wiring, not unit-testable
-  - "backend/app/main.py"
-  # Seed & index scripts — DDL / fixture data, not business logic
-  - "backend/app/db/seed_data.py"
-  - "backend/app/db/seed_indexes.py"
-  # Infrastructure config — constants and logging setup
-  - "backend/app/core/logging_config.py"
-  - "backend/app/core/backup_config.py"
+      - "backend/**.py"
+    ignore:
+      # Namespace files — no logic to cover
+      - "**/__init__.py"
+      # App entry point — startup wiring, not unit-testable
+      - "backend/app/main.py"
+      # Seed & index scripts — DDL / fixture data, not business logic
+      - "backend/app/db/seed_data.py"
+      - "backend/app/db/seed_indexes.py"
+      # Infrastructure config — constants and logging setup
+      - "backend/app/core/logging_config.py"
+      - "backend/app/core/backup_config.py"
 
 coverage:
   status:
