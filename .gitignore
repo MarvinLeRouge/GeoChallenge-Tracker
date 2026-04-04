@@ -99,7 +99,7 @@ backups/
 !backups/**/.gitkeep
 
 # Documentation
-documentation/work-in-progress
+docs/work-in-progress
 
 # Logs
 backend/logs/*
