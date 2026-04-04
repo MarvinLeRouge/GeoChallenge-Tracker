@@ -6,7 +6,8 @@ FROM node:20-alpine AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY . .
+COPY vite.config.ts tsconfig.json tsconfig.node.json tailwind.config.ts postcss.config.cjs ./
+COPY frontend/ ./frontend/
 EXPOSE 5173
 CMD ["npm","run","dev","--","--host"]
 
@@ -15,7 +16,8 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY . .
+COPY vite.config.ts tsconfig.json tsconfig.node.json tailwind.config.ts postcss.config.cjs ./
+COPY frontend/ ./frontend/
 # >>> Vite environment (build-time) <<<
 ARG VITE_API_URL
 ARG VITE_TILE_URL
@@ -27,6 +29,6 @@ RUN npm run build
 # ---- Prod (Nginx) ----
 FROM nginx:alpine AS prod
 WORKDIR /usr/share/nginx/html
-COPY --from=build /app/dist ./
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/frontend/dist ./
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
