@@ -21,21 +21,21 @@ repos:
 
       - id: prettier-frontend
         name: prettier (frontend)
-        entry: frontend/node_modules/.bin/prettier --write
+        entry: node_modules/.bin/prettier --write
         language: system
         pass_filenames: true
         files: ^frontend/.*\.(ts|tsx|vue|js|jsx|css|json)$
 
       - id: eslint-frontend
         name: eslint (frontend)
-        entry: bash -c "cd frontend && npm run lint:fix"
+        entry: bash -c "npm run lint:fix"
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|vue|js|jsx)$
 
       - id: vue-tsc-frontend
         name: vue-tsc (frontend)
-        entry: bash -c "cd frontend && npm run typecheck"
+        entry: bash -c "npm run typecheck"
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|vue)$

@@ -4,15 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onMounted,
-  onBeforeUnmount,
-  computed,
-  watch,
-  defineEmits,
-  defineExpose,
-} from "vue";
+import { ref, onMounted, onBeforeUnmount, computed, watch } from "vue";
 import L from "leaflet";
 import {
   installCrosshairPicker,

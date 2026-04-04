@@ -3,8 +3,8 @@ import flowbite from "flowbite/plugin";
 
 export default {
   content: [
-    "./index.html",
-    "./src/**/*.{vue,ts,tsx}",
+    "./frontend/index.html",
+    "./frontend/src/**/*.{vue,ts,tsx}",
     "./node_modules/flowbite/**/*.{js,ts}",
     "./node_modules/flowbite-vue/**/*.{js,ts}",
   ],

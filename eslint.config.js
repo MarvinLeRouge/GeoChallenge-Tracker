@@ -8,7 +8,7 @@ import prettierConfig from "eslint-config-prettier";
 
 export default [
   // Ignorer les artefacts
-  { ignores: ["dist", "coverage", "node_modules", ".vite", ".output"] },
+  { ignores: ["frontend/dist", "frontend/coverage", "node_modules", ".vite", ".output"] },
 
   // Bases JS
   js.configs.recommended,
@@ -41,7 +41,7 @@ export default [
 
   // Réglages communs + règles projet
   {
-    files: ["**/*.{ts,tsx,vue}"],
+    files: ["frontend/**/*.{ts,tsx,vue}"],
     languageOptions: {
       parser: vueParser,
       parserOptions: {
