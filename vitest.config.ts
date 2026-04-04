@@ -32,12 +32,7 @@ export default defineConfig({
         "frontend/src/main.ts",
         "frontend/src/**/*.d.ts",
         // Pure type definitions — no executable logic
-        "frontend/src/types/auth.ts",
-        "frontend/src/types/challenges.ts",
-        "frontend/src/types/http.ts",
-        "frontend/src/types/profile.ts",
-        "frontend/src/types/stats.ts",
-        "frontend/src/types/index.ts",
+        "frontend/src/types/**",
         // Constants — no logic
         "frontend/src/constants/**",
         // Pure data config
