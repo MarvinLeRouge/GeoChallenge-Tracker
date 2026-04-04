@@ -28,6 +28,35 @@ The application enables passionate geocachers to:
 
 ---
 
+## 📸 Screenshots
+
+### Caches search
+
+#### By radius
+[![Map](docs/screenshots/caches-radius.png)](docs/screenshots/caches-radius.png)
+
+#### By Bbox
+[![Map](docs/screenshots/caches-bbox-1.png)](docs/screenshots/caches-bbox-1.png)
+
+#### By Bbox zoomed
+[![Map](docs/screenshots/caches-bbox-2.png)](docs/screenshots/caches-bbox-2.png)
+
+### Challenges
+
+#### Matrix unfiltered
+[![Matrix unfiltered](docs/screenshots/matrix-any.png)](docs/screenshots/matrix-any.png)
+
+#### Matrix filtered
+[![Matrix filtered](docs/screenshots/matrix-wherigo.png)](docs/screenshots/matrix-wherigo.png)
+
+#### Calendar unfiltered
+[![Calendar unfiltered](docs/screenshots/calendar-any.png)](docs/screenshots/calendar-any.png)
+
+#### Calendar filtered
+[![Calendar filtered](docs/screenshots/calendar-mystery.png)](docs/screenshots/calendar-mystery.png)
+
+---
+
 ## 🧱 Technologies Used
 
 ### Backend

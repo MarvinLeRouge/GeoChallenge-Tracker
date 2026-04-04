@@ -28,6 +28,35 @@ L'application permet aux géocacheurs passionnés de :
 
 ---
 
+## 📸 Copes d'écran
+
+### Recherche de caches
+
+#### Par rayon
+[![Carte](docs/screenshots/caches-radius.png)](docs/screenshots/caches-radius.png)
+
+#### Par Bbox
+[![Carte](docs/screenshots/caches-bbox-1.png)](docs/screenshots/caches-bbox-1.png)
+
+#### Par Bbox zoomée
+[![Carte](docs/screenshots/caches-bbox-2.png)](docs/screenshots/caches-bbox-2.png)
+
+### Challenges
+
+#### Matrice non filtrée
+[![Matrice non filtrée](docs/screenshots/matrix-any.png)](docs/screenshots/matrix-any.png)
+
+#### Matrice filtrée
+[![Matrice filtrée](docs/screenshots/matrix-wherigo.png)](docs/screenshots/matrix-wherigo.png)
+
+#### Calendrier non filtrée
+[![Calendrier non filtrée](docs/screenshots/calendar-any.png)](docs/screenshots/calendar-any.png)
+
+#### Calendrier filtrée
+[![Calendrier filtrée](docs/screenshots/calendar-mystery.png)](docs/screenshots/calendar-mystery.png)
+
+---
+
 ## 🧱 Technologies utilisées
 
 ### Backend
