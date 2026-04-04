@@ -82,7 +82,6 @@ Tous les objets sont typés avec TypeScript dans `frontend/src/types/` :
 
 ### Lancement
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
