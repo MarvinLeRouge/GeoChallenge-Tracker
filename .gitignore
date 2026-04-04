@@ -49,12 +49,16 @@ pip-wheel-metadata/
 /backend/tests/__pycache__/
 /backend/.coverage
 
+# Node / root-level (config moved to repo root)
+/node_modules/
+
 # Vue.js / Frontend
 /frontend/node_modules/
 /frontend/dist/
 /frontend/.env
 /frontend/.env.*
 /frontend/.output/
+/frontend/.vite/
 /frontend/.vitepress/cache/
 /frontend/.turbo/
 /frontend/coverage/
