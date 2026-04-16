@@ -57,6 +57,7 @@ pip-wheel-metadata/
 /frontend/dist/
 frontend/src/**/*.js
 frontend/src/**/*.js.map
+vite.config.js
 /frontend/.env
 /frontend/.env.*
 /frontend/.output/
