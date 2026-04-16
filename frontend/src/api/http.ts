@@ -6,9 +6,26 @@ import axios, {
 import { useAuthStore } from "@/store/auth";
 import { toast } from "vue-sonner";
 
+/**
+ * Serializes query params without bracket notation for arrays.
+ * Default Axios: `type[]=a&type[]=b` — FastAPI expects `type=a&type=b`.
+ */
+function serializeParams(params: Record<string, unknown>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (Array.isArray(value)) {
+      value.forEach((v) => qs.append(key, String(v)));
+    } else if (value != null) {
+      qs.append(key, String(value));
+    }
+  }
+  return qs.toString();
+}
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
   withCredentials: true,
+  paramsSerializer: serializeParams,
 });
 
 let refreshPromise: Promise<void> | null = null;

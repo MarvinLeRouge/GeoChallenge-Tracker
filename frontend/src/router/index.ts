@@ -68,6 +68,16 @@ const cachesRoutes = [
     component: () => import("@/pages/caches/MapDemo.vue"),
     meta: { dense: true, noFabPadding: true, title: "Map - Démo" },
   },
+  {
+    path: "/caches/choropleth",
+    name: "caches/choropleth",
+    component: () => import("@/pages/caches/ChoroplethMap.vue"),
+    meta: {
+      dense: true,
+      noFabPadding: true,
+      title: "Caches - Carte choroplèthe",
+    },
+  },
 ];
 
 // Challenges (placeholder)

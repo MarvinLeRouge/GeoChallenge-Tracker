@@ -1,0 +1,15 @@
+# geo_sources.yml
+# Sources de données GeoJSON pour les zones administratives.
+# Structure extensible : ajouter des blocs EU/NUTS ou WORLD/geoBoundaries
+# dans de futurs milestones sans modifier le code.
+
+sources:
+  - dest: "FR/regions.geojson"
+    url: "https://france-geojson.gregoiredavid.fr/repo/regions.geojson"
+    country: "FR"
+    level: 1
+
+  - dest: "FR/departements.geojson"
+    url: "https://france-geojson.gregoiredavid.fr/repo/departements.geojson"
+    country: "FR"
+    level: 2
