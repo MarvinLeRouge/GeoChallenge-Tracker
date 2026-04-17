@@ -135,7 +135,7 @@ describe("fetchZoneDetail", () => {
 
     await fetchZoneDetail("FR-84");
 
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84", expect.any(Object));
+    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84");
   });
 
   it("appends type param when provided", async () => {
@@ -144,12 +144,7 @@ describe("fetchZoneDetail", () => {
 
     await fetchZoneDetail("FR-84", "mystery");
 
-    expect(mockGet).toHaveBeenCalledWith(
-      "/zones/FR-84",
-      expect.objectContaining({
-        params: expect.objectContaining({ type: "mystery" }),
-      }),
-    );
+    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84?type=mystery");
   });
 
   it("returns zone detail on success", async () => {
