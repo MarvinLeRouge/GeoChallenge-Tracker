@@ -79,6 +79,41 @@ vi.mock("axios", () => {
 
 // Import triggers interceptor registration on the mock instance
 import "@/api/http";
+import axios from "axios";
+
+// ── paramsSerializer ─────────────────────────────────────────────────────────
+
+type Serializer = (params: Record<string, unknown>) => string;
+
+let paramsSerializer: Serializer;
+
+beforeAll(() => {
+  const createMock = axios.create as ReturnType<typeof vi.fn>;
+  const opts = createMock.mock.calls[0]?.[0] as {
+    paramsSerializer?: Serializer;
+  };
+  paramsSerializer = opts?.paramsSerializer as Serializer;
+});
+
+describe("paramsSerializer", () => {
+  it("serializes scalar values", () => {
+    expect(paramsSerializer({ country: "FR", level: 1 })).toBe(
+      "country=FR&level=1",
+    );
+  });
+
+  it("repeats array values without bracket notation", () => {
+    expect(paramsSerializer({ type: ["traditional", "multi"] })).toBe(
+      "type=traditional&type=multi",
+    );
+  });
+
+  it("omits null and undefined values", () => {
+    expect(paramsSerializer({ a: null, b: undefined, c: "keep" })).toBe(
+      "c=keep",
+    );
+  });
+});
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

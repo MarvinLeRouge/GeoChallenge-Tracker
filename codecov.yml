@@ -25,6 +25,7 @@ flags:
       - "frontend/src/pages/caches/WithinBbox.vue"
       - "frontend/src/pages/caches/WithinRadius.vue"
       - "frontend/src/pages/caches/ImportGpx.vue"
+      - "frontend/src/pages/caches/ZonesMap.vue"
       - "frontend/src/pages/profile/MyProfile.vue"
       - "frontend/src/app/AppShell.vue"
   backend:

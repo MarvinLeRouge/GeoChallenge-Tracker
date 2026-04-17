@@ -5,11 +5,12 @@ All DB access and sub-services (zone_utils, zone_nominatim) are mocked.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.services.zones.zone_assigner import assign_zones_to_caches
+from app.services.zones.zone_assigner import _get_index, _index_cache, assign_zones_to_caches
 
 # ── Factories ─────────────────────────────────────────────────────────────────
 
@@ -240,3 +241,131 @@ class TestAssignZonesToCachesPass3:
                     await assign_zones_to_caches(caches)  # must not raise
 
         assert "zones" not in caches[0]
+
+
+class TestAssignZonesToCachesPass1Exception:
+    """Pass 1 exception is caught and cache is forwarded to Nominatim (Pass 2)."""
+
+    @pytest.mark.asyncio
+    async def test_shapely_exception_in_pass1_sends_to_nominatim(self):
+        caches = [_cache("GC01")]
+        idx = _spatial_index_stub()
+        nominatim_result = _zone("FR-84", "FR-38")
+
+        def _raise_on_exact(lat, lon, country_code, idx1, idx2, *, exact_only=False):
+            if exact_only:
+                raise RuntimeError("geometry error")
+            return nominatim_result
+
+        with _patch_get_index(idx, idx):
+            with patch(
+                "app.services.zones.zone_assigner.resolve_zones_for_point",
+                side_effect=_raise_on_exact,
+            ):
+                with _patch_nominatim([nominatim_result]):
+                    await assign_zones_to_caches(caches)
+
+        assert caches[0]["zones"] == nominatim_result
+
+
+class TestAssignZonesToCachesForeignFlag:
+    """Foreign caches (is_foreign=True) are not sent to Pass 3."""
+
+    @pytest.mark.asyncio
+    async def test_foreign_cache_skipped_in_pass3(self):
+        caches = [_cache("GC01")]
+        idx = _spatial_index_stub()
+        foreign_result = {"country": "ES", "level1": None, "level2": None, "_foreign": True}
+
+        with _patch_get_index(idx, idx):
+            with patch(
+                "app.services.zones.zone_assigner.resolve_zones_for_point",
+                return_value=_zone(None, None),
+            ):
+                with _patch_nominatim([foreign_result]):
+                    await assign_zones_to_caches(caches)
+
+        assert "zones" not in caches[0]
+
+
+# ── _get_index ────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture(autouse=True)
+def clear_index_cache():
+    _index_cache.clear()
+    yield
+    _index_cache.clear()
+
+
+class TestGetIndex:
+    @pytest.mark.asyncio
+    async def test_returns_cached_index_on_second_call(self):
+        mock_index = _spatial_index_stub()
+        _index_cache[("FR", 1)] = mock_index
+
+        result = await _get_index("FR", 1)
+
+        assert result is mock_index
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_geojson_file_missing(self, tmp_path):
+        mock_col = MagicMock()
+        mock_col.find.return_value.to_list = AsyncMock(
+            return_value=[
+                {
+                    "geojson_file": "FR/regions.geojson",
+                    "country_code": "FR",
+                    "level": 1,
+                    "code": "FR-84",
+                }
+            ]
+        )
+
+        async def _get_col(name):
+            return mock_col
+
+        with patch("app.services.zones.zone_assigner.get_collection", side_effect=_get_col):
+            with patch("app.services.zones.zone_assigner.get_settings") as mock_settings:
+                mock_settings.return_value.geo_data_dir = str(tmp_path)
+                # File intentionally not created → geojson_path.exists() is False
+                result = await _get_index("FR", 1)
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_builds_and_caches_index_when_geojson_exists(self, tmp_path):
+        fr_dir = tmp_path / "FR"
+        fr_dir.mkdir()
+        geojson_path = fr_dir / "regions.geojson"
+        geojson_path.write_text(json.dumps({"type": "FeatureCollection", "features": []}))
+
+        zone_docs = [
+            {
+                "geojson_file": "FR/regions.geojson",
+                "country_code": "FR",
+                "level": 1,
+                "code": "FR-84",
+            }
+        ]
+        mock_col = MagicMock()
+        mock_col.find.return_value.to_list = AsyncMock(return_value=zone_docs)
+
+        async def _get_col(name):
+            return mock_col
+
+        mock_index = _spatial_index_stub()
+        mock_index.shapes = []
+
+        with patch("app.services.zones.zone_assigner.get_collection", side_effect=_get_col):
+            with patch("app.services.zones.zone_assigner.get_settings") as mock_settings:
+                mock_settings.return_value.geo_data_dir = str(tmp_path)
+                with patch(
+                    "app.services.zones.zone_assigner.build_spatial_index",
+                    return_value=mock_index,
+                ) as mock_build:
+                    result = await _get_index("FR", 1)
+
+        assert result is mock_index
+        assert ("FR", 1) in _index_cache
+        mock_build.assert_called_once()

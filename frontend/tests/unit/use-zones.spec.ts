@@ -147,6 +147,26 @@ describe("fetchZoneDetail", () => {
     expect(mockGet).toHaveBeenCalledWith("/zones/FR-84?type=mystery");
   });
 
+  it("appends level param when provided", async () => {
+    mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
+    const { fetchZoneDetail } = useZones();
+
+    await fetchZoneDetail("FR-84", undefined, 1);
+
+    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84?level=1");
+  });
+
+  it("appends both level and type params when both provided", async () => {
+    mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
+    const { fetchZoneDetail } = useZones();
+
+    await fetchZoneDetail("FR-84", "traditional", 2);
+
+    expect(mockGet).toHaveBeenCalledWith(
+      "/zones/FR-84?level=2&type=traditional",
+    );
+  });
+
   it("returns zone detail on success", async () => {
     const detail = makeZoneDetail("FR-84");
     mockGet.mockResolvedValueOnce({ data: detail });
