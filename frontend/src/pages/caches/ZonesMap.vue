@@ -104,29 +104,17 @@
           class="flex items-center gap-1 text-gray-700"
         >
           <span class="text-gray-400 text-xs shrink-0">{{ cache.GC }}</span>
-          <span class="truncate">{{ cache.title }}</span>
           <span
             v-if="cache.difficulty && cache.terrain"
             class="text-gray-400 text-xs shrink-0"
           >
             D{{ cache.difficulty }}/T{{ cache.terrain }}
           </span>
+          <span class="truncate">{{ cache.title }}</span>
         </li>
       </ul>
       <div v-else class="px-3 pb-2 text-gray-400 text-xs italic">
         Aucune cache pour ce filtre.
-      </div>
-      <div
-        v-if="popoverDetail.cache_count > popoverDetail.caches.length"
-        class="px-3 pb-3"
-      >
-        <router-link
-          :to="`/caches/within-bbox`"
-          class="text-blue-600 hover:underline text-xs"
-        >
-          Voir les
-          {{ popoverDetail.cache_count.toLocaleString("fr-FR") }} caches →
-        </router-link>
       </div>
     </div>
 
@@ -307,7 +295,10 @@ async function openPopover(
   if (containerPoint) {
     popoverPos.value = {
       x: Math.min(containerPoint.x + 12, window.innerWidth - 300),
-      y: Math.max(containerPoint.y - 20, 60),
+      y: Math.min(
+        Math.max(containerPoint.y - 20, 60),
+        window.innerHeight - 420,
+      ),
     };
   }
 

@@ -69,13 +69,13 @@ const cachesRoutes = [
     meta: { dense: true, noFabPadding: true, title: "Map - Démo" },
   },
   {
-    path: "/caches/choropleth",
-    name: "caches/choropleth",
-    component: () => import("@/pages/caches/ChoroplethMap.vue"),
+    path: "/caches/zones",
+    name: "caches/zones",
+    component: () => import("@/pages/caches/ZonesMap.vue"),
     meta: {
       dense: true,
       noFabPadding: true,
-      title: "Caches - Carte choroplèthe",
+      title: "Caches - Trouvées par zones",
     },
   },
 ];

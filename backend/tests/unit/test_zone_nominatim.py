@@ -18,9 +18,9 @@ from app.services.zones.zone_nominatim import (
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _nominatim_response(iso_code: str | None) -> dict:
+def _nominatim_response(iso_code: str | None, country_code: str = "fr") -> dict:
     """Build a minimal Nominatim /reverse JSON payload."""
-    address: dict = {}
+    address: dict = {"country_code": country_code}
     if iso_code:
         address["ISO3166-2-lvl6"] = iso_code
     return {"address": address}
@@ -113,6 +113,7 @@ class TestResolveZonesBatch:
         assert result[0]["level2"] == "FR-83"
         assert result[0]["level1"] == "FR-93"
         assert result[0]["country"] == "FR"
+        assert result[0]["_foreign"] is False
 
     @pytest.mark.asyncio
     async def test_nominatim_no_code_gives_none(self):
@@ -165,6 +166,32 @@ class TestResolveZonesBatch:
         # sleep should be called once (between the two points, not after the last)
         assert sleep_mock.call_count == 1
         assert len(result) == 2
+
+    @pytest.mark.asyncio
+    async def test_foreign_point_marked_as_foreign(self):
+        """Point confirmed in a foreign country by Nominatim must have _foreign=True."""
+        resp = _mock_http_response(200, _nominatim_response(None, country_code="es"))
+        http_patch, _ = _patch_nominatim([resp])
+
+        with http_patch, _patch_db():
+            with patch("app.services.zones.zone_nominatim.asyncio.sleep", new_callable=AsyncMock):
+                result = await resolve_zones_batch([(42.4, 3.1)], "FR")
+
+        assert result[0]["_foreign"] is True
+        assert result[0]["level2"] is None
+        assert result[0]["level1"] is None
+
+    @pytest.mark.asyncio
+    async def test_unknown_country_not_marked_foreign(self):
+        """Point with no country in Nominatim response must not block the fallback."""
+        resp = _mock_http_response(200, {"address": {}})
+        http_patch, _ = _patch_nominatim([resp])
+
+        with http_patch, _patch_db():
+            with patch("app.services.zones.zone_nominatim.asyncio.sleep", new_callable=AsyncMock):
+                result = await resolve_zones_batch([(43.1, 5.9)], "FR")
+
+        assert result[0]["_foreign"] is False
 
     @pytest.mark.asyncio
     async def test_network_exception_gives_none(self):

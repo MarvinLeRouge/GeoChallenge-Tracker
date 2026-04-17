@@ -58,6 +58,7 @@ export function useZones() {
       if (typeCode) qs.push(`type=${encodeURIComponent(typeCode)}`);
       const url =
         qs.length > 0 ? `/zones/${code}?${qs.join("&")}` : `/zones/${code}`;
+
       const { data } = await api.get<ZoneDetail>(url);
       return data;
     } catch (err: unknown) {

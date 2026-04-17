@@ -142,10 +142,17 @@ async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
         nominatim_results = await resolve_zones_batch(points, country_code)
 
         still_unmatched: list[int] = []
-        for i, zones in zip(unmatched_indices, nominatim_results):
-            if zones["level2"] is not None:
-                caches_data[i]["zones"] = zones
-            else:
+        nominatim_zone: dict[str, str | None | bool]
+        for i, nominatim_zone in zip(unmatched_indices, nominatim_results):
+            is_foreign = bool(nominatim_zone.pop("_foreign", False))
+            clean: dict[str, str | None] = {
+                "country": str(nominatim_zone["country"]) if nominatim_zone["country"] else None,
+                "level1": str(nominatim_zone["level1"]) if nominatim_zone["level1"] else None,
+                "level2": str(nominatim_zone["level2"]) if nominatim_zone["level2"] else None,
+            }
+            if clean["level2"] is not None:
+                caches_data[i]["zones"] = clean
+            elif not is_foreign:
                 still_unmatched.append(i)
 
         if not still_unmatched:

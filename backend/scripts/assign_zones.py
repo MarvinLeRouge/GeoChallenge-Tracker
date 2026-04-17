@@ -66,6 +66,28 @@ async def load_zone_index(country_code: str, level: int, data_dir: Path):
     return index
 
 
+_COUNTRY_NAMES: dict[str, str] = {
+    "FR": "France",
+}
+
+
+async def _resolve_country_id(country_code: str):
+    """Resolves the MongoDB ObjectId for a country by code.
+
+    Args:
+        country_code (str): ISO country code, e.g. "FR".
+
+    Returns:
+        ObjectId: The country's _id, or None if not found.
+    """
+    name = _COUNTRY_NAMES.get(country_code)
+    if not name:
+        return None
+    col = await get_collection("countries")
+    doc = await col.find_one({"name": name}, {"_id": 1})
+    return doc["_id"] if doc else None
+
+
 async def main(country_code: str = "FR", force: bool = False) -> None:
     """Assigns zones to all caches missing them (or all caches if --force).
 
@@ -82,8 +104,17 @@ async def main(country_code: str = "FR", force: bool = False) -> None:
 
     caches_col = await get_collection("caches")
 
+    # Restrict to caches whose country matches, to avoid assigning French zones
+    # to border caches from neighbouring countries (nearest-polygon fallback issue).
+    country_id = await _resolve_country_id(country_code)
+    if country_id is None:
+        print(f"[WARN] Country '{country_code}' not found in DB — processing all caches.")
+        country_filter: dict = {}
+    else:
+        country_filter = {"country_id": country_id}
+
     # Build query: caches with coordinates and missing zones (or all if --force)
-    query: dict = {"lat": {"$ne": None}, "lon": {"$ne": None}}
+    query: dict = {"lat": {"$ne": None}, "lon": {"$ne": None}, **country_filter}
     if not force:
         query["zones"] = {"$exists": False}
 
