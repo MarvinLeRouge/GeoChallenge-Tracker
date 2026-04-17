@@ -14,9 +14,18 @@
 Les pages sont organisées par fonctionnalités dans `frontend/src/pages/` :
 
 - `auth/` : Pages d'authentification
-- `caches/` : Pages liées aux caches (import GPX, recherche)
+- `caches/` : Pages liées aux caches (import GPX, recherche, carte choroplèthe)
 - `userChallenges/` : Pages liées aux challenges utilisateur (matrix, calendar, etc.)
 - `misc/` : Pages diverses
+
+### Pages caches notables
+
+| Fichier | Route | Description |
+|---------|-------|-------------|
+| `ImportGpx.vue` | `/caches/import` | Import de fichiers GPX/ZIP |
+| `ZonesMap.vue` | `/caches/zones` | Carte choroplèthe — caches trouvées par zone |
+| `WithinBbox.vue` | `/caches/bbox` | Recherche dans une zone rectangulaire |
+| `WithinRadius.vue` | `/caches/radius` | Recherche dans un rayon |
 
 ## Composables
 
@@ -26,6 +35,7 @@ La logique métier est extraite des composants dans des composables réutilisabl
 - `useMatrixData.ts` : Logique de la matrice D/T
 - `useCalendarData.ts` : Logique du calendrier
 - `useUserProfile.ts` : Gestion du profil utilisateur
+- `useZones.ts` : Appels API pour les zones administratives (`/api/zones`)
 
 ## Types
 
@@ -38,8 +48,8 @@ Tous les objets sont typés avec TypeScript dans `frontend/src/types/` :
 ## Communication avec le backend
 
 - **Client API** : Dans `frontend/src/api/http.ts`
-- **Endpoints** : Wrapper autour de fetch pour les appels API
-- **Sérialisation** : Types TypeScript pour garantir la cohérence
+- **Sérialisation des paramètres** : `paramsSerializer` personnalisé — les tableaux sont encodés sans bracket (`type=a&type=b`), compatible FastAPI qui n'accepte pas `type[]=a`
+- **Refresh token** : intercepteur de réponse — les 401 déclenchent un refresh silencieux puis un retry de la requête originale
 
 ## Composants
 

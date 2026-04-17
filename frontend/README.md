@@ -34,6 +34,7 @@ npm run dev
 | `npm run build` | Production build |
 | `npm run lint` | ESLint check |
 | `npm run typecheck` | TypeScript type check |
+| `npm run test:unit` | Run unit tests with Vitest |
 
 ## Project structure
 
@@ -42,7 +43,14 @@ frontend/src/
 ├── api/            # Axios instances and API call functions
 ├── app/            # App shell, layout, router
 ├── composables/    # Reusable composition functions
-├── pages/          # Route-level Vue components
+│   └── useZones.ts # Zones API composable (choropleth map)
+├── pages/
+│   ├── caches/
+│   │   ├── ZonesMap.vue   # Choropleth map — found caches by zone
+│   │   └── ...
+│   └── ...
 ├── stores/         # Pinia stores
+├── types/
+│   └── zones.ts    # ZoneListItem, ZoneDetail TypeScript types
 └── components/     # Shared UI components
 ```

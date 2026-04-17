@@ -37,6 +37,7 @@ backend/app/
   - `gpx_import/` : Import de fichiers GPX
   - `user_profile/` : Gestion du profil utilisateur
   - `targets/` : Gestion des cibles de challenge
+  - `zones/` : Assignation et agrégation des zones administratives
 
 ### 4. Core Layer (`/core`)
 - **Responsabilité** : Fonctionnalités transversales
@@ -47,6 +48,46 @@ backend/app/
 - **Technologies** : Motor (driver asynchrone)
 
 ## Fonctionnalités spécifiques
+
+### Zones administratives (carte choroplèthe)
+
+Le sous-système `services/zones/` assigne et expose des zones administratives pour la carte choroplèthe.
+
+**Modules :**
+
+| Module | Responsabilité |
+|--------|---------------|
+| `zone_utils.py` | Construction de l'index spatial Shapely (STRtree) et résolution point-dans-polygone |
+| `zone_nominatim.py` | Reverse geocoding batch via l'API Nominatim (1 req/s) |
+| `zone_assigner.py` | Pipeline d'assignation 3 passes : Shapely → Nominatim → polygone le plus proche |
+| `zone_service.py` | Agrégations MongoDB pour les endpoints `/api/zones` |
+
+**Pipeline d'assignation (3 passes) :**
+1. **Shapely STRtree** — point-in-polygon exact, en mémoire, rapide
+2. **Nominatim** — reverse geocoding pour les points hors polygone (côtes simplifiées, frontières)
+3. **Polygone le plus proche** — fallback final à moins de 0,1° (~10 km), ignoré si Nominatim identifie un point étranger
+
+**Collection MongoDB `administrative_zones` :**
+
+Chaque document représente une zone (région ou département) :
+- `code` (unique) : ex. `FR-38`
+- `country_code` : `FR`
+- `level` : `1` (région) ou `2` (département)
+- `name` : nom lisible
+- `geojson_file` : chemin relatif dans `data/admin/`, ex. `FR/departements.geojson`
+- `feature_code` : code du feature dans le FeatureCollection
+- `bbox` : `[lon_min, lat_min, lon_max, lat_max]`
+
+**Champ `zones` sur les caches :**
+```json
+{ "country": "FR", "level1": "FR-84", "level2": "FR-38" }
+```
+
+**Endpoints exposés :**
+- `GET /api/zones?country=FR&level=1[&type=traditional]`
+- `GET /api/zones/{code}[?level=1&type=traditional]`
+- `GET /api/geo/FR/regions.geojson` (StaticFiles)
+- `GET /api/geo/FR/departements.geojson` (StaticFiles)
 
 ### Administration des attributs de caches
 - **Route** : `/admin/upload-gpx` (POST)

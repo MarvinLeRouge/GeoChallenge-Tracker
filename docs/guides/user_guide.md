@@ -76,6 +76,23 @@ GeoChallenge Tracker est une application web complète pour les passionnés de g
 - Consultez les caches cibles pour vos challenges
 - Utilisez les outils de dessin pour planifier vos sorties
 
+### Carte choroplèthe — Trouvées par zones
+
+Accessible via le menu "Caches" → "Trouvées par zones".
+
+Cette carte colore les régions et départements selon le nombre de caches que vous y avez trouvées.
+
+**Comment l'utiliser :**
+1. La carte s'ouvre sur les **régions** françaises, colorées par densité
+2. **Survolez** une région pour voir son nom et son compteur
+3. **Cliquez** sur une région pour zoomer et afficher ses **départements**
+4. **Cliquez** sur un département pour ouvrir un popover avec :
+   - Le nombre total de caches trouvées dans ce département
+   - Les 10 premières caches avec leur type, difficulté et terrain
+   - Un lien "Voir toutes" pour accéder à la liste complète
+5. Utilisez le **filtre par type** (en haut) pour n'afficher que les caches d'un type donné
+6. Cliquez sur **"Retour aux régions"** pour remonter au niveau national
+
 ## Administration (pour les administrateurs)
 
 ### Outils de maintenance

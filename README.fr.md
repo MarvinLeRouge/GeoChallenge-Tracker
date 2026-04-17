@@ -111,6 +111,7 @@ L'application permet aux géocacheurs passionnés de :
 - Recherche géographique (dans une bounding box ou dans un rayon autour d'un point)
 - Visualisation des caches sur carte interactive
 - Récupération de caches par code GC ou par identifiant
+- **Carte choroplèthe** — caches trouvées par zone administrative (drill-down régions → départements)
 
 ### Système de challenges
 - Synchronisation automatique des challenges utilisateurs
@@ -172,6 +173,12 @@ L'application permet aux géocacheurs passionnés de :
 - `GET /caches/within-radius` - Caches autour d'un point (rayon)
 - `GET /caches/{gc}` - Récupération d'une cache par code GC
 - `GET /caches/by-id/{id}` - Récupération d'une cache par identifiant MongoDB
+
+### Zones administratives (`/zones`, `/geo`)
+- `GET /zones?country=FR&level=1` - Zones avec compteurs de caches trouvées par l'utilisateur
+- `GET /zones/{code}?level=1` - Détail d'une zone avec compteur et 10 premières caches
+- `GET /geo/FR/regions.geojson` - FeatureCollection GeoJSON des régions françaises
+- `GET /geo/FR/departements.geojson` - FeatureCollection GeoJSON des départements français
 
 ### Challenges (`/challenges`)
 - `POST /challenges/refresh-from-caches` - Recréation des challenges à partir des caches
