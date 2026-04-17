@@ -79,6 +79,10 @@ class CacheBase(BaseModel):
     elevation: int | None = None  # in meters (optional)
     location_more: dict[str, Any] | None = None  # free-form location info (city, department...)
 
+    # Administrative zones (computed from coordinates via Shapely, see zone_utils.py)
+    # Example: {"country": "FR", "level1": "FR-84", "level2": "FR-38"}
+    zones: dict[str, str | None] | None = None
+
     # Characteristics
     difficulty: float | None = None  # 1.0 .. 5.0
     terrain: float | None = None  # 1.0 .. 5.0

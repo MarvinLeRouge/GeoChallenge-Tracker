@@ -14,6 +14,7 @@ from app.core.logging_config import get_loggers
 from app.services.elevation_retrieval import fetch as fetch_elevations
 from app.services.parsers.MultiFormatGPXParser import MultiFormatGPXParser
 from app.services.providers import geocoding_nominatim
+from app.services.zones.zone_assigner import assign_zones_to_caches
 
 from .cache_persister import CachePersister
 from .cache_validator import CacheValidator
@@ -133,6 +134,11 @@ class GpxImportService:
             if fetch_elevation and caches_data:
                 logger_import.info("Fetching elevation data", extra={"step": "elevation"})
                 await self._enrich_with_elevation(caches_data)
+
+            # Step 5b: Zone assignment (FR only for now — skipped silently for other countries)
+            if caches_data:
+                logger_import.info("Assigning administrative zones", extra={"step": "zones"})
+                await self._assign_zones(caches_data)
 
             # Step 6: Cache persistence (all modes unless empty)
             if caches_data and import_mode in ["both", "all", "found"]:
@@ -350,6 +356,9 @@ class GpxImportService:
                 continue
 
         return caches_data, found_caches_data
+
+    async def _assign_zones(self, caches_data: list[dict[str, Any]]) -> None:
+        await assign_zones_to_caches(caches_data)
 
     async def _enrich_with_elevation(self, caches_data: list[dict[str, Any]]) -> None:
         """Enrich caches with elevation data.

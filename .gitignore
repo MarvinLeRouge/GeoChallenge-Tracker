@@ -55,6 +55,9 @@ pip-wheel-metadata/
 # Vue.js / Frontend
 /frontend/node_modules/
 /frontend/dist/
+frontend/src/**/*.js
+frontend/src/**/*.js.map
+vite.config.js
 /frontend/.env
 /frontend/.env.*
 /frontend/.output/

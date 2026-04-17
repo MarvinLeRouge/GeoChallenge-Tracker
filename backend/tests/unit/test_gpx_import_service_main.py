@@ -61,6 +61,7 @@ def _patch_components(
     service._process_gpx_files = AsyncMock(return_value=(caches, found))
     service._enrich_with_geocoding = AsyncMock()
     service._enrich_with_elevation = AsyncMock()
+    service._assign_zones = AsyncMock()
 
 
 # ---------------------------------------------------------------------------
@@ -371,6 +372,26 @@ class TestProcessSingleGpxFile:
             caches, found = await service._process_single_gpx_file(gpx_path, "both")
 
         assert caches == []
+
+
+# ---------------------------------------------------------------------------
+# _assign_zones
+# ---------------------------------------------------------------------------
+
+
+class TestAssignZones:
+    @pytest.mark.asyncio
+    async def test_delegates_to_assign_zones_to_caches(self):
+        service = _make_service()
+        caches = [{"GC": "GC00001", "lat": 48.85, "lon": 2.35}]
+
+        with patch(
+            "app.services.gpx_import.gpx_import_service.assign_zones_to_caches",
+            new=AsyncMock(),
+        ) as mock_assign:
+            await service._assign_zones(caches)
+
+        mock_assign.assert_called_once_with(caches)
 
 
 # ---------------------------------------------------------------------------

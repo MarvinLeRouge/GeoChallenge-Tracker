@@ -90,6 +90,52 @@ uv run mypy .
 uv run pytest
 ```
 
+## Données géographiques (carte choroplèthe)
+
+La fonctionnalité de carte choroplèthe repose sur des fichiers GeoJSON et une collection MongoDB
+`administrative_zones`. Les scripts ci-dessous doivent être exécutés **à l'intérieur du conteneur backend**
+(ou avec la variable `ENV_FILE` pointant vers un `.env` valide).
+
+### Setup initial
+
+```bash
+# 1. Télécharger les fichiers GeoJSON manquants dans data/admin/
+python scripts/download_geo_data.py
+
+# 2. Peupler la collection administrative_zones (idempotent)
+python scripts/seed_zones.py
+
+# 3. Assigner les zones administratives aux caches existantes (one-shot, idempotent)
+python scripts/assign_zones.py
+```
+
+### Options des scripts
+
+| Script | Options utiles |
+|--------|---------------|
+| `download_geo_data.py` | aucune — idempotent, skip les fichiers existants |
+| `seed_zones.py` | aucune — upsert par `code`, relançable sans effet |
+| `assign_zones.py` | `--country FR` (défaut), `--force` pour réassigner les caches déjà assignées |
+
+### Algorithme d'assignation (3 passes)
+
+1. **Shapely STRtree** (exact) — point-in-polygon via `app/services/zones/zone_utils.py`
+2. **Nominatim** (batch, 1 req/s) — reverse geocoding pour les points hors polygone
+   (côtes simplifiées, presqu'îles, frontières)
+3. **Polygone le plus proche** — fallback final dans un rayon de 0,1° (~10 km)
+
+Les nouvelles caches importées via GPX sont automatiquement assignées (étape 5b du pipeline
+`gpx_import_service.py`).
+
+### Endpoints
+
+| Méthode | Chemin | Description |
+|---------|--------|-------------|
+| `GET` | `/api/zones?country=FR&level=1` | Liste des zones avec compteurs de caches |
+| `GET` | `/api/zones/{code}` | Détail d'une zone avec les 10 premières caches |
+| `GET` | `/api/geo/FR/regions.geojson` | FeatureCollection des régions (StaticFiles) |
+| `GET` | `/api/geo/FR/departements.geojson` | FeatureCollection des départements (StaticFiles) |
+
 ## Bonnes pratiques
 
 - **Annotations de type** : Obligatoires partout

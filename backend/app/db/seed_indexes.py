@@ -363,6 +363,16 @@ async def ensure_indexes() -> None:
         name="ix_caches__type_difficulty_terrain",
     )
 
+    # ---------- administrative_zones ----------
+    await ensure_index(
+        "administrative_zones",
+        [("code", ASCENDING), ("level", ASCENDING)],
+        name="uniq_zone_code_level",
+        unique=True,
+    )
+    await ensure_index("administrative_zones", [("country_code", ASCENDING)])
+    await ensure_index("administrative_zones", [("parent_code", ASCENDING)])
+
     # ---------- found_caches ----------
     await ensure_index(
         "found_caches",

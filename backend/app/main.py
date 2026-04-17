@@ -3,9 +3,11 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import routers
 from app.core.backup_config import ensure_backup_dirs
@@ -69,3 +71,11 @@ register_exception_handlers(app)
 # Inclusion des routes (comme avant)
 for r in routers:
     app.include_router(r)
+
+# GeoJSON static files (administrative zones for choropleth map)
+# Served only if the data directory exists (skipped in environments without geo data)
+_geo_data_path = Path(settings.geo_data_dir)
+if _geo_data_path.exists():
+    app.mount("/geo", StaticFiles(directory=str(_geo_data_path)), name="geo")
+else:
+    log.warning("GeoJSON data directory not found (%s) — /geo not mounted.", _geo_data_path)

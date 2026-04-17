@@ -46,8 +46,8 @@ services:
   # --- Frontend unifié avec variable d'environnement ---
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       target: ${DOCKER_TARGET:-dev}
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
@@ -65,7 +65,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-5173}:${FRONTEND_INTERNAL_PORT:-5173}"
     volumes:
-      - ./frontend:/app
+      - .:/app
       - /app/node_modules
     restart: unless-stopped
 

@@ -3,3 +3,4 @@ export * from "./caches";
 export * from "./challenges";
 export * from "./stats";
 export * from "./profile";
+export * from "./zones";
