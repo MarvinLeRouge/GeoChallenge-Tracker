@@ -18,6 +18,7 @@ Les routes sont organisées par domaines fonctionnels dans `backend/app/api/rout
 - `my_challenges.py` : Challenges de l'utilisateur
 - `my_profile.py` : Profil utilisateur
 - `maintenance.py` : Outils d'administration
+- `zones.py` : Zones administratives — `/api/zones`
 
 ## Modèles et validation
 
@@ -34,6 +35,15 @@ La logique métier est organisée dans `backend/app/services/` :
 - **Architecture modulaire** : Chaque service complexe a son propre sous-dossier
 - **Responsabilités uniques** : Chaque module a une responsabilité claire
 - **Dépendances explicites** : Injection de dépendances via constructeurs
+
+Sous-dossiers principaux :
+
+| Dossier | Description |
+|---------|-------------|
+| `gpx_import/` | Pipeline d'import GPX (parsing, validation, persistance) |
+| `parsers/` | Parsers GPX multi-formats |
+| `zones/` | Assignation de zones administratives et agrégations pour la carte |
+| `providers/` | Intégrations externes (Nominatim, élévation) |
 
 ## Accès à la base de données
 

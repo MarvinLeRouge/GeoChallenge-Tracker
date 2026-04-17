@@ -111,6 +111,7 @@ The application enables passionate geocachers to:
 - Geographic search (within bounding box or radius around a point)
 - Visualization of caches on interactive map
 - Retrieval of caches by GC code or by identifier
+- **Choropleth map** — found caches per administrative zone (regions → departments drill-down)
 
 ### Challenge System
 - Automatic synchronization of user challenges
@@ -172,6 +173,12 @@ The application enables passionate geocachers to:
 - `GET /caches/within-radius` - Caches around a point (radius)
 - `GET /caches/{gc}` - Retrieve a cache by GC code
 - `GET /caches/by-id/{id}` - Retrieve a cache by MongoDB identifier
+
+### Administrative zones (`/zones`, `/geo`)
+- `GET /zones?country=FR&level=1` - Zones with found-cache counts for the current user
+- `GET /zones/{code}?level=1` - Zone detail with count and top 10 found caches
+- `GET /geo/FR/regions.geojson` - GeoJSON FeatureCollection of French regions
+- `GET /geo/FR/departements.geojson` - GeoJSON FeatureCollection of French departments
 
 ### Challenges (`/challenges`)
 - `POST /challenges/refresh-from-caches` - Recreate challenges from caches

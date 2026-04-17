@@ -116,6 +116,55 @@
 - **URL** : `POST /my/challenges/{uc_id}/progress/evaluate`
 - **Description** : Évalue et sauvegarde un snapshot de progression
 
+## Zones administratives
+
+### Liste des zones avec compteurs
+
+- **URL** : `GET /zones`
+- **Description** : Retourne les zones administratives avec le nombre de caches trouvées par l'utilisateur connecté. Seules les zones où l'utilisateur a au moins une cache trouvée sont retournées.
+- **Paramètres de requête** :
+  - `country` *(obligatoire)* : code ISO pays, ex. `FR`
+  - `level` *(obligatoire)* : niveau administratif — `1` (régions) ou `2` (départements)
+  - `type` *(optionnel)* : filtre sur un type de cache, ex. `traditional`
+- **Réponse** :
+  ```json
+  {
+    "items": [
+      { "code": "FR-38", "name": "Isère", "cache_count": 42 },
+      { "code": "FR-84", "name": "Vaucluse", "cache_count": 7 }
+    ]
+  }
+  ```
+
+### Détail d'une zone
+
+- **URL** : `GET /zones/{code}`
+- **Description** : Retourne le détail d'une zone avec le total des caches trouvées et les 10 premières.
+- **Paramètres de chemin** :
+  - `code` : code de zone, ex. `FR-38`
+- **Paramètres de requête** :
+  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
+  - `type` *(optionnel)* : filtre sur un type de cache
+- **Réponse** :
+  ```json
+  {
+    "code": "FR-38",
+    "name": "Isère",
+    "cache_count": 42,
+    "caches": [
+      { "GC": "GC00001", "title": "Cache du Vercors", "type_code": "traditional", "difficulty": 2.0, "terrain": 3.0 }
+    ]
+  }
+  ```
+
+### GeoJSON statiques
+
+- **URL** : `GET /geo/FR/regions.geojson`
+- **Description** : FeatureCollection GeoJSON des régions françaises. Servi par FastAPI StaticFiles.
+
+- **URL** : `GET /geo/FR/departements.geojson`
+- **Description** : FeatureCollection GeoJSON des départements français.
+
 ## Utilitaires
 
 ### Health check

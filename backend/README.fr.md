@@ -54,11 +54,36 @@ pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 backend/
 ├── app/
-│   ├── api/routes/     # Gestionnaires de routes FastAPI
+│   ├── api/
+│   │   ├── dto/        # Schémas Pydantic requête/réponse
+│   │   └── routes/     # Gestionnaires de routes FastAPI
 │   ├── core/           # Config, auth, dépendances
 │   ├── db/             # Connexion MongoDB, indexes, seed
-│   ├── models/         # Modèles Pydantic
-│   └── services/       # Logique métier
+│   ├── domain/models/  # Entités de domaine
+│   └── services/
+│       ├── gpx_import/ # Pipeline d'import GPX
+│       ├── zones/      # Assignation et agrégation des zones administratives
+│       └── ...
+├── data/admin/         # Fichiers GeoJSON (générés par download_geo_data.py)
+├── scripts/            # Scripts de setup et maintenance one-shot
 └── tests/
     └── unit/           # Tests unitaires (miroir de app/)
 ```
+
+## Setup des données géographiques (carte choroplèthe)
+
+La carte par zones nécessite des fichiers GeoJSON et une collection `administrative_zones` seedée.
+Lancer ces scripts une fois après l'installation initiale, **dans le conteneur backend** ou avec un `.env` valide :
+
+```bash
+# 1. Télécharger les fichiers GeoJSON manquants dans data/admin/
+python scripts/download_geo_data.py
+
+# 2. Peupler la collection administrative_zones (idempotent)
+python scripts/seed_zones.py
+
+# 3. Assigner les zones aux caches existantes (idempotent, skip les caches déjà assignées)
+python scripts/assign_zones.py
+```
+
+Les nouvelles caches importées via GPX sont assignées automatiquement lors de l'import (étape 5b du pipeline).
