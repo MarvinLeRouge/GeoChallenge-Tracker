@@ -61,6 +61,7 @@ def _patch_components(
     service._process_gpx_files = AsyncMock(return_value=(caches, found))
     service._enrich_with_geocoding = AsyncMock()
     service._enrich_with_elevation = AsyncMock()
+    service._assign_zones = AsyncMock()
 
 
 # ---------------------------------------------------------------------------

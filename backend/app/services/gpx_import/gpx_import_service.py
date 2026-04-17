@@ -138,7 +138,7 @@ class GpxImportService:
             # Step 5b: Zone assignment (FR only for now — skipped silently for other countries)
             if caches_data:
                 logger_import.info("Assigning administrative zones", extra={"step": "zones"})
-                await assign_zones_to_caches(caches_data)
+                await self._assign_zones(caches_data)
 
             # Step 6: Cache persistence (all modes unless empty)
             if caches_data and import_mode in ["both", "all", "found"]:
@@ -356,6 +356,9 @@ class GpxImportService:
                 continue
 
         return caches_data, found_caches_data
+
+    async def _assign_zones(self, caches_data: list[dict[str, Any]]) -> None:
+        await assign_zones_to_caches(caches_data)
 
     async def _enrich_with_elevation(self, caches_data: list[dict[str, Any]]) -> None:
         """Enrich caches with elevation data.
