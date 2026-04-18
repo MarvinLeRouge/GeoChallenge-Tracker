@@ -4,7 +4,11 @@
 import { ref } from "vue";
 import api from "@/api/http";
 import { useApiErrorHandler } from "@/composables/useApiErrorHandler";
-import type { ZoneListItem, ZoneDetail } from "@/types/zones";
+import type {
+  ZoneListItem,
+  ZoneDetail,
+  ZoneTypeStatsResponse,
+} from "@/types/zones";
 
 export function useZones() {
   const loading = ref(false);
@@ -69,10 +73,37 @@ export function useZones() {
     }
   }
 
+  /**
+   * Fetches per-type found-cache counts for a zone (all types included, zeros too).
+   * @param code - Zone code, e.g. "FR-84" or "FR-38"
+   * @param level - Administrative level hint to disambiguate codes shared between levels
+   */
+  async function fetchZoneTypeStats(
+    code: string,
+    level?: 1 | 2,
+  ): Promise<ZoneTypeStatsResponse | null> {
+    loading.value = true;
+    error.value = null;
+    try {
+      const url =
+        level !== undefined
+          ? `/zones/${code}/type-stats?level=${level}`
+          : `/zones/${code}/type-stats`;
+      const { data } = await api.get<ZoneTypeStatsResponse>(url);
+      return data;
+    } catch (err: unknown) {
+      error.value = handleApiError(err).message;
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     loading,
     error,
     fetchZones,
     fetchZoneDetail,
+    fetchZoneTypeStats,
   };
 }

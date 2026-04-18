@@ -78,6 +78,16 @@ const cachesRoutes = [
       title: "Caches - Trouvées par zones",
     },
   },
+  {
+    path: "/caches/zone-types",
+    name: "caches/zone-types",
+    component: () => import("@/pages/caches/ZoneTypeStatsMap.vue"),
+    meta: {
+      dense: true,
+      noFabPadding: true,
+      title: "Caches - Types trouvés par zones",
+    },
+  },
 ];
 
 // Challenges (placeholder)

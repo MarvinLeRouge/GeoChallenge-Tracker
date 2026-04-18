@@ -9,7 +9,13 @@ import logging
 
 from bson import ObjectId
 
-from app.api.dto.zones import CacheInZone, ZoneDetail, ZoneListItem
+from app.api.dto.zones import (
+    CacheInZone,
+    ZoneDetail,
+    ZoneListItem,
+    ZoneTypeStatItem,
+    ZoneTypeStatsResponse,
+)
 from app.db.mongodb import get_collection
 
 log = logging.getLogger(__name__)
@@ -222,4 +228,81 @@ async def get_zone_detail(
         name=zone_doc["name"],
         cache_count=total,
         caches=caches,
+    )
+
+
+async def get_zone_type_stats(
+    code: str,
+    user_id: ObjectId,
+    level: int | None = None,
+) -> ZoneTypeStatsResponse | None:
+    """Returns per-type found-cache counts for a zone, including types with zero caches.
+
+    Description:
+        Resolves the zone document then aggregates found_caches by cache type for that zone.
+        All cache types are always returned (count=0 for types with no matches), in canonical
+        GC.com order (sorted by cache_type_id ascending).
+
+    Args:
+        code (str): Zone code, e.g. "FR-84".
+        user_id (ObjectId): Authenticated user's ObjectId.
+        level (int | None): Level hint (1 or 2) to disambiguate codes shared between levels.
+
+    Returns:
+        ZoneTypeStatsResponse | None: Zone type stats, or None if the zone code is unknown.
+    """
+    zones_col = await get_collection("administrative_zones")
+
+    if level is not None:
+        zone_doc = await zones_col.find_one({"code": code, "level": level})
+    else:
+        zone_doc = await zones_col.find_one({"code": code, "level": 2})
+        if not zone_doc:
+            zone_doc = await zones_col.find_one({"code": code, "level": 1})
+
+    if not zone_doc:
+        return None
+
+    zone_level = zone_doc["level"]
+    level_field = f"zones.level{zone_level}"
+
+    found_col = await get_collection("found_caches")
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$lookup": {
+                "from": "caches",
+                "localField": "cache_id",
+                "foreignField": "_id",
+                "as": "cache",
+            }
+        },
+        {"$unwind": "$cache"},
+        {"$match": {f"cache.{level_field}": code}},
+        {"$group": {"_id": "$cache.type_id", "count": {"$sum": 1}}},
+    ]
+    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
+    type_id_to_count: dict[ObjectId, int] = {
+        doc["_id"]: doc["count"] for doc in raw if doc["_id"] is not None
+    }
+
+    types_col = await get_collection("cache_types")
+    all_types = await types_col.find({}, {"_id": 1, "code": 1, "name": 1, "sort_order": 1}).to_list(
+        length=None
+    )
+    all_types.sort(key=lambda t: t.get("sort_order") or 999)
+
+    type_counts = [
+        ZoneTypeStatItem(
+            type_code=t["code"],
+            type_name=t["name"],
+            count=type_id_to_count.get(t["_id"], 0),
+        )
+        for t in all_types
+    ]
+
+    return ZoneTypeStatsResponse(
+        code=code,
+        name=zone_doc["name"],
+        type_counts=type_counts,
     )
