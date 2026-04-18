@@ -93,6 +93,22 @@ Cette carte colore les régions et départements selon le nombre de caches que v
 5. Utilisez le **filtre par type** (en haut) pour n'afficher que les caches d'un type donné
 6. Cliquez sur **"Retour aux régions"** pour remonter au niveau national
 
+### Carte choroplèthe — Types trouvés par zones
+
+Accessible via le menu "Caches" → "Types trouvés par zones".
+
+Cette carte colore les zones selon le nombre total de caches trouvées, mais le clic affiche la **répartition par type** plutôt que la liste des caches.
+
+**Comment l'utiliser :**
+1. La carte s'ouvre sur les **régions** françaises, colorées par densité
+2. **Survolez** une zone pour voir son nom et son compteur total
+3. **Cliquez** sur une zone pour ouvrir un popover avec :
+   - Le nombre total de caches trouvées dans cette zone
+   - Un tableau listant les **13 types de caches** avec leur compteur respectif
+   - Les types où vous n'avez trouvé aucune cache sont mis en évidence (fond rose, croix rouge)
+4. Basculez entre **Régions** et **Départements** via les boutons en haut — le popover se ferme automatiquement
+5. Cliquez **en dehors d'une zone** (sur le fond de la carte) pour fermer le popover
+
 ## Administration (pour les administrateurs)
 
 ### Outils de maintenance

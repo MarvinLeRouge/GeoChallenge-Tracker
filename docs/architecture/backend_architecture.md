@@ -83,9 +83,23 @@ Chaque document représente une zone (région ou département) :
 { "country": "FR", "level1": "FR-84", "level2": "FR-38" }
 ```
 
+**DTOs (`api/dto/zones.py`) :**
+
+| Classe | Champs | Description |
+|--------|--------|-------------|
+| `ZoneListItem` | `code`, `name`, `cache_count` | Élément de liste pour la carte choroplèthe |
+| `ZoneDetail` | `code`, `name`, `cache_count`, `caches` | Détail avec les 10 premières caches |
+| `ZoneTypeStatItem` | `type_code`, `type_name`, `count` | Compteur pour un type donné |
+| `ZoneTypeStatsResponse` | `code`, `name`, `type_counts` | Répartition par type pour une zone |
+
+**Collection `cache_types` — champ `sort_order` :**
+
+Chaque document possède un champ `sort_order` (entier 1–13) qui définit l'ordre d'affichage canonique GC.com : traditional → mystery → letterbox → multi → wig → earth → virtual → webcam → locationless → event-regular → event-cito → event-mega → event-giga. `zone_service.get_zone_type_stats` trie par ce champ.
+
 **Endpoints exposés :**
 - `GET /api/zones?country=FR&level=1[&type=traditional]`
 - `GET /api/zones/{code}[?level=1&type=traditional]`
+- `GET /api/zones/{code}/type-stats[?level=1]`
 - `GET /api/geo/FR/regions.geojson` (StaticFiles)
 - `GET /api/geo/FR/departements.geojson` (StaticFiles)
 

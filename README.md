@@ -112,6 +112,7 @@ The application enables passionate geocachers to:
 - Visualization of caches on interactive map
 - Retrieval of caches by GC code or by identifier
 - **Choropleth map** — found caches per administrative zone (regions → departments drill-down)
+- **Per-type breakdown map** — choropleth map where clicking a zone shows found-cache counts broken down by all 13 cache types (including zeros), in a fixed canonical order
 
 ### Challenge System
 - Automatic synchronization of user challenges
@@ -177,6 +178,7 @@ The application enables passionate geocachers to:
 ### Administrative zones (`/zones`, `/geo`)
 - `GET /zones?country=FR&level=1` - Zones with found-cache counts for the current user
 - `GET /zones/{code}?level=1` - Zone detail with count and top 10 found caches
+- `GET /zones/{code}/type-stats?level=1` - Per-type found-cache counts for a zone (all 13 types, zeros included)
 - `GET /geo/FR/regions.geojson` - GeoJSON FeatureCollection of French regions
 - `GET /geo/FR/departements.geojson` - GeoJSON FeatureCollection of French departments
 
