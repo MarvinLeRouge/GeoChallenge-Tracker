@@ -247,3 +247,81 @@ class TestGetZoneDetail:
         data = response.json()
         assert data["cache_count"] == 0
         assert data["caches"] == []
+
+
+# ── Tests: GET /zones/{code}/type-stats ───────────────────────────────────────
+
+
+class TestGetZoneTypeStats:
+    """Tests for GET /zones/{code}/type-stats."""
+
+    @pytest.mark.asyncio
+    async def test_requires_auth(self, client):
+        response = await client.get("/zones/FR-TEST-1/type-stats")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_returns_404_for_unknown_zone(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-NONEXISTENT-9999/type-stats")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_returns_all_types_including_zeros(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["code"] == "FR-TEST-1"
+        assert data["name"] == "Test Région"
+        assert "type_counts" in data
+        # All types present, at least the 13 seeded ones
+        assert len(data["type_counts"]) >= 1
+        # Every item has the expected fields
+        for item in data["type_counts"]:
+            assert "type_code" in item
+            assert "type_name" in item
+            assert "count" in item
+            assert item["count"] >= 0
+
+    @pytest.mark.asyncio
+    async def test_traditional_count_matches_found_caches(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        assert response.status_code == 200
+        data = response.json()
+        traditional = next(
+            (t for t in data["type_counts"] if t["type_code"] == "traditional"), None
+        )
+        assert traditional is not None
+        assert traditional["count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_non_traditional_types_have_zero_count(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        assert response.status_code == 200
+        data = response.json()
+        non_traditional = [t for t in data["type_counts"] if t["type_code"] != "traditional"]
+        assert len(non_traditional) >= 1
+        for item in non_traditional:
+            assert item["count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_total_matches_sum_of_nonzero_counts(self, auth_client, zones_fixtures):
+        type_stats_resp = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        zone_resp = await auth_client.get("/zones/FR-TEST-1", params={"level": 1})
+        assert type_stats_resp.status_code == 200
+        assert zone_resp.status_code == 200
+        type_data = type_stats_resp.json()
+        zone_data = zone_resp.json()
+        total_from_type_stats = sum(t["count"] for t in type_data["type_counts"])
+        assert total_from_type_stats == zone_data["cache_count"]
+
+    @pytest.mark.asyncio
+    async def test_works_for_level2_zone(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-TEST-2/type-stats", params={"level": 2})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["code"] == "FR-TEST-2"
+        traditional = next(
+            (t for t in data["type_counts"] if t["type_code"] == "traditional"), None
+        )
+        assert traditional is not None
+        assert traditional["count"] == 2

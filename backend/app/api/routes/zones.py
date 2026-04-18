@@ -7,8 +7,12 @@ from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUserId
-from app.api.dto.zones import ZoneDetail, ZoneListResponse
-from app.services.zones.zone_service import get_zone_detail, get_zones_with_counts
+from app.api.dto.zones import ZoneDetail, ZoneListResponse, ZoneTypeStatsResponse
+from app.services.zones.zone_service import (
+    get_zone_detail,
+    get_zone_type_stats,
+    get_zones_with_counts,
+)
 
 router = APIRouter(
     prefix="/zones",
@@ -95,3 +99,48 @@ async def get_zone(
             detail=f"Zone '{code}' not found.",
         )
     return detail
+
+
+@router.get(
+    "/{code}/type-stats",
+    response_model=ZoneTypeStatsResponse,
+    summary="Get found-cache counts per type for a zone",
+)
+async def get_zone_type_stats_endpoint(
+    code: str,
+    current_user_id: CurrentUserId,
+    level: int | None = Query(
+        default=None,
+        ge=1,
+        le=2,
+        description="Level hint to disambiguate codes shared between levels",
+    ),
+) -> ZoneTypeStatsResponse:
+    """Returns the count of found caches for every cache type within a zone.
+
+    Description:
+        All cache types are always included in the response (count=0 for types with no
+        found caches in this zone), ordered by canonical GC.com type order.
+
+    Args:
+        code (str): Zone code, e.g. 'FR-84' or 'FR-38'.
+        current_user_id: Injected authenticated user ObjectId.
+        level (int | None): Level hint (1 or 2) to disambiguate codes that exist at both levels.
+
+    Returns:
+        ZoneTypeStatsResponse: Zone name and per-type cache counts.
+
+    Raises:
+        404: If the zone code is not found in administrative_zones.
+    """
+    result = await get_zone_type_stats(
+        code=code,
+        user_id=ObjectId(current_user_id),
+        level=level,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Zone '{code}' not found.",
+        )
+    return result

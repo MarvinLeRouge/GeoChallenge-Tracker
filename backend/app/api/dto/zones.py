@@ -62,3 +62,32 @@ class ZoneDetail(BaseModel):
     name: str
     cache_count: int
     caches: list[CacheInZone]
+
+
+class ZoneTypeStatItem(BaseModel):
+    """Count of found caches for a single cache type within a zone.
+
+    Attributes:
+        type_code (str): Cache type code, e.g. "traditional".
+        type_name (str): Display name, e.g. "Traditional".
+        count (int): Number of found caches of this type in the zone (0 if none).
+    """
+
+    type_code: str
+    type_name: str
+    count: int
+
+
+class ZoneTypeStatsResponse(BaseModel):
+    """Response for GET /api/zones/{code}/type-stats.
+
+    Attributes:
+        code (str): Zone code.
+        name (str): Display name.
+        type_counts (list[ZoneTypeStatItem]): All cache types ordered by canonical GC order,
+            count is 0 for types with no found caches in this zone.
+    """
+
+    code: str
+    name: str
+    type_counts: list[ZoneTypeStatItem]
