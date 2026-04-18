@@ -24,6 +24,7 @@ Les pages sont organisées par fonctionnalités dans `frontend/src/pages/` :
 |---------|-------|-------------|
 | `ImportGpx.vue` | `/caches/import` | Import de fichiers GPX/ZIP |
 | `ZonesMap.vue` | `/caches/zones` | Carte choroplèthe — caches trouvées par zone |
+| `ZoneTypeStatsMap.vue` | `/caches/zone-types` | Carte choroplèthe — répartition par type par zone |
 | `WithinBbox.vue` | `/caches/bbox` | Recherche dans une zone rectangulaire |
 | `WithinRadius.vue` | `/caches/radius` | Recherche dans un rayon |
 
@@ -35,7 +36,7 @@ La logique métier est extraite des composants dans des composables réutilisabl
 - `useMatrixData.ts` : Logique de la matrice D/T
 - `useCalendarData.ts` : Logique du calendrier
 - `useUserProfile.ts` : Gestion du profil utilisateur
-- `useZones.ts` : Appels API pour les zones administratives (`/api/zones`)
+- `useZones.ts` : Appels API pour les zones administratives — `fetchZones`, `fetchZoneDetail`, `fetchZoneTypeStats`
 
 ## Types
 

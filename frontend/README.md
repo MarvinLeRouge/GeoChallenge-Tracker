@@ -46,11 +46,12 @@ frontend/src/
 │   └── useZones.ts # Zones API composable (choropleth map)
 ├── pages/
 │   ├── caches/
-│   │   ├── ZonesMap.vue   # Choropleth map — found caches by zone
+│   │   ├── ZonesMap.vue          # Choropleth map — found caches by zone
+│   │   ├── ZoneTypeStatsMap.vue  # Choropleth map — per-type cache breakdown by zone
 │   │   └── ...
 │   └── ...
 ├── stores/         # Pinia stores
 ├── types/
-│   └── zones.ts    # ZoneListItem, ZoneDetail TypeScript types
+│   └── zones.ts    # ZoneListItem, ZoneDetail, ZoneTypeStatsResponse TypeScript types
 └── components/     # Shared UI components
 ```

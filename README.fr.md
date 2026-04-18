@@ -112,6 +112,7 @@ L'application permet aux géocacheurs passionnés de :
 - Visualisation des caches sur carte interactive
 - Récupération de caches par code GC ou par identifiant
 - **Carte choroplèthe** — caches trouvées par zone administrative (drill-down régions → départements)
+- **Carte répartition par type** — carte choroplèthe où cliquer sur une zone affiche le nombre de caches trouvées pour chacun des 13 types (y compris les zéros), dans un ordre canonique fixe
 
 ### Système de challenges
 - Synchronisation automatique des challenges utilisateurs
@@ -177,6 +178,7 @@ L'application permet aux géocacheurs passionnés de :
 ### Zones administratives (`/zones`, `/geo`)
 - `GET /zones?country=FR&level=1` - Zones avec compteurs de caches trouvées par l'utilisateur
 - `GET /zones/{code}?level=1` - Détail d'une zone avec compteur et 10 premières caches
+- `GET /zones/{code}/type-stats?level=1` - Compteurs par type pour une zone (13 types, zéros inclus)
 - `GET /geo/FR/regions.geojson` - FeatureCollection GeoJSON des régions françaises
 - `GET /geo/FR/departements.geojson` - FeatureCollection GeoJSON des départements français
 

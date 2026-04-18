@@ -143,6 +143,7 @@ Les nouvelles caches importées via GPX sont automatiquement assignées (étape 
 |---------|--------|-------------|
 | `GET` | `/api/zones?country=FR&level=1` | Liste des zones avec compteurs de caches |
 | `GET` | `/api/zones/{code}` | Détail d'une zone avec les 10 premières caches |
+| `GET` | `/api/zones/{code}/type-stats` | Compteurs par type pour une zone (13 types, zéros inclus) |
 | `GET` | `/api/geo/FR/regions.geojson` | FeatureCollection des régions (StaticFiles) |
 | `GET` | `/api/geo/FR/departements.geojson` | FeatureCollection des départements (StaticFiles) |
 

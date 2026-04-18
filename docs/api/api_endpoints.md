@@ -157,6 +157,29 @@
   }
   ```
 
+### Répartition par type d'une zone
+
+- **URL** : `GET /zones/{code}/type-stats`
+- **Description** : Retourne le nombre de caches trouvées par type pour une zone. Tous les types de caches sont toujours retournés (count=0 pour ceux sans correspondance), triés selon l'ordre canonique GC.com (`sort_order` dans la collection `cache_types`).
+- **Paramètres de chemin** :
+  - `code` : code de zone, ex. `FR-84`
+- **Paramètres de requête** :
+  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux
+- **Réponse** :
+  ```json
+  {
+    "code": "FR-84",
+    "name": "Auvergne-Rhône-Alpes",
+    "type_counts": [
+      { "type_code": "traditional", "type_name": "Traditional Cache", "count": 42 },
+      { "type_code": "mystery",     "type_name": "Mystery Cache",     "count": 7  },
+      { "type_code": "letterbox",   "type_name": "Letterbox Hybrid",  "count": 0  }
+    ]
+  }
+  ```
+- **Erreurs** :
+  - `404` si le code de zone est inconnu
+
 ### GeoJSON statiques
 
 - **URL** : `GET /geo/FR/regions.geojson`
