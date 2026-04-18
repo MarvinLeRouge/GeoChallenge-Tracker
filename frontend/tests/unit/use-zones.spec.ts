@@ -268,4 +268,15 @@ describe("fetchZoneTypeStats", () => {
 
     expect(error.value).toBe("api error");
   });
+
+  it("clears error before each call", async () => {
+    mockGet.mockRejectedValueOnce(new Error("fail"));
+    const { error, fetchZoneTypeStats } = useZones();
+    await fetchZoneTypeStats("FR-84");
+    expect(error.value).toBe("api error");
+
+    mockGet.mockResolvedValueOnce({ data: makeZoneTypeStats("FR-84") });
+    await fetchZoneTypeStats("FR-84");
+    expect(error.value).toBeNull();
+  });
 });
