@@ -1,20 +1,9 @@
-# ---------------------------
-# 🧱 docker-compose.yml (optimisé dev/prod)
-# ---------------------------
-#
-# ⚠️  BASE DE DONNÉES : MongoDB Atlas (externe)
-#     Ce projet utilise MongoDB Atlas — aucun service mongo n'est déclaré ici.
-#     Configurer MONGODB_URI_TPL, MONGODB_USER et MONGODB_PASSWORD dans .env
-#     avant de démarrer les services.
-#
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: geo-backend
-    ports:
-      - "8000:8000"
     env_file:
       - .env
     environment:
@@ -34,16 +23,29 @@ services:
       - ./uploads:/uploads
       - ./backend/data/samples:/app/data/samples
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-api-dev.rule=Host(`gc-tracker.marvinlerouge.local`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.gctracker-api-dev.entrypoints=web"
+      - "traefik.http.routers.gctracker-api-dev.middlewares=gctracker-strip-api-dev"
+      - "traefik.http.routers.gctracker-api-dev.service=gctracker-backend-dev"
+      - "traefik.http.middlewares.gctracker-strip-api-dev.stripprefix.prefixes=/api"
+      - "traefik.http.services.gctracker-backend-dev.loadbalancer.server.port=8000"
+    networks:
+      - traefik-public
+      - internal
 
   maildev:
     container_name: geo-maildev
     image: maildev/maildev
     ports:
-      - "1080:1080"
-      - "1025:1025"
+      - "127.0.0.1:1080:1080"
+      - "127.0.0.1:1025:1025"
     restart: unless-stopped
+    networks:
+      - internal
 
-  # --- Frontend unifié avec variable d'environnement ---
   frontend:
     build:
       context: .
@@ -62,14 +64,19 @@ services:
     depends_on:
       - backend
       - tiles
-    ports:
-      - "${FRONTEND_PORT:-5173}:${FRONTEND_INTERNAL_PORT:-5173}"
+    restart: unless-stopped
     volumes:
       - .:/app
       - /app/node_modules
-    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-frontend-dev.rule=Host(`gc-tracker.marvinlerouge.local`)"
+      - "traefik.http.routers.gctracker-frontend-dev.entrypoints=web"
+      - "traefik.http.services.gctracker-frontend-dev.loadbalancer.server.port=5173"
+    networks:
+      - traefik-public
 
-  # --- Service tiles (commun dev/prod) ---
   tiles:
     image: nginx:1.25-alpine
     container_name: geo-tiles
@@ -81,30 +88,30 @@ services:
         nginx -g 'daemon off;'
       "
     volumes:
-      # Configuration optimisée
       - ./ops/nginx/tiles.conf:/etc/nginx/conf.d/tiles.conf:ro
-      # Santé + assets locaux
       - ./ops/nginx/www:/var/www:ro
-      # Cache persistant avec permissions
       - tiles_cache:/var/cache/nginx/tiles_cache
-      # Logs pour debug
       - tiles_logs:/var/log/nginx
-    ports:
-      - "8080:80"
-    # Limite mémoire pour éviter les fuites
     deploy:
       resources:
         limits:
           memory: 512M
         reservations:
           memory: 256M
-    # Santé du conteneur
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/tiles/_health.png || exit 1"]
       interval: 30s
       timeout: 3s
       retries: 3
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-tiles-dev.rule=Host(`gc-tracker.marvinlerouge.local`) && PathPrefix(`/tiles`)"
+      - "traefik.http.routers.gctracker-tiles-dev.entrypoints=web"
+      - "traefik.http.services.gctracker-tiles-dev.loadbalancer.server.port=80"
+    networks:
+      - traefik-public
 
 volumes:
   tiles_cache:
@@ -112,7 +119,8 @@ volumes:
   tiles_logs:
     driver: local
 
-# --- Commandes rapides ---
-# Développement: docker-compose --profile dev up -d
-# Production:    docker-compose --profile prod up -d
-# Les deux:      docker-compose --profile dev --profile prod up -d
+networks:
+  traefik-public:
+    external: true
+  internal:
+    driver: bridge
