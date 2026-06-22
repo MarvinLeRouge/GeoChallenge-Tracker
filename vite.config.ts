@@ -14,8 +14,9 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    allowedHosts: ["gc-tracker.marvinlerouge.local"],
     watch: { usePolling: true, interval: 100 },
-    hmr: { host: "localhost", clientPort: 5173 },
+    hmr: { host: "gc-tracker.marvinlerouge.local", clientPort: 80 },
     proxy: {
       "^/api": {
         target: "http://backend:8000",
