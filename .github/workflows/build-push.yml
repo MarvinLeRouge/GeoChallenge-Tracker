@@ -108,8 +108,8 @@ jobs:
             REPO_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}"
             REGISTRY="ghcr.io/${GITHUB_REPOSITORY,,}"
 
-            echo "==> Fetch docker-compose.yml (commit: ${GITHUB_SHA})"
-            curl -fsSL "${REPO_URL}/ops/deploy/docker-compose.yml" \
+            echo "==> Fetch docker-compose.prod.yml (commit: ${GITHUB_SHA})"
+            curl -fsSL "${REPO_URL}/docker-compose.prod.yml" \
               -o "${DEPLOY_PATH}/docker-compose.yml"
 
             echo "==> Fetch nginx config files"
