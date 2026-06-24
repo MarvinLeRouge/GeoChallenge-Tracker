@@ -1,5 +1,3 @@
-name: gc-tracker
-
 services:
   backend:
     image: ${IMAGE_BACKEND}
@@ -21,13 +19,18 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gctracker-api.rule=Host(`api-gc-tracker.marvinlerouge.dev`)"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.gctracker-api.entrypoints=websecure"
+      - "traefik.http.routers.gctracker-api.tls=true"
       - "traefik.http.routers.gctracker-api.tls.certresolver=letsencrypt"
-      - "traefik.http.services.gctracker-api.loadbalancer.server.port=8000"
+      - "traefik.http.routers.gctracker-api.middlewares=gctracker-strip-api"
+      - "traefik.http.routers.gctracker-api.service=gctracker-backend"
+      - "traefik.http.middlewares.gctracker-strip-api.stripprefix.prefixes=/api"
+      - "traefik.http.services.gctracker-backend.loadbalancer.server.port=8000"
     networks:
-      - internal
       - traefik-public
+      - internal
 
   frontend:
     image: ${IMAGE_FRONTEND}
@@ -40,12 +43,13 @@ services:
       - tiles
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gctracker.rule=Host(`gc-tracker.marvinlerouge.dev`)"
-      - "traefik.http.routers.gctracker.entrypoints=websecure"
-      - "traefik.http.routers.gctracker.tls.certresolver=letsencrypt"
-      - "traefik.http.services.gctracker.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.gctracker-frontend.entrypoints=websecure"
+      - "traefik.http.routers.gctracker-frontend.tls=true"
+      - "traefik.http.routers.gctracker-frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gctracker-frontend.loadbalancer.server.port=80"
     networks:
-      - internal
       - traefik-public
 
   tiles:
@@ -75,8 +79,16 @@ services:
       timeout: 3s
       retries: 3
       start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.gctracker-tiles.rule=Host(`${DOMAIN}`) && PathPrefix(`/tiles`)"
+      - "traefik.http.routers.gctracker-tiles.entrypoints=websecure"
+      - "traefik.http.routers.gctracker-tiles.tls=true"
+      - "traefik.http.routers.gctracker-tiles.tls.certresolver=letsencrypt"
+      - "traefik.http.services.gctracker-tiles.loadbalancer.server.port=80"
     networks:
-      - internal
+      - traefik-public
 
   mailhog:
     image: mailhog/mailhog:v1.0.1
@@ -95,7 +107,7 @@ volumes:
     driver: local
 
 networks:
-  internal:
-    driver: bridge
   traefik-public:
     external: true
+  internal:
+    driver: bridge
