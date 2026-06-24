@@ -1,3 +1,5 @@
+name: gc-tracker
+
 services:
   backend:
     image: ${IMAGE_BACKEND}
