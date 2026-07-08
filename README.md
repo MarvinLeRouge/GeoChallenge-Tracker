@@ -319,6 +319,89 @@ curl http://localhost:8000/version
 
 ---
 
+## 🗺️ Roadmap
+
+Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.md) for details, context, and implementation notes per item).
+
+### 🔴 Critical
+- Password reset flow (no `/auth/forgot-password` / `/auth/reset-password` routes exist yet)
+- Asynchronous GPX import (Celery + Redis, current import is synchronous and can time out on large files)
+- Progress page (frontend) — API ready, page still a placeholder
+- Targets page (frontend) — API ready, page still a placeholder
+- Backend API tests (routes themselves are not tested end-to-end)
+- Structured logging (replace `print()` calls, add request correlation IDs)
+- Dev/prod environment separation (single `.env` used for both today)
+- HTTPS in production (certificate renewal and HSTS not documented/verified)
+
+### 🟠 High
+- GPX validation before full in-memory processing
+- Cache search by filter (frontend) — API ready, page still a placeholder
+- "Challenge completed" email notification
+- Challenge GPX export
+- Backend test coverage ≥ 60% enforced in CI
+- Rate limiting on authentication routes
+- Frontend tests (Vitest business logic, component tests)
+- Docker Compose healthchecks
+- CI/CD: run tests automatically before merge
+
+### 🟡 Normal
+- Finalize UserChallenges synchronization logic (full vs. delta)
+- Validate bulk PATCH challenges behavior
+- Streaming support for large GPX files
+- Automatic progress evaluation after a successful import
+- Map marker clustering
+- Dedicated map view for challenge targets
+- Real SMTP connectivity check in `/health`
+- Advanced user statistics (evolution charts, milestone projections)
+- Full-text cache search
+- Challenge integration tests
+- HTTP security headers
+- Automate `BUILD_DATE` injection in CI
+
+### 🟢 Nice-to-have
+- Server-side refresh token invalidation on logout
+- Achievable challenge suggestions
+- Finds heatmap
+- In-app notifications
+- Prometheus metrics
+- Centralized production logs
+
+---
+
+## 🚧 Ongoing analysis (not yet implemented)
+
+The following work streams have been analyzed and broken down into concrete tasks, but no code has been changed yet.
+
+### 📧 Email delivery migration (Brevo)
+- Verify what `SMTP_HOST` actually resolves to in production (may still point to a leftover `mailhog` test catcher instead of a real relay)
+- Decide whether to reuse an existing Brevo account or create a dedicated one; verify the sender domain (SPF/DKIM/DMARC)
+- Add Brevo SMTP variables (`smtp-relay.brevo.com`, port, credentials) to the production environment
+- Remove the `mailhog` service from `docker-compose.prod.yml`
+- Confirm the sender address matches a verified Brevo domain
+- Send a real test email in production to confirm delivery
+
+### 🔒 Security hardening
+- **Critical** — Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`
+- **Critical** — Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)
+- **Critical** — Dependency vulnerability scanning in CI (`pip-audit` / `npm audit` / Dependabot)
+- Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header
+- Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
+- No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)
+- Email verification codes stored in plaintext in the database
+- No security event logging for failed login attempts
+- A malformed JWT `sub` claim triggers a generic 500 instead of a clean 401
+- `MaxBodySizeMiddleware` is bypassable via chunked transfer-encoding
+
+### 🎨 Frontend design audit
+- **Critical** — the `dark_mode` user preference is stored in the backend but never implemented in the frontend (no `dark:` classes anywhere)
+- Calendar day details are only visible on hover (`title` attribute) — invisible on mobile/touch, weak for screen readers
+- Multi-color stat tiles (green/blue/purple/indigo) without a consistent color meaning
+- Repeated identical card wrappers across sections with no visual hierarchy between them
+- Leftover debug `console.log` calls in production code
+- Inconsistent loading feedback (spinner vs. plain text) between pages
+
+---
+
 ## 🤝 Contribution
 
 Contributions are welcome! Here's how you can contribute:

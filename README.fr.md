@@ -319,6 +319,89 @@ curl http://localhost:8000/version
 
 ---
 
+## 🗺️ Roadmap
+
+Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](docs/roadmap.md) pour le détail, le contexte et les notes d'implémentation de chaque point).
+
+### 🔴 Critique
+- Reset de mot de passe (aucune route `/auth/forgot-password` / `/auth/reset-password` n'existe encore)
+- Import GPX asynchrone (Celery + Redis, l'import actuel est synchrone et peut timeout sur les gros fichiers)
+- Page Progression (frontend) — API prête, page encore un placeholder
+- Page Targets (frontend) — API prête, page encore un placeholder
+- Tests API backend (les routes elles-mêmes ne sont pas testées de bout en bout)
+- Logging structuré (remplacer les `print()`, ajouter des IDs de corrélation de requête)
+- Séparation config dev/prod (un seul `.env` utilisé pour les deux aujourd'hui)
+- HTTPS en production (renouvellement de certificat et HSTS non documentés/vérifiés)
+
+### 🟠 Haute
+- Validation GPX avant traitement complet en mémoire
+- Recherche de caches par filtre (frontend) — API prête, page encore un placeholder
+- Email de notification "challenge complété"
+- Export GPX d'un challenge
+- Couverture de tests backend ≥ 60% imposée en CI
+- Rate limiting sur les routes d'authentification
+- Tests frontend (Vitest, logique métier et composants)
+- Healthchecks Docker Compose
+- CI/CD : lancer les tests automatiquement avant merge
+
+### 🟡 Normale
+- Finaliser la logique de synchronisation UserChallenges (full vs delta)
+- Valider le comportement du PATCH en masse des challenges
+- Support du streaming pour les gros fichiers GPX
+- Évaluation automatique de la progression après un import réussi
+- Clustering des marqueurs sur la carte
+- Vue carte dédiée pour les cibles d'un challenge
+- Vérification SMTP réelle dans `/health`
+- Statistiques utilisateur avancées (graphiques d'évolution, projections de milestone)
+- Recherche full-text sur les caches
+- Tests d'intégration challenges
+- Security headers HTTP
+- Automatiser l'injection du `BUILD_DATE` en CI
+
+### 🟢 Nice-to-have
+- Invalidation du refresh token côté serveur à la déconnexion
+- Suggestions de challenges réalisables
+- Heatmap des trouvailles
+- Notifications in-app
+- Métriques Prometheus
+- Logs centralisés en production
+
+---
+
+## 🚧 Analyses en cours (non encore implémentées)
+
+Les chantiers suivants ont été analysés et découpés en tâches concrètes, mais aucun code n'a encore été modifié.
+
+### 📧 Migration de l'envoi d'emails (Brevo)
+- Vérifier ce que `SMTP_HOST` vaut réellement en production (pointe peut-être encore vers un `mailhog` de test au lieu d'un vrai relais)
+- Décider de réutiliser un compte Brevo existant ou d'en créer un dédié ; vérifier le domaine expéditeur (SPF/DKIM/DMARC)
+- Ajouter les variables SMTP Brevo (`smtp-relay.brevo.com`, port, identifiants) à l'environnement de production
+- Supprimer le service `mailhog` de `docker-compose.prod.yml`
+- Confirmer que l'adresse expéditrice correspond à un domaine vérifié Brevo
+- Envoyer un email de test réel en production pour confirmer la délivrabilité
+
+### 🔒 Durcissement sécurité
+- **Critique** — Rate limiting / protection anti brute-force sur `/auth/login`, `/auth/register`, `/auth/resend-verification`
+- **Critique** — Révocation du refresh token (aucun endpoint de logout n'invalide le refresh token de 7 jours côté serveur)
+- **Critique** — Scan de vulnérabilités des dépendances en CI (`pip-audit` / `npm audit` / Dependabot)
+- Le code de vérification envoyé en paramètre GET se retrouve dans les logs d'accès et peut fuiter via l'en-tête `Referer`
+- En-têtes de sécurité manquants (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
+- Pas de plafond sur la taille cumulée décompressée à l'import ZIP/GPX (risque de zip bomb)
+- Codes de vérification email stockés en clair en base
+- Aucun logging des événements de sécurité pour les échecs de login
+- Un claim JWT `sub` malformé déclenche un 500 générique au lieu d'un 401 propre
+- `MaxBodySizeMiddleware` est contournable via le chunked transfer-encoding
+
+### 🎨 Audit design frontend
+- **Critique** — la préférence utilisateur `dark_mode` est stockée côté backend mais jamais implémentée côté frontend (aucune classe `dark:` nulle part)
+- Le détail des jours du calendrier n'est visible qu'au survol (attribut `title`) — invisible sur mobile/tactile, faible pour les lecteurs d'écran
+- Stat-tiles multicolores (vert/bleu/violet/indigo) sans logique de couleur cohérente
+- Cartes identiques répétées entre sections sans hiérarchie visuelle
+- `console.log` de debug oubliés en code de production
+- Feedback de chargement incohérent (spinner vs texte simple) selon les pages
+
+---
+
 ## 🤝 Contribution
 
 Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
