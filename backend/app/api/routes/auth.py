@@ -368,7 +368,9 @@ async def logout(
         "Verifies a confirmation code received by email.\n\n"
         "- Activates the user if the code is valid and not expired\n"
         "- Removes the code and its expiration\n"
-        "- Returns a confirmation message"
+        "- Returns a confirmation message\n\n"
+        "Kept for compatibility (e.g. manual/curl use); the frontend uses the POST "
+        "variant instead, since a code in a query param ends up in access logs."
     ),
 )
 async def verify_email(

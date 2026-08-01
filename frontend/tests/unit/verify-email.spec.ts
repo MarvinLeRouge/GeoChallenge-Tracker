@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 
-const mockGet = vi.hoisted(() => vi.fn());
+const mockPost = vi.hoisted(() => vi.fn());
 const mockUseRoute = vi.hoisted(() => vi.fn());
 
-vi.mock("@/api/http", () => ({ default: { get: mockGet } }));
+vi.mock("@/api/http", () => ({ default: { post: mockPost } }));
 vi.mock("vue-router", () => ({ useRoute: mockUseRoute }));
 
 import VerifyEmail from "@/pages/auth/VerifyEmail.vue";
@@ -15,18 +15,20 @@ beforeEach(() => {
 });
 
 describe("VerifyEmail", () => {
-  it("calls verify-email endpoint with code from query on mount", async () => {
-    mockGet.mockResolvedValueOnce({});
+  it("calls verify-email endpoint with code from query on mount, via POST body", async () => {
+    mockPost.mockResolvedValueOnce({});
     mount(VerifyEmail, { global: { stubs: { RouterLink: true } } });
     await flushPromises();
 
-    expect(mockGet).toHaveBeenCalledWith("/auth/verify-email", {
-      params: { code: "valid-code-123" },
+    // The code travels in the POST body, not in a query param, so it never
+    // shows up in access logs (server-side) or gets sent via Referer header.
+    expect(mockPost).toHaveBeenCalledWith("/auth/verify-email", {
+      code: "valid-code-123",
     });
   });
 
   it("shows success message after successful verification", async () => {
-    mockGet.mockResolvedValueOnce({});
+    mockPost.mockResolvedValueOnce({});
     const wrapper = mount(VerifyEmail, {
       global: { stubs: { RouterLink: true } },
     });
@@ -42,12 +44,12 @@ describe("VerifyEmail", () => {
     });
     await flushPromises();
 
-    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockPost).not.toHaveBeenCalled();
     expect(wrapper.text()).toContain("invalide");
   });
 
   it("shows error message when API call fails with detail", async () => {
-    mockGet.mockRejectedValueOnce({
+    mockPost.mockRejectedValueOnce({
       response: { data: { detail: "Le lien a expiré." } },
     });
     const wrapper = mount(VerifyEmail, {
@@ -59,7 +61,7 @@ describe("VerifyEmail", () => {
   });
 
   it("shows fallback error message when API fails without detail", async () => {
-    mockGet.mockRejectedValueOnce(new Error("Network error"));
+    mockPost.mockRejectedValueOnce(new Error("Network error"));
     const wrapper = mount(VerifyEmail, {
       global: { stubs: { RouterLink: true } },
     });
