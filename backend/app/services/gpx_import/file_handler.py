@@ -10,6 +10,12 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+# Cumulative cap on decompressed bytes across a whole ZIP archive, enforced while
+# streaming (not just checked against the declared, spoofable zip_info.file_size),
+# to bound memory/disk usage against a zip-bomb-style archive.
+MAX_TOTAL_EXTRACTED_SIZE = 200 * 1024 * 1024  # 200 MB
+_EXTRACT_CHUNK_SIZE = 1024 * 1024  # 1 MB
+
 
 class FileHandler:
     """GPX and ZIP file management service.
@@ -161,7 +167,8 @@ class FileHandler:
         Raises:
             HTTPException: If extraction fails or no GPX files are found.
         """
-        extracted_paths = []
+        extracted_paths: list[Path] = []
+        total_extracted_size = 0
 
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
@@ -186,19 +193,40 @@ class FileHandler:
 
                     # Safe extraction
                     try:
+                        # Stream in chunks and enforce the cumulative cap as we go,
+                        # rather than trusting zip_info.file_size (part of the
+                        # attacker-controlled central directory) before reading.
+                        gpx_data = bytearray()
                         with zip_file.open(zip_info) as gpx_file:
-                            gpx_data = gpx_file.read()
+                            while chunk := gpx_file.read(_EXTRACT_CHUNK_SIZE):
+                                total_extracted_size += len(chunk)
+                                if total_extracted_size > MAX_TOTAL_EXTRACTED_SIZE:
+                                    raise HTTPException(
+                                        status_code=400,
+                                        detail=(
+                                            "ZIP archive exceeds the maximum cumulative "
+                                            f"extracted size ({MAX_TOTAL_EXTRACTED_SIZE // (1024 * 1024)} MB)"
+                                        ),
+                                    )
+                                gpx_data.extend(chunk)
 
                         # Save the GPX file
                         gpx_filename = Path(zip_info.filename).name
-                        gpx_path = self.write_gpx_file(gpx_data, gpx_filename)
+                        gpx_path = self.write_gpx_file(bytes(gpx_data), gpx_filename)
                         extracted_paths.append(gpx_path)
 
+                    except HTTPException:
+                        # Cumulative cap exceeded: clean up what was already
+                        # extracted and abort the whole archive, don't just skip.
+                        self.cleanup_files(extracted_paths)
+                        raise
                     except Exception as e:
                         # Skip corrupt files but continue processing
                         print(f"Warning: Failed to extract {zip_info.filename}: {str(e)}")
                         continue
 
+        except HTTPException:
+            raise
         except zipfile.BadZipFile as e:
             raise HTTPException(status_code=400, detail="Invalid ZIP file") from e
         except Exception as e:
