@@ -12,6 +12,8 @@ from typing import Any, Optional
 
 from bson import ObjectId
 
+log = logging.getLogger(__name__)
+
 
 class CustomJSONEncoder(json.JSONEncoder):
     """Custom JSON encoder to handle ObjectId and datetime."""
@@ -151,7 +153,7 @@ def cleanup_old_logs(logs_dir: Path, retention_days: int = 30) -> None:
                 try:
                     if date_str < cutoff_str:
                         os.remove(file_path)
-                        print(f"Deleted: {file_path}")
+                        log.info("Deleted old log file: %s", file_path)
                 except OSError:
                     continue
 

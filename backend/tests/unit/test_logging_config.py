@@ -207,6 +207,19 @@ class TestCleanupOldLogs:
 
         assert not old_file.exists()
 
+    def test_cleanup_old_logs_logs_deletion_instead_of_printing(self, tmp_path, caplog):
+        """Deletions must go through the logging module, not a bare print()."""
+        old_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
+        old_file = tmp_path / f"{old_date}-generic.log"
+        old_file.write_text("old content")
+
+        with caplog.at_level(logging.INFO, logger="app.core.logging_config"):
+            cleanup_old_logs(tmp_path, retention_days=30)
+
+        assert len(caplog.records) == 1
+        assert "Deleted old log file" in caplog.records[0].message
+        assert str(old_file) in caplog.records[0].message
+
 
 # ---------------------------------------------------------------------------
 # CustomJSONEncoder — missing branches
