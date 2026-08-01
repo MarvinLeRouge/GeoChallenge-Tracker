@@ -68,6 +68,26 @@ def create_verification_code() -> str:
     return secrets.token_urlsafe(24)
 
 
+def hash_verification_code(code: str) -> str:
+    """Hashes a verification code for storage.
+
+    Description:
+        Verification codes are high-entropy random tokens (not user-chosen secrets),
+        so a fast cryptographic hash (SHA-256) is appropriate here, unlike password
+        hashing. Storing only the hash means a stolen `users` collection dump can't
+        be used to activate unverified accounts before the code naturally expires.
+
+    Args:
+        code (str): Plaintext verification code.
+
+    Returns:
+        str: Hex-encoded SHA-256 digest.
+    """
+    import hashlib
+
+    return hashlib.sha256(code.encode("utf-8")).hexdigest()
+
+
 async def users_coll() -> AsyncIOMotorCollection:
     """Returns the MongoDB `users` collection."""
     return await get_collection("users")
@@ -141,7 +161,7 @@ async def register(
         "is_verified": False,
         "preferences": {"language": "fr", "dark_mode": False},
         "password_hash": hash_password(payload.password),
-        "verification_code": verification_code,
+        "verification_code": hash_verification_code(verification_code),
         "verification_expires_at": now() + dt.timedelta(hours=24),
         "created_at": now(),
         "updated_at": None,
@@ -394,7 +414,10 @@ async def verify_email(
     """
     now_ts = now()
     user = await users.find_one(
-        {"verification_code": code, "verification_expires_at": {"$gte": now_ts}},
+        {
+            "verification_code": hash_verification_code(code),
+            "verification_expires_at": {"$gte": now_ts},
+        },
         projection={"_id": 1},
     )
     if not user:
@@ -485,7 +508,7 @@ async def resend_verification(
             {"_id": user["_id"]},
             {
                 "$set": {
-                    "verification_code": code,
+                    "verification_code": hash_verification_code(code),
                     "verification_expires_at": now() + dt.timedelta(hours=24),
                     "updated_at": now(),
                 }
