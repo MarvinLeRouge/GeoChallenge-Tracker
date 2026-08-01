@@ -96,6 +96,36 @@ jobs:
           fail_ci_if_error: false
           use_oidc: true
 
+  backend-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r backend/requirements-dev.txt
+
+      - name: pip-audit (dependency vulnerability scan)
+        working-directory: backend
+        run: |
+          # PYSEC-2026-1325 (ecdsa): Minerva timing attack, no upstream fix. Not exploitable
+          # here since this project only signs JWTs with HS256, never an ECDSA-based algorithm.
+          # Re-verified on every run: if an ECDSA algorithm or direct ecdsa usage shows up in
+          # app/, the exception is dropped and pip-audit blocks on it like any other finding.
+          if grep -rqE "ES256|ES384|ES512|ecdsa\.(SigningKey|VerifyingKey|SECP256k1|NIST256p)" app/; then
+            echo "::error::ECDSA-related JWT algorithm or direct ecdsa usage detected in app/ - the ecdsa vulnerability exception (PYSEC-2026-1325) no longer applies."
+            pip-audit -r requirements.txt -r requirements-dev.txt
+          else
+            pip-audit -r requirements.txt -r requirements-dev.txt --ignore-vuln PYSEC-2026-1325
+          fi
+
   frontend:
     runs-on: ubuntu-latest
 
@@ -120,6 +150,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  frontend-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: npm audit (dependency vulnerability scan)
+        # Reports every finding, but only fails the build on critical severity.
+        run: npm audit --audit-level=critical
 
   frontend-unit:
     runs-on: ubuntu-latest
