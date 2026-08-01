@@ -3,6 +3,7 @@
 
 import datetime as dt
 import re
+import secrets
 from typing import Annotated
 
 from bson import ObjectId
@@ -83,6 +84,8 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
 
     Description:
         Encodes a longer-lived JWT (7 days by default) used to obtain new access tokens.
+        Includes a unique `jti` claim (unless already provided in `data`) so the token can
+        be individually revoked server-side (see `app.core.token_revocation`).
 
     Args:
         data (dict): Claims to include (e.g. `{"sub": "<user_id>"}`).
@@ -92,6 +95,7 @@ def create_refresh_token(data: dict, expires_delta: dt.timedelta | None = None) 
         str: Signed JWT refresh token.
     """
     to_encode = data.copy()
+    to_encode.setdefault("jti", secrets.token_urlsafe(16))
     expire = now() + (expires_delta or dt.timedelta(days=7))  # refresh token has a longer TTL
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)

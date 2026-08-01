@@ -15,8 +15,13 @@ import datetime as dt
 
 import pytest
 from bson import ObjectId
+from jose import jwt
 
 from app.core.security import create_refresh_token, hash_password
+from app.core.settings import get_settings
+from app.core.token_revocation import revoke_refresh_token
+
+settings = get_settings()
 
 # =============================================================================
 # TAG: AUTH - Authentication Endpoints
@@ -381,3 +386,68 @@ class TestAuthRefreshToken:
         assert response.status_code == 401
         data = response.json()
         assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_revoked(self, client, seeded_admin):
+        """Test qu'un refresh token révoqué (denylist par jti) est rejeté."""
+        token = create_refresh_token(
+            data={"sub": str(ObjectId("507f1f77bcf86cd799439011"))},
+            expires_delta=dt.timedelta(days=7),
+        )
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        await revoke_refresh_token(
+            payload["jti"], dt.datetime.fromtimestamp(payload["exp"], tz=dt.timezone.utc)
+        )
+
+        client.cookies.set("refresh_token", token)
+        response = await client.post("/auth/refresh")
+
+        assert response.status_code == 401
+        data = response.json()
+        assert "error" in data
+
+
+# =============================================================================
+# TAG: AUTH - Logout Tests
+# =============================================================================
+
+
+class TestAuthLogout:
+    """Tests de l'endpoint de déconnexion."""
+
+    @pytest.mark.asyncio
+    async def test_logout_clears_cookie_and_revokes_token(self, client, seeded_admin):
+        """Test que le logout supprime le cookie et révoque le refresh token côté serveur."""
+        login_response = await client.post(
+            "/auth/login", data={"username": "testadmin", "password": "Test123!"}
+        )
+        assert login_response.status_code == 200
+        refresh_cookie = client.cookies.get("refresh_token")
+        assert refresh_cookie
+
+        logout_response = await client.post("/auth/logout")
+        assert logout_response.status_code == 200
+        assert logout_response.json()["message"] == "Logged out"
+        assert client.cookies.get("refresh_token") is None
+
+        # Replaying the (now revoked) refresh token must be rejected
+        client.cookies.set("refresh_token", refresh_cookie)
+        replay_response = await client.post("/auth/refresh")
+        assert replay_response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_logout_without_session_is_idempotent(self, client):
+        """Test que le logout réussit même sans session active (pas de cookie)."""
+        response = await client.post("/auth/logout")
+
+        assert response.status_code == 200
+        assert response.json()["message"] == "Logged out"
+
+    @pytest.mark.asyncio
+    async def test_logout_with_invalid_cookie_is_idempotent(self, client):
+        """Test que le logout réussit même avec un cookie invalide (rien à révoquer)."""
+        client.cookies.set("refresh_token", "not-a-valid-jwt")
+        response = await client.post("/auth/logout")
+
+        assert response.status_code == 200
+        assert response.json()["message"] == "Logged out"

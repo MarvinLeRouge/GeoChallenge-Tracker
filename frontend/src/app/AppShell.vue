@@ -481,8 +481,8 @@ function closeMenu() {
   menuOpen.value = false;
   document.body.style.overflow = "";
 }
-function doLogout() {
-  auth.logout();
+async function doLogout() {
+  await auth.logout();
   closeMenu();
   router.replace("/login");
 }

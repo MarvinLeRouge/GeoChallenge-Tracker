@@ -47,7 +47,12 @@ export const useAuthStore = defineStore("auth", {
       const { data } = await api.post<TokenResponse>("/auth/refresh");
       this.setTokens(data);
     },
-    logout() {
+    async logout() {
+      try {
+        await api.post("/auth/logout");
+      } catch {
+        // Best-effort: clear local session state regardless of the backend call outcome.
+      }
       this.accessToken = "";
       this.user = null;
       sessionStorage.removeItem("access_token");

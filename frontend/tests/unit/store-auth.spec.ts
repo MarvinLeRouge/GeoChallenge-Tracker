@@ -92,10 +92,22 @@ describe("refresh", () => {
 });
 
 describe("logout", () => {
-  it("clears token, user, and sessionStorage", () => {
+  it("calls the backend logout endpoint and clears token, user, and sessionStorage", async () => {
+    mockPost.mockResolvedValueOnce({ data: { message: "Logged out" } });
     const store = useAuthStore();
     store.setTokens(makeTokenResponse());
-    store.logout();
+    await store.logout();
+    expect(mockPost).toHaveBeenCalledWith("/auth/logout");
+    expect(store.accessToken).toBe("");
+    expect(store.user).toBeNull();
+    expect(sessionStorage.getItem("access_token")).toBeNull();
+  });
+
+  it("still clears local session state when the backend call fails", async () => {
+    mockPost.mockRejectedValueOnce(new Error("network error"));
+    const store = useAuthStore();
+    store.setTokens(makeTokenResponse());
+    await store.logout();
     expect(store.accessToken).toBe("");
     expect(store.user).toBeNull();
     expect(sessionStorage.getItem("access_token")).toBeNull();
