@@ -29,6 +29,12 @@ from pymongo.collation import Collation
 from app.api.dto.user_profile import VerifyEmailBody
 from app.core.bson_utils import PyObjectId
 from app.core.email import send_verification_email
+from app.core.rate_limit import (
+    LOGIN_RATE_LIMIT,
+    REGISTER_RATE_LIMIT,
+    RESEND_VERIFICATION_RATE_LIMIT,
+    rate_limited,
+)
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -84,7 +90,10 @@ class MessageOut(BaseModel):
         "- Returns the public information of the created account"
     ),
 )
+@rate_limited(REGISTER_RATE_LIMIT)
 async def register(
+    request: Request,
+    response: Response,
     payload: Annotated[
         UserInRegister,
         Body(..., description="Registration data: username, email, and password."),
@@ -174,6 +183,7 @@ async def register(
         "- 401 if credentials are invalid or account is unverified"
     ),
 )
+@rate_limited(LOGIN_RATE_LIMIT)
 async def login(
     request: Request,
     response: Response,
@@ -380,7 +390,10 @@ async def verify_email_post(
         "- Updates the code expiration (24h)"
     ),
 )
+@rate_limited(RESEND_VERIFICATION_RATE_LIMIT)
 async def resend_verification(
+    request: Request,
+    response: Response,
     body: Annotated[
         ResendVerificationRequest,
         Body(..., description="Identifier (username or email) of the user."),

@@ -13,6 +13,7 @@ from app.api.routes import routers
 from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
+from app.core.rate_limit import limiter
 from app.core.settings import get_settings
 from app.db.mongodb import close_mongodb_connection
 from app.db.seed_data import seed_referentials
@@ -51,6 +52,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name + " API", version=settings.api_version, lifespan=lifespan)
+app.state.limiter = limiter
 # ⚠️ Ordre des middlewares = ordre d’ajout.
 # CORS en premier pour que les requêtes OPTIONS (preflight) ne soient pas bloquées.
 app.add_middleware(

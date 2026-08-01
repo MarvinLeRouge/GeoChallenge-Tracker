@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.dto.response_format import ErrorResponse
@@ -8,6 +9,20 @@ from app.api.dto.response_format import ErrorResponse
 
 def register_exception_handlers(app: FastAPI):
     """Registers global exception handlers to standardize responses."""
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+        """Handler for slowapi rate limit errors, with a Retry-After header."""
+        response = JSONResponse(
+            status_code=429,
+            content=ErrorResponse.from_detail(
+                {
+                    "code": "RATE_LIMIT_EXCEEDED",
+                    "message": f"Too many requests, please retry later ({exc.detail}).",
+                }
+            ).model_dump(),
+        )
+        return request.app.state.limiter._inject_headers(response, request.state.view_rate_limit)
 
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
