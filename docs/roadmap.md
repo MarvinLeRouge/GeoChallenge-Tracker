@@ -117,14 +117,9 @@
 
 ---
 
-### 1.4 Déconnexion (logout) avec invalidation côté serveur 🟡 `M`
+### 1.4 Déconnexion (logout) avec invalidation côté serveur ✅ 🟡 `M`
 
-**Contexte :** Le logout actuel vide simplement le state Pinia et le storage navigateur. Le `refreshToken` n'est pas invalidé côté serveur — si quelqu'un a capturé le token, il reste valide jusqu'à expiration (7 jours).
-
-**À construire :**
-- Route `POST /auth/logout` qui insère le `jti` (JWT ID) dans une blacklist (collection MongoDB ou Redis)
-- Le middleware de validation JWT vérifie la blacklist
-- Le frontend appelle la route avant de vider le storage
+**Fait (2026-08-01) :** `POST /auth/logout` révoque le refresh token via son `jti` (collection MongoDB `revoked_refresh_tokens`, index TTL pour nettoyage automatique). `/auth/refresh` rejette les tokens révoqués. Le frontend appelle la route avant de vider le storage, en best-effort. Cookie `refresh_token` élargi de `path=/auth/refresh` à `path=/auth` pour atteindre le nouvel endpoint.
 
 ---
 
@@ -394,14 +389,9 @@ Couvrir les flows complets :
 
 ---
 
-### 7.5 Rate limiting sur routes sensibles ❌ 🟠 `S`
+### 7.5 Rate limiting sur routes sensibles ✅ 🟠 `S`
 
-**Contexte :** Les routes d'authentification ne sont pas protégées contre le brute force.
-
-**À construire :**
-- Intégrer `slowapi` (wrapper FastAPI de `limits`)
-- Appliquer : `POST /auth/login` (10 req/min par IP), `POST /auth/register` (5 req/min), `POST /auth/resend-verification` (3 req/min)
-- Retourner HTTP 429 avec header `Retry-After`
+**Fait (2026-08-01) :** `slowapi` intégré. `POST /auth/login` (10/min), `POST /auth/register` (5/min), `POST /auth/resend-verification` (3/min). HTTP 429 avec header `Retry-After`.
 
 ---
 
@@ -541,7 +531,7 @@ add_header Referrer-Policy "strict-origin-when-cross-origin";
 | 11 | Email notification challenge complété | 5.2 | S |
 | 12 | Export GPX d'un challenge | 6.1 | M |
 | 13 | Coverage ≥ 60% | 7.2 | M |
-| 14 | Rate limiting auth | 7.5 | S |
+| 14 | ~~Rate limiting auth~~ ✅ fait | 7.5 | S |
 | 15 | Tests frontend (Vitest) | 7.7 | L |
 | 16 | Healthchecks Docker Compose | 8.2 | M |
 | 17 | CI/CD — Tests avant merge | 8.3 | M |
@@ -567,7 +557,7 @@ add_header Referrer-Policy "strict-origin-when-cross-origin";
 
 | # | Fonctionnalité | Épic | Taille |
 |---|----------------|------|--------|
-| 30 | Logout avec invalidation serveur | 1.4 | M |
+| 30 | ~~Logout avec invalidation serveur~~ ✅ fait | 1.4 | M |
 | 31 | Suggestions de challenges | 3.4 | L |
 | 32 | Heatmap des trouvailles | 4.2 | M |
 | 33 | Notifications in-app | 5.3 | L |

@@ -381,9 +381,10 @@ Les chantiers suivants ont été analysés et découpés en tâches concrètes, 
 - Envoyer un email de test réel en production pour confirmer la délivrabilité
 
 ### 🔒 Durcissement sécurité
-- **Critique** — Rate limiting / protection anti brute-force sur `/auth/login`, `/auth/register`, `/auth/resend-verification`
-- **Critique** — Révocation du refresh token (aucun endpoint de logout n'invalide le refresh token de 7 jours côté serveur)
-- **Critique** — Scan de vulnérabilités des dépendances en CI (`pip-audit` / `npm audit` / Dependabot)
+- ~~**Critique** - Rate limiting / protection anti brute-force sur `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ fait
+- ~~**Critique** - Révocation du refresh token (aucun endpoint de logout n'invalide le refresh token de 7 jours côté serveur)~~ ✅ fait
+- ~~**Critique** - Scan de vulnérabilités des dépendances en CI (`pip-audit` / `npm audit`)~~ ✅ fait
+- ~~**Critique** - `now()` retournait l'heure locale naïve au lieu de l'UTC, traitée à tort comme UTC lors de l'encodage JWT~~ ✅ fait
 - Le code de vérification envoyé en paramètre GET se retrouve dans les logs d'accès et peut fuiter via l'en-tête `Referer`
 - En-têtes de sécurité manquants (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
 - Pas de plafond sur la taille cumulée décompressée à l'import ZIP/GPX (risque de zip bomb)

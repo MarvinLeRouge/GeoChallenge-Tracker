@@ -381,9 +381,10 @@ The following work streams have been analyzed and broken down into concrete task
 - Send a real test email in production to confirm delivery
 
 ### 🔒 Security hardening
-- **Critical** — Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`
-- **Critical** — Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)
-- **Critical** — Dependency vulnerability scanning in CI (`pip-audit` / `npm audit` / Dependabot)
+- ~~**Critical** - Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ done
+- ~~**Critical** - Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)~~ ✅ done
+- ~~**Critical** - Dependency vulnerability scanning in CI (`pip-audit` / `npm audit`)~~ ✅ done
+- ~~**Critical** - `now()` returned naive local time instead of UTC, mistreated as UTC by JWT encoding~~ ✅ done
 - Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header
 - Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
 - No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)
