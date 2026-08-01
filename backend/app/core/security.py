@@ -7,6 +7,7 @@ import secrets
 from typing import Annotated
 
 from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
@@ -136,7 +137,12 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     except JWTError as e:
         raise credentials_exception from e
 
-    raw_user = await coll_users.find_one({"_id": ObjectId(user_id)})
+    try:
+        object_id = ObjectId(user_id)
+    except (InvalidId, TypeError) as e:
+        raise credentials_exception from e
+
+    raw_user = await coll_users.find_one({"_id": object_id})
     if raw_user is None:
         raise credentials_exception
 
