@@ -335,6 +335,21 @@ class TestGetCurrentUser:
 
         assert exc_info.value.status_code == 401
 
+    @pytest.mark.asyncio
+    async def test_malformed_sub_raises_401_not_500(self):
+        """A forged/corrupted JWT with a `sub` that isn't a valid ObjectId must
+        yield a clean 401 (like any other invalid token), not an unhandled 500."""
+        token = create_access_token(data={"sub": "not-a-valid-object-id"})
+
+        coll = AsyncMock()
+        with patch("app.core.security.get_collection", return_value=coll):
+            with pytest.raises(HTTPException) as exc_info:
+                await get_current_user(token)
+
+        assert exc_info.value.status_code == 401
+        # find_one must never be reached with a malformed id
+        coll.find_one.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # get_current_user_id (lines 144-150)
