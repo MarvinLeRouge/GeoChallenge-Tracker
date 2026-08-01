@@ -31,4 +31,5 @@ FROM nginx:alpine AS prod
 WORKDIR /usr/share/nginx/html
 COPY --from=build /app/frontend/dist ./
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY frontend/nginx-security-headers.conf /etc/nginx/conf.d/nginx-security-headers.conf
 EXPOSE 80
