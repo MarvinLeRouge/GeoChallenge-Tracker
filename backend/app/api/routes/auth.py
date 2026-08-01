@@ -43,6 +43,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.settings import get_settings
+from app.core.token_revocation import is_refresh_token_revoked, revoke_refresh_token
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.domain.models.user import (
@@ -246,7 +247,8 @@ async def login(
         secure=settings.environment == "production",
         samesite="lax",
         max_age=7 * 24 * 3600,
-        path="/auth/refresh",
+        # Scoped to /auth (not just /auth/refresh) so it also reaches /auth/logout.
+        path="/auth",
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -291,6 +293,9 @@ async def refresh_token(
         sub = data.get("sub")
         if not sub:
             raise HTTPException(status_code=401, detail="Invalid refresh token")
+        jti = data.get("jti")
+        if jti and await is_refresh_token_revoked(jti):
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
     except JWTError as e:
         raise HTTPException(status_code=401, detail="Invalid refresh token") from e
 
@@ -300,6 +305,58 @@ async def refresh_token(
 
     access_token = create_access_token(data={"sub": str(user["_id"])})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post(
+    "/logout",
+    response_model=MessageOut,
+    summary="Log out the current user",
+    description=(
+        "Revokes the refresh token server-side (if present and valid) and clears the cookie.\n\n"
+        "- Idempotent: always returns success, even without an active session\n"
+        "- Does not require a valid access token"
+    ),
+)
+async def logout(
+    response: Response,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+):
+    """Logs out the user.
+
+    Description:
+        Adds the refresh token's `jti` to the server-side denylist (until its natural
+        expiration) if the cookie is present and decodable, then clears the cookie.
+        Always succeeds, regardless of whether a session existed.
+
+    Args:
+        response (Response): HTTP response (used to clear the cookie).
+        refresh_token (str | None): Refresh token read from the HttpOnly cookie.
+
+    Returns:
+        MessageOut: Confirmation message.
+    """
+    if refresh_token:
+        try:
+            data = jwt.decode(
+                refresh_token,
+                settings.jwt_secret_key,
+                algorithms=[settings.jwt_algorithm],
+            )
+            jti = data.get("jti")
+            exp = data.get("exp")
+            if jti and exp:
+                await revoke_refresh_token(jti, dt.datetime.fromtimestamp(exp, tz=dt.timezone.utc))
+        except JWTError:
+            pass  # Nothing to revoke if the token is invalid or already expired
+
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth",
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
+    )
+    return {"message": "Logged out"}
 
 
 # DONE: [BACKLOG] Route /auth/verify-email (GET) verified

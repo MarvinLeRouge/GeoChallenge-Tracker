@@ -99,6 +99,32 @@ class TestJWTTokenCreation:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         assert "exp" in payload
 
+    def test_create_refresh_token_includes_unique_jti(self):
+        """Test that refresh tokens get a unique jti claim, used for revocation."""
+        data = {"sub": "test_user_id"}
+
+        token_a = create_refresh_token(data=data)
+        token_b = create_refresh_token(data=data)
+
+        payload_a = jwt.decode(
+            token_a, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
+        payload_b = jwt.decode(
+            token_b, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
+        assert "jti" in payload_a
+        assert "jti" in payload_b
+        assert payload_a["jti"] != payload_b["jti"]
+
+    def test_create_refresh_token_respects_explicit_jti(self):
+        """Test that an explicit jti in data is preserved rather than overwritten."""
+        data = {"sub": "test_user_id", "jti": "explicit-jti"}
+
+        token = create_refresh_token(data=data)
+
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        assert payload["jti"] == "explicit-jti"
+
     def test_create_access_token_contains_subject(self):
         """Test that access token contains the subject (sub) claim."""
         user_id = "test_user_123"

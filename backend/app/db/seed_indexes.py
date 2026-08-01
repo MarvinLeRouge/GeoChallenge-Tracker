@@ -98,17 +98,20 @@ def _same_options(
     unique: bool | None,
     partial: dict[str, Any] | None,
     collation: Collation | None,
+    expire_after_seconds: int | None,
 ) -> bool:
     """Compares an existing index’s options against the desired options.
 
     Description:
-        Checks equality of `unique`, `partialFilterExpression`, and `collation`.
+        Checks equality of `unique`, `partialFilterExpression`, `collation`, and
+        `expireAfterSeconds` (TTL indexes).
 
     Args:
         existing (dict): Existing index descriptor.
         unique (bool | None): Expected uniqueness constraint.
         partial (dict | None): Expected partial filter expression.
         collation (Collation | None): Expected collation.
+        expire_after_seconds (int | None): Expected TTL, in seconds.
 
     Returns:
         bool: True if the options match, False otherwise.
@@ -118,6 +121,8 @@ def _same_options(
         return False
     ex_partial = existing.get("partialFilterExpression")
     if (partial or None) != (ex_partial or None):
+        return False
+    if existing.get("expireAfterSeconds") != expire_after_seconds:
         return False
     ex_collation = existing.get("collation")
     # ex_collation is a dict when present
@@ -132,6 +137,7 @@ async def ensure_index(
     unique: bool | None = None,
     partial: dict[str, Any] | None = None,
     collation: Collation | None = None,
+    expire_after_seconds: int | None = None,
 ) -> None:
     """Ensures a simple index exists (idempotent create/update).
 
@@ -147,13 +153,20 @@ async def ensure_index(
         unique (bool | None): Uniqueness constraint.
         partial (dict | None): `partialFilterExpression`.
         collation (Collation | None): Collation.
+        expire_after_seconds (int | None): TTL in seconds (creates a TTL index on a date field).
 
     Returns:
         None
     """
     coll = await get_collection(coll_name)
     existing = await _find_existing_by_keys(coll, keys)
-    if existing and _same_options(existing, unique=unique, partial=partial, collation=collation):
+    if existing and _same_options(
+        existing,
+        unique=unique,
+        partial=partial,
+        collation=collation,
+        expire_after_seconds=expire_after_seconds,
+    ):
         return
     if existing:
         # Tolerate concurrent execution (multiple workers):
@@ -176,6 +189,8 @@ async def ensure_index(
         opts["partialFilterExpression"] = partial
     if collation is not None:
         opts["collation"] = collation
+    if expire_after_seconds is not None:
+        opts["expireAfterSeconds"] = expire_after_seconds
     await coll.create_indexes([IndexModel(keys, **opts)])
 
 
@@ -227,6 +242,20 @@ async def ensure_indexes() -> None:
     Returns:
         None
     """
+    # ---------- revoked_refresh_tokens (denylist, TTL auto-cleanup) ----------
+    await ensure_index(
+        "revoked_refresh_tokens",
+        [("jti", ASCENDING)],
+        name="uniq_revoked_refresh_token_jti",
+        unique=True,
+    )
+    await ensure_index(
+        "revoked_refresh_tokens",
+        [("expires_at", ASCENDING)],
+        name="ttl_revoked_refresh_token_expires",
+        expire_after_seconds=0,
+    )
+
     # ---------- users (CI uniques via collation) ----------
     await ensure_index(
         "users",
