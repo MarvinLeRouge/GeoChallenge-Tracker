@@ -8,7 +8,9 @@ from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, s
 from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut
 from app.api.dto.user_stats import UserStatsOut
+from app.core.middleware import read_upload_file_with_limit
 from app.core.security import get_current_user
+from app.core.settings import get_settings
 from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
 from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
@@ -122,8 +124,8 @@ async def sync_my_found_caches(
     Returns:
         dict: {nb_provided, nb_deleted, nb_added, nb_unknown_gc, unknown_gc_codes}.
     """
-    content = await file.read()
-    await file.close()
+    settings = get_settings()
+    content = await read_upload_file_with_limit(file, settings.max_upload_bytes)
 
     try:
         text = content.decode("utf-8", errors="replace")
