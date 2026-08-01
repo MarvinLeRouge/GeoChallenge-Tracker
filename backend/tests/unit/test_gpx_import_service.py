@@ -3,7 +3,7 @@
 import datetime as dt
 import io
 import zipfile
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -177,17 +177,44 @@ class TestFileHandlerExtractZipFiles:
             handler.extract_zip_files(b"not a zip at all!!!!!")
         assert exc_info.value.status_code == 400
 
-    def test_too_many_files_raises_http_exception(self, tmp_path):
-        """The inner 400 HTTPException is caught by the outer except-Exception handler
-        and re-raised as 500. The detail still mentions 'too many files'."""
+    def test_too_many_files_raises_400(self, tmp_path):
         handler = FileHandler(uploads_dir=tmp_path)
         entries = [(f"file_{i}.txt", b"x") for i in range(101)]
         zip_data = _make_zip(*entries)
         with pytest.raises(HTTPException) as exc_info:
             handler.extract_zip_files(zip_data)
-        # The inner 400 is swallowed by the outer except-Exception block → becomes 500
-        assert exc_info.value.status_code == 500
+        assert exc_info.value.status_code == 400
         assert "too many" in exc_info.value.detail.lower()
+
+    def test_cumulative_size_cap_raises_400_and_cleans_up(self, tmp_path):
+        """Total decompressed size across all entries is capped, independently of the
+        per-file 50MB check, and any file already extracted before the cap was hit is
+        cleaned up rather than left behind on disk."""
+        from app.services.gpx_import import file_handler as fh_module
+
+        handler = FileHandler(uploads_dir=tmp_path)
+        chunk = b"<?xml version='1.0'?><gpx version='1.1'>" + b" " * 1000
+        zip_data = _make_zip(
+            ("a.gpx", chunk),
+            ("b.gpx", chunk),
+        )
+        with (
+            patch.object(fh_module, "MAX_TOTAL_EXTRACTED_SIZE", len(chunk)),
+            pytest.raises(HTTPException) as exc_info,
+        ):
+            handler.extract_zip_files(zip_data)
+
+        assert exc_info.value.status_code == 400
+        assert "cumulative" in exc_info.value.detail.lower()
+        # Nothing left behind: the first file (a.gpx) was extracted before the cap
+        # tripped on the second, and must be cleaned up rather than orphaned.
+        assert list(tmp_path.iterdir()) == []
+
+    def test_cumulative_size_within_cap_succeeds(self, tmp_path):
+        handler = FileHandler(uploads_dir=tmp_path)
+        zip_data = _make_zip(("a.gpx", _MINIMAL_GPX), ("b.gpx", _MINIMAL_GPX))
+        paths = handler.extract_zip_files(zip_data)
+        assert len(paths) == 2
 
 
 class TestFileHandlerMaterializeFiles:
@@ -451,11 +478,12 @@ class TestFileHandlerExtractZipMissingBranches:
             mock_zf.namelist = mock.MagicMock(return_value=["big.gpx", "small.gpx"])
             mock_zf.infolist = mock.MagicMock(return_value=[big_info_mock, small_info_mock])
 
-            # small.gpx content
+            # small.gpx content: streamed in chunks, so the mock must behave like a
+            # real file object and signal EOF with an empty read() after the content.
             small_ctx = mock.MagicMock()
             small_ctx.__enter__ = mock.MagicMock(return_value=small_ctx)
             small_ctx.__exit__ = mock.MagicMock(return_value=False)
-            small_ctx.read = mock.MagicMock(return_value=_MINIMAL_GPX)
+            small_ctx.read = mock.MagicMock(side_effect=[_MINIMAL_GPX, b""])
             mock_zf.open = mock.MagicMock(return_value=small_ctx)
 
             mock_zf_cls.return_value = mock_zf
