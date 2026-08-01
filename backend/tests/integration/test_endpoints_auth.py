@@ -17,6 +17,7 @@ import pytest
 from bson import ObjectId
 from jose import jwt
 
+from app.api.routes.auth import hash_verification_code
 from app.core.security import create_refresh_token, hash_password
 from app.core.settings import get_settings
 from app.core.token_revocation import revoke_refresh_token
@@ -167,7 +168,8 @@ class TestAuthEmailVerification:
         verification_code = "ABC123XYZ"  # Code simple
 
         # Créer un utilisateur non vérifié avec un code de vérification
-        # Le backend cherche: {"verification_code": code, "verification_expires_at": {"$gte": now_ts}}
+        # Le backend cherche: {"verification_code": hash_verification_code(code), "verification_expires_at": {"$gte": now_ts}}
+        # (le code est haché en base, jamais stocké en clair - cf point #8 du plan sécurité)
         await test_db.users.insert_one(
             {
                 "username": f"verifyuser_{unique_id}",
@@ -176,7 +178,7 @@ class TestAuthEmailVerification:
                 "is_verified": False,
                 "is_active": True,
                 "role": "user",
-                "verification_code": verification_code,
+                "verification_code": hash_verification_code(verification_code),
                 "verification_expires_at": datetime.utcnow() + timedelta(hours=24),
                 "created_at": datetime.utcnow(),
             }
@@ -212,7 +214,7 @@ class TestAuthEmailVerification:
         unique_id = str(uuid.uuid4())[:8]
         verification_code = "POST123XYZ"
 
-        # Créer un utilisateur non vérifié avec un code de vérification
+        # Créer un utilisateur non vérifié avec un code de vérification (haché en base)
         await test_db.users.insert_one(
             {
                 "username": f"verifyuser_{unique_id}",
@@ -221,7 +223,7 @@ class TestAuthEmailVerification:
                 "is_verified": False,
                 "is_active": True,
                 "role": "user",
-                "verification_code": verification_code,
+                "verification_code": hash_verification_code(verification_code),
                 "verification_expires_at": datetime.utcnow() + timedelta(hours=24),
                 "created_at": datetime.utcnow(),
             }
