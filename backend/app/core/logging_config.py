@@ -5,6 +5,7 @@ import json
 import logging
 import logging.handlers
 import os
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Optional
@@ -130,22 +131,29 @@ def cleanup_old_logs(logs_dir: Path, retention_days: int = 30) -> None:
         f"{logs_dir}/*-data.json",
         f"{logs_dir}/generic.log*",
         f"{logs_dir}/errors.log*",
+        f"{logs_dir}/*-security.log*",
+        f"{logs_dir}/security.log*",
     ]
 
     for pattern in patterns:
         for file_path in glob.glob(pattern):
             file_name = os.path.basename(file_path)
 
-            # Extract the date from the filename
-            for date_part in file_name.split("-"):
-                if len(date_part) == 10 and date_part.count("-") == 2:
-                    try:
-                        if date_part < cutoff_str:
-                            os.remove(file_path)
-                            print(f"Deleted: {file_path}")
-                        break
-                    except (ValueError, OSError):
-                        continue
+            # Extract the date from the filename, whether it's a prefix (e.g.
+            # "2026-06-22-data.json") or a TimedRotatingFileHandler suffix (e.g.
+            # "security.log.2026-06-22"). Splitting on "-" first (as this used to do)
+            # never works: each split part is itself dash-free, so a check for two
+            # dashes inside a part can never be true - this silently never deleted
+            # anything, for any pattern, since the day this function was written.
+            date_match = re.search(r"\d{4}-\d{2}-\d{2}", file_name)
+            if date_match:
+                date_str = date_match.group(0)
+                try:
+                    if date_str < cutoff_str:
+                        os.remove(file_path)
+                        print(f"Deleted: {file_path}")
+                except OSError:
+                    continue
 
 
 # Instance globale (lazy initialization)
@@ -158,6 +166,46 @@ def get_loggers() -> tuple[logging.Logger, logging.Logger, DataLogger]:
     if _loggers is None:
         _loggers = setup_logging()
     return _loggers
+
+
+# Separate singleton (not part of the get_loggers() tuple, to avoid changing that
+# function's signature for its existing callers).
+_security_logger: Optional[logging.Logger] = None
+
+
+def get_security_logger() -> logging.Logger:
+    """Returns the dedicated security-events logger (singleton, lazy init).
+
+    Description:
+        Kept separate from the generic/error loggers so security-relevant events
+        (failed login attempts, etc.) land in their own daily-rotated file and can
+        be monitored/alerted on without being mixed into routine application logs.
+
+    Returns:
+        logging.Logger: Logger writing to logs/security.log (daily rotation, INFO+).
+    """
+    global _security_logger
+    if _security_logger is not None:
+        return _security_logger
+
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+
+    logger = logging.getLogger("geocaching.security")
+    logger.setLevel(logging.INFO)
+
+    if not logger.handlers:  # Avoid duplicate handlers
+        handler = logging.handlers.TimedRotatingFileHandler(
+            filename=logs_dir / "security.log", when="midnight", interval=1, encoding="utf-8"
+        )
+        handler.suffix = "%Y-%m-%d"
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+        logger.addHandler(handler)
+
+    _security_logger = logger
+    return _security_logger
 
 
 def extract_user_data(user_id: Optional[ObjectId] = None, request=None) -> dict[str, Any]:

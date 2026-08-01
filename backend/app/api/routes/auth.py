@@ -29,6 +29,7 @@ from pymongo.collation import Collation
 from app.api.dto.user_profile import VerifyEmailBody
 from app.core.bson_utils import PyObjectId
 from app.core.email import send_verification_email
+from app.core.logging_config import get_security_logger
 from app.core.rate_limit import (
     LOGIN_RATE_LIMIT,
     REGISTER_RATE_LIMIT,
@@ -54,6 +55,7 @@ from app.domain.models.user import (
 )
 
 settings = get_settings()
+security_logger = get_security_logger()
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -253,8 +255,18 @@ async def login(
         collation=COLLATION_CI,
     )
     if user is None or not verify_password(password, user.get("password_hash", "")):
+        security_logger.warning(
+            "Failed login attempt (invalid credentials): identifier=%r ip=%s",
+            ident,
+            request.client.host if request.client else "unknown",
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.get("is_verified", False):
+        security_logger.info(
+            "Login attempt on unverified account: identifier=%r ip=%s",
+            ident,
+            request.client.host if request.client else "unknown",
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
 
     sub = str(user["_id"])

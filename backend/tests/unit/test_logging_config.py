@@ -14,6 +14,7 @@ from app.core.logging_config import (
     cleanup_old_logs,
     extract_user_data,
     get_loggers,
+    get_security_logger,
     setup_logging,
 )
 
@@ -84,6 +85,44 @@ class TestGetLoggers:
         assert result1 is result2
 
 
+class TestGetSecurityLogger:
+    """Test get_security_logger singleton function."""
+
+    def test_returns_a_logger_with_the_expected_name(self):
+        from app.core import logging_config
+
+        logging_config._security_logger = None
+
+        with _STREAM_HANDLER_PATCH:
+            logger = get_security_logger()
+
+        assert logger.name == "geocaching.security"
+
+    def test_returns_same_instance(self):
+        from app.core import logging_config
+
+        logging_config._security_logger = None
+
+        with _STREAM_HANDLER_PATCH:
+            logger1 = get_security_logger()
+            logger2 = get_security_logger()
+
+        assert logger1 is logger2
+
+    def test_independent_from_get_loggers_singleton(self):
+        """get_security_logger() must not be affected by resetting the other singleton."""
+        from app.core import logging_config
+
+        logging_config._loggers = None
+        logging_config._security_logger = None
+
+        with _STREAM_HANDLER_PATCH:
+            security_logger = get_security_logger()
+            generic_logger, _, _ = get_loggers()
+
+        assert security_logger.name != generic_logger.name
+
+
 class TestDataLogger:
     """Test DataLogger class."""
 
@@ -126,8 +165,11 @@ class TestCleanupOldLogs:
 
     def test_cleanup_old_logs_retains_recent(self, tmp_path):
         """Test cleanup_old_logs retains recent log files."""
-        # Create a recent log file
-        recent_file = tmp_path / "2026-02-27-generic.log"
+        # Create a log file genuinely within the retention window (was previously
+        # hardcoded to a fixed calendar date, which only "passed" because the
+        # function under test never actually deleted anything - see below).
+        recent_date = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+        recent_file = tmp_path / f"{recent_date}-generic.log"
         recent_file.write_text("test content")
 
         cleanup_old_logs(tmp_path, retention_days=30)
@@ -136,13 +178,34 @@ class TestCleanupOldLogs:
         assert recent_file.exists()
 
     def test_cleanup_old_logs_runs_without_error_with_old_files(self, tmp_path):
-        """cleanup_old_logs runs without error even when old files are present."""
+        """cleanup_old_logs actually removes old files, and doesn't raise."""
         old_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
         old_file = tmp_path / f"{old_date}-data.json"
         old_file.write_text("[]")
 
-        # Should not raise
         cleanup_old_logs(tmp_path, retention_days=30)
+
+        assert not old_file.exists()
+
+    def test_cleanup_old_logs_removes_old_security_log(self, tmp_path):
+        old_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
+        old_file = tmp_path / f"{old_date}-security.log"
+        old_file.write_text("old security log")
+
+        cleanup_old_logs(tmp_path, retention_days=30)
+
+        assert not old_file.exists()
+
+    def test_cleanup_old_logs_removes_timed_rotating_suffix_form(self, tmp_path):
+        """TimedRotatingFileHandler rotates as `<name>.log.<date>` (suffix), not
+        `<date>-<name>.log` (prefix) - both forms must be handled."""
+        old_date = (datetime.now() - timedelta(days=40)).strftime("%Y-%m-%d")
+        old_file = tmp_path / f"security.log.{old_date}"
+        old_file.write_text("old security log")
+
+        cleanup_old_logs(tmp_path, retention_days=30)
+
+        assert not old_file.exists()
 
 
 # ---------------------------------------------------------------------------
