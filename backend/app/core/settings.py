@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     # === JWT ===
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
-    jwt_expiration_minutes: int = 60 * 24  # 1 day
+    jwt_expiration_minutes: int = 60  # 1 hour
 
     # === ADMIN ===
     admin_username: str

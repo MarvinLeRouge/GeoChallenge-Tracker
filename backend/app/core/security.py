@@ -63,7 +63,7 @@ def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
 
     Description:
         Encodes a signed JWT containing `data` (e.g. `sub`) and an expiration date.
-        The default expiration is 60 minutes if not specified.
+        Defaults to `settings.jwt_expiration_minutes` if not specified.
 
     Args:
         data (dict): Claims to include (e.g. `{"sub": "<user_id>"}`).
@@ -73,7 +73,7 @@ def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):
         str: Signed JWT token.
     """
     to_encode = data.copy()
-    expire = now() + (expires_delta or dt.timedelta(minutes=15))
+    expire = now() + (expires_delta or dt.timedelta(minutes=settings.jwt_expiration_minutes))
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 

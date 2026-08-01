@@ -18,6 +18,7 @@ from app.core.security import (
     verify_password,
 )
 from app.core.settings import get_settings
+from app.core.utils import now
 
 settings = get_settings()
 
@@ -66,15 +67,23 @@ class TestJWTTokenCreation:
         assert token.count(".") == 2  # JWT has 3 parts separated by dots
 
     def test_create_access_token_default_expiration(self):
-        """Test access token creation with default expiration (15 min)."""
+        """Test access token creation with default expiration (settings.jwt_expiration_minutes)."""
         data = {"sub": "test_user_id"}
 
+        before = now()
         token = create_access_token(data=data)
+        after = now()
 
         assert token is not None
         # Decode to verify expiration
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         assert "exp" in payload
+        expected_delta = dt.timedelta(minutes=settings.jwt_expiration_minutes)
+        exp = dt.datetime.fromtimestamp(payload["exp"], tz=dt.timezone.utc).replace(tzinfo=None)
+        # `exp` is stored as an integer Unix timestamp, so it loses sub-second
+        # precision relative to `before`/`after` - allow a 1s tolerance for that.
+        tolerance = dt.timedelta(seconds=1)
+        assert before + expected_delta - tolerance <= exp <= after + expected_delta
 
     def test_create_refresh_token(self):
         """Test creation of JWT refresh token."""
