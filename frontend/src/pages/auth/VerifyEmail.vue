@@ -46,7 +46,7 @@ onMounted(async () => {
   }
 
   try {
-    await api.get("/auth/verify-email", { params: { code } });
+    await api.post("/auth/verify-email", { code });
     status.value = "success";
   } catch (e: unknown) {
     status.value = "error";
