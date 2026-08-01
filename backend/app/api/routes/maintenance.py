@@ -30,6 +30,7 @@ from app.api.deps import CurrentUserId, require_admin
 from app.api.dto.user_stats import UserStatsOut
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 from app.core.email import send_test_email
+from app.core.middleware import read_upload_file_with_limit
 from app.core.settings import get_settings
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
@@ -808,16 +809,8 @@ async def upload_gpx(
     """
     result: dict[str, Any] = {"summary": None, "challenge_stats": None}
 
-    # Read the file
-    chunks: list[bytes] = []
-    while True:
-        chunk = await file.read(1024 * 1024)  # 1MB chunks
-        if not chunk:
-            break
-        chunks.append(chunk)
-
-    await file.close()
-    payload = b"".join(chunks)
+    settings = get_settings()
+    payload = await read_upload_file_with_limit(file, settings.max_upload_bytes)
 
     try:
         result["summary"] = await import_gpx_payload(
@@ -1122,8 +1115,8 @@ async def maintenance_sync_found_caches(
     except Exception as err:
         raise HTTPException(status_code=422, detail="Invalid user_id.") from err
 
-    content = await file.read()
-    await file.close()
+    settings = get_settings()
+    content = await read_upload_file_with_limit(file, settings.max_upload_bytes)
 
     try:
         text = content.decode("utf-8", errors="replace")
