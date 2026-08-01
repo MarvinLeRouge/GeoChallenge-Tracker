@@ -52,12 +52,19 @@ class TestNow:
         assert result.tzinfo is None
 
     def test_now_is_current(self):
-        """Test that now returns current time."""
-        before = datetime.now()
+        """Test that now returns the current UTC instant (naive)."""
+        before = datetime.now(timezone.utc).replace(tzinfo=None)
         result = now()
-        after = datetime.now()
+        after = datetime.now(timezone.utc).replace(tzinfo=None)
 
         assert before <= result <= after
+
+    def test_now_tracks_utc_not_local(self):
+        """Regression test: now() must track UTC, not the host's local timezone."""
+        result = now()
+        utc_reference = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        assert abs((result - utc_reference).total_seconds()) < 1
 
     def test_now_vs_utcnow(self):
         """Test that now() and utcnow() are different (naive vs aware)."""

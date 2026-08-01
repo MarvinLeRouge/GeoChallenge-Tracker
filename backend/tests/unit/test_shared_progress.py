@@ -26,9 +26,9 @@ class TestProgressSnapshot:
         assert snap.percent == 100.0
 
     def test_checked_at_auto_set(self):
-        before = dt.datetime.now()
+        before = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
         snap = ProgressSnapshot()
-        after = dt.datetime.now()
+        after = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
         assert before <= snap.checked_at.replace(tzinfo=None) <= after
 
     def test_explicit_checked_at(self):
