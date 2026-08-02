@@ -49,15 +49,11 @@
     <!-- Profile content -->
     <div v-else-if="profile" class="space-y-6">
       <!-- Informations personnelles -->
-      <div
-        class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-      >
+      <div>
         <h3
-          class="text-lg font-medium text-gray-900 mb-4 flex items-center dark:text-gray-100"
+          class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center dark:text-gray-400"
         >
-          <UserCircleIcon
-            class="h-5 w-5 mr-2 text-gray-600 dark:text-gray-400"
-          />
+          <UserCircleIcon class="h-4 w-4 mr-1.5" />
           Informations personnelles
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -89,15 +85,11 @@
       </div>
 
       <!-- Préférences -->
-      <div
-        class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-      >
+      <div>
         <h3
-          class="text-lg font-medium text-gray-900 mb-4 flex items-center dark:text-gray-100"
+          class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 flex items-center dark:text-gray-400"
         >
-          <AdjustmentsHorizontalIcon
-            class="h-5 w-5 mr-2 text-gray-600 dark:text-gray-400"
-          />
+          <AdjustmentsHorizontalIcon class="h-4 w-4 mr-1.5" />
           Préférences
         </h3>
 
