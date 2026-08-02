@@ -83,29 +83,57 @@
         <h2 class="font-semibold mb-3">Résumé</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div class="bg-green-50 p-3 rounded-lg dark:bg-green-950">
-            <div class="text-2xl font-bold text-green-800 dark:text-green-300">
-              {{ calendarResult.completed_days.length }}
-            </div>
-            <div class="text-sm text-green-600 dark:text-green-400">
-              Jours complétés
+            <div class="flex items-center gap-2">
+              <CheckCircleIcon
+                class="h-6 w-6 text-green-600 shrink-0 dark:text-green-400"
+                aria-hidden="true"
+              />
+              <div>
+                <div
+                  class="text-2xl font-bold text-green-800 dark:text-green-300"
+                >
+                  {{ calendarResult.completed_days.length }}
+                </div>
+                <div class="text-sm text-green-700 dark:text-green-400">
+                  Jours complétés
+                </div>
+              </div>
             </div>
           </div>
           <div class="bg-blue-50 p-3 rounded-lg dark:bg-blue-950">
-            <div class="text-2xl font-bold text-blue-800 dark:text-blue-300">
-              {{ (calendarResult.completion_rate_365 * 100).toFixed(1) }}%
-            </div>
-            <div class="text-sm text-blue-600 dark:text-blue-400">
-              Completion 365 jours
+            <div class="flex items-center gap-2">
+              <CalendarIcon
+                class="h-6 w-6 text-blue-600 shrink-0 dark:text-blue-400"
+                aria-hidden="true"
+              />
+              <div>
+                <div
+                  class="text-2xl font-bold text-blue-800 dark:text-blue-300"
+                >
+                  {{ (calendarResult.completion_rate_365 * 100).toFixed(1) }}%
+                </div>
+                <div class="text-sm text-blue-600 dark:text-blue-400">
+                  Completion 365 jours
+                </div>
+              </div>
             </div>
           </div>
           <div class="bg-purple-50 p-3 rounded-lg dark:bg-purple-950">
-            <div
-              class="text-2xl font-bold text-purple-800 dark:text-purple-300"
-            >
-              {{ (calendarResult.completion_rate_366 * 100).toFixed(1) }}%
-            </div>
-            <div class="text-sm text-purple-600 dark:text-purple-400">
-              Completion 366 jours (bissextile)
+            <div class="flex items-center gap-2">
+              <CalendarIcon
+                class="h-6 w-6 text-purple-600 shrink-0 dark:text-purple-400"
+                aria-hidden="true"
+              />
+              <div>
+                <div
+                  class="text-2xl font-bold text-purple-800 dark:text-purple-300"
+                >
+                  {{ (calendarResult.completion_rate_366 * 100).toFixed(1) }}%
+                </div>
+                <div class="text-sm text-purple-600 dark:text-purple-400">
+                  Completion 366 jours (bissextile)
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -237,6 +265,7 @@ import api from "@/api/http";
 import type { CalendarResult, CacheType, CacheSize } from "@/types/challenges";
 import { useCalendarData } from "@/composables/useCalendarData";
 import { toast } from "vue-sonner";
+import { CheckCircleIcon, CalendarIcon } from "@heroicons/vue/24/outline";
 
 const loading = ref(false);
 const error = ref("");
