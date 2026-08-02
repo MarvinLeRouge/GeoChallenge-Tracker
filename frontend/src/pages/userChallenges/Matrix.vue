@@ -360,7 +360,6 @@ async function fetchMatrix() {
     }
 
     const response = await api.get(`/my/challenges/basics/matrix?${params}`);
-    console.log("Matrix API response:", response.data);
     matrixResult.value = response.data;
   } catch (e: unknown) {
     const detail = (e as { response?: { data?: { detail?: string } } })

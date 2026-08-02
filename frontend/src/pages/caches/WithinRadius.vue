@@ -159,15 +159,10 @@ const searchTitle = computed(() => {
 });
 
 function startPick() {
-  console.log("[parent] startPick clicked");
   const inst = mapRef.value;
-  console.log("[parent] inst =", inst);
-  console.log("[parent] enablePick type =", typeof inst?.enablePick);
   if (typeof inst?.enablePick === "function") {
     inst.enablePick(); // active le mode pick côté MapBase (curseur/réticule)
     picking.value = true; // on garde ta logique existante pour onMapClick
-  } else {
-    console.warn("[parent] enablePick NOT found on MapBase instance");
   }
 }
 
@@ -209,7 +204,6 @@ function setCenter(latlng: L.LatLng) {
   cluster?.clearLayers();
   center.value = { lat: latlng.lat, lng: latlng.lng };
   drawCircle();
-  console.log("Current page value", currentPage.value);
 }
 function drawCircle() {
   if (!map || !center.value) return;

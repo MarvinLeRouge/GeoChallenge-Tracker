@@ -148,7 +148,6 @@ const searchTitle = computed(() => {
 });
 
 function startPick() {
-  console.log("[parent] startPick clicked");
   if (!map) return;
   // reset précédente sélection
   cornerA.value = null;
