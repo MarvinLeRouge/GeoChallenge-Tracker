@@ -5,6 +5,22 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + Vue</title>
+    <script>
+      // Applies the dark theme before the app mounts, to avoid a flash of the
+      // wrong theme. Mirrors the logic in src/store/theme.ts.
+      (function () {
+        try {
+          var stored = localStorage.getItem("theme");
+          var dark =
+            stored === "dark" ||
+            (stored !== "light" &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.classList.add("dark");
+        } catch (e) {
+          // localStorage/matchMedia unavailable: fall back to the light theme.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>
