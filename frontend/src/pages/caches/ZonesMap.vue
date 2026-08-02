@@ -2,16 +2,18 @@
   <div class="absolute inset-0 flex flex-col">
     <!-- Toolbar -->
     <div
-      class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm"
+      class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm dark:bg-gray-900"
     >
       <!-- Level toggle -->
-      <div class="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5">
+      <div
+        class="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 dark:bg-gray-800"
+      >
         <button
           :class="[
             'px-3 py-1 text-xs rounded font-medium transition-colors',
             currentLevel === 1
-              ? 'bg-white shadow text-gray-900'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'bg-white shadow text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
           ]"
           @click="setLevel(1)"
         >
@@ -21,8 +23,8 @@
           :class="[
             'px-3 py-1 text-xs rounded font-medium transition-colors',
             currentLevel === 2
-              ? 'bg-white shadow text-gray-900'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'bg-white shadow text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
           ]"
           @click="setLevel(2)"
         >
@@ -30,12 +32,12 @@
         </button>
       </div>
 
-      <div class="h-4 w-px bg-gray-200" />
+      <div class="h-4 w-px bg-gray-200 dark:bg-gray-700" />
 
       <!-- Type filter -->
       <select
         v-model="selectedType"
-        class="border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 bg-white"
+        class="border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
         @change="reloadCounts"
       >
         <option value="">Tous les types</option>
@@ -47,7 +49,7 @@
 
     <!-- Legend -->
     <div
-      class="absolute bottom-6 right-3 z-[1000] bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700"
+      class="absolute bottom-6 right-3 z-[1000] bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300"
     >
       <div class="font-medium mb-1">Caches</div>
       <div class="flex items-center gap-1">
@@ -67,7 +69,7 @@
         <span>Beaucoup</span>
         <div class="w-3 h-3 rounded-sm" :style="{ background: COLOR_HIGH }" />
       </div>
-      <div class="mt-1 text-gray-400 text-[10px]">
+      <div class="mt-1 text-gray-400 text-[10px] dark:text-gray-500">
         Cliquez sur une zone pour les détails
       </div>
     </div>
@@ -78,42 +80,49 @@
     <!-- Zone detail popover -->
     <div
       v-if="popoverVisible && popoverDetail"
-      class="absolute z-[1001] bg-white rounded-lg shadow-xl border border-gray-200 w-72 text-sm"
+      class="absolute z-[1001] bg-white rounded-lg shadow-xl border border-gray-200 w-72 text-sm dark:bg-gray-900 dark:border-gray-700"
       :style="{ top: popoverPos.y + 'px', left: popoverPos.x + 'px' }"
     >
       <div class="flex items-start justify-between p-3 pb-1">
-        <div class="font-semibold text-gray-900">{{ popoverDetail.name }}</div>
+        <div class="font-semibold text-gray-900 dark:text-gray-100">
+          {{ popoverDetail.name }}
+        </div>
         <button
-          class="text-gray-400 hover:text-gray-600 ml-2 shrink-0"
+          class="text-gray-400 hover:text-gray-600 ml-2 shrink-0 dark:text-gray-500 dark:hover:text-gray-300"
           @click="closePopover"
         >
           ✕
         </button>
       </div>
-      <div class="px-3 pb-1 text-gray-500 text-xs">
+      <div class="px-3 pb-1 text-gray-500 text-xs dark:text-gray-400">
         {{ popoverDetail.cache_count.toLocaleString("fr-FR") }} cache{{
           popoverDetail.cache_count > 1 ? "s" : ""
         }}
         <span v-if="selectedType" class="italic"> ({{ selectedType }})</span>
       </div>
-      <hr class="my-1 border-gray-100" />
+      <hr class="my-1 border-gray-100 dark:border-gray-800" />
       <ul v-if="popoverDetail.caches.length" class="px-3 pb-2 space-y-1">
         <li
           v-for="cache in popoverDetail.caches"
           :key="cache.GC"
-          class="flex items-center gap-1 text-gray-700"
+          class="flex items-center gap-1 text-gray-700 dark:text-gray-300"
         >
-          <span class="text-gray-400 text-xs shrink-0">{{ cache.GC }}</span>
+          <span class="text-gray-400 text-xs shrink-0 dark:text-gray-500">{{
+            cache.GC
+          }}</span>
           <span
             v-if="cache.difficulty && cache.terrain"
-            class="text-gray-400 text-xs shrink-0"
+            class="text-gray-400 text-xs shrink-0 dark:text-gray-500"
           >
             D{{ cache.difficulty }}/T{{ cache.terrain }}
           </span>
           <span class="truncate">{{ cache.title }}</span>
         </li>
       </ul>
-      <div v-else class="px-3 pb-2 text-gray-400 text-xs italic">
+      <div
+        v-else
+        class="px-3 pb-2 text-gray-400 text-xs italic dark:text-gray-500"
+      >
         Aucune cache pour ce filtre.
       </div>
     </div>
@@ -121,9 +130,11 @@
     <!-- Loading overlay -->
     <div
       v-if="loading"
-      class="absolute inset-0 z-[999] flex items-center justify-center bg-white/40 pointer-events-none"
+      class="absolute inset-0 z-[999] flex items-center justify-center bg-white/40 pointer-events-none dark:bg-gray-900/40"
     >
-      <div class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600">
+      <div
+        class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
+      >
         Chargement…
       </div>
     </div>
