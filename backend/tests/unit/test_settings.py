@@ -376,6 +376,10 @@ class TestSettingsMissingRequiredFields:
     def test_app_frontend_url_default(self):
         """Test default app_frontend_url value."""
         settings = Settings(
+            # Isolates this test from the real dotenv file (pytest.ini points
+            # ENV_FILE at the repo's root .env, which legitimately sets
+            # APP_FRONTEND_URL for real dev usage).
+            _env_file=None,
             mongodb_user="test",
             mongodb_password="test",
             mongodb_uri_tpl="mongodb://test",
