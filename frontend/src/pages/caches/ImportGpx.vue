@@ -2,7 +2,7 @@
   <section class="max-w-screen-md mx-auto space-y-6">
     <header class="space-y-1">
       <h1 class="text-xl font-semibold">Importer un fichier GPX/ZIP</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-gray-600 dark:text-gray-400">
         Un seul fichier à la fois. ZIP accepté (les GPX qu’il contient seront
         traités).
       </p>
@@ -14,7 +14,7 @@
       <div class="space-y-1">
         <label class="text-sm font-medium">Fichier</label>
         <input type="file" accept=".gpx,.zip" @change="onPick" />
-        <p v-if="file" class="text-xs text-gray-500">
+        <p v-if="file" class="text-xs text-gray-500 dark:text-gray-400">
           {{ file.name }} — {{ (file.size / 1024).toFixed(0) }} Ko
         </p>
       </div>
@@ -30,7 +30,7 @@
             v-model="importMode"
             type="radio"
             value="all"
-            class="justify-self-start"
+            class="justify-self-start text-blue-600 dark:text-blue-500 border-gray-400 dark:border-gray-500"
           />
           <label for="mode-all" class="text-sm">Toutes les caches</label>
 
@@ -39,11 +39,11 @@
             v-model="importMode"
             type="radio"
             value="found"
-            class="justify-self-start"
+            class="justify-self-start text-blue-600 dark:text-blue-500 border-gray-400 dark:border-gray-500"
           />
           <label for="mode-found" class="text-sm">Caches trouvées</label>
         </div>
-        <p class="text-xs text-gray-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
           Sélectionnez le mode d'import : découvrir de nouvelles caches ou
           ajouter des caches trouvées par vous.
         </p>
@@ -54,13 +54,13 @@
         <label class="text-sm font-medium">Type de source GPX</label>
         <select
           v-model="sourceType"
-          class="w-full border rounded px-3 py-2 text-sm"
+          class="w-full border rounded px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="auto">Détection automatique</option>
           <option value="cgeo">c:geo (export GPX)</option>
           <option value="pocket_query">Pocket Query</option>
         </select>
-        <p class="text-xs text-gray-500">
+        <p class="text-xs text-gray-500 dark:text-gray-400">
           Choisissez le format du fichier GPX ou laissez "Détection automatique"
           pour laisser le système déterminer le format.
         </p>
@@ -69,7 +69,7 @@
       <!-- Actions -->
       <div class="flex items-center gap-3">
         <button
-          class="border rounded px-3 py-2"
+          class="border rounded px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
           :disabled="!file || loading"
           type="submit"
         >
@@ -81,7 +81,7 @@
         </RouterLink>
       </div>
 
-      <p v-if="error" class="text-sm text-red-600">
+      <p v-if="error" class="text-sm text-red-600 dark:text-red-400">
         {{ error }}
       </p>
     </form>
@@ -91,11 +91,11 @@
       <h2 class="text-lg font-semibold">Résumé d’import</h2>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded border p-3">
+        <div class="rounded border p-3 dark:border-gray-700">
           <h3 class="text-sm font-medium mb-2">Statistiques</h3>
           <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
             <template v-for="(val, key) in result.summary" :key="key">
-              <dt class="text-gray-500 capitalize">
+              <dt class="text-gray-500 capitalize dark:text-gray-400">
                 {{ pretty(key) }}
               </dt>
               <dd>{{ val }}</dd>
@@ -103,11 +103,14 @@
           </dl>
         </div>
 
-        <div v-if="result.challenges_stats" class="rounded border p-3">
+        <div
+          v-if="result.challenges_stats"
+          class="rounded border p-3 dark:border-gray-700"
+        >
           <h3 class="text-sm font-medium mb-2">Challenges détectés</h3>
           <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
             <template v-for="(val, key) in result.challenges_stats" :key="key">
-              <dt class="text-gray-500 capitalize">
+              <dt class="text-gray-500 capitalize dark:text-gray-400">
                 {{ pretty(key) }}
               </dt>
               <dd>{{ val }}</dd>
@@ -120,10 +123,10 @@
     <!-- Résultats sync -->
     <div v-if="result?.sync_stats" class="space-y-2">
       <h2 class="text-lg font-semibold">Synchronisation de vos challenges</h2>
-      <div class="rounded border p-3">
+      <div class="rounded border p-3 dark:border-gray-700">
         <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
           <template v-for="(val, key) in result.sync_stats" :key="key">
-            <dt class="text-gray-500 capitalize">
+            <dt class="text-gray-500 capitalize dark:text-gray-400">
               {{ pretty(key) }}
             </dt>
             <dd>{{ val }}</dd>

@@ -2,15 +2,17 @@
   <div class="absolute inset-0 flex flex-col">
     <!-- Toolbar -->
     <div
-      class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm"
+      class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm dark:bg-gray-900"
     >
-      <div class="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5">
+      <div
+        class="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 dark:bg-gray-800"
+      >
         <button
           :class="[
             'px-3 py-1 text-xs rounded font-medium transition-colors',
             currentLevel === 1
-              ? 'bg-white shadow text-gray-900'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'bg-white shadow text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
           ]"
           @click="setLevel(1)"
         >
@@ -20,8 +22,8 @@
           :class="[
             'px-3 py-1 text-xs rounded font-medium transition-colors',
             currentLevel === 2
-              ? 'bg-white shadow text-gray-900'
-              : 'text-gray-500 hover:text-gray-700',
+              ? 'bg-white shadow text-gray-900 dark:bg-gray-700 dark:text-gray-100'
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
           ]"
           @click="setLevel(2)"
         >
@@ -32,7 +34,7 @@
 
     <!-- Legend -->
     <div
-      class="absolute bottom-6 right-3 z-[1000] bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700"
+      class="absolute bottom-6 right-3 z-[1000] bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300"
     >
       <div class="font-medium mb-1">Caches</div>
       <div class="flex items-center gap-1">
@@ -52,7 +54,7 @@
         <span>Beaucoup</span>
         <div class="w-3 h-3 rounded-sm" :style="{ background: COLOR_HIGH }" />
       </div>
-      <div class="mt-1 text-gray-400 text-[10px]">
+      <div class="mt-1 text-gray-400 text-[10px] dark:text-gray-500">
         Cliquez sur une zone pour la répartition par type
       </div>
     </div>
@@ -63,42 +65,44 @@
     <!-- Zone type stats popover -->
     <div
       v-if="popoverVisible && popoverStats"
-      class="absolute z-[1001] bg-white rounded-lg shadow-xl border border-gray-200 w-64 text-sm"
+      class="absolute z-[1001] bg-white rounded-lg shadow-xl border border-gray-200 w-64 text-sm dark:bg-gray-900 dark:border-gray-700"
       :style="{ top: popoverPos.y + 'px', left: popoverPos.x + 'px' }"
     >
       <div class="flex items-start justify-between p-3 pb-1">
-        <div class="font-semibold text-gray-900">{{ popoverStats.name }}</div>
+        <div class="font-semibold text-gray-900 dark:text-gray-100">
+          {{ popoverStats.name }}
+        </div>
         <button
-          class="text-gray-400 hover:text-gray-600 ml-2 shrink-0"
+          class="text-gray-400 hover:text-gray-600 ml-2 shrink-0 dark:text-gray-500 dark:hover:text-gray-300"
           @click="closePopover"
         >
           ✕
         </button>
       </div>
-      <div class="px-3 pb-1 text-gray-500 text-xs">
+      <div class="px-3 pb-1 text-gray-500 text-xs dark:text-gray-400">
         {{ totalCount.toLocaleString("fr-FR") }} cache{{
           totalCount > 1 ? "s" : ""
         }}
         trouvée{{ totalCount > 1 ? "s" : "" }}
       </div>
-      <hr class="my-1 border-gray-100" />
+      <hr class="my-1 border-gray-100 dark:border-gray-800" />
       <table class="w-full text-xs pb-2">
         <tbody>
           <tr
             v-for="item in popoverStats.type_counts"
             :key="item.type_code"
-            :class="item.count === 0 ? 'bg-red-50' : ''"
+            :class="item.count === 0 ? 'bg-red-50 dark:bg-red-950' : ''"
           >
             <td
               :class="[
-                'px-3 py-0.5 text-gray-700',
+                'px-3 py-0.5 text-gray-700 dark:text-gray-300',
                 item.count === 0 ? 'italic' : '',
               ]"
             >
               <span class="flex items-center gap-1">
                 <XCircleIcon
                   v-if="item.count === 0"
-                  class="w-3.5 h-3.5 shrink-0 text-red-500"
+                  class="w-3.5 h-3.5 shrink-0 text-red-500 dark:text-red-400"
                   aria-hidden="true"
                 />
                 {{ item.type_name }}
@@ -106,7 +110,7 @@
             </td>
             <td
               :class="[
-                'px-3 py-0.5 text-right tabular-nums text-gray-700',
+                'px-3 py-0.5 text-right tabular-nums text-gray-700 dark:text-gray-300',
                 item.count === 0 ? 'italic' : 'font-medium',
               ]"
             >
@@ -120,9 +124,11 @@
     <!-- Loading overlay -->
     <div
       v-if="loading"
-      class="absolute inset-0 z-[999] flex items-center justify-center bg-white/40 pointer-events-none"
+      class="absolute inset-0 z-[999] flex items-center justify-center bg-white/40 pointer-events-none dark:bg-gray-900/40"
     >
-      <div class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600">
+      <div
+        class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
+      >
         Chargement…
       </div>
     </div>

@@ -1,1 +1,13 @@
 /* src/assets/global.css */
+
+/* Without this, native form controls (radio, checkbox, select, scrollbars...)
+   keep rendering with their light-mode UA styles even inside .dark - Chromium
+   then applies its own heuristics to the mismatch, which can leave a
+   checked radio/checkbox with no visible contrast against its own control
+   background. */
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
