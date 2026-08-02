@@ -46,22 +46,25 @@ CONFIRMATION_KEY_TTL = 10
 # Directory for persisting pending cleanup analyses awaiting confirmation
 PENDING_CLEANUP_DIR = BACKUP_ROOT_DIR / "pending_cleanups"
 
+# Directory for persisting pending destructive-restore requests awaiting confirmation
+PENDING_RESTORE_DIR = BACKUP_ROOT_DIR / "pending_restores"
 
-def _pending_key_path(key: str) -> Path:
+
+def _pending_key_path(directory: Path, key: str) -> Path:
     """Returns the path to the JSON file associated with a confirmation key."""
-    return PENDING_CLEANUP_DIR / f"{key}.json"
+    return directory / f"{key}.json"
 
 
 def save_cleanup_pending(key: str, orphans: dict, expires_at: datetime) -> None:
     """Persists an orphan analysis pending confirmation into a JSON file."""
     PENDING_CLEANUP_DIR.mkdir(parents=True, exist_ok=True)
-    with open(_pending_key_path(key), "w", encoding="utf-8") as f:
+    with open(_pending_key_path(PENDING_CLEANUP_DIR, key), "w", encoding="utf-8") as f:
         json.dump({"orphans": orphans, "expires_at": expires_at.isoformat()}, f)
 
 
 def load_cleanup_pending(key: str) -> dict | None:
     """Loads a pending analysis from the JSON file. Returns None if not found."""
-    p = _pending_key_path(key)
+    p = _pending_key_path(PENDING_CLEANUP_DIR, key)
     if not p.exists():
         return None
     with open(p, encoding="utf-8") as f:
@@ -70,7 +73,28 @@ def load_cleanup_pending(key: str) -> dict | None:
 
 def delete_cleanup_pending(key: str) -> None:
     """Deletes the JSON file of a pending analysis."""
-    _pending_key_path(key).unlink(missing_ok=True)
+    _pending_key_path(PENDING_CLEANUP_DIR, key).unlink(missing_ok=True)
+
+
+def save_restore_pending(key: str, filename: str, expires_at: datetime) -> None:
+    """Persists a pending destructive-restore request into a JSON file."""
+    PENDING_RESTORE_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_pending_key_path(PENDING_RESTORE_DIR, key), "w", encoding="utf-8") as f:
+        json.dump({"filename": filename, "expires_at": expires_at.isoformat()}, f)
+
+
+def load_restore_pending(key: str) -> dict | None:
+    """Loads a pending restore request from the JSON file. Returns None if not found."""
+    p = _pending_key_path(PENDING_RESTORE_DIR, key)
+    if not p.exists():
+        return None
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def delete_restore_pending(key: str) -> None:
+    """Deletes the JSON file of a pending restore request."""
+    _pending_key_path(PENDING_RESTORE_DIR, key).unlink(missing_ok=True)
 
 
 # Order matters for deletion: most central to most dependent (to prevent creating new orphans during cleanup)
@@ -186,12 +210,12 @@ def serialize_mongo_doc(doc):
     return json.loads(json_util.dumps(doc))
 
 
-def clean_expired_keys() -> None:
+def clean_expired_keys(directory: Path = PENDING_CLEANUP_DIR) -> None:
     """Deletes confirmation files whose expiration date has passed."""
-    if not PENDING_CLEANUP_DIR.exists():
+    if not directory.exists():
         return
     now = utcnow()
-    for p in PENDING_CLEANUP_DIR.glob("*.json"):
+    for p in directory.glob("*.json"):
         try:
             with open(p, encoding="utf-8") as f:
                 data = json.load(f)
@@ -597,7 +621,15 @@ async def full_backup_create():
 
 # DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) verified
 @router.post("/db_full_restore/{filename}")
-async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing: bool = False):
+async def full_backup_restore(
+    filename: str,
+    dry_run: bool = True,
+    drop_existing: bool = False,
+    key: str | None = Query(
+        None,
+        description="Confirmation key from a prior drop_existing=True call, required to actually run it.",
+    ),
+):
     """
     Restores a complete database from a backup.
 
@@ -605,8 +637,14 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
         filename: Name of the full backup file
         dry_run: If True, simulates the restore without inserting (default: True)
         drop_existing: If True, clears collections before restoring (default: False)
+        key: Confirmation key obtained from a prior call with drop_existing=True and no key.
 
-    WARNING: drop_existing=True deletes all existing data!
+    WARNING: drop_existing=True deletes all existing data! Because of that, a destructive
+    restore (dry_run=False and drop_existing=True) needs two calls: the first, without
+    `key`, only validates the backup file and returns a short-lived confirmation_key
+    instead of restoring anything; the actual restore only runs once that same key is
+    passed back via `key=...`. Non-destructive calls (dry_run=True, or drop_existing=False)
+    are unaffected and run immediately, as before.
     """
     # Security check
     if ".." in filename or "/" in filename:
@@ -616,6 +654,38 @@ async def full_backup_restore(filename: str, dry_run: bool = True, drop_existing
 
     if not backup_file.exists():
         raise HTTPException(status_code=404, detail="Backup file not found")
+
+    destructive = not dry_run and drop_existing
+
+    if destructive:
+        clean_expired_keys(PENDING_RESTORE_DIR)
+
+        if key is None:
+            confirmation_key = secrets.token_urlsafe(16)
+            expires_at = utcnow() + timedelta(minutes=CONFIRMATION_KEY_TTL)
+            save_restore_pending(confirmation_key, filename, expires_at)
+            return {
+                "confirmation_key": confirmation_key,
+                "expires_at": expires_at.isoformat(),
+                "message": (
+                    "This would drop all existing data before restoring. Re-submit this "
+                    "request with the confirmation key (?key=...) to proceed."
+                ),
+            }
+
+        pending = load_restore_pending(key)
+        if pending is None:
+            raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
+        if utcnow() > datetime.fromisoformat(pending["expires_at"]):
+            delete_restore_pending(key)
+            raise HTTPException(
+                status_code=410, detail="Confirmation key expired. Please request a new one."
+            )
+        if pending["filename"] != filename:
+            raise HTTPException(
+                status_code=400, detail="Confirmation key does not match this backup file."
+            )
+        delete_restore_pending(key)
 
     with ZipFile(backup_file, "r") as zf:
         json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
