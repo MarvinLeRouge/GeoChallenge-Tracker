@@ -175,4 +175,52 @@ describe("Calendar", () => {
     await flushPromises();
     expect(wrapper.text()).toContain("Custom detail error");
   });
+
+  it("shows the day detail on click and hides it when clicking the same day again", async () => {
+    const wrapper = mount(Calendar);
+    await flushPromises();
+
+    const dayButton = wrapper.find('[aria-label="01/01 - 1 cache"]');
+    expect(dayButton.exists()).toBe(true);
+    expect(wrapper.text()).not.toContain("01/01 - 1 cache");
+
+    await dayButton.trigger("click");
+    expect(wrapper.text()).toContain("01/01 - 1 cache");
+    expect(dayButton.attributes("aria-pressed")).toBe("true");
+
+    await dayButton.trigger("click");
+    expect(wrapper.text()).not.toContain("01/01 - 1 cache");
+    expect(dayButton.attributes("aria-pressed")).toBe("false");
+  });
+
+  it("switches the detail to another day when a different day is clicked", async () => {
+    const wrapper = mount(Calendar);
+    await flushPromises();
+
+    await wrapper.find('[aria-label="01/01 - 1 cache"]').trigger("click");
+    expect(wrapper.text()).toContain("01/01 - 1 cache");
+
+    await wrapper.find('[aria-label="05/01 - Jour manquant"]').trigger("click");
+    expect(wrapper.text()).toContain("05/01 - Jour manquant");
+    expect(wrapper.text()).not.toContain("01/01 - 1 cache");
+  });
+
+  it("formats a large cache count with thousands separators", async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === "/cache_types")
+        return Promise.resolve({ data: makeCacheTypes() });
+      if (url === "/cache_sizes")
+        return Promise.resolve({ data: makeCacheSizes() });
+      return Promise.resolve({
+        data: makeCalendarResult({
+          completed_days: [{ day: "01-01", count: 1234 }],
+        }),
+      });
+    });
+    const wrapper = mount(Calendar);
+    await flushPromises();
+
+    await wrapper.find('[aria-label="01/01 - 1 234 caches"]').trigger("click");
+    expect(wrapper.text()).toContain("01/01 - 1 234 caches");
+  });
 });
