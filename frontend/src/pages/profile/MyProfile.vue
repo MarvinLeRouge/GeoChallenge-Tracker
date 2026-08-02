@@ -66,6 +66,47 @@
         </div>
       </div>
 
+      <!-- Préférences -->
+      <div
+        class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
+      >
+        <h3
+          class="text-lg font-medium text-gray-900 mb-4 flex items-center dark:text-gray-100"
+        >
+          <AdjustmentsHorizontalIcon
+            class="h-5 w-5 mr-2 text-gray-600 dark:text-gray-400"
+          />
+          Préférences
+        </h3>
+
+        <button
+          type="button"
+          class="w-full flex items-center justify-between px-3 py-3 rounded border border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
+          role="switch"
+          :aria-checked="theme.isDark"
+          @click="theme.toggle()"
+        >
+          <span
+            class="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-gray-100"
+          >
+            <MoonIcon v-if="theme.isDark" class="w-5 h-5" aria-hidden="true" />
+            <SunIcon v-else class="w-5 h-5" aria-hidden="true" />
+            <span>{{ theme.isDark ? "Thème sombre" : "Thème clair" }}</span>
+          </span>
+          <span
+            class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"
+            :class="
+              theme.isDark ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+            "
+          >
+            <span
+              class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+              :class="theme.isDark ? 'translate-x-6' : 'translate-x-1'"
+            />
+          </span>
+        </button>
+      </div>
+
       <!-- Localisation -->
       <div class="bg-white rounded-lg border border-gray-200 p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -360,6 +401,7 @@
 <script setup lang="ts">
 import { onMounted, ref, reactive } from "vue";
 import { useUserProfile } from "@/composables/useUserProfile";
+import { useThemeStore } from "@/store/theme";
 import {
   UserCircleIcon,
   MapPinIcon,
@@ -368,11 +410,14 @@ import {
   CheckCircleIcon,
   ArrowPathIcon,
   DocumentArrowUpIcon,
+  AdjustmentsHorizontalIcon,
 } from "@heroicons/vue/24/outline";
-import { LocateFixed } from "lucide-vue-next";
+import { LocateFixed, Sun as SunIcon, Moon as MoonIcon } from "lucide-vue-next";
 import api from "@/api/http";
 import { toast } from "vue-sonner";
 import type { UserLocationIn } from "@/types/index";
+
+const theme = useThemeStore();
 
 interface SyncResult {
   nb_provided: number;
