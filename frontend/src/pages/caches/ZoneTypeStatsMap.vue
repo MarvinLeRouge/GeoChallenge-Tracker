@@ -2,7 +2,7 @@
   <div class="absolute inset-0 flex flex-col">
     <!-- Toolbar -->
     <div
-      class="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm dark:bg-gray-900"
+      class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm dark:bg-gray-900"
     >
       <div
         class="flex items-center gap-0.5 bg-gray-100 rounded-md p-0.5 dark:bg-gray-800"
@@ -34,7 +34,7 @@
 
     <!-- Legend -->
     <div
-      class="absolute bottom-6 right-3 z-[1000] bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300"
+      class="absolute bottom-6 left-3 z-20 bg-white rounded-lg shadow-md px-3 py-2 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300"
     >
       <div class="font-medium mb-1">Caches</div>
       <div class="flex items-center gap-1">
@@ -65,7 +65,7 @@
     <!-- Zone type stats popover -->
     <div
       v-if="popoverVisible && popoverStats"
-      class="absolute z-[1001] bg-white rounded-lg shadow-xl border border-gray-200 w-64 text-sm dark:bg-gray-900 dark:border-gray-700"
+      class="absolute z-30 bg-white rounded-lg shadow-xl border border-gray-200 w-64 text-sm dark:bg-gray-900 dark:border-gray-700"
       :style="{ top: popoverPos.y + 'px', left: popoverPos.x + 'px' }"
     >
       <div class="flex items-start justify-between p-3 pb-1">
@@ -124,7 +124,7 @@
     <!-- Loading overlay -->
     <div
       v-if="loading"
-      class="absolute inset-0 z-[999] flex items-center justify-center bg-white/40 pointer-events-none dark:bg-gray-900/40"
+      class="absolute inset-0 z-10 flex items-center justify-center bg-white/40 pointer-events-none dark:bg-gray-900/40"
     >
       <div
         class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
