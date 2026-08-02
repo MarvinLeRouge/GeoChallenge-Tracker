@@ -72,9 +72,7 @@ function emitCurrentCenter() {
 function currentCenter(): LatLng {
   if (props.center) return props.center;
   const loc = auth.user?.location;
-  console.log("loc", loc);
   if (loc && Number.isFinite(loc.lat) && Number.isFinite(loc.lon)) {
-    console.log("loc found", loc.lat, loc.lon);
     return [loc.lat, loc.lon];
   }
   return fallbackCenter;
@@ -160,13 +158,9 @@ onBeforeUnmount(() => {
 
 // ➕ Exposer des méthodes au parent (pour déclencher depuis un bouton)
 function enablePick() {
-  console.log("[MapBase] enablePick()");
-  console.log("[MapBase] picker is", picker);
-
   picker?.enable();
 }
 function disablePick() {
-  console.log("[MapBase] disablePick()");
   picker?.disable();
 }
 defineExpose({ getMap: () => map, enablePick, disablePick });
