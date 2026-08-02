@@ -61,11 +61,8 @@
     </div>
 
     <!-- Loading/Error -->
-    <div
-      v-if="loading"
-      class="text-center text-gray-500 py-8 dark:text-gray-400"
-    >
-      Chargement du calendrier...
+    <div v-if="loading" class="py-8">
+      <LoadingIndicator label="Chargement du calendrier…" />
     </div>
     <div
       v-if="error"
@@ -266,6 +263,7 @@ import type { CalendarResult, CacheType, CacheSize } from "@/types/challenges";
 import { useCalendarData } from "@/composables/useCalendarData";
 import { toast } from "vue-sonner";
 import { CheckCircleIcon, CalendarIcon } from "@heroicons/vue/24/outline";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 
 const loading = ref(false);
 const error = ref("");

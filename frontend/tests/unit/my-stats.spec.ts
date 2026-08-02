@@ -21,6 +21,7 @@ vi.mock("@heroicons/vue/24/outline", () => {
     InformationCircleIcon: s,
     PlayIcon: s,
     CheckCircleIcon: s,
+    ArrowPathIcon: s,
   };
 });
 

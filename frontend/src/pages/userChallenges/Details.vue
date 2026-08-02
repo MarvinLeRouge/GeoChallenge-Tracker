@@ -8,8 +8,8 @@
       <ArrowLeftIcon class="w-5 h-5" /> Retour
     </button>
 
-    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
-      Chargement…
+    <div v-if="loading" class="py-4">
+      <LoadingIndicator label="Chargement…" />
     </div>
     <div
       v-if="error"
@@ -171,6 +171,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useUserChallenge } from "@/composables/useUserChallenge";
 import api from "@/api/http";
 import { toast } from "vue-sonner";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 
 import {
   ArrowLeftIcon,

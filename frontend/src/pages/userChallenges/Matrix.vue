@@ -61,11 +61,8 @@
     </div>
 
     <!-- Loading/Error -->
-    <div
-      v-if="loading"
-      class="text-center text-gray-500 py-8 dark:text-gray-400"
-    >
-      Chargement de la matrice...
+    <div v-if="loading" class="py-8">
+      <LoadingIndicator label="Chargement de la matrice…" />
     </div>
     <div
       v-if="error"
@@ -290,6 +287,7 @@ import type { MatrixResult, CacheType, CacheSize } from "@/types/challenges";
 import { useMatrixData } from "@/composables/useMatrixData";
 import { MATRIX_DT_TOTAL_COMBINATIONS } from "@/constants/matrix";
 import { toast } from "vue-sonner";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import {
   CheckCircleIcon,
   Squares2X2Icon,

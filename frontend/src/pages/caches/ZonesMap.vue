@@ -132,10 +132,8 @@
       v-if="loading"
       class="absolute inset-0 z-10 flex items-center justify-center bg-white/40 pointer-events-none dark:bg-gray-900/40"
     >
-      <div
-        class="bg-white rounded-lg shadow px-4 py-2 text-sm text-gray-600 dark:bg-gray-900 dark:text-gray-400"
-      >
-        Chargement…
+      <div class="bg-white rounded-lg shadow px-4 py-2 dark:bg-gray-900">
+        <LoadingIndicator label="Chargement…" />
       </div>
     </div>
   </div>
@@ -146,6 +144,7 @@ import { ref, onUnmounted } from "vue";
 import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import MapBase from "@/components/map/MapBase.vue";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import { useZones } from "@/composables/useZones";
 import api from "@/api/http";
 import type { ZoneDetail, ZoneListItem } from "@/types/zones";

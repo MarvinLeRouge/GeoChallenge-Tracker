@@ -27,12 +27,8 @@
         </div>
 
         <!-- Loading targets -->
-        <div
-          v-else-if="loading"
-          class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
-        >
-          <ArrowPathIcon class="w-4 h-4 animate-spin" aria-hidden="true" />
-          Chargement des targets…
+        <div v-else-if="loading">
+          <LoadingIndicator label="Chargement des targets…" />
         </div>
 
         <!-- Results -->
@@ -167,6 +163,7 @@ import L from "leaflet";
 import "leaflet.markercluster";
 import DOMPurify from "dompurify";
 import MapBase from "@/components/map/MapBase.vue";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import { useTargets, type TargetItem } from "@/composables/useTargets";
 import { useUserProfile } from "@/composables/useUserProfile";
 import { getIconFor } from "@/config/cache-icon";
