@@ -51,85 +51,75 @@
       <!-- Cartes de statistiques principales -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Caches trouvées -->
-        <div
-          class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-        >
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <MapPinIcon class="h-8 w-8 text-blue-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Caches trouvées
-              </p>
-              <p
-                class="text-2xl font-semibold text-gray-900 dark:text-gray-100"
-              >
+        <div class="bg-gray-100 p-3 rounded-lg dark:bg-gray-900">
+          <div class="flex items-center gap-2">
+            <MapPinIcon
+              class="h-6 w-6 text-gray-500 shrink-0 dark:text-gray-400"
+              aria-hidden="true"
+            />
+            <div>
+              <div class="text-2xl font-bold text-gray-800 dark:text-gray-200">
                 {{ stats.total_caches_found }}
-              </p>
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                Caches trouvées
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Challenges totaux -->
-        <div
-          class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-        >
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <Trophy class="h-8 w-8 text-yellow-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Challenges
-              </p>
-              <p
-                class="text-2xl font-semibold text-gray-900 dark:text-gray-100"
-              >
+        <div class="bg-gray-100 p-3 rounded-lg dark:bg-gray-900">
+          <div class="flex items-center gap-2">
+            <Trophy
+              class="h-6 w-6 text-gray-500 shrink-0 dark:text-gray-400"
+              aria-hidden="true"
+            />
+            <div>
+              <div class="text-2xl font-bold text-gray-800 dark:text-gray-200">
                 {{ stats.total_challenges }}
-              </p>
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                Challenges
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Challenges actifs -->
-        <div
-          class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-        >
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <PlayIcon class="h-8 w-8 text-green-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                En cours
-              </p>
-              <p
-                class="text-2xl font-semibold text-gray-900 dark:text-gray-100"
-              >
+        <div class="bg-gray-100 p-3 rounded-lg dark:bg-gray-900">
+          <div class="flex items-center gap-2">
+            <PlayIcon
+              class="h-6 w-6 text-gray-500 shrink-0 dark:text-gray-400"
+              aria-hidden="true"
+            />
+            <div>
+              <div class="text-2xl font-bold text-gray-800 dark:text-gray-200">
                 {{ stats.active_challenges }}
-              </p>
+              </div>
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                En cours
+              </div>
             </div>
           </div>
         </div>
 
         <!-- Challenges terminés -->
-        <div
-          class="bg-white rounded-lg border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700"
-        >
-          <div class="flex items-center">
-            <div class="flex-shrink-0">
-              <CheckCircleIcon class="h-8 w-8 text-emerald-600" />
-            </div>
-            <div class="ml-4">
-              <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Terminés
-              </p>
-              <p
-                class="text-2xl font-semibold text-gray-900 dark:text-gray-100"
+        <div class="bg-green-50 p-3 rounded-lg dark:bg-green-950">
+          <div class="flex items-center gap-2">
+            <CheckCircleIcon
+              class="h-6 w-6 text-green-600 shrink-0 dark:text-green-400"
+              aria-hidden="true"
+            />
+            <div>
+              <div
+                class="text-2xl font-bold text-green-800 dark:text-green-300"
               >
                 {{ stats.completed_challenges }}
-              </p>
+              </div>
+              <div class="text-sm text-green-700 dark:text-green-400">
+                Terminés
+              </div>
             </div>
           </div>
         </div>
