@@ -40,6 +40,7 @@ from app.core.security import (
     create_access_token,
     create_refresh_token,
     hash_password,
+    needs_rehash,
     validate_password_strength,
     verify_password,
 )
@@ -261,6 +262,14 @@ async def login(
             request.client.host if request.client else "unknown",
         )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # The plain password was just confirmed correct above, so this is a safe place to
+    # transparently migrate legacy (bcrypt) hashes to the current scheme (argon2id).
+    if needs_rehash(user.get("password_hash", "")):
+        await users.update_one(
+            {"_id": user["_id"]}, {"$set": {"password_hash": hash_password(password)}}
+        )
+
     if not user.get("is_verified", False):
         security_logger.info(
             "Login attempt on unverified account: identifier=%r ip=%s",
