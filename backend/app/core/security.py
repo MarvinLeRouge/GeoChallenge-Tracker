@@ -1,5 +1,6 @@
 # backend/app/core/security.py
-# Password hashing (bcrypt), JWT generation/validation, and FastAPI `get_current_user` dependency.
+# Password hashing (argon2id, with bcrypt verification for legacy hashes), JWT
+# generation/validation, and FastAPI `get_current_user` dependency.
 
 import datetime as dt
 import re
@@ -21,12 +22,15 @@ from app.domain.models.user import User
 
 settings = get_settings()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# `argon2` is listed first, so it's the scheme used for every new hash. `bcrypt` stays
+# listed (and thus still verifiable) purely to support accounts hashed before this change -
+# `deprecated="auto"` marks it as needing an upgrade without breaking existing logins.
+pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
 
 
 def hash_password(password: str) -> str:
-    """Hashes a password using bcrypt via Passlib.
+    """Hashes a password using argon2id via Passlib.
 
     Description:
         Computes a secure hash of the password using the configured Passlib context.
@@ -47,6 +51,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
     Description:
         Uses Passlib to compare `plain_password` against `hashed_password`.
+        Works for both current (argon2id) and legacy (bcrypt) hashes.
 
     Args:
         plain_password (str): Plain-text password.
@@ -56,6 +61,25 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: True if they match, False otherwise.
     """
     return pwd_context.verify(plain_password, hashed_password)
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """Checks whether a stored hash should be upgraded to the current scheme.
+
+    Description:
+        True for hashes using a deprecated scheme (e.g. bcrypt) or outdated
+        parameters for the current scheme. Callers that just verified a password
+        successfully should re-hash it with `hash_password()` and persist the
+        result when this returns True, so accounts migrate to argon2id gradually
+        as their users log in, without forcing a password reset.
+
+    Args:
+        hashed_password (str): Hash stored in the database.
+
+    Returns:
+        bool: True if the hash should be replaced with a fresh one.
+    """
+    return pwd_context.needs_update(hashed_password)
 
 
 def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):

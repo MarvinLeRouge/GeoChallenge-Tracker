@@ -14,6 +14,7 @@ from app.core.security import (
     get_current_user,
     get_current_user_id,
     hash_password,
+    needs_rehash,
     validate_password_strength,
     verify_password,
 )
@@ -36,6 +37,12 @@ class TestPasswordHashing:
         assert len(hashed) > 0
         assert hashed != password  # Hash != original
 
+    def test_hash_password_uses_argon2id(self):
+        """New hashes must use argon2id, not the legacy bcrypt scheme."""
+        hashed = hash_password("Secure123!")
+
+        assert hashed.startswith("$argon2id$")
+
     def test_verify_password_valid(self):
         """Test verify_password with correct password."""
         password = "Secure123!"
@@ -49,6 +56,41 @@ class TestPasswordHashing:
         hashed = hash_password(password)
 
         assert verify_password("WrongPassword", hashed) is False
+
+    def test_verify_password_valid_against_legacy_bcrypt_hash(self):
+        """Accounts hashed before the argon2id migration must still authenticate."""
+        from passlib.context import CryptContext
+
+        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
+        password = "Secure123!"
+        legacy_hash = legacy_bcrypt_context.hash(password)
+
+        assert verify_password(password, legacy_hash) is True
+
+    def test_verify_password_invalid_against_legacy_bcrypt_hash(self):
+        from passlib.context import CryptContext
+
+        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
+        legacy_hash = legacy_bcrypt_context.hash("Secure123!")
+
+        assert verify_password("WrongPassword", legacy_hash) is False
+
+
+class TestNeedsRehash:
+    """Test needs_rehash (drives the transparent bcrypt -> argon2id migration)."""
+
+    def test_fresh_argon2_hash_does_not_need_rehash(self):
+        hashed = hash_password("Secure123!")
+
+        assert needs_rehash(hashed) is False
+
+    def test_legacy_bcrypt_hash_needs_rehash(self):
+        from passlib.context import CryptContext
+
+        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
+        legacy_hash = legacy_bcrypt_context.hash("Secure123!")
+
+        assert needs_rehash(legacy_hash) is True
 
 
 class TestJWTTokenCreation:
