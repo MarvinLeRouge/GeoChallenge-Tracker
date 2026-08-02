@@ -372,21 +372,21 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 
 Audit complet selon le référentiel OWASP Top 10:2025 / ASVS 5.0, tous les constats résolus (4 critiques, 7 moyens, 4 mineurs) - voir `git log` pour les PR individuelles.
 
-- ~~**Critique** - Rate limiting / protection anti brute-force sur `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ fait
-- ~~**Critique** - Révocation du refresh token (aucun endpoint de logout n'invalide le refresh token de 7 jours côté serveur)~~ ✅ fait
-- ~~**Critique** - Scan de vulnérabilités des dépendances en CI (`pip-audit` / `npm audit`)~~ ✅ fait
-- ~~**Critique** - `now()` retournait l'heure locale naïve au lieu de l'UTC, traitée à tort comme UTC lors de l'encodage JWT~~ ✅ fait
-- ~~Le code de vérification envoyé en paramètre GET se retrouve dans les logs d'accès et peut fuiter via l'en-tête `Referer`~~ ✅ fait
-- ~~En-têtes de sécurité manquants (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)~~ ✅ fait
-- ~~Pas de plafond sur la taille cumulée décompressée à l'import ZIP/GPX (risque de zip bomb)~~ ✅ fait
-- ~~Codes de vérification email stockés en clair en base~~ ✅ fait
-- ~~Aucun logging des événements de sécurité pour les échecs de login~~ ✅ fait
-- ~~Un claim JWT `sub` malformé déclenche un 500 générique au lieu d'un 401 propre~~ ✅ fait
-- ~~`MaxBodySizeMiddleware` est contournable via le chunked transfer-encoding~~ ✅ fait
-- ~~Le TTL de l'access token était codé en dur au lieu de suivre `jwt_expiration_minutes` en config~~ ✅ fait
-- ~~Le hachage des mots de passe n'utilisait que bcrypt ; migré vers argon2id, avec re-hachage transparent des comptes existants à la connexion~~ ✅ fait
-- ~~`cleanup_old_logs` utilisait `print()` au lieu du logger configuré~~ ✅ fait
-- ~~Une restauration complète destructrice de la base (`drop_existing=True`) ne nécessitait rien de plus qu'un JWT admin valide~~ ✅ fait (clé de confirmation à usage unique, même pattern que `db_cleanup`)
+- ✅ **Critique** - Rate limiting / protection anti brute-force sur `/auth/login`, `/auth/register`, `/auth/resend-verification`
+- ✅ **Critique** - Révocation du refresh token (aucun endpoint de logout n'invalide le refresh token de 7 jours côté serveur)
+- ✅ **Critique** - Scan de vulnérabilités des dépendances en CI (`pip-audit` / `npm audit`)
+- ✅ **Critique** - `now()` retournait l'heure locale naïve au lieu de l'UTC, traitée à tort comme UTC lors de l'encodage JWT
+- ✅ Le code de vérification envoyé en paramètre GET se retrouve dans les logs d'accès et peut fuiter via l'en-tête `Referer`
+- ✅ En-têtes de sécurité manquants (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
+- ✅ Pas de plafond sur la taille cumulée décompressée à l'import ZIP/GPX (risque de zip bomb)
+- ✅ Codes de vérification email stockés en clair en base
+- ✅ Aucun logging des événements de sécurité pour les échecs de login
+- ✅ Un claim JWT `sub` malformé déclenche un 500 générique au lieu d'un 401 propre
+- ✅ `MaxBodySizeMiddleware` est contournable via le chunked transfer-encoding
+- ✅ Le TTL de l'access token était codé en dur au lieu de suivre `jwt_expiration_minutes` en config
+- ✅ Le hachage des mots de passe n'utilisait que bcrypt ; migré vers argon2id, avec re-hachage transparent des comptes existants à la connexion
+- ✅ `cleanup_old_logs` utilisait `print()` au lieu du logger configuré
+- ✅ Une restauration complète destructrice de la base (`drop_existing=True`) ne nécessitait rien de plus qu'un JWT admin valide (clé de confirmation à usage unique, même pattern que `db_cleanup`)
 
 ---
 

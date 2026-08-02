@@ -372,21 +372,21 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 
 Full OWASP Top 10:2025 / ASVS 5.0 audit pass, all findings resolved (4 critical, 7 medium, 4 minor) - see `git log` for the individual PRs.
 
-- ~~**Critical** - Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ done
-- ~~**Critical** - Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)~~ ✅ done
-- ~~**Critical** - Dependency vulnerability scanning in CI (`pip-audit` / `npm audit`)~~ ✅ done
-- ~~**Critical** - `now()` returned naive local time instead of UTC, mistreated as UTC by JWT encoding~~ ✅ done
-- ~~Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header~~ ✅ done
-- ~~Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)~~ ✅ done
-- ~~No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)~~ ✅ done
-- ~~Email verification codes stored in plaintext in the database~~ ✅ done
-- ~~No security event logging for failed login attempts~~ ✅ done
-- ~~A malformed JWT `sub` claim triggers a generic 500 instead of a clean 401~~ ✅ done
-- ~~`MaxBodySizeMiddleware` is bypassable via chunked transfer-encoding~~ ✅ done
-- ~~Access token TTL was hardcoded instead of following the configured `jwt_expiration_minutes`~~ ✅ done
-- ~~Password hashing used bcrypt only; migrated to argon2id, with transparent re-hashing of legacy accounts on login~~ ✅ done
-- ~~`cleanup_old_logs` used `print()` instead of the configured logger~~ ✅ done
-- ~~A destructive full-database restore (`drop_existing=True`) needed nothing beyond a valid admin JWT~~ ✅ done (single-use confirmation key, same pattern as `db_cleanup`)
+- ✅ **Critical** - Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`
+- ✅ **Critical** - Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)
+- ✅ **Critical** - Dependency vulnerability scanning in CI (`pip-audit` / `npm audit`)
+- ✅ **Critical** - `now()` returned naive local time instead of UTC, mistreated as UTC by JWT encoding
+- ✅ Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header
+- ✅ Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
+- ✅ No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)
+- ✅ Email verification codes stored in plaintext in the database
+- ✅ No security event logging for failed login attempts
+- ✅ A malformed JWT `sub` claim triggers a generic 500 instead of a clean 401
+- ✅ `MaxBodySizeMiddleware` is bypassable via chunked transfer-encoding
+- ✅ Access token TTL was hardcoded instead of following the configured `jwt_expiration_minutes`
+- ✅ Password hashing used bcrypt only; migrated to argon2id, with transparent re-hashing of legacy accounts on login
+- ✅ `cleanup_old_logs` used `print()` instead of the configured logger
+- ✅ A destructive full-database restore (`drop_existing=True`) needed nothing beyond a valid admin JWT (single-use confirmation key, same pattern as `db_cleanup`)
 
 ---
 
