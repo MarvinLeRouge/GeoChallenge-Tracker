@@ -339,7 +339,6 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - "Challenge completed" email notification
 - Challenge GPX export
 - Backend test coverage ≥ 60% enforced in CI
-- Rate limiting on authentication routes
 - Frontend tests (Vitest business logic, component tests)
 - Docker Compose healthchecks
 - CI/CD: run tests automatically before merge
@@ -355,7 +354,6 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Advanced user statistics (evolution charts, milestone projections)
 - Full-text cache search
 - Challenge integration tests
-- HTTP security headers
 - Automate `BUILD_DATE` injection in CI
 
 ### 🟢 Nice-to-have
@@ -365,6 +363,30 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - In-app notifications
 - Prometheus metrics
 - Centralized production logs
+
+---
+
+## ✅ Recently completed
+
+### 🔒 Security hardening
+
+Full OWASP Top 10:2025 / ASVS 5.0 audit pass, all findings resolved (4 critical, 7 medium, 4 minor) - see `git log` for the individual PRs.
+
+- ~~**Critical** - Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ done
+- ~~**Critical** - Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)~~ ✅ done
+- ~~**Critical** - Dependency vulnerability scanning in CI (`pip-audit` / `npm audit`)~~ ✅ done
+- ~~**Critical** - `now()` returned naive local time instead of UTC, mistreated as UTC by JWT encoding~~ ✅ done
+- ~~Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header~~ ✅ done
+- ~~Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)~~ ✅ done
+- ~~No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)~~ ✅ done
+- ~~Email verification codes stored in plaintext in the database~~ ✅ done
+- ~~No security event logging for failed login attempts~~ ✅ done
+- ~~A malformed JWT `sub` claim triggers a generic 500 instead of a clean 401~~ ✅ done
+- ~~`MaxBodySizeMiddleware` is bypassable via chunked transfer-encoding~~ ✅ done
+- ~~Access token TTL was hardcoded instead of following the configured `jwt_expiration_minutes`~~ ✅ done
+- ~~Password hashing used bcrypt only; migrated to argon2id, with transparent re-hashing of legacy accounts on login~~ ✅ done
+- ~~`cleanup_old_logs` used `print()` instead of the configured logger~~ ✅ done
+- ~~A destructive full-database restore (`drop_existing=True`) needed nothing beyond a valid admin JWT~~ ✅ done (single-use confirmation key, same pattern as `db_cleanup`)
 
 ---
 
@@ -379,19 +401,6 @@ The following work streams have been analyzed and broken down into concrete task
 - Remove the `mailhog` service from `docker-compose.prod.yml`
 - Confirm the sender address matches a verified Brevo domain
 - Send a real test email in production to confirm delivery
-
-### 🔒 Security hardening
-- ~~**Critical** - Rate limiting / brute-force protection on `/auth/login`, `/auth/register`, `/auth/resend-verification`~~ ✅ done
-- ~~**Critical** - Refresh token revocation (no logout endpoint invalidates the 7-day refresh token server-side)~~ ✅ done
-- ~~**Critical** - Dependency vulnerability scanning in CI (`pip-audit` / `npm audit`)~~ ✅ done
-- ~~**Critical** - `now()` returned naive local time instead of UTC, mistreated as UTC by JWT encoding~~ ✅ done
-- Verification code sent via a GET query param ends up in access logs and can leak via the `Referer` header
-- Missing security headers (Content-Security-Policy, HSTS, Referrer-Policy, Permissions-Policy)
-- No cap on cumulative decompressed size for ZIP/GPX import (zip-bomb risk)
-- Email verification codes stored in plaintext in the database
-- No security event logging for failed login attempts
-- A malformed JWT `sub` claim triggers a generic 500 instead of a clean 401
-- `MaxBodySizeMiddleware` is bypassable via chunked transfer-encoding
 
 ### 🎨 Frontend design audit
 - **Critical** — the `dark_mode` user preference is stored in the backend but never implemented in the frontend (no `dark:` classes anywhere)

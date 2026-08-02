@@ -475,16 +475,9 @@ backend:
 
 ---
 
-### 8.5 Security headers HTTP ❌ 🟡 `S`
+### 8.5 Security headers HTTP ✅ 🟡 `S`
 
-**À ajouter dans Nginx (production) ou FastAPI (dev) :**
-
-```nginx
-add_header X-Content-Type-Options "nosniff";
-add_header X-Frame-Options "DENY";
-add_header Content-Security-Policy "default-src 'self'; ...";
-add_header Referrer-Policy "strict-origin-when-cross-origin";
-```
+**Fait (2026-08-01) :** en-têtes `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy` ajoutés via un snippet Nginx partagé (`include`d dans chaque `location`, pour contourner le fait qu'un bloc `location` avec son propre `add_header` n'hérite pas de ceux du `server` parent). Vérifié en conditions réelles (headers observés sur les réponses).
 
 ---
 
@@ -550,7 +543,7 @@ add_header Referrer-Policy "strict-origin-when-cross-origin";
 | 25 | Statistiques avancées | 6.2 | L |
 | 26 | Recherche full-text caches | 6.3 | S |
 | 27 | Tests d'intégration challenges | 7.3 | M |
-| 28 | Security headers HTTP | 8.5 | S |
+| 28 | ~~Security headers HTTP~~ ✅ fait | 8.5 | S |
 | 29 | Automatisation build_date CI | 8.6 | S |
 
 ### 🟢 Nice-to-have — Long terme
