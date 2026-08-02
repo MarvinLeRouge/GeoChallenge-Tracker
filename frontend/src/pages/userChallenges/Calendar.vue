@@ -127,15 +127,31 @@
             </h3>
             <div class="grid grid-cols-7 gap-1 text-xs">
               <!-- Jours du mois -->
-              <div
+              <button
                 v-for="day in getDaysInMonth(month)"
                 :key="`${month}-${day}`"
-                class="w-6 h-6 flex items-center justify-center rounded text-xs"
-                :class="getDayClass(month, day)"
+                type="button"
+                class="w-6 h-6 flex items-center justify-center rounded text-xs cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
+                :class="[
+                  getDayClass(month, day),
+                  isSelectedDay(month, day)
+                    ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-800'
+                    : '',
+                ]"
                 :title="getDayTitle(month, day)"
+                :aria-label="getDayTitle(month, day)"
+                :aria-pressed="isSelectedDay(month, day)"
+                @click="selectDay(month, day)"
               >
                 {{ day }}
-              </div>
+              </button>
+            </div>
+            <!-- Détail du jour sélectionné -->
+            <div
+              v-if="selectedDay && selectedDay.month === month"
+              class="mt-1 text-xs text-gray-700 bg-gray-200 rounded px-2 py-1 dark:text-gray-300 dark:bg-gray-900"
+            >
+              {{ getDayTitle(selectedDay.month, selectedDay.day) }}
             </div>
             <!-- Jours manquants ce mois -->
             <div
@@ -229,6 +245,7 @@ const cacheTypes = ref<CacheType[]>([]);
 const cacheSizes = ref<CacheSize[]>([]);
 const selectedCacheType = ref("");
 const selectedCacheSize = ref("");
+const selectedDay = ref<{ month: number; day: number } | null>(null);
 
 // Use the new composable for calendar data processing
 const { calendarData, monthNames, getDaysInMonth } =
@@ -263,16 +280,26 @@ function getDayClass(month: number, day: number): string {
   }
 }
 
+function isSelectedDay(month: number, day: number): boolean {
+  return selectedDay.value?.month === month && selectedDay.value?.day === day;
+}
+
+function selectDay(month: number, day: number): void {
+  selectedDay.value = isSelectedDay(month, day) ? null : { month, day };
+}
+
 function getDayTitle(month: number, day: number): string {
   const calendarDay = calendarData.value.months[month - 1]?.days[day - 1];
-  if (!calendarDay) return `${day}/${month}`;
+  const dateLabel = `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+  if (!calendarDay) return dateLabel;
 
   if (calendarDay.count > 0) {
-    return `${day}/${month} - ${calendarDay.count} cache${calendarDay.count > 1 ? "s" : ""}`;
+    const count = calendarDay.count.toLocaleString("fr-FR");
+    return `${dateLabel} - ${count} cache${calendarDay.count > 1 ? "s" : ""}`;
   } else if (calendarDay.isMissing) {
-    return `${day}/${month} - Jour manquant`;
+    return `${dateLabel} - Jour manquant`;
   } else {
-    return `${day}/${month}`;
+    return dateLabel;
   }
 }
 
