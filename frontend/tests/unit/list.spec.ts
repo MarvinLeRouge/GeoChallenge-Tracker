@@ -22,11 +22,15 @@ const mockStore = vi.hoisted(() => ({
   updateItem: mockUpdateItem,
 }));
 
+const mockRouteQuery = vi.hoisted(() => ({
+  value: {} as Record<string, string>,
+}));
+
 vi.mock("@/api/http", () => ({ default: { patch: mockPatch } }));
 vi.mock("@/store/challenges", () => ({ useChallengesStore: () => mockStore }));
 vi.mock("vue-router", () => ({
   useRouter: () => ({ push: mockRouterPush, replace: mockRouterReplace }),
-  useRoute: () => ({ query: {} }),
+  useRoute: () => ({ query: mockRouteQuery.value }),
 }));
 vi.mock("@/composables/useApiErrorHandler", () => ({
   useApiErrorHandler: () => ({ handleApiError: mockHandleApiError }),
@@ -85,6 +89,7 @@ beforeEach(() => {
   mockStore.items = [];
   mockStore.page = 1;
   mockStore.nbPages = 3;
+  mockRouteQuery.value = {};
   mockFetchList.mockResolvedValue(undefined);
   mockPatch.mockResolvedValue({ data: {} });
 });
@@ -112,7 +117,9 @@ describe("List", () => {
   });
 
   it("prevPage decrements page", async () => {
-    mockStore.page = 2;
+    // The component reads its initial page from route.query.page - setting
+    // mockStore.page directly gets overwritten by that on mount.
+    mockRouteQuery.value = { page: "2" };
     const wrapper = mount(List);
     await flushPromises();
 
@@ -122,6 +129,22 @@ describe("List", () => {
     await prev!.trigger("click");
 
     expect(mockStore.page).toBe(1);
+  });
+
+  it("renders the store error message", async () => {
+    mockStore.error = "Something went wrong";
+    const wrapper = mount(List);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Something went wrong");
+  });
+
+  it("renders the loading indicator", async () => {
+    mockStore.loading = true;
+    const wrapper = mount(List);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("Chargement");
   });
 
   it("nextPage increments page", async () => {

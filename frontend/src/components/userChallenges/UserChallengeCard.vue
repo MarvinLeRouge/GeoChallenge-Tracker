@@ -1,8 +1,8 @@
 <!-- src/components/userChallenges/UserChallengeCard.vue -->
 <template>
   <div
-    class="rounded-lg border shadow-sm p-3 transition"
-    :class="zebra ? 'bg-gray-50' : 'bg-white'"
+    class="rounded-lg border shadow-sm p-3 transition dark:border-gray-700"
+    :class="zebra ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'"
   >
     <h3 class="font-semibold flex flex-wrap items-baseline gap-2">
       <CheckCircleIcon
@@ -39,13 +39,13 @@
         v-if="
           challenge.status === 'accepted' && challenge.progress?.percent != null
         "
-        class="text-sm font-semibold text-gray-600"
+        class="text-sm font-semibold text-gray-600 dark:text-gray-400"
         >{{ Math.round(challenge.progress.percent) }}%</span
       >
     </h3>
 
     <div
-      class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600"
+      class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400"
     >
       <!-- Lien vers Geocaching -->
       <a
@@ -53,7 +53,7 @@
         :href="`https://www.geocaching.com/geocache/${challenge.cache.GC}`"
         target="_blank"
         rel="noopener"
-        class="flex items-center gap-1 hover:text-blue-600 truncate"
+        class="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400 truncate"
         title="Ouvrir sur Geocaching.com"
       >
         <ArrowTopRightOnSquareIcon class="w-4 h-4 shrink-0" />
@@ -63,7 +63,7 @@
       <!-- Difficulty / Terrain -->
       <span
         v-if="challenge.cache?.difficulty && challenge.cache?.terrain"
-        class="flex items-center gap-1 text-gray-700"
+        class="flex items-center gap-1 text-gray-700 dark:text-gray-300"
       >
         <FireIcon
           class="w-4 h-4"
@@ -82,24 +82,30 @@
         v-if="challenge.progress && challenge.progress.percent !== null"
         class="flex items-center gap-2"
       >
-        <div class="flex-1 bg-gray-200 rounded h-2 overflow-hidden">
+        <div
+          class="flex-1 bg-gray-200 rounded h-2 overflow-hidden dark:bg-gray-700"
+        >
           <div
             class="h-full"
             :style="progressBarStyle(challenge.progress.percent)"
           />
         </div>
-        <span class="text-xs text-gray-500 shrink-0 w-8 text-right">
+        <span
+          class="text-xs text-gray-500 shrink-0 w-8 text-right dark:text-gray-400"
+        >
           {{ Math.round(challenge.progress.percent) }}%
         </span>
       </div>
-      <p v-else class="text-xs text-gray-400">Pas encore commencé</p>
+      <p v-else class="text-xs text-gray-400 dark:text-gray-500">
+        Pas encore commencé
+      </p>
     </div>
 
     <!-- Actions (icônes ronds) -->
     <div class="flex flex-wrap gap-2 mt-3">
       <!-- Détails -->
       <button
-        class="p-2 rounded-full border bg-white hover:bg-gray-100"
+        class="p-2 rounded-full border bg-white hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
         title="Détails"
         @click="$emit('details', challenge)"
       >
@@ -112,7 +118,7 @@
           !['accepted', 'completed'].includes(challenge.status) &&
           challenge.computed_status !== 'completed'
         "
-        class="p-2 rounded-full border bg-white hover:bg-green-50"
+        class="p-2 rounded-full border bg-white hover:bg-green-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-green-950"
         title="Accepter"
         @click="$emit('accept', challenge)"
       >
@@ -125,7 +131,7 @@
           !['dismissed', 'completed'].includes(challenge.status) &&
           challenge.computed_status !== 'completed'
         "
-        class="p-2 rounded-full border bg-white hover:bg-red-50"
+        class="p-2 rounded-full border bg-white hover:bg-red-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-red-950"
         title="Ignorer"
         @click="$emit('dismiss', challenge)"
       >
@@ -135,7 +141,7 @@
       <!-- Reset vers pending (si accepted ou dismissed) -->
       <button
         v-if="['accepted', 'dismissed'].includes(challenge.status)"
-        class="p-2 rounded-full border bg-white hover:bg-amber-50"
+        class="p-2 rounded-full border bg-white hover:bg-amber-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-amber-950"
         title="Réinitialiser (pending)"
         @click="$emit('reset', challenge)"
       >
@@ -148,7 +154,7 @@
           ['accepted', 'completed'].includes(challenge.status) ||
           challenge.computed_status === 'completed'
         "
-        class="p-2 rounded-full border bg-white hover:bg-gray-100"
+        class="p-2 rounded-full border bg-white hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
         title="Tâches"
         @click="$emit('tasks', challenge)"
       >

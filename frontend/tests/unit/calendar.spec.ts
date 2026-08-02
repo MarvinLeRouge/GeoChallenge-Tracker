@@ -20,9 +20,10 @@ const makeCalendarResult = (overrides = {}) => ({
   total_days_366: 366,
   completed_days_366: 200,
   completion_rate_366: 54.6,
+  // MM-DD, matching useCalendarData's lookup format (no year, zero-padded month key).
   missing_days: ["01-05", "02-14"],
-  missing_days_by_month: { "1": ["01-05"] },
-  completed_days: [{ day: "2023-01-01", count: 1 }],
+  missing_days_by_month: { "01": ["01-05"] },
+  completed_days: [{ day: "01-01", count: 1 }],
   ...overrides,
 });
 

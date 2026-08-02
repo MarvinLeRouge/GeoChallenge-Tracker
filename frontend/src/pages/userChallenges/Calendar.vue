@@ -4,23 +4,26 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold">Calendar Challenge</h1>
-        <p class="text-gray-600">
+        <p class="text-gray-600 dark:text-gray-400">
           Vérification de completion des 365/366 jours de l'année
         </p>
       </div>
     </div>
 
     <!-- Filtres -->
-    <div class="rounded-lg border bg-white p-4 shadow-sm">
+    <div
+      class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+    >
       <h2 class="font-semibold mb-3">Filtres</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label
+            class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300"
             >Type de cache</label
           >
           <select
             v-model="selectedCacheType"
-            class="w-full border rounded px-3 py-2 bg-white"
+            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchCalendar"
           >
             <option value="">Tous les types</option>
@@ -35,12 +38,13 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1"
+          <label
+            class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300"
             >Taille de cache</label
           >
           <select
             v-model="selectedCacheSize"
-            class="w-full border rounded px-3 py-2 bg-white"
+            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchCalendar"
           >
             <option value="">Toutes les tailles</option>
@@ -57,12 +61,15 @@
     </div>
 
     <!-- Loading/Error -->
-    <div v-if="loading" class="text-center text-gray-500 py-8">
+    <div
+      v-if="loading"
+      class="text-center text-gray-500 py-8 dark:text-gray-400"
+    >
       Chargement du calendrier...
     </div>
     <div
       v-if="error"
-      class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg"
+      class="text-center text-red-600 text-sm py-4 bg-red-50 rounded-lg dark:text-red-400 dark:bg-red-950"
     >
       {{ error }}
     </div>
@@ -70,26 +77,34 @@
     <!-- Résultats Calendar -->
     <div v-if="calendarResult && !loading" class="space-y-4">
       <!-- Statistiques -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
         <h2 class="font-semibold mb-3">Résumé</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div class="bg-green-50 p-3 rounded-lg">
-            <div class="text-2xl font-bold text-green-800">
+          <div class="bg-green-50 p-3 rounded-lg dark:bg-green-950">
+            <div class="text-2xl font-bold text-green-800 dark:text-green-300">
               {{ calendarResult.completed_days.length }}
             </div>
-            <div class="text-sm text-green-600">Jours complétés</div>
+            <div class="text-sm text-green-600 dark:text-green-400">
+              Jours complétés
+            </div>
           </div>
-          <div class="bg-blue-50 p-3 rounded-lg">
-            <div class="text-2xl font-bold text-blue-800">
+          <div class="bg-blue-50 p-3 rounded-lg dark:bg-blue-950">
+            <div class="text-2xl font-bold text-blue-800 dark:text-blue-300">
               {{ (calendarResult.completion_rate_365 * 100).toFixed(1) }}%
             </div>
-            <div class="text-sm text-blue-600">Completion 365 jours</div>
+            <div class="text-sm text-blue-600 dark:text-blue-400">
+              Completion 365 jours
+            </div>
           </div>
-          <div class="bg-purple-50 p-3 rounded-lg">
-            <div class="text-2xl font-bold text-purple-800">
+          <div class="bg-purple-50 p-3 rounded-lg dark:bg-purple-950">
+            <div
+              class="text-2xl font-bold text-purple-800 dark:text-purple-300"
+            >
               {{ (calendarResult.completion_rate_366 * 100).toFixed(1) }}%
             </div>
-            <div class="text-sm text-purple-600">
+            <div class="text-sm text-purple-600 dark:text-purple-400">
               Completion 366 jours (bissextile)
             </div>
           </div>
@@ -97,10 +112,16 @@
       </div>
 
       <!-- Calendrier visuel -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
         <h2 class="font-semibold mb-3">Calendrier annuel</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div v-for="month in 12" :key="month" class="border rounded-lg p-2">
+          <div
+            v-for="month in 12"
+            :key="month"
+            class="border rounded-lg p-2 dark:border-gray-700"
+          >
             <h3 class="text-sm font-medium text-center mb-2">
               {{ monthNames[month - 1] }}
             </h3>
@@ -119,7 +140,7 @@
             <!-- Jours manquants ce mois -->
             <div
               v-if="getMissingDaysCount(month) > 0"
-              class="text-xs text-red-600 mt-1"
+              class="text-xs text-red-600 mt-1 dark:text-red-400"
             >
               {{ getMissingDaysCount(month) }} jour{{
                 getMissingDaysCount(month) > 1 ? "s" : ""
@@ -132,32 +153,38 @@
         <!-- Légende -->
         <div class="mt-4 flex flex-wrap gap-4 text-xs">
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-green-200 rounded" />
+            <div class="w-4 h-4 bg-green-200 rounded dark:bg-green-900" />
             <span>Jour complété</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-red-200 rounded" />
+            <div class="w-4 h-4 bg-red-200 rounded dark:bg-red-900" />
             <span>Jour manquant</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-gray-100 rounded" />
+            <div class="w-4 h-4 bg-gray-100 rounded dark:bg-gray-700" />
             <span>Jour sans cache</span>
           </div>
         </div>
       </div>
 
       <!-- Statistiques détaillées par mois -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
         <h2 class="font-semibold mb-3">Détails par mois</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div v-for="month in 12" :key="month" class="border rounded-lg p-3">
+          <div
+            v-for="month in 12"
+            :key="month"
+            class="border rounded-lg p-3 dark:border-gray-700"
+          >
             <h3 class="font-medium">
               {{ monthNames[month - 1] }}
             </h3>
             <div class="mt-2 space-y-1 text-sm">
               <div class="flex justify-between">
                 <span>Complétés:</span>
-                <span class="text-green-600 font-medium">
+                <span class="text-green-600 font-medium dark:text-green-400">
                   {{ getCompletedDaysInMonth(month) }}/{{
                     getDaysInMonth(month)
                   }}
@@ -165,7 +192,7 @@
               </div>
               <div class="flex justify-between">
                 <span>Manquants:</span>
-                <span class="text-red-600 font-medium">
+                <span class="text-red-600 font-medium dark:text-red-400">
                   {{ getMissingDaysCount(month) }}
                 </span>
               </div>
@@ -224,14 +251,15 @@ const sortedCacheSizes = computed(() => {
 
 function getDayClass(month: number, day: number): string {
   const calendarDay = calendarData.value.months[month - 1]?.days[day - 1];
-  if (!calendarDay) return "bg-gray-100 text-gray-600";
+  if (!calendarDay)
+    return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
 
   if (calendarDay.isCompleted) {
-    return "bg-green-200 text-green-800";
+    return "bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-300";
   } else if (calendarDay.isMissing) {
-    return "bg-red-200 text-red-800";
+    return "bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-300";
   } else {
-    return "bg-gray-100 text-gray-600";
+    return "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400";
   }
 }
 

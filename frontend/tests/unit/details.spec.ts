@@ -257,6 +257,14 @@ describe("Details", () => {
     expect(wrapper.text()).toContain("Pas encore commencé");
   });
 
+  it("shows the computed status when present", async () => {
+    mockUcRef.current.value = makeUc({ computed_status: "completed" });
+    const wrapper = mount(Details);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("computed: completed");
+  });
+
   it("navigates back on Retour click", async () => {
     const wrapper = mount(Details);
     await flushPromises();
