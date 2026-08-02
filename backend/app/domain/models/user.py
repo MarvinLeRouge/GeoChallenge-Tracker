@@ -160,12 +160,14 @@ class UserOut(BaseModel):
         email (EmailStr): Email.
         username (str): Username.
         role (str | None): Role.
+        preferences (Preferences | None): UI preferences.
     """
 
     id: PyObjectId = Field(alias="_id")
     email: EmailStr
     username: str
     role: str | None = "user"
+    preferences: Preferences | None = Field(default_factory=Preferences)
 
     model_config = ConfigDict(
         populate_by_name=True,

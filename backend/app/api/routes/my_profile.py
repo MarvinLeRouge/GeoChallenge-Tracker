@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
 
 from app.api.deps import CurrentUser, CurrentUserId
-from app.api.dto.user_profile import UserLocationIn, UserLocationOut
+from app.api.dto.user_profile import UserLocationIn, UserLocationOut, UserPreferencesIn
 from app.api.dto.user_stats import UserStatsOut
 from app.core.middleware import read_upload_file_with_limit
 from app.core.security import get_current_user
@@ -175,3 +175,37 @@ async def get_my_profile(user: CurrentUser):
     """
 
     return user
+
+
+@router.patch(
+    "/preferences",
+    response_model=UserOut,
+    summary="Update my preferences",
+    description=(
+        "Partially updates the current user's preferences (e.g. `dark_mode`, `language`).\n\n"
+        "Only the fields provided in the request body are changed."
+    ),
+)
+async def patch_my_preferences(
+    payload: Annotated[UserPreferencesIn, Body(..., description="Preference fields to update.")],
+    user_id: CurrentUserId,
+):
+    """Update my preferences (partial).
+
+    Args:
+        payload (UserPreferencesIn): Preference fields to update.
+
+    Returns:
+        UserOut: Updated user profile.
+    """
+    db = get_db()
+    user_profile_service = UserProfileService(db)
+
+    await user_profile_service.set_user_preferences(user_id, payload)
+
+    coll_users = db.users
+    raw_user = await coll_users.find_one({"_id": user_id})
+    if raw_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    return raw_user
