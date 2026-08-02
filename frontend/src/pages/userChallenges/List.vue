@@ -34,11 +34,8 @@
     >
       {{ store.error }}
     </div>
-    <div
-      v-if="store.loading"
-      class="text-center text-gray-500 dark:text-gray-400"
-    >
-      Chargement…
+    <div v-if="store.loading" class="py-4">
+      <LoadingIndicator label="Chargement…" />
     </div>
 
     <!-- Liste -->
@@ -82,6 +79,7 @@ import { computed, onMounted, watch, ref } from "vue";
 import api from "@/api/http";
 import { useRouter, useRoute } from "vue-router";
 import UserChallengeCard from "@/components/userChallenges/UserChallengeCard.vue";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import { useChallengesStore } from "@/store/challenges";
 import { useApiErrorHandler } from "@/composables/useApiErrorHandler";
 import type { UserChallengeListItem } from "@/types/challenges";

@@ -46,6 +46,7 @@ vi.mock("@heroicons/vue/24/outline", () => {
     ClockIcon: s,
     TrophyIcon: s,
     AdjustmentsHorizontalIcon: s,
+    ArrowPathIcon: s,
   };
 });
 

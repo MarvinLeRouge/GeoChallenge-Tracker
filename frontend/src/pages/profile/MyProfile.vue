@@ -11,13 +11,8 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"
-      />
-      <span class="ml-2 text-gray-600 dark:text-gray-400"
-        >Chargement du profil...</span
-      >
+    <div v-if="loading" class="py-12">
+      <LoadingIndicator label="Chargement du profil…" />
     </div>
 
     <!-- Error state -->
@@ -455,6 +450,7 @@
 import { onMounted, ref, reactive } from "vue";
 import { useUserProfile } from "@/composables/useUserProfile";
 import { useThemeStore } from "@/store/theme";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import {
   UserCircleIcon,
   MapPinIcon,

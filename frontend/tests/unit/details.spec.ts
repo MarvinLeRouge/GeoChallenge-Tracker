@@ -53,6 +53,7 @@ vi.mock("@heroicons/vue/24/outline", () => {
     CheckIcon: s,
     XMarkIcon: s,
     InformationCircleIcon: s,
+    ArrowPathIcon: s,
   };
 });
 

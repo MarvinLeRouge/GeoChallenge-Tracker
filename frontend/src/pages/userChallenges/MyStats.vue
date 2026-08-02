@@ -11,13 +11,8 @@
     </div>
 
     <!-- Loading state -->
-    <div v-if="loading" class="flex items-center justify-center py-12">
-      <div
-        class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100"
-      />
-      <span class="ml-2 text-gray-600 dark:text-gray-400"
-        >Chargement de vos statistiques...</span
-      >
+    <div v-if="loading" class="py-12">
+      <LoadingIndicator label="Chargement de vos statistiques…" />
     </div>
 
     <!-- Error state -->
@@ -341,6 +336,7 @@
 <script setup lang="ts">
 import { onMounted } from "vue";
 import { useUserStats } from "@/composables/useUserStats";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import {
   MapPinIcon,
   ExclamationTriangleIcon,

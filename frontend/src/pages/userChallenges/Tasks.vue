@@ -70,8 +70,8 @@
     >
       {{ error }}
     </div>
-    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
-      Chargement…
+    <div v-if="loading" class="py-4">
+      <LoadingIndicator label="Chargement…" />
     </div>
 
     <!-- Liste ordonnable -->
@@ -176,6 +176,7 @@ import {
   ArrowUpOnSquareIcon, // save
 } from "@heroicons/vue/24/outline";
 import { toast } from "vue-sonner";
+import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 
 type TaskExpr = unknown;
 type Task = {

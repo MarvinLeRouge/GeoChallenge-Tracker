@@ -34,6 +34,7 @@ vi.mock("@/api/http", () => ({ default: { get: mockGet } }));
 
 vi.mock("@heroicons/vue/24/outline", () => ({
   XCircleIcon: { template: '<svg data-testid="x-circle-icon" />' },
+  ArrowPathIcon: { template: "<span />" },
 }));
 
 vi.mock("leaflet", () => ({
