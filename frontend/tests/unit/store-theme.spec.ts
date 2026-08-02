@@ -29,7 +29,7 @@ beforeEach(() => {
   mockMatchMedia(false);
 });
 
-describe("readInitialDarkMode (store creation)", () => {
+describe("anonymous default (store creation)", () => {
   it("defaults to system preference when nothing stored", () => {
     mockMatchMedia(true);
     const store = useThemeStore();
@@ -58,26 +58,22 @@ describe("readInitialDarkMode (store creation)", () => {
 });
 
 describe("setDarkMode", () => {
-  it("updates state, the DOM class, and localStorage", async () => {
+  it("with persist: false, updates state and the DOM class but not localStorage", async () => {
     const store = useThemeStore();
     await store.setDarkMode(true, { persist: false });
     expect(store.isDark).toBe(true);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem("theme")).toBe("dark");
-
-    await store.setDarkMode(false, { persist: false });
-    expect(store.isDark).toBe(false);
-    expect(document.documentElement.classList.contains("dark")).toBe(false);
-    expect(localStorage.getItem("theme")).toBe("light");
+    expect(localStorage.getItem("theme")).toBeNull();
   });
 
-  it("does not call the backend when the user is not authenticated", async () => {
+  it("when anonymous, persists to localStorage (the device default) and never calls the backend", async () => {
     const store = useThemeStore();
     await store.setDarkMode(true);
+    expect(localStorage.getItem("theme")).toBe("dark");
     expect(mockPatch).not.toHaveBeenCalled();
   });
 
-  it("persists to the backend when the user is authenticated", async () => {
+  it("when authenticated, persists to the backend and leaves localStorage untouched", async () => {
     const auth = useAuthStore();
     auth.setTokens({ access_token: "tok123" });
     mockPatch.mockResolvedValueOnce({ data: {} });
@@ -88,6 +84,7 @@ describe("setDarkMode", () => {
     expect(mockPatch).toHaveBeenCalledWith("/my/profile/preferences", {
       dark_mode: true,
     });
+    expect(localStorage.getItem("theme")).toBeNull();
   });
 
   it("does not persist when persist: false is passed, even if authenticated", async () => {
@@ -98,6 +95,7 @@ describe("setDarkMode", () => {
     await store.setDarkMode(true, { persist: false });
 
     expect(mockPatch).not.toHaveBeenCalled();
+    expect(localStorage.getItem("theme")).toBeNull();
   });
 
   it("keeps the local theme applied even if the backend call fails", async () => {
@@ -149,6 +147,67 @@ describe("init", () => {
     expect(store.isDark).toBe(true);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(mockPatch).not.toHaveBeenCalled();
+    expect(localStorage.getItem("theme")).toBeNull();
+  });
+
+  it("reverts to the anonymous default on logout, instead of keeping the previous user's theme", async () => {
+    localStorage.setItem("theme", "light");
+    mockMatchMedia(false);
+
+    const auth = useAuthStore();
+    const store = useThemeStore();
+    store.init();
+
+    // User A logs in with dark_mode enabled.
+    auth.user = {
+      id: "userA",
+      username: "alice",
+      email: "a@b.com",
+      role: "user",
+      preferences: { language: "fr", dark_mode: true },
+    };
+    await Promise.resolve();
+    expect(store.isDark).toBe(true);
+
+    // User A logs out.
+    auth.user = null;
+    await Promise.resolve();
+
+    expect(store.isDark).toBe(false);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("does not leak one user's theme into the next user on the same device", async () => {
+    const auth = useAuthStore();
+    const store = useThemeStore();
+    store.init();
+
+    // User A: dark.
+    auth.user = {
+      id: "userA",
+      username: "alice",
+      email: "a@b.com",
+      role: "user",
+      preferences: { language: "fr", dark_mode: true },
+    };
+    await Promise.resolve();
+    expect(store.isDark).toBe(true);
+
+    auth.user = null;
+    await Promise.resolve();
+
+    // User B logs in on the same browser, with light mode.
+    auth.user = {
+      id: "userB",
+      username: "bob",
+      email: "b@b.com",
+      role: "user",
+      preferences: { language: "fr", dark_mode: false },
+    };
+    await Promise.resolve();
+
+    expect(store.isDark).toBe(false);
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
   it("is idempotent: calling init twice does not register duplicate watchers", () => {

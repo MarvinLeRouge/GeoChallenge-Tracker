@@ -21,4 +21,8 @@ export interface UserProfileOut {
     lon: number | null;
     updated_at?: string;
   } | null;
+  preferences?: {
+    language: string;
+    dark_mode: boolean;
+  } | null;
 }
