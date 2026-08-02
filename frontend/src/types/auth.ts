@@ -12,12 +12,18 @@ export type LoginPayload = {
   password: string;
 };
 
+export interface Preferences {
+  language: string;
+  dark_mode: boolean;
+}
+
 // Profil renvoyé par l'API /my/profile (note : _id)
 export interface ProfileBaseApi {
   _id: string;
   email: string;
   username: string;
   role: "admin" | "user";
+  preferences?: Preferences;
 }
 
 // Profil normalisé pour le front (id au lieu de _id)
@@ -26,6 +32,7 @@ export interface ProfileBase {
   email: string;
   username: string;
   role: "admin" | "user";
+  preferences?: Preferences;
 }
 
 export interface UserLocation {

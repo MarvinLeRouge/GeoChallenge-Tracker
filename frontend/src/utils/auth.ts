@@ -6,4 +6,5 @@ export const mapProfileBase = (api: ProfileBaseApi): ProfileBase => ({
   email: api.email,
   username: api.username,
   role: api.role,
+  preferences: api.preferences,
 });

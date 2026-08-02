@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 import flowbite from "flowbite/plugin";
 
 export default {
+  darkMode: "class",
   content: [
     "./frontend/index.html",
     "./frontend/src/**/*.{vue,ts,tsx}",
