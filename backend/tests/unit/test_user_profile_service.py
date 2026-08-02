@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from bson import ObjectId
 
-from app.api.dto.user_profile import UserLocationIn
+from app.api.dto.user_profile import UserLocationIn, UserPreferencesIn
 from app.services.user_profile_service import UserProfileService
 
 
@@ -202,6 +202,49 @@ class TestDeleteUserLocation:
         call_args = db.users.update_one.call_args[0][1]
         assert "$unset" in call_args
         assert "location" in call_args["$unset"]
+
+
+class TestSetUserPreferences:
+    @pytest.mark.asyncio
+    async def test_updates_only_the_provided_field(self):
+        db = _make_db()
+        update_result = MagicMock()
+        db.users.update_one = AsyncMock(return_value=update_result)
+
+        service = UserProfileService(db)
+        result = await service.set_user_preferences(ObjectId(), UserPreferencesIn(dark_mode=True))
+
+        assert result is update_result
+        call_args = db.users.update_one.call_args[0][1]
+        assert call_args["$set"]["preferences.dark_mode"] is True
+        assert "preferences.language" not in call_args["$set"]
+
+    @pytest.mark.asyncio
+    async def test_updates_both_fields_when_both_provided(self):
+        db = _make_db()
+        db.users.update_one = AsyncMock(return_value=MagicMock())
+
+        service = UserProfileService(db)
+        await service.set_user_preferences(
+            ObjectId(), UserPreferencesIn(language="en", dark_mode=False)
+        )
+
+        call_args = db.users.update_one.call_args[0][1]
+        assert call_args["$set"]["preferences.language"] == "en"
+        assert call_args["$set"]["preferences.dark_mode"] is False
+
+    @pytest.mark.asyncio
+    async def test_no_fields_provided_still_bumps_updated_at(self):
+        db = _make_db()
+        db.users.update_one = AsyncMock(return_value=MagicMock())
+
+        service = UserProfileService(db)
+        await service.set_user_preferences(ObjectId(), UserPreferencesIn())
+
+        call_args = db.users.update_one.call_args[0][1]
+        assert "preferences.dark_mode" not in call_args["$set"]
+        assert "preferences.language" not in call_args["$set"]
+        assert "updated_at" in call_args["$set"]
 
 
 class TestUserExists:

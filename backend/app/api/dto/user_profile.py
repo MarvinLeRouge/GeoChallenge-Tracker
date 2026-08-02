@@ -51,3 +51,19 @@ class VerifyEmailBody(BaseModel):
     """Request body for email verification."""
 
     code: str
+
+
+class UserPreferencesIn(BaseModel):
+    """Partial preferences update.
+
+    Description:
+        Only the fields provided (non-`None`) are changed; omitted fields
+        keep their current stored value.
+
+    Attributes:
+        language (str | None): Language (e.g. 'fr').
+        dark_mode (bool | None): Dark theme.
+    """
+
+    language: str | None = None
+    dark_mode: bool | None = None

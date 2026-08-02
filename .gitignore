@@ -104,6 +104,11 @@ backups/
 # Documentation
 docs/ai/work-in-progress
 
+# Impeccable skill (design tooling working files, not committed)
+/PRODUCT.md
+/DESIGN.md
+/.impeccable/
+
 # Logs
 backend/logs/*
 !backend/logs/.gitkeep

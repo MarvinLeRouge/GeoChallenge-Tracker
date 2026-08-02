@@ -7,7 +7,7 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.results import UpdateResult
 
-from app.api.dto.user_profile import UserLocationIn, UserLocationOut
+from app.api.dto.user_profile import UserLocationIn, UserLocationOut, UserPreferencesIn
 from app.core.bson_utils import PyObjectId
 from app.core.utils import utcnow
 from app.services.location_parser import parse_location_to_lon_lat
@@ -141,6 +141,32 @@ class UserProfileService:
             {
                 "$unset": {"location": ""},
                 "$set": {"updated_at": utcnow()},
+            },
+        )
+
+        return result
+
+    async def set_user_preferences(
+        self, user_id: ObjectId, preferences_input: UserPreferencesIn
+    ) -> UpdateResult:
+        """Update a user's preferences (partial).
+
+        Args:
+            user_id: User identifier.
+            preferences_input: Fields to change; `None` fields are left untouched.
+
+        Returns:
+            UpdateResult: MongoDB update result.
+        """
+        updates = preferences_input.model_dump(exclude_none=True)
+        collection = self.db.users
+        result = await collection.update_one(
+            {"_id": user_id},
+            {
+                "$set": {
+                    **{f"preferences.{key}": value for key, value in updates.items()},
+                    "updated_at": utcnow(),
+                }
             },
         )
 
