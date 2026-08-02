@@ -14,11 +14,13 @@
     <div
       class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab"
     >
-      <div class="rounded-lg bg-white/95 border p-2 shadow">
+      <div
+        class="rounded-lg bg-white/95 border p-2 shadow dark:bg-gray-900/95 dark:border-gray-700"
+      >
         <!-- Evaluating state -->
         <div
           v-if="evaluating"
-          class="flex items-center gap-2 text-sm text-indigo-700"
+          class="flex items-center gap-2 text-sm text-indigo-700 dark:text-indigo-300"
         >
           <ArrowPathIcon class="w-4 h-4 animate-spin" aria-hidden="true" />
           Mise à jour des targets en cours…
@@ -27,7 +29,7 @@
         <!-- Loading targets -->
         <div
           v-else-if="loading"
-          class="flex items-center gap-2 text-sm text-gray-500"
+          class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
         >
           <ArrowPathIcon class="w-4 h-4 animate-spin" aria-hidden="true" />
           Chargement des targets…
@@ -42,13 +44,17 @@
 
             <!-- Nearby mode toggle -->
             <label class="flex items-center gap-1.5 cursor-pointer select-none">
-              <span class="text-xs text-gray-600">Proximité</span>
+              <span class="text-xs text-gray-600 dark:text-gray-400"
+                >Proximité</span
+              >
               <button
                 type="button"
                 role="switch"
                 :aria-checked="nearbyMode"
                 class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
-                :class="nearbyMode ? 'bg-indigo-600' : 'bg-gray-300'"
+                :class="
+                  nearbyMode ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'
+                "
                 @click="toggleNearbyMode"
               >
                 <span
@@ -64,9 +70,11 @@
             <!-- Reticle button -->
             <button
               type="button"
-              class="border rounded p-1.5"
+              class="border rounded p-1.5 dark:border-gray-700"
               :class="
-                picking ? 'bg-indigo-100 border-indigo-400' : 'hover:bg-gray-50'
+                picking
+                  ? 'bg-indigo-100 border-indigo-400 dark:bg-indigo-950 dark:border-indigo-700'
+                  : 'hover:bg-gray-50 dark:hover:bg-gray-800'
               "
               aria-label="Choisir le centre sur la carte"
               title="Choisir le centre sur la carte"
@@ -77,6 +85,7 @@
                 width="16"
                 height="16"
                 aria-hidden="true"
+                class="fill-current text-gray-900 dark:text-gray-100"
               >
                 <path
                   d="M11 2v3a1 1 0 002 0V2h-2zm0 17v3h2v-3a1 1 0 10-2 0zM2 11h3a1 1 0 100-2H2v2zm17 0h3v-2h-3a1 1 0 100 2z"
@@ -98,21 +107,24 @@
               type="number"
               min="1"
               step="5"
-              class="border rounded px-2 py-1 w-16 text-sm"
+              class="border rounded px-2 py-1 w-16 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               @change="onRadiusChange"
             />
-            <span class="text-sm text-gray-600">km</span>
+            <span class="text-sm text-gray-600 dark:text-gray-400">km</span>
           </div>
 
           <!-- Pick hint -->
-          <p v-if="picking" class="text-xs text-indigo-700 mt-1">
+          <p
+            v-if="picking"
+            class="text-xs text-indigo-700 mt-1 dark:text-indigo-300"
+          >
             Cliquez sur la carte pour définir le centre…
           </p>
 
           <!-- Nearby center info -->
           <p
             v-else-if="nearbyMode && nearbyCenter"
-            class="text-xs text-gray-500 mt-1"
+            class="text-xs text-gray-500 mt-1 dark:text-gray-400"
           >
             Centre : {{ centerLabel }}
           </p>
@@ -125,7 +137,7 @@
               !refreshStatus.needs_refresh &&
               refreshStatus.last_targets_evaluated_at
             "
-            class="text-xs text-gray-500 mt-1"
+            class="text-xs text-gray-500 mt-1 dark:text-gray-400"
           >
             Aucune nouvelle cache depuis la dernière mise à jour ({{
               formatDate(refreshStatus.last_targets_evaluated_at)
@@ -139,7 +151,7 @@
               refreshStatus &&
               !refreshStatus.last_not_found_import_at
             "
-            class="text-xs text-gray-500 mt-1"
+            class="text-xs text-gray-500 mt-1 dark:text-gray-400"
           >
             Importez des caches GPX pour voir vos targets.
           </p>
