@@ -7,7 +7,7 @@
       <input
         v-model.trim="username"
         type="text"
-        class="border rounded w-full p-2"
+        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="username"
         required
       />
@@ -18,7 +18,7 @@
       <input
         v-model.trim="email"
         type="email"
-        class="border rounded w-full p-2"
+        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="email"
         required
       />
@@ -29,11 +29,11 @@
       <input
         v-model="password"
         type="password"
-        class="border rounded w-full p-2"
+        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="new-password"
         required
       />
-      <p class="text-xs text-gray-500">
+      <p class="text-xs text-gray-500 dark:text-gray-400">
         8+ caractères, mélange conseillé (majuscules, chiffres, symboles).
       </p>
     </div>
@@ -43,20 +43,26 @@
       <input
         v-model="confirm"
         type="password"
-        class="border rounded w-full p-2"
+        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="new-password"
         required
       />
-      <p v-if="confirm && password !== confirm" class="text-xs text-red-600">
+      <p
+        v-if="confirm && password !== confirm"
+        class="text-xs text-red-600 dark:text-red-400"
+      >
         Ne correspond pas.
       </p>
     </div>
 
-    <button class="border rounded px-3 py-2" :disabled="loading || !canSubmit">
+    <button
+      class="border rounded px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
+      :disabled="loading || !canSubmit"
+    >
       {{ loading ? "Création…" : "Créer mon compte" }}
     </button>
 
-    <p v-if="error" class="text-sm text-red-600">
+    <p v-if="error" class="text-sm text-red-600 dark:text-red-400">
       {{ error }}
     </p>
     <p class="text-sm">

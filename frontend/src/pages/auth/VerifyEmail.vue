@@ -2,23 +2,32 @@
   <div class="space-y-4 max-w-sm">
     <h2 class="text-xl font-semibold">Vérification de l'adresse e-mail</h2>
 
-    <p v-if="status === 'pending'" class="text-sm text-gray-500">
+    <p
+      v-if="status === 'pending'"
+      class="text-sm text-gray-500 dark:text-gray-400"
+    >
       Vérification en cours…
     </p>
 
-    <p v-else-if="status === 'success'" class="text-sm text-green-600">
+    <p
+      v-else-if="status === 'success'"
+      class="text-sm text-green-600 dark:text-green-400"
+    >
       Votre adresse e-mail a bien été vérifiée. Vous pouvez maintenant vous
       connecter.
     </p>
 
-    <p v-else-if="status === 'error'" class="text-sm text-red-600">
+    <p
+      v-else-if="status === 'error'"
+      class="text-sm text-red-600 dark:text-red-400"
+    >
       {{ error }}
     </p>
 
     <router-link
       v-if="status !== 'pending'"
       :to="{ name: 'auth/login' }"
-      class="inline-block border px-3 py-2 text-sm"
+      class="inline-block border px-3 py-2 text-sm dark:border-gray-700 dark:hover:bg-gray-800"
     >
       Se connecter
     </router-link>

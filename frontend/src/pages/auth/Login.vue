@@ -7,7 +7,7 @@
       type="text"
       placeholder="Email ou nom d'utilisateur"
       name="identifier"
-      class="border p-2 w-full"
+      class="border p-2 w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
       autocomplete="username"
       required
     />
@@ -17,16 +17,20 @@
       type="password"
       placeholder="Mot de passe"
       name="password"
-      class="border p-2 w-full"
+      class="border p-2 w-full dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
       autocomplete="current-password"
       required
     />
 
-    <button type="submit" class="border px-3 py-2" :disabled="loading">
+    <button
+      type="submit"
+      class="border px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
+      :disabled="loading"
+    >
       {{ loading ? "Connexion…" : "Se connecter" }}
     </button>
 
-    <p v-if="error" class="text-red-600 text-sm">
+    <p v-if="error" class="text-red-600 text-sm dark:text-red-400">
       {{ error }}
     </p>
   </form>
