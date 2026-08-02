@@ -8,21 +8,30 @@
       <ArrowLeftIcon class="w-5 h-5" /> Retour
     </button>
 
-    <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
-    <div v-if="error" class="text-center text-red-600 text-sm">
+    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+      Chargement…
+    </div>
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm dark:text-red-400"
+    >
       {{ error }}
     </div>
 
     <div v-if="uc" class="space-y-4">
       <!-- En-tête -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
         <div class="flex justify-between items-start gap-3">
           <div class="min-w-0">
             <h1 class="font-semibold text-lg break-words">
               {{ uc.challenge.name }}
             </h1>
-            <p class="text-sm text-gray-500">GC: {{ uc.cache.GC }}</p>
-            <p class="text-xs text-gray-400">
+            <p class="text-sm text-gray-500 dark:text-gray-400">
+              GC: {{ uc.cache.GC }}
+            </p>
+            <p class="text-xs text-gray-400 dark:text-gray-500">
               Créé:
               {{
                 uc.created_at
@@ -38,21 +47,28 @@
             </p>
             <p class="text-sm mt-1">
               Statut: <span class="font-medium">{{ uc.status }}</span>
-              <span v-if="uc.computed_status" class="text-gray-500">
+              <span
+                v-if="uc.computed_status"
+                class="text-gray-500 dark:text-gray-400"
+              >
                 (computed: {{ uc.computed_status }})</span
               >
-              <span class="text-gray-500">
+              <span class="text-gray-500 dark:text-gray-400">
                 → effective: {{ uc.effective_status }}</span
               >
             </p>
           </div>
-          <InformationCircleIcon class="w-6 h-6 text-gray-500 shrink-0" />
+          <InformationCircleIcon
+            class="w-6 h-6 text-gray-500 shrink-0 dark:text-gray-400"
+          />
         </div>
 
         <!-- Progress -->
         <div class="mt-3">
           <div v-if="progressSnapshot" class="space-y-1">
-            <div class="flex justify-between text-xs text-gray-500">
+            <div
+              class="flex justify-between text-xs text-gray-500 dark:text-gray-400"
+            >
               <span
                 >{{ progressSnapshot.tasks_done }}/{{
                   progressSnapshot.tasks_total
@@ -61,13 +77,17 @@
               >
               <span>{{ Math.round(progressSnapshot.percent) }}%</span>
             </div>
-            <div class="w-full bg-gray-200 rounded h-2 overflow-hidden">
+            <div
+              class="w-full bg-gray-200 rounded h-2 overflow-hidden dark:bg-gray-700"
+            >
               <div class="h-full" :style="progressBarStyle" />
             </div>
           </div>
-          <p v-else class="text-xs text-gray-400">Pas encore commencé</p>
+          <p v-else class="text-xs text-gray-400 dark:text-gray-500">
+            Pas encore commencé
+          </p>
           <button
-            class="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50"
+            class="mt-2 text-xs text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
             :disabled="evaluating"
             @click="evaluateProgress"
           >
@@ -79,7 +99,7 @@
         <div class="flex gap-2 mt-3">
           <button
             v-if="canAccept"
-            class="p-2 rounded-full border bg-white hover:bg-green-50 disabled:opacity-50"
+            class="p-2 rounded-full border bg-white hover:bg-green-50 disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-green-950"
             :disabled="loading"
             title="Accepter"
             @click="patchStatus('accepted')"
@@ -88,7 +108,7 @@
           </button>
           <button
             v-if="canDismiss"
-            class="p-2 rounded-full border bg-white hover:bg-red-50 disabled:opacity-50"
+            class="p-2 rounded-full border bg-white hover:bg-red-50 disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-red-950"
             :disabled="loading"
             title="Refuser"
             @click="patchStatus('dismissed')"
@@ -99,7 +119,9 @@
       </div>
 
       <!-- Description du challenge -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
         <h2 class="font-semibold mb-2">Description</h2>
         <!-- Rendu HTML sanitisé -->
         <!-- eslint-disable vue/no-v-html -->
@@ -108,28 +130,30 @@
       </div>
 
       <!-- Notes & override -->
-      <div class="rounded-lg border bg-white p-4 shadow-sm space-y-3">
+      <div
+        class="rounded-lg border bg-white p-4 shadow-sm space-y-3 dark:bg-gray-800 dark:border-gray-700"
+      >
         <h2 class="font-semibold">Notes</h2>
         <textarea
           v-model="notes"
           rows="3"
-          class="w-full border rounded px-3 py-2"
+          class="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
           placeholder="Ajouter une note…"
         />
-        <div class="text-sm text-gray-600">
+        <div class="text-sm text-gray-600 dark:text-gray-400">
           <label class="block mb-1 font-medium"
             >Raison d’override (optionnel)</label
           >
           <input
             v-model="overrideReason"
             type="text"
-            class="w-full border rounded px-3 py-2"
+            class="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             placeholder="Ex: contrôle manuel…"
           />
         </div>
         <div class="flex gap-2">
           <button
-            class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50"
+            class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
             :disabled="loading"
             @click="saveNotes"
           >

@@ -1,16 +1,22 @@
 <!-- src/pages/userChallenges/Tasks.vue -->
 <template>
   <!-- Contexte UC -->
-  <div class="rounded-lg border bg-white p-4 shadow-sm">
+  <div
+    class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+  >
     <h1 class="font-semibold text-lg break-words flex items-center gap-2">
       {{ uc?.challenge?.name || "Challenge" }}
-      <span v-if="uc?.cache?.GC" class="text-sm text-gray-500"
+      <span
+        v-if="uc?.cache?.GC"
+        class="text-sm text-gray-500 dark:text-gray-400"
         >· GC: {{ uc.cache.GC }}</span
       >
     </h1>
 
     <details class="mt-2">
-      <summary class="cursor-pointer text-sm text-blue-600 hover:underline">
+      <summary
+        class="cursor-pointer text-sm text-blue-600 hover:underline dark:text-blue-400"
+      >
         Voir la description
       </summary>
       <!-- eslint-disable vue/no-v-html -->
@@ -29,7 +35,7 @@
 
       <div class="ml-auto flex items-center gap-2">
         <button
-          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="loading"
           title="Valider la liste (sans enregistrer)"
           @click="validateAll"
@@ -38,7 +44,7 @@
           Valider
         </button>
         <button
-          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="loading"
           title="Enregistrer toutes les tâches"
           @click="saveAll"
@@ -47,7 +53,7 @@
           Enregistrer
         </button>
         <button
-          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2"
+          class="px-3 py-2 rounded border bg-white hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-2 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="loading"
           title="Ajouter une tâche"
           @click="addTask"
@@ -58,10 +64,15 @@
       </div>
     </div>
 
-    <div v-if="error" class="text-center text-red-600 text-sm">
+    <div
+      v-if="error"
+      class="text-center text-red-600 text-sm dark:text-red-400"
+    >
       {{ error }}
     </div>
-    <div v-if="loading" class="text-center text-gray-500">Chargement…</div>
+    <div v-if="loading" class="text-center text-gray-500 dark:text-gray-400">
+      Chargement…
+    </div>
 
     <!-- Liste ordonnable -->
     <draggable
@@ -72,12 +83,16 @@
     >
       <template #item="{ element: t, index: i }">
         <div
-          class="rounded-lg border shadow-sm p-3"
-          :class="i % 2 === 0 ? 'bg-white' : 'bg-gray-50'"
+          class="rounded-lg border shadow-sm p-3 dark:border-gray-700"
+          :class="
+            i % 2 === 0
+              ? 'bg-white dark:bg-gray-900'
+              : 'bg-gray-50 dark:bg-gray-800'
+          "
         >
           <div class="flex items-start gap-3">
             <button
-              class="drag-handle p-2 rounded border bg-white hover:bg-gray-50"
+              class="drag-handle p-2 rounded border bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
               title="Glisser pour réordonner"
             >
               <Bars3Icon class="w-5 h-5" />
@@ -86,27 +101,31 @@
             <div class="flex-1 min-w-0 space-y-3">
               <!-- Titre -->
               <div>
-                <label class="block text-xs text-gray-500 mb-1">Titre</label>
+                <label
+                  class="block text-xs text-gray-500 mb-1 dark:text-gray-400"
+                  >Titre</label
+                >
                 <input
                   v-model="t.title"
                   type="text"
-                  class="w-full border rounded px-3 py-2"
+                  class="w-full border rounded px-3 py-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                   placeholder="Titre de la tâche"
                 />
               </div>
 
               <!-- Expression (textarea simple) -->
               <div>
-                <label class="block text-xs text-gray-500 mb-1"
+                <label
+                  class="block text-xs text-gray-500 mb-1 dark:text-gray-400"
                   >Expression (JSON minimal)</label
                 >
                 <textarea
                   v-model="t.expression_json"
-                  class="w-full border rounded px-3 py-2 font-mono text-xs"
+                  class="w-full border rounded px-3 py-2 font-mono text-xs dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                   rows="6"
                   placeholder='{\n  "kind": "size_in",\n  "sizes": [{ "code": "L" }]\n}'
                 />
-                <p class="text-[11px] text-gray-500 mt-1">
+                <p class="text-[11px] text-gray-500 mt-1 dark:text-gray-400">
                   Saisir seulement l’objet <code>expression</code> (pas la tâche
                   complète).
                 </p>
@@ -114,19 +133,21 @@
 
               <!-- Min count (nombre) -->
               <div class="flex items-center gap-2">
-                <label class="text-xs text-gray-500">Nombre minimal :</label>
+                <label class="text-xs text-gray-500 dark:text-gray-400"
+                  >Nombre minimal :</label
+                >
                 <input
                   v-model.number="t.min_count"
                   type="number"
                   min="0"
-                  class="w-24 border rounded px-2 py-1"
+                  class="w-24 border rounded px-2 py-1 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
                 />
               </div>
 
               <!-- Actions par ligne -->
               <div class="flex items-center gap-2">
                 <button
-                  class="p-2 rounded-full border bg-white hover:bg-red-50"
+                  class="p-2 rounded-full border bg-white hover:bg-red-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-red-950"
                   title="Supprimer"
                   @click="removeTask(i)"
                 >

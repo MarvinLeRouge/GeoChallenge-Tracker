@@ -10,7 +10,7 @@
         :class="
           filterStatus === s
             ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white text-gray-600 hover:bg-gray-50'
+            : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:bg-gray-700'
         "
         :title="statusLabels[s]"
         :aria-label="statusLabels[s]"
@@ -28,10 +28,16 @@
     </div>
 
     <!-- Etat / erreurs -->
-    <div v-if="store.error" class="text-center text-red-600 text-sm">
+    <div
+      v-if="store.error"
+      class="text-center text-red-600 text-sm dark:text-red-400"
+    >
       {{ store.error }}
     </div>
-    <div v-if="store.loading" class="text-center text-gray-500">
+    <div
+      v-if="store.loading"
+      class="text-center text-gray-500 dark:text-gray-400"
+    >
       Chargement…
     </div>
 
@@ -52,7 +58,7 @@
       <!-- Pagination -->
       <div class="flex justify-between items-center mt-4">
         <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
+          class="px-3 py-2 rounded border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="!canPrev"
           @click="prevPage"
         >
@@ -60,7 +66,7 @@
         </button>
         <span class="text-sm">Page {{ store.page }} / {{ store.nbPages }}</span>
         <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50"
+          class="px-3 py-2 rounded border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="!canNext"
           @click="nextPage"
         >
