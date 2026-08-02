@@ -388,6 +388,17 @@ Audit complet selon le référentiel OWASP Top 10:2025 / ASVS 5.0, tous les cons
 - ✅ `cleanup_old_logs` utilisait `print()` au lieu du logger configuré
 - ✅ Une restauration complète destructrice de la base (`drop_existing=True`) ne nécessitait rien de plus qu'un JWT admin valide (clé de confirmation à usage unique, même pattern que `db_cleanup`)
 
+### 🎨 Audit design frontend
+
+Mode sombre, plus 5 constats de cohérence/accessibilité, tous résolus - les conventions visuelles (rôles de couleur, typographie, composants) sont documentées dans [`docs/design-system.md`](docs/design-system.md).
+
+- ✅ **Critique** - mode sombre implémenté de bout en bout (préférence backend, store de thème frontend, variantes `dark:` sur toutes les pages)
+- ✅ Le détail des jours du calendrier n'était visible qu'au survol (attribut `title`) - les cellules de jour sont maintenant des boutons focusables révélant le détail au clic/tap aussi
+- ✅ Stat-tiles multicolores (vert/bleu/violet/indigo) sans logique de couleur cohérente - chaque couleur porte maintenant un rôle fixe et documenté, réutilisé sur toutes les pages
+- ✅ Cartes identiques répétées entre sections sans hiérarchie visuelle - les sections secondaires/de consultation ont maintenant un traitement plus léger que les sections principales/actionnables
+- ✅ `console.log` de debug oubliés en code de production
+- ✅ Feedback de chargement incohérent (spinner vs texte simple) selon les pages - unifié dans un composant `LoadingIndicator` partagé
+
 ---
 
 ## 🚧 Analyses en cours (non encore implémentées)
@@ -401,14 +412,6 @@ Les chantiers suivants ont été analysés et découpés en tâches concrètes, 
 - Supprimer le service `mailhog` de `docker-compose.prod.yml`
 - Confirmer que l'adresse expéditrice correspond à un domaine vérifié Brevo
 - Envoyer un email de test réel en production pour confirmer la délivrabilité
-
-### 🎨 Audit design frontend
-- **Critique** — la préférence utilisateur `dark_mode` est stockée côté backend mais jamais implémentée côté frontend (aucune classe `dark:` nulle part)
-- Le détail des jours du calendrier n'est visible qu'au survol (attribut `title`) — invisible sur mobile/tactile, faible pour les lecteurs d'écran
-- Stat-tiles multicolores (vert/bleu/violet/indigo) sans logique de couleur cohérente
-- Cartes identiques répétées entre sections sans hiérarchie visuelle
-- `console.log` de debug oubliés en code de production
-- Feedback de chargement incohérent (spinner vs texte simple) selon les pages
 
 ---
 

@@ -388,6 +388,17 @@ Full OWASP Top 10:2025 / ASVS 5.0 audit pass, all findings resolved (4 critical,
 - ✅ `cleanup_old_logs` used `print()` instead of the configured logger
 - ✅ A destructive full-database restore (`drop_existing=True`) needed nothing beyond a valid admin JWT (single-use confirmation key, same pattern as `db_cleanup`)
 
+### 🎨 Frontend design audit
+
+Dark mode, plus 5 consistency/accessibility findings, all resolved - visual conventions (color roles, typography, components) are documented in [`docs/design-system.md`](docs/design-system.md).
+
+- ✅ **Critical** - dark mode implemented end-to-end (backend preference, frontend theme store, `dark:` variants across every page)
+- ✅ Calendar day details were only visible on hover (`title` attribute) - day cells are now focusable buttons revealing detail on click/tap too
+- ✅ Multi-color stat tiles (green/blue/purple/indigo) without a consistent color meaning - each color now carries a fixed, documented role reused across every page
+- ✅ Repeated identical card wrappers across sections with no visual hierarchy - secondary/reference sections now use a lighter treatment than primary/actionable ones
+- ✅ Leftover debug `console.log` calls in production code
+- ✅ Inconsistent loading feedback (spinner vs. plain text) between pages - unified into a single shared `LoadingIndicator` component
+
 ---
 
 ## 🚧 Ongoing analysis (not yet implemented)
@@ -401,14 +412,6 @@ The following work streams have been analyzed and broken down into concrete task
 - Remove the `mailhog` service from `docker-compose.prod.yml`
 - Confirm the sender address matches a verified Brevo domain
 - Send a real test email in production to confirm delivery
-
-### 🎨 Frontend design audit
-- **Critical** — the `dark_mode` user preference is stored in the backend but never implemented in the frontend (no `dark:` classes anywhere)
-- Calendar day details are only visible on hover (`title` attribute) — invisible on mobile/touch, weak for screen readers
-- Multi-color stat tiles (green/blue/purple/indigo) without a consistent color meaning
-- Repeated identical card wrappers across sections with no visual hierarchy between them
-- Leftover debug `console.log` calls in production code
-- Inconsistent loading feedback (spinner vs. plain text) between pages
 
 ---
 
