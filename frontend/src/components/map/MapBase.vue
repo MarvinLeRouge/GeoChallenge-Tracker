@@ -1,6 +1,9 @@
 <template>
-  <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit -->
-  <div id="imZeMapComponent" ref="el" class="absolute inset-0" />
+  <!-- le parent de MapBase doit être positionné (relative/absolute) ; ici on remplit.
+       isolate confine les z-index internes de Leaflet (jusqu'à 1000 pour ses
+       contrôles) dans ce conteneur, pour qu'ils ne passent jamais devant le
+       chrome de l'appli (ex. le FAB, fixed z-50). -->
+  <div id="imZeMapComponent" ref="el" class="absolute inset-0 isolate" />
 </template>
 
 <script setup lang="ts">
