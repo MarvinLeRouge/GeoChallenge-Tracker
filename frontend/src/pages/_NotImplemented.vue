@@ -1,36 +1,39 @@
 <template>
   <section class="max-w-screen-md mx-auto text-center space-y-6">
     <div
-      class="inline-flex items-center justify-center rounded-2xl border p-6 bg-gray-50"
+      class="inline-flex items-center justify-center rounded-2xl border p-6 bg-gray-50 dark:bg-gray-800 dark:border-gray-700"
     >
       <WrenchScrewdriverIcon
-        class="w-12 h-12 text-gray-500"
+        class="w-12 h-12 text-gray-500 dark:text-gray-400"
         aria-hidden="true"
       />
     </div>
 
-    <h1 class="text-2xl font-bold">
+    <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
       {{ title }}
     </h1>
-    <p class="text-gray-600">
+    <p class="text-gray-600 dark:text-gray-400">
       {{ message }}
     </p>
 
     <div class="flex items-center justify-center gap-3">
-      <RouterLink to="/" class="border rounded px-4 py-2 hover:bg-gray-50">
+      <RouterLink
+        to="/"
+        class="border rounded px-4 py-2 hover:bg-gray-50 text-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+      >
         Accueil
       </RouterLink>
       <RouterLink
         v-if="helpTo"
         :to="helpTo"
-        class="border rounded px-4 py-2 hover:bg-gray-50"
+        class="border rounded px-4 py-2 hover:bg-gray-50 text-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
       >
         Aide
       </RouterLink>
       <slot name="actions" />
     </div>
 
-    <p v-if="hint" class="text-xs text-gray-500">
+    <p v-if="hint" class="text-xs text-gray-500 dark:text-gray-400">
       {{ hint }}
     </p>
   </section>
