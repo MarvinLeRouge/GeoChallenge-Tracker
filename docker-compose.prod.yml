@@ -8,8 +8,6 @@ services:
     env_file:
       - ../shared/env/app.env
       - ../shared/env/secrets.env
-    depends_on:
-      - mailhog
     volumes:
       - ../shared/backups:/backups
       - ../shared/uploads:/app/uploads
@@ -91,16 +89,6 @@ services:
       - "traefik.http.services.gctracker-tiles.loadbalancer.server.port=80"
     networks:
       - traefik-public
-
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: geo-mailhog
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
-    networks:
-      - internal
 
 volumes:
   tiles_cache:
