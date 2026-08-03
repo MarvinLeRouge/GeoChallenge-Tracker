@@ -399,18 +399,15 @@ Dark mode, plus 5 consistency/accessibility findings, all resolved - visual conv
 - ✅ Leftover debug `console.log` calls in production code
 - ✅ Inconsistent loading feedback (spinner vs. plain text) between pages - unified into a single shared `LoadingIndicator` component
 
----
-
-## 🚧 Ongoing analysis (not yet implemented)
-
-The following work streams have been analyzed and broken down into concrete tasks, but no code has been changed yet.
-
 ### 📧 Email delivery migration (Brevo)
-- ✅ Confirmed production already sends via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/username/password all set) - not the `mailhog` test catcher
+
+Production was already configured to send via Brevo rather than the `mailhog` test catcher; the leftover dead service and a stray duplicate `MAIL_FROM` were cleaned up and real delivery was confirmed end-to-end.
+
+- ✅ Confirmed production sends via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/username/password all set)
 - ✅ Removed the now-unused `mailhog` service from `docker-compose.prod.yml`
 - ✅ Confirmed the sender address (`MAIL_FROM`) matches a verified Brevo domain
-- Send a real test email in production to confirm delivery after cleanup
-- Brevo account architecture (shared vs. dedicated across projects) is a cross-project decision tracked outside this repo
+- ✅ Sent a real test email in production (`POST /maintenance/test-email`) - delivered, outside spam
+- Brevo account architecture (shared vs. dedicated across projects) remains a cross-project decision, tracked outside this repo
 
 ---
 
