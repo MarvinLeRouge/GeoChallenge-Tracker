@@ -407,8 +407,8 @@ The following work streams have been analyzed and broken down into concrete task
 
 ### 📧 Email delivery migration (Brevo)
 - ✅ Confirmed production already sends via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/username/password all set) - not the `mailhog` test catcher
-- Remove the now-unused `mailhog` service from `docker-compose.prod.yml`
-- Confirm the sender address (`MAIL_FROM`) matches a verified Brevo domain
+- ✅ Removed the now-unused `mailhog` service from `docker-compose.prod.yml`
+- ✅ Confirmed the sender address (`MAIL_FROM`) matches a verified Brevo domain
 - Send a real test email in production to confirm delivery after cleanup
 - Brevo account architecture (shared vs. dedicated across projects) is a cross-project decision tracked outside this repo
 
