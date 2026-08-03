@@ -406,12 +406,11 @@ Mode sombre, plus 5 constats de cohérence/accessibilité, tous résolus - les c
 Les chantiers suivants ont été analysés et découpés en tâches concrètes, mais aucun code n'a encore été modifié.
 
 ### 📧 Migration de l'envoi d'emails (Brevo)
-- Vérifier ce que `SMTP_HOST` vaut réellement en production (pointe peut-être encore vers un `mailhog` de test au lieu d'un vrai relais)
-- Décider de réutiliser un compte Brevo existant ou d'en créer un dédié ; vérifier le domaine expéditeur (SPF/DKIM/DMARC)
-- Ajouter les variables SMTP Brevo (`smtp-relay.brevo.com`, port, identifiants) à l'environnement de production
-- Supprimer le service `mailhog` de `docker-compose.prod.yml`
-- Confirmer que l'adresse expéditrice correspond à un domaine vérifié Brevo
-- Envoyer un email de test réel en production pour confirmer la délivrabilité
+- ✅ Confirmé : la production envoie déjà via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/identifiants renseignés) - pas via le `mailhog` de test
+- Supprimer le service `mailhog` devenu inutile de `docker-compose.prod.yml`
+- Confirmer que l'adresse expéditrice (`MAIL_FROM`) correspond à un domaine vérifié Brevo
+- Envoyer un email de test réel en production pour confirmer la délivrabilité après nettoyage
+- Le choix d'architecture de compte Brevo (partagé vs dédié entre projets) est une décision multi-projets suivie hors de ce repo
 
 ---
 

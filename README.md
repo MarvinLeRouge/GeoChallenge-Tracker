@@ -406,12 +406,11 @@ Dark mode, plus 5 consistency/accessibility findings, all resolved - visual conv
 The following work streams have been analyzed and broken down into concrete tasks, but no code has been changed yet.
 
 ### 📧 Email delivery migration (Brevo)
-- Verify what `SMTP_HOST` actually resolves to in production (may still point to a leftover `mailhog` test catcher instead of a real relay)
-- Decide whether to reuse an existing Brevo account or create a dedicated one; verify the sender domain (SPF/DKIM/DMARC)
-- Add Brevo SMTP variables (`smtp-relay.brevo.com`, port, credentials) to the production environment
-- Remove the `mailhog` service from `docker-compose.prod.yml`
-- Confirm the sender address matches a verified Brevo domain
-- Send a real test email in production to confirm delivery
+- ✅ Confirmed production already sends via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/username/password all set) - not the `mailhog` test catcher
+- Remove the now-unused `mailhog` service from `docker-compose.prod.yml`
+- Confirm the sender address (`MAIL_FROM`) matches a verified Brevo domain
+- Send a real test email in production to confirm delivery after cleanup
+- Brevo account architecture (shared vs. dedicated across projects) is a cross-project decision tracked outside this repo
 
 ---
 
