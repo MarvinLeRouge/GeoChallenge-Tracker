@@ -399,18 +399,15 @@ Mode sombre, plus 5 constats de cohérence/accessibilité, tous résolus - les c
 - ✅ `console.log` de debug oubliés en code de production
 - ✅ Feedback de chargement incohérent (spinner vs texte simple) selon les pages - unifié dans un composant `LoadingIndicator` partagé
 
----
-
-## 🚧 Analyses en cours (non encore implémentées)
-
-Les chantiers suivants ont été analysés et découpés en tâches concrètes, mais aucun code n'a encore été modifié.
-
 ### 📧 Migration de l'envoi d'emails (Brevo)
-- ✅ Confirmé : la production envoie déjà via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/identifiants renseignés) - pas via le `mailhog` de test
-- Supprimer le service `mailhog` devenu inutile de `docker-compose.prod.yml`
-- Confirmer que l'adresse expéditrice (`MAIL_FROM`) correspond à un domaine vérifié Brevo
-- Envoyer un email de test réel en production pour confirmer la délivrabilité après nettoyage
-- Le choix d'architecture de compte Brevo (partagé vs dédié entre projets) est une décision multi-projets suivie hors de ce repo
+
+La production était déjà configurée pour envoyer via Brevo plutôt que le `mailhog` de test ; le service mort résiduel et un doublon de `MAIL_FROM` ont été nettoyés, et la délivrabilité réelle a été confirmée de bout en bout.
+
+- ✅ Confirmé : la production envoie via Brevo (`SMTP_HOST=smtp-relay.brevo.com`, port/identifiants renseignés)
+- ✅ Service `mailhog` devenu inutile supprimé de `docker-compose.prod.yml`
+- ✅ Adresse expéditrice (`MAIL_FROM`) confirmée conforme à un domaine vérifié Brevo
+- ✅ Email de test réel envoyé en production (`POST /maintenance/test-email`) - délivré, hors spam
+- Le choix d'architecture de compte Brevo (partagé vs dédié entre projets) reste une décision multi-projets, suivie hors de ce repo
 
 ---
 
