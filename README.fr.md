@@ -165,7 +165,9 @@ L'application permet aux géocacheurs passionnés de :
 ### Base (`/`)
 - `GET /cache_types` - Récupération de tous les types de cache
 - `GET /cache_sizes` - Récupération de toutes les tailles de cache
-- `GET /ping` - Vérification de santé de l'API
+- `GET /health` - Vérification de santé de l'API (connectivité base de données et email)
+- `GET /version` - Version de l'API, environnement, date de build
+- `GET /info` - Informations générales sur l'API
 
 ### Caches (`/caches`)
 - `POST /caches/upload-gpx` - Import de caches depuis fichier GPX/ZIP
