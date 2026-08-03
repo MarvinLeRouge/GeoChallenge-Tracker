@@ -1,8 +1,9 @@
 # Roadmap produit — GeoChallenge Tracker
 
 **Date de création :** 2026-03-20
+**Dernière mise à jour :** 2026-08-03 (vérification factuelle par rapport au code : tests API, coverage, CI/CD, page Targets, healthchecks)
 **Type :** Roadmap fonctionnelle — ce qui reste à construire
-**Sources :** README, analyses 1–4, `TODO_GC_TRACKER.md`, code existant
+**Sources :** README, code existant
 
 > Ce document recense les fonctionnalités manquantes, incomplètes ou planifiées.
 > Il ne traite pas des corrections de bugs ou de dette technique — voir [`roadmap-corrections.md`](roadmap-corrections.md).
@@ -57,7 +58,8 @@
 | My challenges | Listing paginé, détail, patch unitaire | ✅ |
 | My challenges | Calendar challenge (vérification 365 jours) | ✅ |
 | My challenges | Matrix D/T (vérification 9×9) | ✅ |
-| Targets | Évaluation, listing, recherche à proximité, suppression | ✅ |
+| Targets | Évaluation, listing, recherche à proximité, suppression (API) | ✅ |
+| Targets | Page globale `/my/targets` (frontend) | ✅ |
 | Progress | Évaluation, historique, premier snapshot | ✅ |
 | Tasks | Listing, remplacement, validation sans persistance | ✅ |
 | Profil | Lecture/écriture profil + localisation | ✅ |
@@ -75,7 +77,7 @@
 | Auth | Reset password | ❌ Route absente | — |
 | Recherche caches | Recherche par filtre (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
 | Progress | Page progression (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
-| Targets | Page targets (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
+| Targets | Page targets par challenge (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
 | Health check | Vérification SMTP réelle | 🔧 TODO dans code | `core/meta.py:39` |
 
 ---
@@ -188,14 +190,15 @@
 
 ---
 
-### 3.2 Page "Targets" (frontend) ❌ 🔴 `L`
+### 3.2 Page "Targets" (frontend) 🔧 🔴 `L`
 
-**Contexte :** La route `/my/challenges/:id/targets` (et la vue globale `/my/targets`) pointe sur `_NotImplemented.vue`. Les routes API targets sont complètes.
+**Vue globale (fait) :** `/my/targets` (`Targets.vue`) est pleinement fonctionnelle : carte Leaflet, mode "à proximité" avec sélection du centre, bouton "Rechercher à proximité", évaluation et affichage des targets.
 
-**À construire :**
-- Liste paginée des caches cibles pour un challenge (avec tri : score, distance, difficulté…)
-- Affichage sur carte des targets (via Leaflet)
-- Bouton "Rechercher à proximité" → appelle `GET /targets/nearby` avec la localisation de l'utilisateur
+**Vue par challenge (reste à construire) :** `/my/challenges/:id/targets` pointe toujours sur `_NotImplemented.vue`. Les routes API targets sont complètes (`GET /targets/nearby`, `DELETE /my/challenges/{uc_id}/targets`, etc.).
+
+**À construire (vue par challenge) :**
+- Liste paginée des caches cibles pour ce challenge spécifique (avec tri : score, distance, difficulté…)
+- Réutiliser le composant carte existant de `Targets.vue`
 - Bouton "Supprimer les targets" → appelle `DELETE /my/challenges/{uc_id}/targets`
 
 ---
@@ -339,32 +342,15 @@ Dépend de [1.1](#11-reset-de-mot-de-passe--🔴-m). Template email à créer da
 
 ## Épic 7 — Qualité, tests & observabilité
 
-### 7.1 Tests API backend ❌ 🔴 `L`
+### 7.1 Tests API backend ✅ 🔴 `L`
 
-**Contexte :** Les tests existants couvrent une partie de la logique métier, mais les routes elles-mêmes (authentification, upload GPX, recherche) ne sont pas testées via l'API.
-
-**À construire :**
-
-| Suite | Cas à couvrir |
-|-------|---------------|
-| Auth | Register (OK, email dupliqué, password faible), Login (OK, mauvais mot de passe), Refresh (OK, token expiré) |
-| Upload GPX | Happy path (fichier valide), fichier trop grand, format invalide, utilisateur non vérifié |
-| Recherche caches | `by-filter` avec chaque type de filtre, bbox, radius, résultat vide |
-| Challenges | Sync, Calendar, Matrix |
-
-**Stack :** `pytest` + `httpx` (client ASGI) + base MongoDB de test dédiée.
+**Fait (2026-08-03) :** les routes sont testées via l'API, avec des tests d'intégration (`backend/tests/integration/`, ex. `test_authenticated.py`) et des tests unitaires montant les vraies routes FastAPI avec dépendances mockées (`backend/tests/unit/test_maintenance_*.py`, etc.), stack `pytest` + `httpx.AsyncClient`. 1290+ tests backend au total.
 
 ---
 
-### 7.2 Coverage ≥ 60% 🟠 `M`
+### 7.2 Coverage ≥ 60% ✅ `M`
 
-**Contexte :** Aucun objectif de coverage n'est actuellement mesuré en CI.
-
-**À construire :**
-- Configurer `pytest-cov` dans `pyproject.toml`
-- Ajouter le rapport de coverage dans la CI GitHub Actions
-- Bloquer le merge si coverage descend en dessous de 60%
-- Badge coverage dans le README
+**Fait et largement dépassé (2026-08-03) :** Codecov intégré en CI (backend + frontend, `codecov.yml`), avec des seuils bloquants réels (`project target: 90%`, `patch target: 95%`, `informational: false`), bien au-delà de l'objectif initial de 60%. Badge dans le README.
 
 ---
 
@@ -406,14 +392,15 @@ Couvrir les flows complets :
 
 ---
 
-### 7.7 Tests frontend (Vitest + Playwright) ❌ 🟠 `L`
+### 7.7 Tests frontend (Vitest + Playwright) 🔧 🟠 `L`
 
-**Contexte :** L'infrastructure de test est en place (Vitest, Playwright configurés) mais les tests métier sont absents.
+**Vitest (fait, 2026-08-03) :** 419+ tests unitaires/composants (composables comme `useCalendarData`/`useMatrixData`, composants comme les pages `Calendar.vue`/`Matrix.vue`/`List.vue`), tournant en CI avec upload de couverture vers Codecov.
 
-**À construire :**
-- Tests unitaires Vitest : `useCalendarData`, `useMatrixData`, `useFormValidation`, `useApiErrorHandler`
-- Tests de composants : `ChallengeCard`, `MatrixGrid`, `CalendarGrid`
-- Tests e2e Playwright : flux login → import GPX → affichage challenges
+**Playwright (démarré, pas encore automatisé) :** deux specs e2e existent (`frontend/tests/e2e/login-map-center.spec.ts`, `smoke.spec.ts`) mais ne tournent pas en CI (aucune étape Playwright dans `.github/workflows/ci.yml`).
+
+**Reste à construire :**
+- Intégrer l'exécution Playwright dans la CI GitHub Actions
+- Étoffer les specs e2e (flux login → import GPX → affichage challenges)
 
 ---
 
@@ -431,11 +418,13 @@ Couvrir les flows complets :
 
 ---
 
-### 8.2 Healthchecks Docker Compose 🟠 `M`
+### 8.2 Healthchecks Docker Compose 🔧 `M`
 
-**Contexte :** Le backend peut démarrer alors que MongoDB est indisponible (init lazy), sans avertissement visible dans Docker Compose.
+**Prod (fait) :** `docker-compose.prod.yml` a un healthcheck sur `backend` (`curl -f http://localhost:8000/health`) et sur `tiles`.
 
-**À construire :**
+**Dev (partiel) :** `docker-compose.yml` a un healthcheck sur `tiles` uniquement ; `backend` n'en a pas encore en dev.
+
+**À construire (dev) :**
 ```yaml
 # docker-compose.yml
 backend:
@@ -446,20 +435,13 @@ backend:
     retries: 3
     start_period: 10s
 ```
-- Si MongoDB est local (dev) : ajouter service `mongo` avec healthcheck, `depends_on: condition: service_healthy`
-- Si MongoDB est externe (Atlas) : ajouter un check de démarrage qui réessaie la connexion avant de déclarer le service healthy
+MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mongo` local à ajouter : le `/health` backend fait déjà le check de connexion Atlas (voir Épic 5.4).
 
 ---
 
-### 8.3 CI/CD — Tests automatiques avant merge ❌ 🟠 `M`
+### 8.3 CI/CD — Tests automatiques avant merge ✅ 🟠 `M`
 
-**Contexte :** La CI actuelle (`.github/workflows/ci.yml`) ne lance que `ruff` et `mypy`. Les tests ne sont pas joués.
-
-**À ajouter dans la CI :**
-- `pytest` backend avec base MongoDB de test (service GitHub Actions)
-- `npm run test:unit` frontend (Vitest)
-- Rapport de coverage uploadé comme artifact
-- Bloquer le merge si tests échouent ou si coverage < 60%
+**Fait (2026-08-03) :** la CI (`.github/workflows/ci.yml`) lance `pytest tests/unit/ --cov=app` (backend) et `npm run test:unit` (frontend), toutes deux avec upload de couverture vers Codecov, dont les seuils (`project: 90%`, `patch: 95%`) sont bloquants (`informational: false`).
 
 ---
 
@@ -509,8 +491,8 @@ backend:
 | 1 | Reset de mot de passe | 1.1 | M |
 | 2 | Import GPX asynchrone | 2.1 | XL |
 | 3 | Page Progression (frontend) | 3.1 | L |
-| 4 | Page Targets (frontend) | 3.2 | L |
-| 5 | Tests API backend | 7.1 | L |
+| 4 | Page Targets (frontend) (🔧 vue globale faite, vue par challenge restante) | 3.2 | L |
+| 5 | ~~Tests API backend~~ ✅ fait | 7.1 | L |
 | 6 | Logging structuré | 7.4 | M |
 | 7 | Séparation config dev/prod | 8.1 | M |
 | 8 | HTTPS en production | 8.4 | M |
@@ -523,11 +505,11 @@ backend:
 | 10 | Page recherche par filtre (frontend) | 2.3 | L |
 | 11 | Email notification challenge complété | 5.2 | S |
 | 12 | Export GPX d'un challenge | 6.1 | M |
-| 13 | Coverage ≥ 60% | 7.2 | M |
+| 13 | ~~Coverage ≥ 60%~~ ✅ fait (90%/95% en CI) | 7.2 | M |
 | 14 | ~~Rate limiting auth~~ ✅ fait | 7.5 | S |
-| 15 | Tests frontend (Vitest) | 7.7 | L |
-| 16 | Healthchecks Docker Compose | 8.2 | M |
-| 17 | CI/CD — Tests avant merge | 8.3 | M |
+| 15 | Tests frontend (Vitest + Playwright) (🔧 Vitest fait, Playwright pas en CI) | 7.7 | L |
+| 16 | Healthchecks Docker Compose (🔧 prod fait, dev partiel) | 8.2 | M |
+| 17 | ~~CI/CD — Tests avant merge~~ ✅ fait | 8.3 | M |
 
 ### 🟡 Normale — Backlog moyen terme
 
