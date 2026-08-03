@@ -1237,7 +1237,7 @@ async def maintenance_get_user_stats(
 )
 async def test_email(
     to_email: Annotated[
-        str | None, Query(description="Recipient email address. Defaults to ADMIN_DEST_EMAIL.")
+        str | None, Query(description="Recipient email address. Defaults to ADMIN_TEST_EMAIL.")
     ] = None,
 ):
     """Sends a test email with basic app statistics.
@@ -1249,7 +1249,7 @@ async def test_email(
         dict: Confirmation message and stats included in the email.
     """
     settings = get_settings()
-    recipient = to_email or settings.admin_dest_email
+    recipient = to_email or settings.admin_test_email
 
     coll_users = await get_collection("users")
     coll_caches = await get_collection("caches")
