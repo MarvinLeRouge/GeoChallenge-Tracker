@@ -276,10 +276,13 @@ VITE_API_URL=http://localhost:8000/api
 ### 🧪 Running tests
 
 ```bash
-# Backend tests
+# Backend tests (1291 tests)
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pytest tests/unit/ --cov=app --cov-report=term-missing -q
+
+# Frontend tests (419 tests)
+npx vitest run frontend/tests/unit
 ```
 
 ---
@@ -329,8 +332,7 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Password reset flow (no `/auth/forgot-password` / `/auth/reset-password` routes exist yet)
 - Asynchronous GPX import (Celery + Redis, current import is synchronous and can time out on large files)
 - Progress page (frontend) — API ready, page still a placeholder
-- Targets page (frontend) — API ready, page still a placeholder
-- Backend API tests (routes themselves are not tested end-to-end)
+- Targets page (frontend): the global `/my/targets` view has shipped, only the per-challenge view is still a placeholder
 - Structured logging (replace `print()` calls, add request correlation IDs)
 - Dev/prod environment separation (single `.env` used for both today)
 - HTTPS in production (certificate renewal and HSTS not documented/verified)
@@ -340,10 +342,8 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Cache search by filter (frontend) — API ready, page still a placeholder
 - "Challenge completed" email notification
 - Challenge GPX export
-- Backend test coverage ≥ 60% enforced in CI
-- Frontend tests (Vitest business logic, component tests)
-- Docker Compose healthchecks
-- CI/CD: run tests automatically before merge
+- Playwright e2e tests wired into CI (specs exist, not run automatically yet)
+- Docker Compose healthcheck on the `backend` service in dev (prod already has one)
 
 ### 🟡 Normal
 - Finalize UserChallenges synchronization logic (full vs. delta)
@@ -359,7 +359,6 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Automate `BUILD_DATE` injection in CI
 
 ### 🟢 Nice-to-have
-- Server-side refresh token invalidation on logout
 - Achievable challenge suggestions
 - Finds heatmap
 - In-app notifications
