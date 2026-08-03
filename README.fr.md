@@ -276,10 +276,13 @@ VITE_API_URL=http://localhost:8000/api
 ### 🧪 Lancement des tests
 
 ```bash
-# Backend tests
+# Tests backend (1291 tests)
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pytest tests/unit/ --cov=app --cov-report=term-missing -q
+
+# Tests frontend (419 tests)
+npx vitest run frontend/tests/unit
 ```
 
 ---
@@ -329,8 +332,7 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 - Reset de mot de passe (aucune route `/auth/forgot-password` / `/auth/reset-password` n'existe encore)
 - Import GPX asynchrone (Celery + Redis, l'import actuel est synchrone et peut timeout sur les gros fichiers)
 - Page Progression (frontend) — API prête, page encore un placeholder
-- Page Targets (frontend) — API prête, page encore un placeholder
-- Tests API backend (les routes elles-mêmes ne sont pas testées de bout en bout)
+- Page Targets (frontend) : la vue globale `/my/targets` est livrée, seule la vue par challenge reste un placeholder
 - Logging structuré (remplacer les `print()`, ajouter des IDs de corrélation de requête)
 - Séparation config dev/prod (un seul `.env` utilisé pour les deux aujourd'hui)
 - HTTPS en production (renouvellement de certificat et HSTS non documentés/vérifiés)
@@ -340,10 +342,8 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 - Recherche de caches par filtre (frontend) — API prête, page encore un placeholder
 - Email de notification "challenge complété"
 - Export GPX d'un challenge
-- Couverture de tests backend ≥ 60% imposée en CI
-- Tests frontend (Vitest, logique métier et composants)
-- Healthchecks Docker Compose
-- CI/CD : lancer les tests automatiquement avant merge
+- Tests e2e Playwright intégrés en CI (les specs existent, mais ne tournent pas encore automatiquement)
+- Healthcheck Docker Compose sur le service `backend` en dev (déjà présent en prod)
 
 ### 🟡 Normale
 - Finaliser la logique de synchronisation UserChallenges (full vs delta)
@@ -359,7 +359,6 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 - Automatiser l'injection du `BUILD_DATE` en CI
 
 ### 🟢 Nice-to-have
-- Invalidation du refresh token côté serveur à la déconnexion
 - Suggestions de challenges réalisables
 - Heatmap des trouvailles
 - Notifications in-app

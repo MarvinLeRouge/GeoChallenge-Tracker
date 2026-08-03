@@ -344,7 +344,7 @@ Dépend de [1.1](#11-reset-de-mot-de-passe--🔴-m). Template email à créer da
 
 ### 7.1 Tests API backend ✅ 🔴 `L`
 
-**Fait (2026-08-03) :** les routes sont testées via l'API, avec des tests d'intégration (`backend/tests/integration/`, ex. `test_authenticated.py`) et des tests unitaires montant les vraies routes FastAPI avec dépendances mockées (`backend/tests/unit/test_maintenance_*.py`, etc.), stack `pytest` + `httpx.AsyncClient`. 1290+ tests backend au total.
+**Fait (2026-08-03) :** les routes sont testées via l'API, avec des tests d'intégration (`backend/tests/integration/`, ex. `test_authenticated.py`) et des tests unitaires montant les vraies routes FastAPI avec dépendances mockées (`backend/tests/unit/test_maintenance_*.py`, etc.), stack `pytest` + `httpx.AsyncClient`. 1291 tests backend au total (`pytest tests/unit -q`).
 
 ---
 
@@ -394,7 +394,7 @@ Couvrir les flows complets :
 
 ### 7.7 Tests frontend (Vitest + Playwright) 🔧 🟠 `L`
 
-**Vitest (fait, 2026-08-03) :** 419+ tests unitaires/composants (composables comme `useCalendarData`/`useMatrixData`, composants comme les pages `Calendar.vue`/`Matrix.vue`/`List.vue`), tournant en CI avec upload de couverture vers Codecov.
+**Vitest (fait, 2026-08-03) :** 419 tests unitaires/composants (`npx vitest run frontend/tests/unit`, composables comme `useCalendarData`/`useMatrixData`, composants comme les pages `Calendar.vue`/`Matrix.vue`/`List.vue`), tournant en CI avec upload de couverture vers Codecov.
 
 **Playwright (démarré, pas encore automatisé) :** deux specs e2e existent (`frontend/tests/e2e/login-map-center.spec.ts`, `smoke.spec.ts`) mais ne tournent pas en CI (aucune étape Playwright dans `.github/workflows/ci.yml`).
 
