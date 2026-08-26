@@ -112,3 +112,6 @@ docs/ai/work-in-progress
 # Logs
 backend/logs/*
 !backend/logs/.gitkeep
+
+# Headroom
+.serena
