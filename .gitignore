@@ -85,6 +85,10 @@ vite.config.js
 *.orig
 *.~*
 
+# Tooling output folders
+.serena
+graphify-out
+
 # Fichiers data
 /backend/data/*
 /backend/data/**/*
