@@ -10,9 +10,9 @@ Merci de l'intérêt que vous portez au projet. Ce document couvre les prérequi
 
 ## Prérequis
 
-- **Docker & Docker Compose** — pour exécuter la stack complète en local
-- **Python 3.11+** — pour le développement backend sans Docker
-- **Node.js 20+** — pour le développement frontend sans Docker
+- **Docker & Docker Compose** : pour exécuter la stack complète en local
+- **Python 3.11+** : pour le développement backend sans Docker
+- **Node.js 20+** : pour le développement frontend sans Docker
 - **Git**
 
 ---
@@ -44,8 +44,9 @@ uvicorn app.main:app --reload --port 8000
 
 ### Frontend seul
 
+Le frontend n'a pas de `package.json` séparé : il partage celui de la racine du dépôt, Vite ayant sa `root` pointée sur `frontend/`. Lancer ces commandes depuis la racine du dépôt :
+
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
@@ -94,7 +95,7 @@ Ce projet suit la spécification [Conventional Commits](https://www.conventional
 <type>(<scope optionnel>): <résumé court>
 
 Modified files:
-- chemin/vers/fichier.ext — ce qui a été fait
+- chemin/vers/fichier.ext : ce qui a été fait
 ```
 
 **Types :** `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf`, `ci`
@@ -107,23 +108,23 @@ Modified files:
 feat(targets): add nearby mode with radius filter
 
 Modified files:
-- backend/app/api/routes/targets.py — add within-radius query param
-- frontend/src/pages/Targets.vue — add radius toggle and circle overlay
+- backend/app/api/routes/targets.py: add within-radius query param
+- frontend/src/pages/Targets.vue: add radius toggle and circle overlay
 ```
 
 ```
 fix(auth): redirect to login on 401 response
 
 Modified files:
-- frontend/src/api/http.ts — add Axios interceptor for 401 handling
+- frontend/src/api/http.ts: add Axios interceptor for 401 handling
 ```
 
 ---
 
 ## Style de code
 
-- **Backend :** vérifié par `ruff` (lint + format) et `mypy` (typage) — exécuter `ruff check backend/ && ruff format --check backend/ && mypy backend/` avant de pousser
-- **Frontend :** vérifié par ESLint et TypeScript — exécuter `npm run lint && npm run typecheck` avant de pousser
+- **Backend :** vérifié par `ruff` (lint + format) et `mypy` (typage). Exécuter `ruff check backend/ && ruff format --check backend/ && mypy backend/` avant de pousser
+- **Frontend :** vérifié par ESLint et TypeScript. Exécuter `npm run lint && npm run typecheck` avant de pousser
 
 La CI rejettera toute PR qui ne passe pas ces vérifications.
 
