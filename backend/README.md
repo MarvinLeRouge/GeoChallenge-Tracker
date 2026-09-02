@@ -2,7 +2,7 @@
 
 ---
 
-# GeoChallenge Tracker — Backend
+# GeoChallenge Tracker - Backend
 
 FastAPI REST API with MongoDB (Motor async driver), JWT authentication, and GPX import.
 
