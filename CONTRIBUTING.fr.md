@@ -130,6 +130,12 @@ La CI rejettera toute PR qui ne passe pas ces vérifications.
 
 ---
 
+## Code de conduite
+
+Toute interaction dans le cadre du projet, y compris sur tout canal de communication utilisé par les contributeurs, est régie par le [code de conduite](CODE_OF_CONDUCT.fr.md).
+
+---
+
 ## Licence
 
 En contribuant, vous acceptez que vos contributions soient publiées sous la [licence MIT](LICENSE).

@@ -130,6 +130,12 @@ CI will reject any PR that fails these checks.
 
 ---
 
+## Code of Conduct
+
+All interactions within the project, including any communication channel used by contributors, are governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+---
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under the [MIT License](LICENSE).
