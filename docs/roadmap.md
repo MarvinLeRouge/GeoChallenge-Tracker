@@ -408,13 +408,12 @@ Cover full flows:
 
 ### 8.1 Dev / prod config separation ❌ 🔴 `M`
 
-**Context:** A single `.env` file is used for both environments. Debug settings, CORS, and log level must differ between dev and prod.
+**Context (corrected 2026-09-02):** dev and prod already use physically separate env files, not one shared `.env`: dev reads the root `.env` (see `.env.example`), while prod reads `shared/env/app.env` and `shared/env/secrets.env` on the deploy host (outside the repo, populated manually, see [`docs/operations.md`](operations.md)). What's still actually missing is behavioral, not structural: of the three settings this item cares about, only `CORS_ORIGINS` is wired to real code (`settings.cors_origins`). `DEBUG` and `LOG_LEVEL`, while documented in `.env.example`, are not read anywhere in the backend (see `DOC-5` in the ["Discovered during the documentation pass"](roadmap-corrections.md#discovered-during-the-documentation-pass-2026-09) section of `roadmap-corrections.md` for the detailed bug report on that gap).
 
 **To build:**
-- `.env.dev`: debug enabled, permissive CORS (`*`), verbose logs, MailDev
-- `.env.prod`: debug disabled, restrictive CORS (specific domain), JSON logs, real SMTP
-- `docker-compose.override.yml` for development overrides
-- Documentation in `.env.example` for each variable
+- Either wire `DEBUG` and `LOG_LEVEL` to actual behavior (e.g. FastAPI reload/docs exposure, log verbosity) or remove them from `.env.example` if they will never be used (see DOC-5).
+- Verify and document that prod's `CORS_ORIGINS` (in `shared/env/app.env`, not in this repo) is actually restricted to the production domain rather than left at the dev default.
+- `docker-compose.override.yml` for development-only overrides, if still wanted on top of the existing separate prod env files.
 
 ---
 
@@ -445,15 +444,9 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 ---
 
-### 8.4 HTTPS in production 🔴 `M`
+### 8.4 HTTPS in production ✅ 🟡 `M`
 
-**Context:** The Nginx configuration exists in `ops/nginx/` but the HTTP -> HTTPS redirect and SSL certificates are not documented / verified.
-
-**To build / verify:**
-- Nginx configuration with `return 301 https://$host$request_uri;` on port 80
-- Let's Encrypt (Certbot) integration or manual certificate
-- HSTS header
-- Document the certificate renewal process
+**Done (2026-03-30, PR #25; harmonized 2026-06-24, PR #61):** production runs behind Traefik, which terminates TLS via Let's Encrypt (Cloudflare DNS challenge) on the `websecure` entrypoint for all three services (backend, frontend, tiles), see [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) and [`docs/operations.md`](operations.md). The Nginx-based approach originally sketched here (manual `return 301` redirect, Certbot) was superseded before it was built; certificate issuance and renewal are handled by Traefik itself, not documented as a separate manual process.
 
 ---
 
@@ -495,7 +488,7 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 | 5 | ~~Backend API tests~~ ✅ done | 7.1 | L |
 | 6 | Structured logging | 7.4 | M |
 | 7 | Dev/prod config separation | 8.1 | M |
-| 8 | HTTPS in production | 8.4 | M |
+| 8 | ~~HTTPS in production~~ ✅ done | 8.4 | M |
 
 ### 🟠 High, next sprint
 

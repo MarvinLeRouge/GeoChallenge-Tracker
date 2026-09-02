@@ -20,4 +20,4 @@ Ce projet est maintenu par un développeur unique : le délai de réponse est tr
 
 Dans le périmètre : l'API backend (`backend/`), l'application frontend (`frontend/`), et la configuration Docker/déploiement (`docker-compose*.yml`, `ops/`) telles que définies dans ce dépôt.
 
-Hors périmètre : les services tiers avec lesquels l'application s'intègre (ex. Geocaching.com, Brevo, fournisseurs de tuiles) — signalez les problèmes liés à ces services directement à leurs mainteneurs respectifs.
+Hors périmètre : les services tiers avec lesquels l'application s'intègre (ex. Geocaching.com, Brevo, fournisseurs de tuiles). Signalez les problèmes liés à ces services directement à leurs mainteneurs respectifs.

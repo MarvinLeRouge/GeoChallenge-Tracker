@@ -20,4 +20,4 @@ This project is maintained by a single developer, so response times are best-eff
 
 In scope: the backend API (`backend/`), the frontend application (`frontend/`), and the Docker/deployment configuration (`docker-compose*.yml`, `ops/`) as defined in this repository.
 
-Out of scope: third-party services the application integrates with (e.g. Geocaching.com, Brevo, tile providers) — report issues with those services directly to their maintainers.
+Out of scope: third-party services the application integrates with (e.g. Geocaching.com, Brevo, tile providers). Report issues with those services directly to their maintainers.

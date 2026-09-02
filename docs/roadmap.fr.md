@@ -408,13 +408,12 @@ Couvrir les flows complets :
 
 ### 8.1 Séparation config dev / prod ❌ 🔴 `M`
 
-**Contexte :** Un seul fichier `.env` est utilisé pour les deux environnements. Les settings de debug, CORS, et log level doivent différer entre dev et prod.
+**Contexte (corrigé le 2026-09-02) :** dev et prod utilisent déjà des fichiers env physiquement séparés, pas un `.env` partagé unique : dev lit le `.env` racine (voir `.env.example`), tandis que la prod lit `shared/env/app.env` et `shared/env/secrets.env` sur le serveur de déploiement (hors dépôt, renseignés manuellement, voir [`docs/operations.fr.md`](operations.fr.md)). Ce qui manque réellement est comportemental, pas structurel : sur les trois settings visés par cet item, seule `CORS_ORIGINS` est effectivement branchée au code (`settings.cors_origins`). `DEBUG` et `LOG_LEVEL`, bien que documentées dans `.env.example`, ne sont lues nulle part dans le backend (voir `DOC-5` dans la section [« Trouvés pendant la passe de documentation »](roadmap-corrections.fr.md#trouvés-pendant-la-passe-de-documentation-2026-09) de `roadmap-corrections.fr.md` pour le détail du bug).
 
 **À construire :**
-- `.env.dev` : debug activé, CORS permissif (`*`), logs verbose, MailDev
-- `.env.prod` : debug désactivé, CORS restrictif (domaine précis), logs JSON, SMTP réel
-- `docker-compose.override.yml` pour les overrides de développement
-- Documentation dans `.env.example` pour chaque variable
+- Soit brancher `DEBUG` et `LOG_LEVEL` sur un comportement réel (ex. exposition reload/docs de FastAPI, verbosité des logs), soit les retirer de `.env.example` si elles ne serviront jamais (voir DOC-5).
+- Vérifier et documenter que `CORS_ORIGINS` en prod (dans `shared/env/app.env`, hors dépôt) est bien restreint au domaine de production plutôt que laissé à la valeur par défaut de dev.
+- `docker-compose.override.yml` pour les overrides propres au développement, si toujours souhaité en plus des fichiers env prod déjà séparés.
 
 ---
 
@@ -445,15 +444,9 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 
 ---
 
-### 8.4 HTTPS en production 🔴 `M`
+### 8.4 HTTPS en production ✅ 🟡 `M`
 
-**Contexte :** La configuration Nginx existe dans `ops/nginx/` mais la redirection HTTP → HTTPS et les certificats SSL ne sont pas documentés / vérifiés.
-
-**À construire / vérifier :**
-- Configuration Nginx avec `return 301 https://$host$request_uri;` sur le port 80
-- Intégration Let's Encrypt (Certbot) ou certificat manuel
-- HSTS header
-- Documenter le processus de renouvellement de certificat
+**Fait (2026-03-30, PR #25 ; harmonisé le 2026-06-24, PR #61) :** la production tourne derrière Traefik, qui termine le TLS via Let's Encrypt (challenge DNS Cloudflare) sur l'entrypoint `websecure` pour les trois services (backend, frontend, tuiles), voir [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) et [`docs/operations.fr.md`](operations.fr.md). L'approche basée sur Nginx esquissée ici à l'origine (redirection manuelle `return 301`, Certbot) a été remplacée avant d'être construite ; l'émission et le renouvellement des certificats sont gérés par Traefik lui-même, pas documentés comme un processus manuel séparé.
 
 ---
 
@@ -495,7 +488,7 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 | 5 | ~~Tests API backend~~ ✅ fait | 7.1 | L |
 | 6 | Logging structuré | 7.4 | M |
 | 7 | Séparation config dev/prod | 8.1 | M |
-| 8 | HTTPS en production | 8.4 | M |
+| 8 | ~~HTTPS en production~~ ✅ fait | 8.4 | M |
 
 ### 🟠 Haute, sprint suivant
 
