@@ -64,6 +64,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Give stat-tile colors a consistent, accessible meaning
 - *(frontend)* Give MyProfile.vue's cards a visual hierarchy
 - *(frontend)* Unify loading feedback into a shared LoadingIndicator
+- *(matrix)* Highlight next-round target cells and list missing combos
 
 ### 🐛 Bug Fixes
 
