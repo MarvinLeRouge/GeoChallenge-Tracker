@@ -130,6 +130,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Document APP_FRONTEND_URL and isolate its default-value test
 - *(frontend)* Stop map z-index from covering the app FAB and drawer
 - *(ci)* Rename ADMIN_DEST_EMAIL to ADMIN_TEST_EMAIL in the CI workflow
+- *(ci)* Open a pull request instead of pushing changelog updates to main
 
 ### 💼 Other
 
