@@ -1,100 +1,107 @@
-# Architecture Frontend - GeoChallenge Tracker
+[🇫🇷 Version française](frontend_architecture.fr.md) | 🇬🇧 English version
 
-## Structure générale
+---
 
-L'architecture frontend suit les principes de composition Vue 3 et de modularité :
+# Frontend Architecture - GeoChallenge Tracker
+
+## Overall structure
+
+The frontend architecture follows Vue 3 composition and modularity principles:
 
 ```
 frontend/src/
-├── api/                # Clients API et gestion des requêtes
-├── app/                # Configuration principale de l'application
-├── assets/             # Ressources statiques (images, CSS)
-├── components/         # Composants réutilisables
-│   ├── map/            # Composants liés à la cartographie
-│   └── userChallenges/ # Composants liés aux challenges
-├── composables/        # Logique métier réutilisable
-├── config/             # Configuration de l'application
-├── pages/              # Pages de l'application
-│   ├── auth/           # Pages d'authentification
-│   ├── caches/         # Pages liées aux caches
-│   ├── misc/           # Pages diverses
-│   └── userChallenges/ # Pages liées aux challenges utilisateur
-├── router/             # Configuration des routes
-├── store/              # Stores Pinia (état global)
-├── types/              # Définitions TypeScript
-├── utils/              # Utilitaires génériques
-├── App.vue             # Composant racine
-├── main.ts             # Point d'entrée
-└── style.css           # Styles globaux
+├── api/                # API clients and request handling
+├── app/                # Main application configuration
+├── assets/             # Static assets (images, CSS)
+├── components/         # Reusable components
+│   ├── map/            # Mapping-related components
+│   ├── ui/             # Shared generic UI components
+│   └── userChallenges/ # Challenge-related components
+├── composables/        # Reusable business logic
+├── config/             # Application configuration
+├── constants/          # Shared constants
+├── pages/              # Application pages
+│   ├── auth/           # Authentication pages
+│   ├── caches/         # Cache-related pages
+│   ├── misc/           # Miscellaneous pages
+│   ├── profile/        # User profile pages
+│   └── userChallenges/ # User challenge pages
+├── router/             # Route configuration
+├── store/              # Pinia stores (global state)
+├── types/              # TypeScript type definitions
+├── utils/              # Generic utilities
+├── App.vue             # Root component
+├── main.ts             # Entry point
+└── style.css           # Global styles
 ```
 
-## Couches de l'application
+## Application layers
 
 ### 1. Pages (`/pages`)
-- **Responsabilité** : Composants de premier niveau correspondant aux routes
-- **Structure** : Organisées par fonctionnalités
+- **Responsibility**: top-level components matching routes
+- **Structure**: organized by feature
 
 ### 2. Composables (`/composables`)
-- **Responsabilité** : Logique métier réutilisable
-- **Exemples** : `useUserStats.ts`, `useMatrixData.ts`, `useCalendarData.ts`, `useZones.ts`
+- **Responsibility**: reusable business logic
+- **Examples**: `useUserStats.ts`, `useMatrixData.ts`, `useCalendarData.ts`, `useZones.ts`
 
 ### 3. Components (`/components`)
-- **Responsabilité** : Composants réutilisables
-- **Types** : 
-  - Génériques (UI)
-  - Spécifiques à des domaines (carte, challenges)
+- **Responsibility**: reusable components
+- **Types**:
+  - Generic (UI)
+  - Domain-specific (map, challenges)
 
 ### 4. Store (`/store`)
-- **Responsabilité** : Gestion de l'état global
-- **Technologie** : Pinia
-- **Usage** : Limité aux données partagées (ex: authStore)
+- **Responsibility**: global state management
+- **Technology**: Pinia
+- **Usage**: limited to shared data (e.g. authStore)
 
 ### 5. API (`/api`)
-- **Responsabilité** : Communication avec le backend
-- **Clients** : Wrapper autour de fetch/axios
+- **Responsibility**: communication with the backend
+- **Clients**: wrapper around fetch/axios
 
-## Fonctionnalités spécifiques
+## Specific features
 
-### Carte choroplèthe — Trouvées par zones (`ZonesMap.vue`)
+### Choropleth map — Found by zone (`ZonesMap.vue`)
 
-**Route** : `/caches/zones`
+**Route**: `/caches/zones`
 
-La page `pages/caches/ZonesMap.vue` affiche une carte Leaflet interactive colorée par densité de caches trouvées par zone administrative.
+The `pages/caches/ZonesMap.vue` page displays an interactive Leaflet map colored by density of found caches per administrative zone.
 
-**Comportement :**
-- Niveau 0 → charge les régions GeoJSON (`/api/geo/FR/regions.geojson`) et leurs compteurs (`/api/zones?country=FR&level=1`)
-- Clic sur une région → zoom `fitBounds` + chargement des départements (niveau 2)
-- Clic sur un département → popover avec le total et les 10 premières caches
-- Filtre par type → relance uniquement les appels `/api/zones`, pas le GeoJSON
+**Behavior:**
+- Level 0 → loads the region GeoJSON (`/api/geo/FR/regions.geojson`) and its counters (`/api/zones?country=FR&level=1`)
+- Clicking a region → `fitBounds` zoom + loads departments (level 2)
+- Clicking a department → popover with the total and the first 10 caches
+- Type filter → only re-triggers the `/api/zones` calls, not the GeoJSON
 
-**Composable dédié** : `useZones.ts`
+**Dedicated composable**: `useZones.ts`
 - `fetchZones(country, level, typeCode?)` → `GET /api/zones`
 - `fetchZoneDetail(code, typeCode?, level?)` → `GET /api/zones/{code}[?level=N&type=T]`
 - `fetchZoneTypeStats(code, level?)` → `GET /api/zones/{code}/type-stats[?level=N]`
-- Le paramètre `level` est essentiel pour désambiguïser les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
+- The `level` parameter is essential to disambiguate codes shared across levels (e.g. FR-93 = PACA region *and* Seine-Saint-Denis department)
 
-### Carte répartition par type — Types trouvés par zones (`ZoneTypeStatsMap.vue`)
+### Type breakdown map — Types found by zone (`ZoneTypeStatsMap.vue`)
 
-**Route** : `/caches/zone-types`
+**Route**: `/caches/zone-types`
 
-La page `pages/caches/ZoneTypeStatsMap.vue` affiche la même carte choroplèthe que `ZonesMap.vue` (couleur par densité de caches totales), mais le clic sur une zone ouvre un popover listant le nombre de caches trouvées pour chacun des 13 types — y compris les types à zéro.
+The `pages/caches/ZoneTypeStatsMap.vue` page displays the same choropleth map as `ZonesMap.vue` (colored by total cache density), but clicking a zone opens a popover listing the number of found caches for each of the 13 types — including types with zero.
 
-**Comportement :**
-- Toolbar région/département identique à `ZonesMap.vue` — pas de filtre par type (le breakdown affiche toujours tous les types)
-- Clic sur une zone → appel `fetchZoneTypeStats(code, level)` → popover avec tableau `[Nom du type | Compteur]`
-- Lignes à zéro : fond `bg-red-50`, italique, préfixe `XCircleIcon`
-- Compteurs formatés avec `toLocaleString("fr-FR")` (séparateur espace milliers)
-- Clic sur la carte (hors zone) → ferme le popover via `leafletMap.on("click", closePopover)`
-- Changement de niveau → ferme le popover et recharge la carte
+**Behavior:**
+- Region/department toolbar identical to `ZonesMap.vue` — no type filter (the breakdown always shows every type)
+- Clicking a zone → calls `fetchZoneTypeStats(code, level)` → popover with a `[Type name | Count]` table
+- Zero-count rows: `bg-red-50` background, italic, `XCircleIcon` prefix
+- Counters formatted with `toLocaleString("fr-FR")` (thousands space separator)
+- Clicking the map (outside a zone) → closes the popover via `leafletMap.on("click", closePopover)`
+- Changing level → closes the popover and reloads the map
 
-**Sérialisation des paramètres** :
+**Parameter serialization**:
 
-`api/http.ts` utilise un `paramsSerializer` personnalisé pour que les tableaux soient sérialisés sans notation bracket (`type=a&type=b` au lieu de `type[]=a`), compatible FastAPI.
+`api/http.ts` uses a custom `paramsSerializer` so arrays are serialized without bracket notation (`type=a&type=b` instead of `type[]=a`), matching FastAPI's expectations.
 
-## Principes architecturaux
+## Architectural principles
 
-- **Composition API** : Utilisation systématique
-- **Typage fort** : TypeScript pour la sûreté
-- **Séparation des préoccupations** : Logique dans composables, présentation dans composants
-- **Réutilisabilité** : Composables pour logique partagée
-- **State management** : Pinia pour données globales, props/events pour locales
+- **Composition API**: used consistently
+- **Strong typing**: TypeScript for safety
+- **Separation of concerns**: logic in composables, presentation in components
+- **Reusability**: composables for shared logic
+- **State management**: Pinia for global data, props/events for local data
