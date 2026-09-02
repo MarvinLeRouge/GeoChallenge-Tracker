@@ -276,6 +276,26 @@
           </span>
         </div>
       </div>
+
+      <!-- Combinaisons manquantes pour le prochain tour -->
+      <div
+        v-if="nextRoundTargets.length > 0"
+        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      >
+        <h2 class="font-semibold mb-3">
+          Combinaisons manquantes pour le tour
+          {{ (matrixResult?.matrix_tours ?? 0) + 1 }}
+        </h2>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="combo in nextRoundTargets"
+            :key="`${combo.difficulty}-${combo.terrain}`"
+            class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-100 px-3 py-1 text-sm font-medium text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950 dark:text-indigo-200"
+          >
+            D{{ combo.difficulty }} / T{{ combo.terrain }}
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -306,6 +326,18 @@ const selectedCacheSize = ref("");
 // Use the new composable for matrix data processing
 const { matrixData, terrainValues, difficultyValues } =
   useMatrixData(matrixResult);
+
+// Cells stuck at the current matrix_tours value: the ones needed to reach the next round
+const nextRoundTargets = computed(() => {
+  const tours = matrixResult.value?.matrix_tours ?? 0;
+  if (tours === 0) return [];
+
+  return matrixData.value.rows.flatMap((row) =>
+    row.cells
+      .filter((cell) => cell.count === tours)
+      .map((cell) => ({ difficulty: cell.difficulty, terrain: cell.terrain })),
+  );
+});
 
 // Tri alphabétique des types de cache
 const sortedCacheTypes = computed(() => {
@@ -394,7 +426,7 @@ function getCellClass(diff: number, terr: number): string {
     cell.count === matrixResult.value.matrix_tours
   ) {
     // Color for next round target cells
-    return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300";
+    return "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200";
   }
 
   return cell.isCompleted
