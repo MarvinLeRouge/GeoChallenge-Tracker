@@ -1,0 +1,49 @@
+name: Update Changelog
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "CHANGELOG.md"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # git-cliff needs the full commit history, not a shallow clone
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate changelog
+        run: npm run changelog
+
+      # main is protected: no direct push, so open a PR instead of committing
+      # straight to it. Reuses the same branch across runs, updating the
+      # existing open PR rather than piling up new ones.
+      - name: Open pull request if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: CHANGELOG.md
+          commit-message: "chore(changelog): update CHANGELOG.md"
+          title: "chore(changelog): update CHANGELOG.md"
+          body: Automated CHANGELOG.md regeneration via git-cliff, triggered by a push to main.
+          branch: chore/update-changelog
+          delete-branch: true
