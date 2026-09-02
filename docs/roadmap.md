@@ -1,430 +1,430 @@
-# Roadmap produit — GeoChallenge Tracker
-
-**Date de création :** 2026-03-20
-**Dernière mise à jour :** 2026-08-03 (vérification factuelle par rapport au code : tests API, coverage, CI/CD, page Targets, healthchecks)
-**Type :** Roadmap fonctionnelle — ce qui reste à construire
-**Sources :** README, code existant
-
-> Ce document recense les fonctionnalités manquantes, incomplètes ou planifiées.
-> Il ne traite pas des corrections de bugs ou de dette technique — voir [`roadmap-corrections.md`](roadmap-corrections.md).
+[🇫🇷 Version française](roadmap.fr.md) | 🇬🇧 English version
 
 ---
 
-## Table des matières
+# Product Roadmap: GeoChallenge Tracker
 
-- [Légende](#légende)
-- [État actuel du projet](#état-actuel-du-projet)
-- [Épic 1 — Authentification & comptes utilisateurs](#épic-1--authentification--comptes-utilisateurs)
-- [Épic 2 — Import & gestion des caches](#épic-2--import--gestion-des-caches)
-- [Épic 3 — Challenges & progression](#épic-3--challenges--progression)
-- [Épic 4 — Visualisation & carte](#épic-4--visualisation--carte)
-- [Épic 5 — Notifications & communication](#épic-5--notifications--communication)
-- [Épic 6 — Statistiques & exports](#épic-6--statistiques--exports)
-- [Épic 7 — Qualité, tests & observabilité](#épic-7--qualité-tests--observabilité)
-- [Épic 8 — Infrastructure & déploiement](#épic-8--infrastructure--déploiement)
-- [Synthèse par priorité](#synthèse-par-priorité)
+**Created:** 2026-03-20
+**Last updated:** 2026-09-02 (factual verification against the code: SMTP health check, marker clustering, full-text search)
+**Type:** Functional roadmap, what remains to be built
+**Sources:** README, existing code
+
+> This document lists missing, incomplete, or planned features.
+> It does not cover bug fixes or technical debt, see [`roadmap-corrections.md`](roadmap-corrections.md).
 
 ---
 
-## Légende
+## Table of contents
 
-| Symbole | Signification |
-|---------|---------------|
-| ✅ | Implémenté et fonctionnel |
-| 🔧 | Partiellement implémenté / à compléter |
-| ❌ | Non implémenté |
-| 🔴 | Priorité critique |
-| 🟠 | Priorité haute |
-| 🟡 | Priorité normale |
+- [Legend](#legend)
+- [Current project state](#current-project-state)
+- [Epic 1: Authentication & user accounts](#epic-1-authentication--user-accounts)
+- [Epic 2: Cache import & management](#epic-2-cache-import--management)
+- [Epic 3: Challenges & progress](#epic-3-challenges--progress)
+- [Epic 4: Visualization & map](#epic-4-visualization--map)
+- [Epic 5: Notifications & communication](#epic-5-notifications--communication)
+- [Epic 6: Statistics & exports](#epic-6-statistics--exports)
+- [Epic 7: Quality, tests & observability](#epic-7-quality-tests--observability)
+- [Epic 8: Infrastructure & deployment](#epic-8-infrastructure--deployment)
+- [Priority synthesis](#priority-synthesis)
+
+---
+
+## Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Implemented and functional |
+| 🔧 | Partially implemented / to complete |
+| ❌ | Not implemented |
+| 🔴 | Critical priority |
+| 🟠 | High priority |
+| 🟡 | Normal priority |
 | 🟢 | Nice-to-have |
 
-**Complexité :** `S` (< 1 jour) · `M` (1–3 jours) · `L` (3–7 jours) · `XL` (> 1 semaine)
+**Complexity:** `S` (< 1 day) · `M` (1-3 days) · `L` (3-7 days) · `XL` (> 1 week)
 
 ---
 
-## État actuel du projet
+## Current project state
 
-### Ce qui fonctionne aujourd'hui
+### What works today
 
-| Domaine | Fonctionnalité | État |
-|---------|----------------|------|
+| Domain | Feature | State |
+|--------|---------|-------|
 | Auth | Register, Login, Refresh token | ✅ |
-| Auth | Vérification email par code | ✅ |
-| Auth | Renvoi du code de vérification | ✅ |
-| Caches | Import GPX / ZIP synchrone | ✅ |
-| Caches | Recherche par bbox, rayon, filtres avancés | ✅ |
-| Caches | Récupération par GC code ou MongoDB ID | ✅ |
-| Challenges | Création challenges depuis caches | ✅ |
-| My challenges | Listing paginé, détail, patch unitaire | ✅ |
-| My challenges | Calendar challenge (vérification 365 jours) | ✅ |
-| My challenges | Matrix D/T (vérification 9×9) | ✅ |
-| Targets | Évaluation, listing, recherche à proximité, suppression (API) | ✅ |
-| Targets | Page globale `/my/targets` (frontend) | ✅ |
-| Progress | Évaluation, historique, premier snapshot | ✅ |
-| Tasks | Listing, remplacement, validation sans persistance | ✅ |
-| Profil | Lecture/écriture profil + localisation | ✅ |
-| Stats | Statistiques utilisateur de base | ✅ |
-| Maintenance | Analyse orphelins, backup / restore BDD | ✅ |
-| Meta | `/health`, `/version`, `/info` | ✅ |
-| Carte | Visualisation caches (MapDemo) | ✅ |
+| Auth | Email verification by code | ✅ |
+| Auth | Resend verification code | ✅ |
+| Caches | Synchronous GPX / ZIP import | ✅ |
+| Caches | Search by bbox, radius, advanced filters | ✅ |
+| Caches | Retrieval by GC code or MongoDB ID | ✅ |
+| Challenges | Create challenges from caches | ✅ |
+| My challenges | Paginated listing, detail, single patch | ✅ |
+| My challenges | Calendar challenge (365-day check) | ✅ |
+| My challenges | D/T matrix (9x9 check) | ✅ |
+| Targets | Evaluation, listing, nearby search, deletion (API) | ✅ |
+| Targets | Global `/my/targets` page (frontend) | ✅ |
+| Progress | Evaluation, history, first snapshot | ✅ |
+| Tasks | Listing, replacement, validation without persistence | ✅ |
+| Profile | Read/write profile + location | ✅ |
+| Stats | Basic user statistics | ✅ |
+| Maintenance | Orphan analysis, DB backup / restore | ✅ |
+| Meta | `/health`, `/version`, `/info` (with real SMTP check) | ✅ |
+| Map | Cache visualization (MapDemo) | ✅ |
+| Map | Marker clustering (WithinBbox, WithinRadius, Targets) | ✅ |
+| Caches | Full-text search (`$text` via `POST /caches/by-filter`) | ✅ |
 
-### Ce qui est commencé mais incomplet
+### What is started but incomplete
 
-| Domaine | Fonctionnalité | État | Référence |
-|---------|----------------|------|-----------|
-| My challenges | Sync UserChallenges | 🔧 BACKLOG | `my_challenges.py:47` |
-| My challenges | Batch PATCH challenges | 🔧 BACKLOG | `my_challenges.py:110` |
-| Auth | Reset password | ❌ Route absente | — |
-| Recherche caches | Recherche par filtre (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
-| Progress | Page progression (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
-| Targets | Page targets par challenge (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
-| Health check | Vérification SMTP réelle | 🔧 TODO dans code | `core/meta.py:39` |
-
----
-
-## Épic 1 — Authentification & comptes utilisateurs
-
-### 1.1 Reset de mot de passe ❌ 🔴 `M`
-
-**Contexte :** L'email de vérification est en place, mais il n'existe aucune route de reset de mot de passe. Un utilisateur qui oublie son mot de passe ne peut pas récupérer son compte.
-
-**À construire :**
-
-| Étape | Backend | Frontend |
-|-------|---------|----------|
-| Demande de reset | `POST /auth/forgot-password` — génère un token, envoie un email | Formulaire avec champ email |
-| Confirmation | `POST /auth/reset-password` — vérifie le token, hash le nouveau mot de passe | Formulaire token + nouveau mot de passe |
-| Invalidation | Le token est à usage unique, TTL 1h | — |
-
-**Dépendances :** service email fonctionnel (`aiosmtplib` déjà en place), `users.reset_token` + `users.reset_token_expires_at` à ajouter au modèle `User`.
+| Domain | Feature | State | Reference |
+|--------|---------|-------|-----------|
+| My challenges | Sync UserChallenges | 🔧 BACKLOG | `my_challenges.py:46` |
+| My challenges | Batch PATCH challenges | 🔧 BACKLOG | `my_challenges.py:109` |
+| Auth | Reset password | ❌ Route missing | - |
+| Cache search | Search by filter (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
+| Progress | Progress page (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
+| Targets | Per-challenge targets page (frontend) | ❌ `_NotImplemented` | `router/index.ts` |
 
 ---
 
-### 1.2 Compléter la synchronisation UserChallenges 🔧 🟠 `M`
+## Epic 1: Authentication & user accounts
 
-**Contexte :** La route `POST /my/challenges/sync` est marquée `TODO: [BACKLOG]` dans le code. La synchronisation crée les `UserChallenge` manquants pour un utilisateur, mais son comportement exact (full sync vs delta) n'est pas finalisé.
+### 1.1 Password reset ❌ 🔴 `M`
 
-**À valider / construire :**
-- Définir la logique de sync : full (recrée tout) ou delta (ajoute uniquement les manquants)
-- Finaliser la route et la marquer `DONE`
-- Ajouter des tests d'intégration couvrant le cas "premier sync" et "sync incrémental"
+**Context:** Email verification is in place, but no password reset route exists. A user who forgets their password cannot recover their account.
+
+**To build:**
+
+| Step | Backend | Frontend |
+|------|---------|----------|
+| Reset request | `POST /auth/forgot-password`: generates a token, sends an email | Form with an email field |
+| Confirmation | `POST /auth/reset-password`: verifies the token, hashes the new password | Form with token + new password |
+| Invalidation | The token is single-use, TTL 1h | - |
+
+**Dependencies:** working email service (`aiosmtplib` already in place), `users.reset_token` + `users.reset_token_expires_at` to add to the `User` model.
+
+---
+
+### 1.2 Complete UserChallenges synchronization 🔧 🟠 `M`
+
+**Context:** The `POST /my/challenges/sync` route is marked `TODO: [BACKLOG]` in the code. Synchronization creates missing `UserChallenge` entries for a user, but its exact behavior (full sync vs. delta) is not finalized.
+
+**To validate / build:**
+- Define the sync logic: full (recreates everything) or delta (adds only missing entries)
+- Finalize the route and mark it `DONE`
+- Add integration tests covering the "first sync" and "incremental sync" cases
 
 ---
 
 ### 1.3 Batch PATCH challenges 🔧 🟡 `S`
 
-**Contexte :** `PATCH /my/challenges` (mise à jour en masse) est déclaré mais non vérifié. Utilisé par le frontend pour changer le statut de plusieurs challenges d'un coup.
+**Context:** `PATCH /my/challenges` (bulk update) is declared but not verified. Used by the frontend to change the status of several challenges at once.
 
-**À valider :** comportement en cas d'IDs inexistants, résultat retourné (liste des updated vs erreurs), tests.
-
----
-
-### 1.4 Déconnexion (logout) avec invalidation côté serveur ✅ 🟡 `M`
-
-**Fait (2026-08-01) :** `POST /auth/logout` révoque le refresh token via son `jti` (collection MongoDB `revoked_refresh_tokens`, index TTL pour nettoyage automatique). `/auth/refresh` rejette les tokens révoqués. Le frontend appelle la route avant de vider le storage, en best-effort. Cookie `refresh_token` élargi de `path=/auth/refresh` à `path=/auth` pour atteindre le nouvel endpoint.
+**To validate:** behavior with nonexistent IDs, returned result (list of updated vs. errors), tests.
 
 ---
 
-## Épic 2 — Import & gestion des caches
+### 1.4 Logout with server-side invalidation ✅ 🟡 `M`
 
-### 2.1 Import GPX asynchrone (background task) ❌ 🔴 `XL`
+**Done (2026-08-01):** `POST /auth/logout` revokes the refresh token via its `jti` (MongoDB collection `revoked_refresh_tokens`, TTL index for automatic cleanup). `/auth/refresh` rejects revoked tokens. The frontend calls the route before clearing storage, on a best-effort basis. `refresh_token` cookie widened from `path=/auth/refresh` to `path=/auth` to reach the new endpoint.
 
-**Contexte :** L'import GPX/ZIP est actuellement synchrone. Pour un fichier Pocket Query (typiquement 500–1000 caches), la requête peut dépasser 30 secondes et timeout. Des fichiers Celery sont déjà présents dans le projet (`DETAIL_celery_gpx.md`), la décision d'architecture est prise.
+---
 
-**À construire :**
+## Epic 2: Cache import & management
 
-| Composant | Description |
+### 2.1 Asynchronous GPX import (background task) ❌ 🔴 `XL`
+
+**Context:** GPX/ZIP import is currently synchronous. For a Pocket Query file (typically 500-1000 caches), the request can exceed 30 seconds and time out. Celery files are already present in the project (`DETAIL_celery_gpx.md`), the architecture decision has been made.
+
+**To build:**
+
+| Component | Description |
 |-----------|-------------|
-| Worker Celery | Service Docker séparé, consomme une queue Redis |
-| Task `import_gpx` | Déplace la logique d'import actuelle dans une tâche Celery |
-| Route upload | `POST /caches/upload-gpx` retourne un `job_id` immédiatement (HTTP 202) |
-| Route statut | `GET /caches/import-jobs/{job_id}` retourne `pending / processing / done / failed` + stats |
-| Frontend | Composant de suivi de progression (polling ou SSE) sur la page `ImportGpx.vue` |
+| Celery worker | Separate Docker service, consumes a Redis queue |
+| `import_gpx` task | Moves the current import logic into a Celery task |
+| Upload route | `POST /caches/upload-gpx` returns a `job_id` immediately (HTTP 202) |
+| Status route | `GET /caches/import-jobs/{job_id}` returns `pending / processing / done / failed` + stats |
+| Frontend | Progress tracking component (polling or SSE) on the `ImportGpx.vue` page |
 
-**Dépendances :** Redis (nouveau service Docker), Celery (`celery[redis]` à ajouter aux dépendances).
-
----
-
-### 2.2 Validation GPX avant traitement complet ❌ 🟠 `S`
-
-**Contexte :** Le parser GPX lit actuellement tout le fichier en mémoire avant de détecter un éventuel format invalide. Sur un fichier de 50 Mo corrompu, cela consomme inutilement de la RAM.
-
-**À construire :**
-- Lire uniquement les 4 premiers Ko du fichier pour valider le header XML / balise `<gpx>`
-- Retourner HTTP 400 immédiatement si invalide, sans traitement complet
-- Tester avec des fichiers invalides (JSON, binaire, GPX tronqué)
+**Dependencies:** Redis (new Docker service), Celery (`celery[redis]` to add to dependencies).
 
 ---
 
-### 2.3 Page "Recherche par filtre" (frontend) ❌ 🟠 `L`
+### 2.2 GPX validation before full processing ❌ 🟠 `S`
 
-**Contexte :** La route frontend `/caches/by-filter` pointe sur `_NotImplemented.vue`. La route API `POST /caches/by-filter` est fonctionnelle.
+**Context:** The GPX parser currently reads the entire file into memory before detecting a possible invalid format. On a corrupted 50 MB file, this needlessly consumes RAM.
 
-**À construire :**
-- Formulaire de filtres (type, taille, difficulté, terrain, attributs, dates de placement/trouvaille)
-- Tableau de résultats paginé
-- Lien vers la fiche d'un cache
-- Composable `useCacheFilter` dédié
-
----
-
-### 2.4 Support streaming pour gros fichiers GPX 🟡 `M`
-
-**Contexte :** Même avec l'asynchronisme (2.1), traiter un GPX de plusieurs milliers de caches en une seule liste peut saturer la RAM. Le traitement par chunks évite ce problème.
-
-**À construire :** Parser itératif (SAX/iterparse) plutôt que chargement complet en mémoire dans le service d'import GPX.
+**To build:**
+- Read only the first 4 KB of the file to validate the XML header / `<gpx>` tag
+- Return HTTP 400 immediately if invalid, without full processing
+- Test with invalid files (JSON, binary, truncated GPX)
 
 ---
 
-## Épic 3 — Challenges & progression
+### 2.3 "Search by filter" page (frontend) ❌ 🟠 `L`
 
-### 3.1 Page "Progression" (frontend) ❌ 🔴 `L`
+**Context:** The frontend route `/caches/by-filter` points to `_NotImplemented.vue`. The API route `POST /caches/by-filter` is functional.
 
-**Contexte :** La route `/my/challenges/:id/progress` pointe sur `_NotImplemented.vue`. Les routes API de progression (`GET`, `POST /evaluate`, `POST /new/progress`) sont fonctionnelles.
-
-**À construire :**
-- Graphique d'évolution temporelle du taux de complétion (% sur le temps)
-- Dernier snapshot avec détail (combien de cases remplies, combien manquantes)
-- Bouton "Évaluer maintenant" → appelle `POST /evaluate`
-- Composable `useProgress` dédié
+**To build:**
+- Filter form (type, size, difficulty, terrain, attributes, placement/found dates)
+- Paginated results table
+- Link to a cache's detail page
+- Dedicated `useCacheFilter` composable
 
 ---
 
-### 3.2 Page "Targets" (frontend) 🔧 🔴 `L`
+### 2.4 Streaming support for large GPX files 🟡 `M`
 
-**Vue globale (fait) :** `/my/targets` (`Targets.vue`) est pleinement fonctionnelle : carte Leaflet, mode "à proximité" avec sélection du centre, bouton "Rechercher à proximité", évaluation et affichage des targets.
+**Context:** Even with asynchronous processing (2.1), handling a GPX file with several thousand caches as a single list can saturate RAM. Chunked processing avoids this problem.
 
-**Vue par challenge (reste à construire) :** `/my/challenges/:id/targets` pointe toujours sur `_NotImplemented.vue`. Les routes API targets sont complètes (`GET /targets/nearby`, `DELETE /my/challenges/{uc_id}/targets`, etc.).
-
-**À construire (vue par challenge) :**
-- Liste paginée des caches cibles pour ce challenge spécifique (avec tri : score, distance, difficulté…)
-- Réutiliser le composant carte existant de `Targets.vue`
-- Bouton "Supprimer les targets" → appelle `DELETE /my/challenges/{uc_id}/targets`
+**To build:** iterative parser (SAX/iterparse) instead of loading everything into memory in the GPX import service.
 
 ---
 
-### 3.3 Évaluation automatique de la progression 🟡 `M`
+## Epic 3: Challenges & progress
 
-**Contexte :** L'évaluation de progression est actuellement déclenchée manuellement. Dans un flux naturel, elle devrait être recalculée automatiquement après chaque import GPX.
+### 3.1 "Progress" page (frontend) ❌ 🔴 `L`
 
-**À construire :** déclencher `POST /my/challenges/{uc_id}/progress/evaluate` (ou une version batch) automatiquement à la fin d'un import GPX réussi, pour tous les challenges actifs de l'utilisateur.
+**Context:** The `/my/challenges/:id/progress` route points to `_NotImplemented.vue`. The progress API routes (`GET`, `POST /evaluate`, `POST /new/progress`) are functional.
 
----
-
-### 3.4 Suggestions de challenges réalisables 🟢 `L`
-
-**Contexte :** Fonctionnalité décrite dans le README ("Get completion projections") mais absente du code.
-
-**À construire :**
-- Endpoint `GET /my/challenges/suggestions` : analyse les caches trouvés et non trouvés, calcule le % de complétion potentiel pour chaque challenge non encore actif
-- Critère de suggestion : challenges réalisables à ≥ 70% avec les caches actuels de l'utilisateur
-- Affichage dans le frontend sous forme de cartes "Challenges recommandés"
+**To build:**
+- Chart of completion rate over time (% over time)
+- Latest snapshot with detail (how many cells filled, how many missing)
+- "Evaluate now" button -> calls `POST /evaluate`
+- Dedicated `useProgress` composable
 
 ---
 
-## Épic 4 — Visualisation & carte
+### 3.2 "Targets" page (frontend) 🔧 🔴 `L`
 
-### 4.1 Clustering des marqueurs sur la carte ❌ 🟡 `M`
+**Global view (done):** `/my/targets` (`Targets.vue`) is fully functional: Leaflet map, "nearby" mode with center selection, "Search nearby" button, target evaluation and display.
 
-**Contexte :** La carte affiche actuellement tous les caches comme autant de marqueurs individuels. Au-delà de 200–300 caches, la carte devient illisible et les performances se dégradent.
+**Per-challenge view (remaining):** `/my/challenges/:id/targets` still points to `_NotImplemented.vue`. The targets API routes are complete (`GET /targets/nearby`, `DELETE /my/challenges/{uc_id}/targets`, etc.).
 
-**À construire :**
-- Intégrer `Leaflet.markercluster` dans `MapDemo.vue` et les futurs composants carte
-- Configurer le dégroupement progressif au zoom
-- Adapter l'API : ajouter un paramètre `cluster=true` optionnel à `GET /caches/within-bbox` pour retourner des centroïdes de cluster côté serveur (MongoDB `$geoNear` + `$group`)
-
----
-
-### 4.2 Heatmap des trouvailles 🟢 `M`
-
-**Contexte :** Fonctionnalité mentionnée dans le README ("Visualize progress on maps").
-
-**À construire :**
-- Intégrer `Leaflet.heat` dans le frontend
-- Endpoint `GET /my/found-caches/heatmap` → retourne une liste de `[lat, lng, intensity]`
-- Intensité = nombre de caches trouvés dans une zone (agrégation MongoDB)
-- Page dédiée ou onglet dans la vue stats
+**To build (per-challenge view):**
+- Paginated list of target caches for this specific challenge (sortable by score, distance, difficulty...)
+- Reuse the existing map component from `Targets.vue`
+- "Delete targets" button -> calls `DELETE /my/challenges/{uc_id}/targets`
 
 ---
 
-### 4.3 Carte des targets d'un challenge 🟡 `S`
+### 3.3 Automatic progress evaluation 🟡 `M`
 
-**Contexte :** La page Targets (3.2) listera les cibles en tableau, mais une vue carte complémentaire serait utile pour choisir un circuit géographique.
+**Context:** Progress evaluation is currently triggered manually. In a natural flow, it should be recalculated automatically after each GPX import.
 
-**À construire :** Onglet "Carte" dans la page Targets, réutilisant le composant carte existant avec les targets comme source de données.
-
----
-
-## Épic 5 — Notifications & communication
-
-### 5.1 Email de reset de mot de passe ❌ 🔴 `S`
-
-Dépend de [1.1](#11-reset-de-mot-de-passe--🔴-m). Template email à créer dans le service email existant.
+**To build:** trigger `POST /my/challenges/{uc_id}/progress/evaluate` (or a batch version) automatically at the end of a successful GPX import, for all of the user's active challenges.
 
 ---
 
-### 5.2 Email de notification "challenge complété" ❌ 🟠 `S`
+### 3.4 Achievable challenge suggestions 🟢 `L`
 
-**Contexte :** Non implémenté. Lors d'une évaluation de progression atteignant 100%, aucun email n'est envoyé.
+**Context:** Feature described in the README ("Get completion projections") but absent from the code.
 
-**À construire :**
-- Détecter le passage à 100% dans `POST /my/challenges/{uc_id}/progress/evaluate`
-- Envoyer un email de félicitation via `aiosmtplib`
-- Template HTML de notification (utiliser le système de templates email existant)
+**To build:**
+- Endpoint `GET /my/challenges/suggestions`: analyzes found and not-found caches, computes the potential completion % for each not-yet-active challenge
+- Suggestion criterion: challenges achievable at >= 70% with the user's current caches
+- Frontend display as "Recommended challenges" cards
 
 ---
 
-### 5.3 Système de notifications in-app ❌ 🟢 `L`
+## Epic 4: Visualization & map
 
-**Contexte :** Fonctionnalité planifiée mais non démarrée.
+### 4.1 Marker clustering on the map 🔧 🟡 `M`
 
-**À construire :**
-- Collection `notifications` en MongoDB (`user_id`, `type`, `payload`, `read_at`, `created_at`)
-- `GET /my/notifications` (paginé, avec filtre `unread_only`)
+**Done:** `Leaflet.markercluster` is integrated client-side in `WithinBbox.vue`, `WithinRadius.vue`, and `Targets.vue` (`L.markerClusterGroup`), with progressive ungrouping on zoom.
+
+**Remaining:**
+- Integrate clustering into `MapDemo.vue`, which still displays every cache as an individual marker
+- Adapt the API: add an optional `cluster=true` parameter to `GET /caches/within-bbox` to return server-side cluster centroids (MongoDB `$geoNear` + `$group`), useful for very large volumes where client-side clustering alone is no longer enough
+
+---
+
+### 4.2 Finds heatmap 🟢 `M`
+
+**Context:** Feature mentioned in the README ("Visualize progress on maps").
+
+**To build:**
+- Integrate `Leaflet.heat` in the frontend
+- Endpoint `GET /my/found-caches/heatmap` -> returns a list of `[lat, lng, intensity]`
+- Intensity = number of caches found in an area (MongoDB aggregation)
+- Dedicated page or tab in the stats view
+
+---
+
+### 4.3 Map of a challenge's targets 🟡 `S`
+
+**Context:** The Targets page (3.2) will list targets in a table, but a complementary map view would be useful for planning a geographic route.
+
+**To build:** "Map" tab on the Targets page, reusing the existing map component with targets as the data source.
+
+---
+
+## Epic 5: Notifications & communication
+
+### 5.1 Password reset email ❌ 🔴 `S`
+
+Depends on [1.1](#11-password-reset--🔴-m). Email template to create in the existing email service.
+
+---
+
+### 5.2 "Challenge completed" notification email ❌ 🟠 `S`
+
+**Context:** Not implemented. When a progress evaluation reaches 100%, no email is sent.
+
+**To build:**
+- Detect reaching 100% in `POST /my/challenges/{uc_id}/progress/evaluate`
+- Send a congratulations email via `aiosmtplib`
+- HTML notification template (use the existing email template system)
+
+---
+
+### 5.3 In-app notification system ❌ 🟢 `L`
+
+**Context:** Planned feature, not started.
+
+**To build:**
+- `notifications` MongoDB collection (`user_id`, `type`, `payload`, `read_at`, `created_at`)
+- `GET /my/notifications` (paginated, with `unread_only` filter)
 - `PATCH /my/notifications/{id}/read`
-- Icône cloche dans le header frontend avec badge compteur
-- Optionnel : WebSocket pour les notifications en temps réel
+- Bell icon in the frontend header with a counter badge
+- Optional: WebSocket for real-time notifications
 
 ---
 
-### 5.4 Health check email (SMTP réel) 🔧 🟡 `S`
+### 5.4 Email health check (real SMTP) ✅ 🟡 `S`
 
-**Contexte :** `check_email()` dans `core/meta.py` retourne toujours `"ok"` (TODO dans le code). En production, si le serveur SMTP est down, le `/health` ne le détecte pas.
-
-**À construire :** Tenter une connexion SMTP (sans envoyer d'email) et retourner `"ok"` ou le message d'erreur.
+**Done (2026-03-21):** `check_email()` in `core/meta.py` opens a real SMTP connection (with STARTTLS if the port is 587) and sends a `NOOP` to verify the server responds, without sending an email. Returns `"ok"` or the error message.
 
 ---
 
-## Épic 6 — Statistiques & exports
+## Epic 6: Statistics & exports
 
-### 6.1 Export GPX d'un challenge ❌ 🟠 `M`
+### 6.1 GPX export of a challenge ❌ 🟠 `M`
 
-**Contexte :** Un geocacheur veut charger les cibles d'un challenge dans son application GPS. Fonctionnalité mentionnée dans `TODO_GC_TRACKER.md`.
+**Context:** A geocacher wants to load a challenge's targets into their GPS application. Feature mentioned in `TODO_GC_TRACKER.md`.
 
-**À construire :**
+**To build:**
 - Route `GET /my/challenges/{uc_id}/export-gpx`
-- Générer un fichier GPX valide contenant les caches targets du challenge
-- Utiliser `gpxpy` pour la génération (bibliothèque standard du domaine)
-- Frontend : bouton "Exporter GPX" dans la page Targets / Détail d'un challenge
+- Generate a valid GPX file containing the challenge's target caches
+- Use `gpxpy` for generation (standard library for this domain)
+- Frontend: "Export GPX" button on the Targets page / challenge detail
 
 ---
 
-### 6.2 Statistiques utilisateur avancées 🔧 🟡 `L`
+### 6.2 Advanced user statistics 🔧 🟡 `L`
 
-**Contexte :** La route `/user-stats` existe et retourne des statistiques de base. Le README mentionne des projections de complétion, des graphiques d'évolution et des heatmaps.
+**Context:** The `/user-stats` route exists and returns basic statistics. The README mentions completion projections, evolution charts, and heatmaps.
 
-**À compléter :**
+**To complete:**
 
-| Métrique | État | Notes |
-|----------|------|-------|
-| Total caches trouvés | ✅ | |
-| Répartition par type/taille | ✅ probable | À vérifier |
-| Évolution dans le temps (graphique) | ❌ | Agrégation par mois/semaine |
-| D/T matrix complétée % | ✅ via matrix challenge | |
-| Projection "à combien de caches du prochain milestone" | ❌ | Calcul côté backend |
-| Pays/régions visités | ❌ | Agrégation sur `caches.country` |
+| Metric | State | Notes |
+|--------|-------|-------|
+| Total caches found | ✅ | |
+| Breakdown by type/size | ✅ probable | To verify |
+| Evolution over time (chart) | ❌ | Aggregation by month/week |
+| D/T matrix completion % | ✅ via matrix challenge | |
+| Projection "how many caches from the next milestone" | ❌ | Backend calculation |
+| Countries/regions visited | ❌ | Aggregation on `caches.country` |
 
-**Frontend :** Page `MyStats.vue` existe, à enrichir avec des graphiques (Chart.js ou D3).
-
----
-
-### 6.3 Recherche full-text sur les caches ❌ 🟡 `S`
-
-**Contexte :** L'index texte est déclaré dans `seed_indexes.py` sur `caches` (`title` + `description`), mais aucune route ne l'exploite.
-
-**À construire :**
-- Paramètre `q: str` dans `POST /caches/by-filter` ou nouvelle route `GET /caches/search?q=...`
-- Utiliser l'opérateur `$text` MongoDB
-- Scoring par pertinence avec `$meta: "textScore"`
-- Frontend : champ de recherche textuelle dans le formulaire de filtres (2.3)
+**Frontend:** `MyStats.vue` page exists, to be enriched with charts (Chart.js or D3).
 
 ---
 
-## Épic 7 — Qualité, tests & observabilité
+### 6.3 Full-text search on caches 🔧 🟡 `S`
 
-### 7.1 Tests API backend ✅ 🔴 `L`
+**Done:** the text index declared in `seed_indexes.py` (`title` + `description`) is used via the `q` parameter of `POST /caches/by-filter`, which uses the MongoDB `$text` operator.
 
-**Fait (2026-08-03) :** les routes sont testées via l'API, avec des tests d'intégration (`backend/tests/integration/`, ex. `test_authenticated.py`) et des tests unitaires montant les vraies routes FastAPI avec dépendances mockées (`backend/tests/unit/test_maintenance_*.py`, etc.), stack `pytest` + `httpx.AsyncClient`. 1291 tests backend au total (`pytest tests/unit -q`).
-
----
-
-### 7.2 Coverage ≥ 60% ✅ `M`
-
-**Fait et largement dépassé (2026-08-03) :** Codecov intégré en CI (backend + frontend, `codecov.yml`), avec des seuils bloquants réels (`project target: 90%`, `patch target: 95%`, `informational: false`), bien au-delà de l'objectif initial de 60%. Badge dans le README.
+**Remaining:**
+- Relevance scoring with `$meta: "textScore"` (the current sort does not prioritize the most relevant results)
+- Frontend: text search field in the filter form (2.3)
 
 ---
 
-### 7.3 Tests d'intégration challenges 🟡 `M`
+## Epic 7: Quality, tests & observability
 
-Couvrir les flows complets :
-- Sync → évaluation → progression
-- Évaluation des targets → liste → export GPX
-- Calendar / Matrix : cas "complété" et "non complété"
+### 7.1 Backend API tests ✅ 🔴 `L`
 
----
-
-### 7.4 Logging structuré ❌ 🔴 `M`
-
-**Contexte :** Le logging actuel utilise `print()` dans plusieurs fichiers. Il n'y a pas de correlation IDs, pas de format JSON, pas de middleware de logging des requêtes HTTP.
-
-**À construire :**
-- Remplacer tous les `print()` par `logging.getLogger(__name__)` ou adopter `structlog`
-- Middleware FastAPI qui logue chaque requête avec : method, path, status code, durée, user_id
-- Format JSON en production, format lisible en développement
-- Correlation ID (`X-Request-ID`) propagé dans tous les logs d'une requête
+**Done (2026-08-03):** routes are tested via the API, with integration tests (`backend/tests/integration/`, e.g. `test_authenticated.py`) and unit tests that spin up the real FastAPI routes with mocked dependencies (`backend/tests/unit/test_maintenance_*.py`, etc.), `pytest` + `httpx.AsyncClient` stack. 1291 backend tests in total (`pytest tests/unit -q`).
 
 ---
 
-### 7.5 Rate limiting sur routes sensibles ✅ 🟠 `S`
+### 7.2 Coverage >= 60% ✅ `M`
 
-**Fait (2026-08-01) :** `slowapi` intégré. `POST /auth/login` (10/min), `POST /auth/register` (5/min), `POST /auth/resend-verification` (3/min). HTTP 429 avec header `Retry-After`.
-
----
-
-### 7.6 Métriques Prometheus ❌ 🟢 `S`
-
-**Contexte :** Aucune métrique d'instrumentation n'est exposée.
-
-**À construire :**
-- Intégrer `prometheus_fastapi_instrumentator`
-- Exposer `/metrics` (endpoint Prometheus)
-- Métriques : temps de réponse par route, taux d'erreur, nombre de requêtes
+**Done and largely exceeded (2026-08-03):** Codecov integrated into CI (backend + frontend, `codecov.yml`), with real blocking thresholds (`project target: 90%`, `patch target: 95%`, `informational: false`), well beyond the initial 60% goal. Badge in the README.
 
 ---
 
-### 7.7 Tests frontend (Vitest + Playwright) 🔧 🟠 `L`
+### 7.3 Challenge integration tests 🟡 `M`
 
-**Vitest (fait, 2026-08-03) :** 419 tests unitaires/composants (`npx vitest run frontend/tests/unit`, composables comme `useCalendarData`/`useMatrixData`, composants comme les pages `Calendar.vue`/`Matrix.vue`/`List.vue`), tournant en CI avec upload de couverture vers Codecov.
-
-**Playwright (démarré, pas encore automatisé) :** deux specs e2e existent (`frontend/tests/e2e/login-map-center.spec.ts`, `smoke.spec.ts`) mais ne tournent pas en CI (aucune étape Playwright dans `.github/workflows/ci.yml`).
-
-**Reste à construire :**
-- Intégrer l'exécution Playwright dans la CI GitHub Actions
-- Étoffer les specs e2e (flux login → import GPX → affichage challenges)
+Cover full flows:
+- Sync -> evaluation -> progress
+- Target evaluation -> listing -> GPX export
+- Calendar / Matrix: "completed" and "not completed" cases
 
 ---
 
-## Épic 8 — Infrastructure & déploiement
+### 7.4 Structured logging ❌ 🔴 `M`
 
-### 8.1 Séparation config dev / prod ❌ 🔴 `M`
+**Context:** Current logging uses `print()` in several files. There are no correlation IDs, no JSON format, no HTTP request logging middleware.
 
-**Contexte :** Un seul fichier `.env` est utilisé pour les deux environnements. Les settings de debug, CORS, et log level doivent différer entre dev et prod.
-
-**À construire :**
-- `.env.dev` : debug activé, CORS permissif (`*`), logs verbose, MailDev
-- `.env.prod` : debug désactivé, CORS restrictif (domaine précis), logs JSON, SMTP réel
-- `docker-compose.override.yml` pour les overrides de développement
-- Documentation dans `.env.example` pour chaque variable
+**To build:**
+- Replace all `print()` calls with `logging.getLogger(__name__)` or adopt `structlog`
+- FastAPI middleware that logs each request with: method, path, status code, duration, user_id
+- JSON format in production, readable format in development
+- Correlation ID (`X-Request-ID`) propagated through all logs of a request
 
 ---
 
-### 8.2 Healthchecks Docker Compose 🔧 `M`
+### 7.5 Rate limiting on sensitive routes ✅ 🟠 `S`
 
-**Prod (fait) :** `docker-compose.prod.yml` a un healthcheck sur `backend` (`curl -f http://localhost:8000/health`) et sur `tiles`.
+**Done (2026-08-01):** `slowapi` integrated. `POST /auth/login` (10/min), `POST /auth/register` (5/min), `POST /auth/resend-verification` (3/min). HTTP 429 with a `Retry-After` header.
 
-**Dev (partiel) :** `docker-compose.yml` a un healthcheck sur `tiles` uniquement ; `backend` n'en a pas encore en dev.
+---
 
-**À construire (dev) :**
+### 7.6 Prometheus metrics ❌ 🟢 `S`
+
+**Context:** No instrumentation metrics are exposed.
+
+**To build:**
+- Integrate `prometheus_fastapi_instrumentator`
+- Expose `/metrics` (Prometheus endpoint)
+- Metrics: response time per route, error rate, request count
+
+---
+
+### 7.7 Frontend tests (Vitest + Playwright) 🔧 🟠 `L`
+
+**Vitest (done, 2026-08-03):** 419 unit/component tests (`npx vitest run frontend/tests/unit`, composables like `useCalendarData`/`useMatrixData`, components like the `Calendar.vue`/`Matrix.vue`/`List.vue` pages), running in CI with coverage upload to Codecov.
+
+**Playwright (started, not yet automated):** two e2e specs exist (`frontend/tests/e2e/login-map-center.spec.ts`, `smoke.spec.ts`) but do not run in CI (no Playwright step in `.github/workflows/ci.yml`).
+
+**Remaining:**
+- Integrate Playwright execution into GitHub Actions CI
+- Expand the e2e specs (login -> GPX import -> challenge display flow)
+
+---
+
+## Epic 8: Infrastructure & deployment
+
+### 8.1 Dev / prod config separation ❌ 🔴 `M`
+
+**Context:** A single `.env` file is used for both environments. Debug settings, CORS, and log level must differ between dev and prod.
+
+**To build:**
+- `.env.dev`: debug enabled, permissive CORS (`*`), verbose logs, MailDev
+- `.env.prod`: debug disabled, restrictive CORS (specific domain), JSON logs, real SMTP
+- `docker-compose.override.yml` for development overrides
+- Documentation in `.env.example` for each variable
+
+---
+
+### 8.2 Docker Compose healthchecks 🔧 `M`
+
+**Prod (done):** `docker-compose.prod.yml` has a healthcheck on `backend` (`curl -f http://localhost:8000/health`) and on `tiles`.
+
+**Dev (partial):** `docker-compose.yml` has a healthcheck on `tiles` only; `backend` does not have one yet in dev.
+
+**To build (dev):**
 ```yaml
 # docker-compose.yml
 backend:
@@ -435,106 +435,106 @@ backend:
     retries: 3
     start_period: 10s
 ```
-MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mongo` local à ajouter : le `/health` backend fait déjà le check de connexion Atlas (voir Épic 5.4).
+MongoDB being external (Atlas) in both environments, no local `mongo` service to add: the backend `/health` already checks the Atlas connection (see Epic 5.4).
 
 ---
 
-### 8.3 CI/CD — Tests automatiques avant merge ✅ 🟠 `M`
+### 8.3 CI/CD: automated tests before merge ✅ 🟠 `M`
 
-**Fait (2026-08-03) :** la CI (`.github/workflows/ci.yml`) lance `pytest tests/unit/ --cov=app` (backend) et `npm run test:unit` (frontend), toutes deux avec upload de couverture vers Codecov, dont les seuils (`project: 90%`, `patch: 95%`) sont bloquants (`informational: false`).
+**Done (2026-08-03):** CI (`.github/workflows/ci.yml`) runs `pytest tests/unit/ --cov=app` (backend) and `npm run test:unit` (frontend), both with coverage upload to Codecov, whose thresholds (`project: 90%`, `patch: 95%`) are blocking (`informational: false`).
 
 ---
 
-### 8.4 HTTPS en production 🔴 `M`
+### 8.4 HTTPS in production 🔴 `M`
 
-**Contexte :** La configuration Nginx existe dans `ops/nginx/` mais la redirection HTTP → HTTPS et les certificats SSL ne sont pas documentés / vérifiés.
+**Context:** The Nginx configuration exists in `ops/nginx/` but the HTTP -> HTTPS redirect and SSL certificates are not documented / verified.
 
-**À construire / vérifier :**
-- Configuration Nginx avec `return 301 https://$host$request_uri;` sur le port 80
-- Intégration Let's Encrypt (Certbot) ou certificat manuel
+**To build / verify:**
+- Nginx configuration with `return 301 https://$host$request_uri;` on port 80
+- Let's Encrypt (Certbot) integration or manual certificate
 - HSTS header
-- Documenter le processus de renouvellement de certificat
+- Document the certificate renewal process
 
 ---
 
-### 8.5 Security headers HTTP ✅ 🟡 `S`
+### 8.5 HTTP security headers ✅ 🟡 `S`
 
-**Fait (2026-08-01) :** en-têtes `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy` ajoutés via un snippet Nginx partagé (`include`d dans chaque `location`, pour contourner le fait qu'un bloc `location` avec son propre `add_header` n'hérite pas de ceux du `server` parent). Vérifié en conditions réelles (headers observés sur les réponses).
-
----
-
-### 8.6 Automatisation du `build_date` via GitHub Actions 🟡 `S`
-
-**Contexte :** Le README documente un `TODO (Phase 4)` : automatiser la mise à jour du `BUILD_DATE` dans la CI lors d'un déploiement en production.
-
-**À construire :**
-- Step dans `build-push.yml` qui injecte `BUILD_DATE=$(git log -1 --format=%cI)` comme `build-arg` Docker
-- Supprimer le script manuel `build.sh` ou le garder pour le dev local uniquement
+**Done (2026-08-01):** `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Referrer-Policy`, `Strict-Transport-Security`, `Permissions-Policy` headers added via a shared Nginx snippet (`include`d in each `location`, to work around the fact that a `location` block with its own `add_header` does not inherit those of the parent `server`). Verified under real conditions (headers observed on responses).
 
 ---
 
-### 8.7 Logs centralisés en production ❌ 🟢 `L`
+### 8.6 Automate `build_date` via GitHub Actions 🟡 `S`
 
-**À construire :**
-- Configurer le driver de logs Docker pour envoyer vers Loki ou un fichier centralisé
-- Stack Loki + Grafana (légère, auto-hébergeable) ou équivalent cloud
-- Dashboards : taux d'erreur, temps de réponse, imports GPX en cours
+**Context:** The README documents a `TODO (Phase 4)`: automate the `BUILD_DATE` update in CI on a production deployment.
+
+**To build:**
+- Step in `build-push.yml` that injects `BUILD_DATE=$(git log -1 --format=%cI)` as a Docker `build-arg`
+- Remove the manual `build.sh` script, or keep it for local dev only
 
 ---
 
-## Synthèse par priorité
+### 8.7 Centralized production logs ❌ 🟢 `L`
 
-### 🔴 Critique — À traiter en premier
+**To build:**
+- Configure the Docker log driver to send to Loki or a centralized file
+- Loki + Grafana stack (lightweight, self-hostable) or a cloud equivalent
+- Dashboards: error rate, response time, ongoing GPX imports
 
-| # | Fonctionnalité | Épic | Taille |
-|---|----------------|------|--------|
-| 1 | Reset de mot de passe | 1.1 | M |
-| 2 | Import GPX asynchrone | 2.1 | XL |
-| 3 | Page Progression (frontend) | 3.1 | L |
-| 4 | Page Targets (frontend) (🔧 vue globale faite, vue par challenge restante) | 3.2 | L |
-| 5 | ~~Tests API backend~~ ✅ fait | 7.1 | L |
-| 6 | Logging structuré | 7.4 | M |
-| 7 | Séparation config dev/prod | 8.1 | M |
-| 8 | HTTPS en production | 8.4 | M |
+---
 
-### 🟠 Haute — Sprint suivant
+## Priority synthesis
 
-| # | Fonctionnalité | Épic | Taille |
-|---|----------------|------|--------|
-| 9 | Validation GPX avant traitement | 2.2 | S |
-| 10 | Page recherche par filtre (frontend) | 2.3 | L |
-| 11 | Email notification challenge complété | 5.2 | S |
-| 12 | Export GPX d'un challenge | 6.1 | M |
-| 13 | ~~Coverage ≥ 60%~~ ✅ fait (90%/95% en CI) | 7.2 | M |
-| 14 | ~~Rate limiting auth~~ ✅ fait | 7.5 | S |
-| 15 | Tests frontend (Vitest + Playwright) (🔧 Vitest fait, Playwright pas en CI) | 7.7 | L |
-| 16 | Healthchecks Docker Compose (🔧 prod fait, dev partiel) | 8.2 | M |
-| 17 | ~~CI/CD — Tests avant merge~~ ✅ fait | 8.3 | M |
+### 🔴 Critical, to address first
 
-### 🟡 Normale — Backlog moyen terme
+| # | Feature | Epic | Size |
+|---|---------|------|------|
+| 1 | Password reset | 1.1 | M |
+| 2 | Asynchronous GPX import | 2.1 | XL |
+| 3 | Progress page (frontend) | 3.1 | L |
+| 4 | Targets page (frontend) (🔧 global view done, per-challenge view remaining) | 3.2 | L |
+| 5 | ~~Backend API tests~~ ✅ done | 7.1 | L |
+| 6 | Structured logging | 7.4 | M |
+| 7 | Dev/prod config separation | 8.1 | M |
+| 8 | HTTPS in production | 8.4 | M |
 
-| # | Fonctionnalité | Épic | Taille |
-|---|----------------|------|--------|
-| 18 | Sync UserChallenges (finaliser) | 1.2 | M |
-| 19 | Batch PATCH challenges (valider) | 1.3 | S |
-| 20 | Support streaming GPX | 2.4 | M |
-| 21 | Évaluation auto après import | 3.3 | M |
-| 22 | Clustering carte | 4.1 | M |
-| 23 | Carte des targets | 4.3 | S |
-| 24 | Health check SMTP réel | 5.4 | S |
-| 25 | Statistiques avancées | 6.2 | L |
-| 26 | Recherche full-text caches | 6.3 | S |
-| 27 | Tests d'intégration challenges | 7.3 | M |
-| 28 | ~~Security headers HTTP~~ ✅ fait | 8.5 | S |
-| 29 | Automatisation build_date CI | 8.6 | S |
+### 🟠 High, next sprint
 
-### 🟢 Nice-to-have — Long terme
+| # | Feature | Epic | Size |
+|---|---------|------|------|
+| 9 | GPX validation before processing | 2.2 | S |
+| 10 | Search by filter page (frontend) | 2.3 | L |
+| 11 | Challenge completed notification email | 5.2 | S |
+| 12 | GPX export of a challenge | 6.1 | M |
+| 13 | ~~Coverage >= 60%~~ ✅ done (90%/95% in CI) | 7.2 | M |
+| 14 | ~~Auth rate limiting~~ ✅ done | 7.5 | S |
+| 15 | Frontend tests (Vitest + Playwright) (🔧 Vitest done, Playwright not in CI) | 7.7 | L |
+| 16 | Docker Compose healthchecks (🔧 prod done, dev partial) | 8.2 | M |
+| 17 | ~~CI/CD: tests before merge~~ ✅ done | 8.3 | M |
 
-| # | Fonctionnalité | Épic | Taille |
-|---|----------------|------|--------|
-| 30 | ~~Logout avec invalidation serveur~~ ✅ fait | 1.4 | M |
-| 31 | Suggestions de challenges | 3.4 | L |
-| 32 | Heatmap des trouvailles | 4.2 | M |
-| 33 | Notifications in-app | 5.3 | L |
-| 34 | Métriques Prometheus | 7.6 | S |
-| 35 | Logs centralisés production | 8.7 | L |
+### 🟡 Normal, mid-term backlog
+
+| # | Feature | Epic | Size |
+|---|---------|------|------|
+| 18 | Sync UserChallenges (finalize) | 1.2 | M |
+| 19 | Batch PATCH challenges (validate) | 1.3 | S |
+| 20 | GPX streaming support | 2.4 | M |
+| 21 | Auto evaluation after import | 3.3 | M |
+| 22 | Map clustering (🔧 client done, MapDemo + server clustering remaining) | 4.1 | M |
+| 23 | Targets map | 4.3 | S |
+| 24 | ~~Real SMTP health check~~ ✅ done | 5.4 | S |
+| 25 | Advanced statistics | 6.2 | L |
+| 26 | Full-text cache search (🔧 search functional, relevance scoring remaining) | 6.3 | S |
+| 27 | Challenge integration tests | 7.3 | M |
+| 28 | ~~HTTP security headers~~ ✅ done | 8.5 | S |
+| 29 | Automate build_date in CI | 8.6 | S |
+
+### 🟢 Nice-to-have, long-term
+
+| # | Feature | Epic | Size |
+|---|---------|------|------|
+| 30 | ~~Logout with server-side invalidation~~ ✅ done | 1.4 | M |
+| 31 | Challenge suggestions | 3.4 | L |
+| 32 | Finds heatmap | 4.2 | M |
+| 33 | In-app notifications | 5.3 | L |
+| 34 | Prometheus metrics | 7.6 | S |
+| 35 | Centralized production logs | 8.7 | L |

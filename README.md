@@ -331,7 +331,7 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 ### 🔴 Critical
 - Password reset flow (no `/auth/forgot-password` / `/auth/reset-password` routes exist yet)
 - Asynchronous GPX import (Celery + Redis, current import is synchronous and can time out on large files)
-- Progress page (frontend) — API ready, page still a placeholder
+- Progress page (frontend): API ready, page still a placeholder
 - Targets page (frontend): the global `/my/targets` view has shipped, only the per-challenge view is still a placeholder
 - Structured logging (replace `print()` calls, add request correlation IDs)
 - Dev/prod environment separation (single `.env` used for both today)
@@ -339,7 +339,7 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 
 ### 🟠 High
 - GPX validation before full in-memory processing
-- Cache search by filter (frontend) — API ready, page still a placeholder
+- Cache search by filter (frontend): API ready, page still a placeholder
 - "Challenge completed" email notification
 - Challenge GPX export
 - Playwright e2e tests wired into CI (specs exist, not run automatically yet)
@@ -350,11 +350,10 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Validate bulk PATCH challenges behavior
 - Streaming support for large GPX files
 - Automatic progress evaluation after a successful import
-- Map marker clustering
+- Map marker clustering (done on the search pages, `MapDemo.vue` and server-side clustering remain)
 - Dedicated map view for challenge targets
-- Real SMTP connectivity check in `/health`
 - Advanced user statistics (evolution charts, milestone projections)
-- Full-text cache search
+- Full-text cache search (working, relevance scoring remains)
 - Challenge integration tests
 - Automate `BUILD_DATE` injection in CI
 
