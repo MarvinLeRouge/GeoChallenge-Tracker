@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   changelog:
@@ -34,14 +35,15 @@ jobs:
       - name: Regenerate changelog
         run: npm run changelog
 
-      - name: Commit changelog if changed
-        run: |
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "CHANGELOG.md is already up to date"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          git commit -m "chore(changelog): update CHANGELOG.md"
-          git push
+      # main is protected: no direct push, so open a PR instead of committing
+      # straight to it. Reuses the same branch across runs, updating the
+      # existing open PR rather than piling up new ones.
+      - name: Open pull request if changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: CHANGELOG.md
+          commit-message: "chore(changelog): update CHANGELOG.md"
+          title: "chore(changelog): update CHANGELOG.md"
+          body: Automated CHANGELOG.md regeneration via git-cliff, triggered by a push to main.
+          branch: chore/update-changelog
+          delete-branch: true

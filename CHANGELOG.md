@@ -275,3 +275,4 @@ To regenerate locally, run `npm run changelog`.
 - Remove the now-dead mailhog service from prod and confirm Brevo is live
 - *(backend)* Rename ADMIN_DEST_EMAIL to ADMIN_TEST_EMAIL for clarity
 - *(docs)* Remove obsolete archived tests and completed working plan
+- Automate CHANGELOG.md regeneration on push to main
