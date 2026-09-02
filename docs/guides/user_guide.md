@@ -1,125 +1,129 @@
-# Guide d'utilisation - GeoChallenge Tracker
+[🇫🇷 Version française](user_guide.fr.md) | 🇬🇧 English version
 
-## Présentation
+---
 
-GeoChallenge Tracker est une application web complète pour les passionnés de géocaching. Elle permet de suivre vos challenges personnalisés, d'importer vos trouvailles GPX, de visualiser votre progression et d'obtenir des statistiques sur la complétion de vos défis.
+# User Guide - GeoChallenge Tracker
 
-## Authentification
+## Overview
 
-### Inscription
-1. Accédez à la page d'inscription
-2. Remplissez le formulaire avec vos informations
-3. Respectez les critères de sécurité pour votre mot de passe
-4. Confirmez votre adresse email via le lien envoyé
+GeoChallenge Tracker is a full web application for geocaching enthusiasts. It lets you track your custom challenges, import your GPX finds, visualize your progress, and get completion statistics for your challenges.
 
-### Connexion
-1. Accédez à la page de connexion
-2. Entrez vos identifiants
-3. Vous êtes redirigé vers votre tableau de bord
+## Authentication
 
-## Gestion des caches
+### Sign up
+1. Go to the sign-up page
+2. Fill in the form with your information
+3. Follow the password security requirements
+4. Confirm your email address via the link sent to you
 
-### Import de fichiers GPX
-1. Allez dans le menu "Caches" → "Importer GPX"
-2. Sélectionnez votre fichier GPX ou ZIP
-3. Choisissez le mode d'import :
-   - **Toutes les caches** : Importe toutes les caches du fichier
-   - **Caches trouvées** : Importe les caches et les associe à votre compte comme trouvées
-4. Le système détecte automatiquement le format (c:geo, Pocket Query)
+### Sign in
+1. Go to the sign-in page
+2. Enter your credentials
+3. You are redirected to your dashboard
 
-### Recherche de caches
-- Utilisez la recherche par filtres pour trouver des caches selon vos critères
-- Filtres disponibles : type, taille, difficulté, terrain, dates, attributs
-- Recherche géographique dans une zone rectangulaire ou circulaire
+## Cache management
+
+### Importing GPX files
+1. Go to the "Caches" menu -> "Import GPX"
+2. Select your GPX or ZIP file
+3. Choose the import mode:
+   - **All caches**: imports every cache from the file
+   - **Found caches**: imports the caches and marks them as found for your account
+4. The system automatically detects the format (c:geo, Pocket Query)
+
+### Cache search
+- Use the filtered search to find caches matching your criteria
+- Available filters: type, size, difficulty, terrain, dates, attributes
+- Geographic search within a rectangular or circular area
 
 ## Challenges
 
-### Challenges personnalisés
-- Définissez vos propres challenges avec des critères personnalisés
-- Suivez votre progression en temps réel
-- Visualisez les caches cibles pour atteindre vos objectifs
+### Custom challenges
+- Define your own challenges with custom criteria
+- Track your progress in real time
+- View target caches to reach your goals
 
-### Challenges classiques
-#### Matrice D/T
-- Vérifiez votre progression dans la matrice 9x9 difficulté/terrain
-- Identifiez les combinaisons manquantes
-- Visualisez les caches cibles pour compléter la matrice
+### Classic challenges
+#### D/T matrix
+- Check your progress on the 9x9 difficulty/terrain matrix
+- Identify missing combinations
+- View target caches to complete the matrix
 
-#### Challenge calendrier
-- Suivez votre progression dans le challenge des 365/366 jours
-- Identifiez les jours manquants
-- Trouvez les caches cibles pour compléter le calendrier
+#### Calendar challenge
+- Track your progress on the 365/366 day challenge
+- Identify missing days
+- Find target caches to complete the calendar
 
-## Suivi de progression
+## Progress tracking
 
-### Statistiques
-- Accédez à vos statistiques générales dans "Mes stats"
-- Visualisez votre progression au fil du temps
-- Consultez des projections de complétion
+### Statistics
+- Access your overall statistics in "My stats"
+- View your progress over time
+- Check completion projections
 
-### Historique
-- Suivez l'évolution de vos challenges
-- Consultez les snapshots de progression historiques
-- Analysez vos tendances
+### History
+- Track how your challenges evolve
+- View historical progress snapshots
+- Analyze your trends
 
-## Profil utilisateur
+## User profile
 
-### Informations personnelles
-- Gérez vos informations de profil
-- Définissez votre localisation pour des suggestions personnalisées
-- Personnalisez vos préférences
+### Personal information
+- Manage your profile information
+- Set your location for personalized suggestions
+- Customize your preferences
 
-## Cartographie
+## Mapping
 
-### Visualisation
-- Visualisez vos caches trouvées sur la carte
-- Consultez les caches cibles pour vos challenges
-- Utilisez les outils de dessin pour planifier vos sorties
+### Visualization
+- View your found caches on the map
+- Check the target caches for your challenges
+- Use the drawing tools to plan your trips
 
-### Carte choroplèthe — Trouvées par zones
+### Choropleth map, found by zones
 
-Accessible via le menu "Caches" → "Trouvées par zones".
+Accessible via the "Caches" menu -> "Found by zones".
 
-Cette carte colore les régions et départements selon le nombre de caches que vous y avez trouvées.
+This map colors regions and departments based on the number of caches you have found there.
 
-**Comment l'utiliser :**
-1. La carte s'ouvre sur les **régions** françaises, colorées par densité
-2. **Survolez** une région pour voir son nom et son compteur
-3. **Cliquez** sur une région pour zoomer et afficher ses **départements**
-4. **Cliquez** sur un département pour ouvrir un popover avec :
-   - Le nombre total de caches trouvées dans ce département
-   - Les 10 premières caches avec leur type, difficulté et terrain
-   - Un lien "Voir toutes" pour accéder à la liste complète
-5. Utilisez le **filtre par type** (en haut) pour n'afficher que les caches d'un type donné
-6. Cliquez sur **"Retour aux régions"** pour remonter au niveau national
+**How to use it:**
+1. The map opens on French **regions**, colored by density
+2. **Hover** over a region to see its name and counter
+3. **Click** a region to zoom in and display its **departments**
+4. **Click** a department to open a popover with:
+   - The total number of caches found in that department
+   - The first 10 caches with their type, difficulty, and terrain
+   - A "See all" link to access the full list
+5. Use the **type filter** (at the top) to show only caches of a given type
+6. Click **"Back to regions"** to go back up to the national level
 
-### Carte choroplèthe — Types trouvés par zones
+### Choropleth map, types found by zones
 
-Accessible via le menu "Caches" → "Types trouvés par zones".
+Accessible via the "Caches" menu -> "Types found by zones".
 
-Cette carte colore les zones selon le nombre total de caches trouvées, mais le clic affiche la **répartition par type** plutôt que la liste des caches.
+This map colors zones based on the total number of caches found, but clicking shows the **breakdown by type** instead of the list of caches.
 
-**Comment l'utiliser :**
-1. La carte s'ouvre sur les **régions** françaises, colorées par densité
-2. **Survolez** une zone pour voir son nom et son compteur total
-3. **Cliquez** sur une zone pour ouvrir un popover avec :
-   - Le nombre total de caches trouvées dans cette zone
-   - Un tableau listant les **13 types de caches** avec leur compteur respectif
-   - Les types où vous n'avez trouvé aucune cache sont mis en évidence (fond rose, croix rouge)
-4. Basculez entre **Régions** et **Départements** via les boutons en haut — le popover se ferme automatiquement
-5. Cliquez **en dehors d'une zone** (sur le fond de la carte) pour fermer le popover
+**How to use it:**
+1. The map opens on French **regions**, colored by density
+2. **Hover** over a zone to see its name and total counter
+3. **Click** a zone to open a popover with:
+   - The total number of caches found in that zone
+   - A table listing the **13 cache types** with their respective counter
+   - Types with no caches found are highlighted (pink background, red cross)
+4. Switch between **Regions** and **Departments** via the buttons at the top, the popover closes automatically
+5. Click **outside a zone** (on the map background) to close the popover
 
-## Administration (pour les administrateurs)
+## Administration (for administrators)
 
-### Outils de maintenance
-- Nettoyage des données orphelines
-- Sauvegarde et restauration de la base de données
-- Backfill des données d'altitude
+### Maintenance tools
+- Cleanup of orphaned data
+- Database backup and restore
+- Elevation data backfill
 
-### Réimport des attributs de caches
-- **Accès** : Réservé aux administrateurs
-- **Fonctionnalité** : Réimport des attributs des caches à partir d'un fichier GPX
-- **Utilité** : Correction des incohérences dans les attributs des caches dans la base de données
-- **Procédure** : Utilisation de la route `/admin/upload-gpx` pour envoyer un fichier GPX
-- **Impact** : Met à jour les attributs des caches existants dans la base de données
-- **Précautions** : Cette opération peut avoir un impact significatif sur la base de données, à utiliser avec discernement
+### Re-importing cache attributes
+- **Access**: administrators only
+- **Purpose**: re-import cache attributes from a GPX file
+- **Use case**: correcting inconsistent cache attributes in the database
+- **Procedure**: use the `/maintenance/upload-gpx` route to upload a GPX file
+- **Impact**: updates the attributes of existing caches in the database
+- **Caution**: this operation can significantly impact the database, use with care

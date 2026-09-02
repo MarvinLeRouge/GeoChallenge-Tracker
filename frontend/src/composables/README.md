@@ -1,33 +1,39 @@
-# Composables — Conventions
-
-Ce dossier contient deux types de composables aux comportements distincts.
+[🇫🇷 Version française](README.fr.md) | 🇬🇧 English version
 
 ---
 
-## Composables avec état et effets de bord
+# Composables: conventions
 
-Ces composables gèrent leur propre état réactif (`loading`, `error`) et effectuent des appels API.
-Chaque appel crée un état **local et indépendant** — deux composants qui les appellent obtiennent deux états séparés.
-Pour partager l'état entre composants, préférer un store Pinia (`src/store/`).
-
-| Composable          | Rôle                                               |
-| ------------------- | -------------------------------------------------- |
-| `useUserProfile`    | Chargement et mise à jour du profil utilisateur    |
-| `useUserChallenges` | Liste paginée des challenges utilisateur           |
-| `useUserChallenge`  | Détail d'un challenge (prend un `id` en paramètre) |
-| `useUserStats`      | Statistiques utilisateur                           |
+This folder contains two types of composables with distinct behaviors.
 
 ---
 
-## Composables purement logiques
+## Composables with state and side effects
 
-Ces composables n'ont pas d'effets de bord. Ils encapsulent de la logique de transformation,
-de calcul ou de validation. Ils peuvent être appelés librement sans risque de doublon de requête.
+These composables manage their own reactive state (`loading`, `error`) and make API calls.
+Each call creates a **local, independent** state: two components calling them get two separate states.
+To share state across components, prefer a Pinia store (`src/store/`).
 
-| Composable           | Rôle                                             |
-| -------------------- | ------------------------------------------------ |
-| `useApiErrorHandler` | Normalise les erreurs Axios en message lisible   |
-| `useFormValidation`  | Validation de formulaires                        |
-| `useCalendarData`    | Transformation des données calendrier (computed) |
-| `useMatrixData`      | Transformation des données matrice (computed)    |
-| `useMapPopup`        | Logique d'affichage des popups Leaflet           |
+| Composable | Role |
+| ---------- | ---- |
+| `useUserProfile` | Loads and updates the user profile |
+| `useUserChallenges` | Paginated list of user challenges |
+| `useUserChallenge` | Detail of a single challenge (takes an `id` parameter) |
+| `useUserStats` | User statistics |
+| `useTargets` | Evaluation, loading, and status of a challenge's targets |
+| `useZones` | API calls for the choropleth map (administrative zones) |
+
+---
+
+## Purely logical composables
+
+These composables have no side effects. They encapsulate transformation,
+computation, or validation logic. They can be called freely without risking duplicate requests.
+
+| Composable | Role |
+| ---------- | ---- |
+| `useApiErrorHandler` | Normalizes Axios errors into a readable message |
+| `useFormValidation` | Form validation |
+| `useCalendarData` | Calendar data transformation (computed) |
+| `useMatrixData` | Matrix data transformation (computed) |
+| `useMapPopup` | Leaflet popup display logic |

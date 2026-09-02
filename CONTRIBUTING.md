@@ -10,9 +10,9 @@ Thank you for your interest in contributing. This document covers the prerequisi
 
 ## Prerequisites
 
-- **Docker & Docker Compose** — to run the full stack locally
-- **Python 3.11+** — for backend development without Docker
-- **Node.js 20+** — for frontend development without Docker
+- **Docker & Docker Compose**: to run the full stack locally
+- **Python 3.11+**: for backend development without Docker
+- **Node.js 20+**: for frontend development without Docker
 - **Git**
 
 ---
@@ -44,8 +44,9 @@ uvicorn app.main:app --reload --port 8000
 
 ### Frontend only
 
+The frontend has no separate `package.json`; it shares the one at the repository root, with Vite's `root` pointed at `frontend/`. Run these from the repository root:
+
 ```bash
-cd frontend
 npm install
 npm run dev
 ```
@@ -94,7 +95,7 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 <type>(<optional scope>): <short summary>
 
 Modified files:
-- path/to/file.ext — what was done
+- path/to/file.ext: what was done
 ```
 
 **Types:** `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf`, `ci`
@@ -107,25 +108,31 @@ Modified files:
 feat(targets): add nearby mode with radius filter
 
 Modified files:
-- backend/app/api/routes/targets.py — add within-radius query param
-- frontend/src/pages/Targets.vue — add radius toggle and circle overlay
+- backend/app/api/routes/targets.py: add within-radius query param
+- frontend/src/pages/Targets.vue: add radius toggle and circle overlay
 ```
 
 ```
 fix(auth): redirect to login on 401 response
 
 Modified files:
-- frontend/src/api/http.ts — add Axios interceptor for 401 handling
+- frontend/src/api/http.ts: add Axios interceptor for 401 handling
 ```
 
 ---
 
 ## Code style
 
-- **Backend:** enforced by `ruff` (lint + format) and `mypy` (type checking) — run `ruff check backend/ && ruff format --check backend/ && mypy backend/` before pushing
-- **Frontend:** enforced by ESLint and TypeScript — run `npm run lint && npm run typecheck` before pushing
+- **Backend:** enforced by `ruff` (lint + format) and `mypy` (type checking). Run `ruff check backend/ && ruff format --check backend/ && mypy backend/` before pushing
+- **Frontend:** enforced by ESLint and TypeScript. Run `npm run lint && npm run typecheck` before pushing
 
 CI will reject any PR that fails these checks.
+
+---
+
+## Code of Conduct
+
+All interactions within the project, including any communication channel used by contributors, are governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 

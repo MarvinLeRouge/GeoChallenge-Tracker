@@ -2,24 +2,25 @@
 
 ---
 
-# GeoChallenge Tracker — Frontend
+# GeoChallenge Tracker - Frontend
 
 SPA Vue.js 3 avec TypeScript, Pinia, Vue Router, Tailwind CSS et cartes Leaflet.
 
 ## Setup local
 
+Le frontend n'a pas de `package.json` séparé : il partage celui de la racine du dépôt, Vite ayant sa `root` pointée sur `frontend/`. Installer les dépendances depuis la racine du dépôt :
+
 ```bash
-cd frontend
 npm install
 ```
 
-Créer un fichier `.env` dans `frontend/` :
+Créer un fichier `.env` dans `frontend/` (c'est là que Vite va le chercher) :
 
 ```env
 VITE_API_URL=http://localhost:8000/api
 ```
 
-Démarrer le serveur de développement :
+Démarrer le serveur de développement, également depuis la racine du dépôt :
 
 ```bash
 npm run dev
@@ -27,6 +28,8 @@ npm run dev
 ```
 
 ## Scripts disponibles
+
+À lancer depuis la racine du dépôt.
 
 | Commande | Description |
 |----------|-------------|
@@ -46,11 +49,11 @@ frontend/src/
 │   └── useZones.ts # Composable API zones (carte choroplèthe)
 ├── pages/
 │   ├── caches/
-│   │   ├── ZonesMap.vue          # Carte choroplèthe — caches trouvées par zone
-│   │   ├── ZoneTypeStatsMap.vue  # Carte choroplèthe — répartition par type par zone
+│   │   ├── ZonesMap.vue          # Carte choroplèthe : caches trouvées par zone
+│   │   ├── ZoneTypeStatsMap.vue  # Carte choroplèthe : répartition par type par zone
 │   │   └── ...
 │   └── ...
-├── stores/         # Stores Pinia
+├── store/          # Stores Pinia
 ├── types/
 │   └── zones.ts    # Types TypeScript ZoneListItem, ZoneDetail, ZoneTypeStatsResponse
 └── components/     # Composants UI partagés

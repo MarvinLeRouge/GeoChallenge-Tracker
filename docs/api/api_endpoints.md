@@ -1,13 +1,17 @@
+[🇫🇷 Version française](api_endpoints.fr.md) | 🇬🇧 English version
+
+---
+
 # API Documentation - GeoChallenge Tracker
 
-> Routes publiques (authentifiées ou non). Les routes admin-only (`/maintenance/*`) ne sont pas documentées ici.
+> Public routes (authenticated or not). Admin-only routes (`/maintenance/*`, `/caches_elevation/*`, `/caches_geocoding/*`) are not documented here.
 
-## Authentification (`/auth`)
+## Authentication (`/auth`)
 
-### Inscription
-- **URL** : `POST /auth/register`
-- **Description** : Crée un nouveau compte utilisateur (non vérifié), envoie un email de vérification (code valide 24h)
-- **Body** :
+### Register
+- **URL**: `POST /auth/register`
+- **Description**: Creates a new (unverified) user account, sends a verification email (code valid 24h)
+- **Body**:
   ```json
   {
     "username": "string",
@@ -15,85 +19,85 @@
     "password": "string"
   }
   ```
-- **Réponse** (201) : informations publiques du compte créé (`_id`, `username`, `email`, `role`)
+- **Response** (201): public info of the created account (`_id`, `username`, `email`, `role`)
 
-### Connexion
-- **URL** : `POST /auth/login`
-- **Description** : Authentifie un utilisateur (accepte JSON `{identifier, password}` ou formulaire OAuth2). Le compte doit être vérifié.
-- **Body** :
+### Login
+- **URL**: `POST /auth/login`
+- **Description**: Authenticates a user (accepts JSON `{identifier, password}` or an OAuth2 form). The account must be verified.
+- **Body**:
   ```json
   {
-    "identifier": "string", // email ou username
+    "identifier": "string", // email or username
     "password": "string"
   }
   ```
-- **Réponse** : `{ "access_token": "string", "token_type": "bearer" }` (le refresh token n'est **pas** dans la réponse JSON, il est déposé dans un cookie `HttpOnly` : `refresh_token`, scope `/auth`, 7 jours)
+- **Response**: `{ "access_token": "string", "token_type": "bearer" }` (the refresh token is **not** in the JSON response, it is set as an `HttpOnly` cookie: `refresh_token`, scope `/auth`, 7 days)
 
-### Actualisation du token
-- **URL** : `POST /auth/refresh`
-- **Description** : Génère un nouvel access token à partir du refresh token lu depuis le cookie `HttpOnly` (**aucun body requis**, le token n'est jamais envoyé par le client)
-- **Réponse** : `{ "access_token": "string", "token_type": "bearer" }`
+### Token refresh
+- **URL**: `POST /auth/refresh`
+- **Description**: Generates a new access token from the refresh token read from the `HttpOnly` cookie (**no body required**, the token is never sent by the client)
+- **Response**: `{ "access_token": "string", "token_type": "bearer" }`
 
-### Déconnexion
-- **URL** : `POST /auth/logout`
-- **Description** : Révoque le refresh token côté serveur (par son `jti`) et supprime le cookie. Idempotent, ne nécessite pas d'access token valide.
-- **Réponse** : `{ "message": "Logged out" }`
+### Logout
+- **URL**: `POST /auth/logout`
+- **Description**: Revokes the refresh token server-side (by its `jti`) and clears the cookie. Idempotent, does not require a valid access token.
+- **Response**: `{ "message": "Logged out" }`
 
-### Vérification d'email
-- **URL** : `GET /auth/verify-email?code=...` ou `POST /auth/verify-email`
-- **Description** : Vérifie un code de confirmation reçu par email et active le compte. La variante `GET` (query param) est conservée pour compatibilité ; le frontend utilise la variante `POST` (body JSON) pour éviter qu'un code se retrouve dans les logs d'accès.
-- **Body (POST)** : `{ "code": "string" }`
-- **Réponse** : `{ "message": "Email verified" }`
+### Email verification
+- **URL**: `GET /auth/verify-email?code=...` or `POST /auth/verify-email`
+- **Description**: Verifies a confirmation code received by email and activates the account. The `GET` variant (query param) is kept for compatibility; the frontend uses the `POST` variant (JSON body) to avoid the code ending up in access logs.
+- **Body (POST)**: `{ "code": "string" }`
+- **Response**: `{ "message": "Email verified" }`
 
-### Renvoi du code de vérification
-- **URL** : `POST /auth/resend-verification`
-- **Description** : Régénère et renvoie un code de vérification si le compte existe et n'est pas encore activé (ne révèle jamais si le compte existe réellement)
-- **Body** : `{ "identifier": "string" }` (username ou email)
-- **Réponse** : message générique, identique que le compte existe ou non
+### Resend verification code
+- **URL**: `POST /auth/resend-verification`
+- **Description**: Regenerates and resends a verification code if the account exists and is not yet activated (never reveals whether the account actually exists)
+- **Body**: `{ "identifier": "string" }` (username or email)
+- **Response**: generic message, identical whether the account exists or not
 
-## Gestion des caches (`/caches`)
+## Cache management (`/caches`)
 
-### Import GPX
-- **URL** : `POST /caches/upload-gpx`
-- **Description** : Importe des caches depuis un fichier GPX ou ZIP (cgeo, Pocket Query), déclenche ensuite la création automatique des challenges et la synchronisation des UserChallenges
-- **Paramètres de requête** :
-  - `import_mode` : `all` (toutes les caches) ou `found` (mes trouvailles), défaut `all`
-  - `source_type` : `auto`, `cgeo`, `pocket_query`, défaut `auto`
-- **Body** : fichier multipart `file`
-- **Réponse** : `{ "summary": {...}, "challenges_stats": {...}, "sync_stats": {...}, "progress_stats": {...} }` (le dernier champ seulement si `import_mode=found`)
-- **Erreurs** : `400` fichier invalide, `413` fichier trop volumineux
+### GPX import
+- **URL**: `POST /caches/upload-gpx`
+- **Description**: Imports caches from a GPX or ZIP file (cgeo, Pocket Query), then triggers automatic challenge creation and UserChallenge synchronization
+- **Query parameters**:
+  - `import_mode`: `all` (every cache) or `found` (my finds), default `all`
+  - `source_type`: `auto`, `cgeo`, `pocket_query`, default `auto`
+- **Body**: multipart file `file`
+- **Response**: `{ "summary": {...}, "challenges_stats": {...}, "sync_stats": {...}, "progress_stats": {...} }` (the last field only if `import_mode=found`)
+- **Errors**: `400` invalid file, `413` file too large
 
-### Recherche par filtres
-- **URL** : `POST /caches/by-filter`
-- **Description** : Recherche des caches avec filtres combinables (texte, type, taille, difficulté/terrain, pays/état, période de placement, etc.)
-- **Body** : objet de filtres
-- **Réponse** : liste paginée de caches
+### Filtered search
+- **URL**: `POST /caches/by-filter`
+- **Description**: Searches caches with combinable filters (text, type, size, difficulty/terrain, country/state, placement period, etc.)
+- **Body**: filter object
+- **Response**: paginated list of caches
 
-### Caches dans une zone
-- **URL** : `GET /caches/within-bbox`
-- **Paramètres de requête** : `min_lat`, `min_lon`, `max_lat`, `max_lon` *(obligatoires)*, `type_id`, `size_id` *(optionnels)*, `page`, `page_size` (max 200), `sort` (`-placed_at`, `-favorites`, `difficulty`, `terrain`), `compact` (bool)
+### Caches within an area
+- **URL**: `GET /caches/within-bbox`
+- **Query parameters**: `min_lat`, `min_lon`, `max_lat`, `max_lon` *(required)*, `type_id`, `size_id` *(optional)*, `page`, `page_size` (max 200), `sort` (`-placed_at`, `-favorites`, `difficulty`, `terrain`), `compact` (bool)
 
-- **URL** : `GET /caches/within-radius`
-- **Paramètres de requête** : `lat`, `lon` *(obligatoires)*, `radius_km` (0.1–100, défaut 10), `type_id`, `size_id`, `page`, `page_size`, `compact`
+- **URL**: `GET /caches/within-radius`
+- **Query parameters**: `lat`, `lon` *(required)*, `radius_km` (0.1-100, default 10), `type_id`, `size_id`, `page`, `page_size`, `compact`
 
-### Récupération d'une cache
-- **URL** : `GET /caches/{gc}`
-- **Description** : Retourne une cache par son code GC. `404` si non trouvée.
+### Retrieve a cache
+- **URL**: `GET /caches/{gc}`
+- **Description**: Returns a cache by its GC code. `404` if not found.
 
-- **URL** : `GET /caches/by-id/{id}`
-- **Description** : Retourne une cache par son identifiant MongoDB (ObjectId).
+- **URL**: `GET /caches/by-id/{id}`
+- **Description**: Returns a cache by its MongoDB identifier (ObjectId).
 
-## Zones administratives (`/zones`, `/geo`)
+## Administrative zones (`/zones`, `/geo`)
 
-### Liste des zones avec compteurs
+### List zones with counters
 
-- **URL** : `GET /zones`
-- **Description** : Retourne les zones administratives avec le nombre de caches trouvées par l'utilisateur connecté. Seules les zones où l'utilisateur a au moins une cache trouvée sont retournées.
-- **Paramètres de requête** :
-  - `country` *(obligatoire)* : code ISO pays, ex. `FR`
-  - `level` *(obligatoire)* : niveau administratif — `1` (régions) ou `2` (départements)
-  - `type` *(optionnel)* : filtre sur un type de cache, ex. `traditional`
-- **Réponse** :
+- **URL**: `GET /zones`
+- **Description**: Returns administrative zones with the number of caches found by the current user. Only zones where the user has at least one found cache are returned.
+- **Query parameters**:
+  - `country` *(required)*: ISO country code, e.g. `FR`
+  - `level` *(required)*: administrative level — `1` (regions) or `2` (departments)
+  - `type` *(optional)*: filter on a cache type, e.g. `traditional`
+- **Response**:
   ```json
   {
     "items": [
@@ -103,16 +107,16 @@
   }
   ```
 
-### Détail d'une zone
+### Zone detail
 
-- **URL** : `GET /zones/{code}`
-- **Description** : Retourne le détail d'une zone avec le total des caches trouvées et les 10 premières.
-- **Paramètres de chemin** :
-  - `code` : code de zone, ex. `FR-38`
-- **Paramètres de requête** :
-  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
-  - `type` *(optionnel)* : filtre sur un type de cache
-- **Réponse** :
+- **URL**: `GET /zones/{code}`
+- **Description**: Returns the zone detail with the total number of found caches and the first 10.
+- **Path parameters**:
+  - `code`: zone code, e.g. `FR-38`
+- **Query parameters**:
+  - `level` *(optional)*: `1` or `2` — disambiguates codes shared across levels (e.g. FR-93 = PACA region *and* Seine-Saint-Denis department)
+  - `type` *(optional)*: filter on a cache type
+- **Response**:
   ```json
   {
     "code": "FR-38",
@@ -124,15 +128,15 @@
   }
   ```
 
-### Répartition par type d'une zone
+### Zone breakdown by type
 
-- **URL** : `GET /zones/{code}/type-stats`
-- **Description** : Retourne le nombre de caches trouvées par type pour une zone. Tous les types de caches sont toujours retournés (count=0 pour ceux sans correspondance), triés selon l'ordre canonique GC.com (`sort_order` dans la collection `cache_types`).
-- **Paramètres de chemin** :
-  - `code` : code de zone, ex. `FR-84`
-- **Paramètres de requête** :
-  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux
-- **Réponse** :
+- **URL**: `GET /zones/{code}/type-stats`
+- **Description**: Returns the number of found caches per type for a zone. All cache types are always returned (count=0 for unmatched ones), sorted by the canonical GC.com order (`sort_order` in the `cache_types` collection).
+- **Path parameters**:
+  - `code`: zone code, e.g. `FR-84`
+- **Query parameters**:
+  - `level` *(optional)*: `1` or `2` — disambiguates codes shared across levels
+- **Response**:
   ```json
   {
     "code": "FR-84",
@@ -144,164 +148,164 @@
     ]
   }
   ```
-- **Erreurs** :
-  - `404` si le code de zone est inconnu
+- **Errors**:
+  - `404` if the zone code is unknown
 
-### GeoJSON statiques
+### Static GeoJSON
 
-- **URL** : `GET /geo/FR/regions.geojson`
-- **Description** : FeatureCollection GeoJSON des régions françaises. Servi par FastAPI StaticFiles.
+- **URL**: `GET /geo/FR/regions.geojson`
+- **Description**: GeoJSON FeatureCollection of French regions. Served by FastAPI StaticFiles.
 
-- **URL** : `GET /geo/FR/departements.geojson`
-- **Description** : FeatureCollection GeoJSON des départements français.
+- **URL**: `GET /geo/FR/departements.geojson`
+- **Description**: GeoJSON FeatureCollection of French departments.
 
 ## Challenges (`/challenges`)
 
-### (Re)création des challenges depuis les caches
-- **URL** : `POST /challenges/refresh-from-caches`
-- **Description** : Scanne les caches marquées `challenge` et crée/met à jour les documents challenge correspondants. Réservé aux administrateurs.
-- **Body** : `{ "cache_ids": ["string", ...] }` *(optionnel, si absent scanne toute la collection)*
+### (Re)create challenges from caches
+- **URL**: `POST /challenges/refresh-from-caches`
+- **Description**: Scans caches flagged `challenge` and creates/updates the corresponding challenge documents. Admin only.
+- **Body**: `{ "cache_ids": ["string", ...] }` *(optional, scans the whole collection if absent)*
 
-## Mes challenges (`/my/challenges`)
+## My challenges (`/my/challenges`)
 
-### Liste des challenges
-- **URL** : `GET /my/challenges`
-- **Paramètres de requête** : `status` *(optionnel)*, `page` (défaut 1), `page_size` (défaut 50, max 200)
-- **Réponse** : liste paginée des UserChallenges
+### List challenges
+- **URL**: `GET /my/challenges`
+- **Query parameters**: `status` *(optional)*, `page` (default 1), `page_size` (default 50, max 200)
+- **Response**: paginated list of UserChallenges
 
-### Synchronisation
-- **URL** : `POST /my/challenges/sync`
-- **Description** : Crée les UserChallenges manquants pour l'utilisateur connecté
+### Sync
+- **URL**: `POST /my/challenges/sync`
+- **Description**: Creates missing UserChallenges for the current user
 
-### Mise à jour en masse (batch)
-- **URL** : `PATCH /my/challenges`
-- **Description** : Met à jour statut/notes/`override_reason` de plusieurs UserChallenges en une fois (non transactionnel, best-effort, 200 items max)
-- **Body** : tableau de `{ "uc_id": "string", "status"?: "string", "notes"?: "string", "override_reason"?: "string" }`
-- **Réponse** : résultat détaillé par item (succès/erreur) + compteur de mises à jour
+### Bulk update
+- **URL**: `PATCH /my/challenges`
+- **Description**: Updates status/notes/`override_reason` for several UserChallenges at once (non-transactional, best-effort, 200 items max)
+- **Body**: array of `{ "uc_id": "string", "status"?: "string", "notes"?: "string", "override_reason"?: "string" }`
+- **Response**: per-item result (success/error) plus an update counter
 
-### Détail d'un challenge
-- **URL** : `GET /my/challenges/{uc_id}`
-- **Réponse** : `404` si le UserChallenge n'existe pas ou n'appartient pas à l'utilisateur
+### Challenge detail
+- **URL**: `GET /my/challenges/{uc_id}`
+- **Response**: `404` if the UserChallenge does not exist or does not belong to the user
 
-### Mise à jour unitaire
-- **URL** : `PATCH /my/challenges/{uc_id}`
-- **Body** : `{ "status"?: "pending"|"accepted"|"dismissed"|"completed", "notes"?: "string", "override_reason"?: "string" }`
+### Single update
+- **URL**: `PATCH /my/challenges/{uc_id}`
+- **Body**: `{ "status"?: "pending"|"accepted"|"dismissed"|"completed", "notes"?: "string", "override_reason"?: "string" }`
 
 ### Calendar challenge
-- **URL** : `GET /my/challenges/basics/calendar`
-- **Description** : Vérifie la complétion du challenge calendrier (365 et 366 jours) pour l'utilisateur connecté
-- **Paramètres de requête** : `cache_type`, `cache_size` *(optionnels, filtres par nom)*
+- **URL**: `GET /my/challenges/basics/calendar`
+- **Description**: Checks completion of the calendar challenge (365 and 366 days) for the current user
+- **Query parameters**: `cache_type`, `cache_size` *(optional, name-based filters)*
 
-### Matrix D/T
-- **URL** : `GET /my/challenges/basics/matrix`
-- **Description** : Vérifie la complétion de la matrice difficulté/terrain (9×9) pour l'utilisateur connecté
-- **Paramètres de requête** : `cache_type`, `cache_size` *(optionnels, filtres par nom)*
+### D/T Matrix
+- **URL**: `GET /my/challenges/basics/matrix`
+- **Description**: Checks completion of the difficulty/terrain matrix (9x9) for the current user
+- **Query parameters**: `cache_type`, `cache_size` *(optional, name-based filters)*
 
-## Tâches de challenge (`/my/challenges/{uc_id}/tasks`)
+## Challenge tasks (`/my/challenges/{uc_id}/tasks`)
 
-### Liste des tâches
-- **URL** : `GET /my/challenges/{uc_id}/tasks`
-- **Réponse** : liste ordonnée des tâches
+### List tasks
+- **URL**: `GET /my/challenges/{uc_id}/tasks`
+- **Response**: ordered list of tasks
 
-### Remplacement des tâches
-- **URL** : `PUT /my/challenges/{uc_id}/tasks`
-- **Description** : Remplace l'intégralité des tâches (y compris leur ordre)
-- **Body** : liste complète des tâches à appliquer
+### Replace tasks
+- **URL**: `PUT /my/challenges/{uc_id}/tasks`
+- **Description**: Replaces the entire task list (including order)
+- **Body**: full list of tasks to apply
 
-### Validation sans persistance
-- **URL** : `POST /my/challenges/{uc_id}/tasks/validate`
-- **Description** : Valide la cohérence d'une liste de tâches sans la sauvegarder
+### Validate without persisting
+- **URL**: `POST /my/challenges/{uc_id}/tasks/validate`
+- **Description**: Validates the consistency of a task list without saving it
 
-## Progression (`/my/challenges`)
+## Progress (`/my/challenges`)
 
-### Historique de progression
-- **URL** : `GET /my/challenges/{uc_id}/progress`
-- **Réponse** : dernier snapshot et historique
+### Progress history
+- **URL**: `GET /my/challenges/{uc_id}/progress`
+- **Response**: latest snapshot and history
 
-### Évaluation de progression
-- **URL** : `POST /my/challenges/{uc_id}/progress/evaluate`
-- **Description** : Évalue et sauvegarde un nouveau snapshot de progression
+### Progress evaluation
+- **URL**: `POST /my/challenges/{uc_id}/progress/evaluate`
+- **Description**: Evaluates and saves a new progress snapshot
 
-### Premier snapshot en masse
-- **URL** : `POST /my/challenges/new/progress`
-- **Description** : Évalue un premier snapshot pour les UserChallenges `accepted` sans progression existante
-- **Body** : `{ "include_pending"?: bool, "limit"?: int, "since"?: "datetime" }` *(optionnel)*
+### Bulk first snapshot
+- **URL**: `POST /my/challenges/new/progress`
+- **Description**: Evaluates a first snapshot for `accepted` UserChallenges with no existing progress
+- **Body**: `{ "include_pending"?: bool, "limit"?: int, "since"?: "datetime" }` *(optional)*
 
-## Cibles de challenges (targets)
+## Challenge targets
 
-### Évaluation des cibles d'un challenge
-- **URL** : `POST /my/challenges/{uc_id}/targets/evaluate`
-- **Paramètres de requête** : `limit_per_task` (défaut 500), `hard_limit_total` (défaut 2000), `include_geo_filter` (bool), `lat`, `lon`, `radius_km`, `force` (bool)
+### Evaluate a challenge's targets
+- **URL**: `POST /my/challenges/{uc_id}/targets/evaluate`
+- **Query parameters**: `limit_per_task` (default 500), `hard_limit_total` (default 2000), `include_geo_filter` (bool), `lat`, `lon`, `radius_km`, `force` (bool)
 
-### Liste des cibles d'un challenge
-- **URL** : `GET /my/challenges/{uc_id}/targets`
-- **Paramètres de requête** : `page`, `page_size` (max 200), `sort` (défaut `-score`)
+### List a challenge's targets
+- **URL**: `GET /my/challenges/{uc_id}/targets`
+- **Query parameters**: `page`, `page_size` (max 200), `sort` (default `-score`)
 
-### Cibles d'un challenge à proximité
-- **URL** : `GET /my/challenges/{uc_id}/targets/nearby`
-- **Description** : Comme ci-dessus, mais filtré par proximité (`lat`/`lon`, défaut : dernière position enregistrée de l'utilisateur)
-- **Paramètres de requête** : `radius_km` (défaut 50), `lat`, `lon`, `page`, `page_size`, `sort` (défaut `distance`)
+### A challenge's nearby targets
+- **URL**: `GET /my/challenges/{uc_id}/targets/nearby`
+- **Description**: Same as above, but filtered by proximity (`lat`/`lon`, default: user's last saved location)
+- **Query parameters**: `radius_km` (default 50), `lat`, `lon`, `page`, `page_size`, `sort` (default `distance`)
 
-### Suppression des cibles d'un challenge
-- **URL** : `DELETE /my/challenges/{uc_id}/targets`
+### Delete a challenge's targets
+- **URL**: `DELETE /my/challenges/{uc_id}/targets`
 
-### Liste de toutes mes cibles (tous challenges)
-- **URL** : `GET /my/targets`
-- **Paramètres de requête** : `status_filter` *(optionnel, ex. `accepted`)*, `page`, `page_size`, `sort` (défaut `-score`)
+### List all my targets (every challenge)
+- **URL**: `GET /my/targets`
+- **Query parameters**: `status_filter` *(optional, e.g. `accepted`)*, `page`, `page_size`, `sort` (default `-score`)
 
-### Toutes mes cibles à proximité
-- **URL** : `GET /my/targets/nearby`
-- **Paramètres de requête** : `radius_km` (défaut 50), `lat`, `lon`, `page`, `page_size`, `status_filter`
+### All my nearby targets
+- **URL**: `GET /my/targets/nearby`
+- **Query parameters**: `radius_km` (default 50), `lat`, `lon`, `page`, `page_size`, `status_filter`
 
-### Statut de fraîcheur des cibles
-- **URL** : `GET /my/targets/refresh-status`
-- **Description** : Indique si des caches non trouvées ont été importées depuis la dernière évaluation des cibles (`needs_refresh`)
+### Targets freshness status
+- **URL**: `GET /my/targets/refresh-status`
+- **Description**: Indicates whether unfound caches have been imported since the last targets evaluation (`needs_refresh`)
 
-### Évaluation en masse
-- **URL** : `POST /my/targets/evaluate-all`
-- **Description** : Évalue les cibles pour tous les UserChallenges `accepted` de l'utilisateur
+### Bulk evaluation
+- **URL**: `POST /my/targets/evaluate-all`
+- **Description**: Evaluates targets for every `accepted` UserChallenge of the user
 
-## Profil utilisateur (`/my/profile`)
+## User profile (`/my/profile`)
 
-### Récupération du profil
-- **URL** : `GET /my/profile`
-- **Réponse** : informations publiques du profil (`UserOut`)
+### Get profile
+- **URL**: `GET /my/profile`
+- **Response**: public profile info (`UserOut`)
 
-> ⚠️ Il n'existe pas de route générique `PUT /my/profile` : les mises à jour passent par les sous-routes dédiées ci-dessous (`/location`, `/preferences`).
+> ⚠️ There is no generic `PUT /my/profile` route: updates go through the dedicated sub-routes below (`/location`, `/preferences`).
 
-### Préférences
-- **URL** : `PATCH /my/profile/preferences`
-- **Description** : Met à jour partiellement les préférences (seuls les champs fournis sont modifiés)
-- **Body** : `{ "language"?: "string", "dark_mode"?: bool }`
+### Preferences
+- **URL**: `PATCH /my/profile/preferences`
+- **Description**: Partially updates preferences (only the fields provided are changed)
+- **Body**: `{ "language"?: "string", "dark_mode"?: bool }`
 
-### Localisation
-- **URL** : `GET /my/profile/location` (dernière position enregistrée)
-- **URL** : `PUT /my/profile/location` (enregistre la position, via `position` en texte, ex. coordonnées DM, **ou** `lat`/`lon` numériques)
+### Location
+- **URL**: `GET /my/profile/location` (last saved position)
+- **URL**: `PUT /my/profile/location` (saves the position, via text `position`, e.g. DM coordinates, **or** numeric `lat`/`lon`)
 
-### Statistiques
-- **URL** : `GET /my/profile/stats`
-- **Réponse** : statistiques utilisateur de base
+### Statistics
+- **URL**: `GET /my/profile/stats`
+- **Response**: basic user statistics
 
-### Synchronisation des found caches
-- **URL** : `POST /my/profile/found-caches/sync`
-- **Description** : Envoie un fichier texte contenant des codes GC, traité comme la liste **complète et faisant foi** des caches trouvées : les caches absentes de la liste sont supprimées, les nouvelles sont ajoutées, les codes non reconnus sont signalés.
-- **Body** : fichier multipart `file` (texte brut)
-- **Réponse** : `{ "nb_provided": int, "nb_deleted": int, "nb_added": int, "nb_unknown_gc": int, "unknown_gc_codes": [...] }`
+### Found caches sync
+- **URL**: `POST /my/profile/found-caches/sync`
+- **Description**: Sends a text file containing GC codes, treated as the **complete and authoritative** list of found caches: caches missing from the list are removed, new ones are added, unrecognized codes are reported.
+- **Body**: multipart file `file` (plain text)
+- **Response**: `{ "nb_provided": int, "nb_deleted": int, "nb_added": int, "nb_unknown_gc": int, "unknown_gc_codes": [...] }`
 
-## Utilitaires
+## Utilities
 
 ### Health check
-- **URL** : `GET /health`
-- **Description** : Vérifie la disponibilité de l'API et de ses dépendances (base de données, email). Retourne `503` si un service est dégradé.
-- **Réponse** : `{ "status": "ok"|"degraded", "timestamp": "...", "version": "...", "checks": { "database": "ok", "email": "ok" } }`
+- **URL**: `GET /health`
+- **Description**: Checks the availability of the API and its dependencies (database, email). Returns `503` if a service is degraded.
+- **Response**: `{ "status": "ok"|"degraded", "timestamp": "...", "version": "...", "checks": { "database": "ok", "email": "ok" } }`
 
-### Version et informations
-- **URL** : `GET /version`
-- **Réponse** : `{ "version": "...", "environment": "...", "build_date": "..." }`
+### Version and info
+- **URL**: `GET /version`
+- **Response**: `{ "version": "...", "environment": "...", "build_date": "..." }`
 
-- **URL** : `GET /info`
-- **Réponse** : nom de l'API, version, date de build, lien de documentation, URL de support
+- **URL**: `GET /info`
+- **Response**: API name, version, build date, documentation link, support URL
 
-### Types et tailles de caches
-- **URL** : `GET /cache_types` ou `GET /cache_sizes`
-- **Réponse** : liste des types/tailles disponibles
+### Cache types and sizes
+- **URL**: `GET /cache_types` or `GET /cache_sizes`
+- **Response**: list of available types/sizes

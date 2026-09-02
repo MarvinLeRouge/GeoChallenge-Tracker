@@ -326,12 +326,12 @@ curl http://localhost:8000/version
 
 ## 🗺️ Roadmap
 
-Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](docs/roadmap.md) pour le détail, le contexte et les notes d'implémentation de chaque point).
+Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.fr.md`](docs/roadmap.fr.md) pour le détail, le contexte et les notes d'implémentation de chaque point).
 
 ### 🔴 Critique
 - Reset de mot de passe (aucune route `/auth/forgot-password` / `/auth/reset-password` n'existe encore)
 - Import GPX asynchrone (Celery + Redis, l'import actuel est synchrone et peut timeout sur les gros fichiers)
-- Page Progression (frontend) — API prête, page encore un placeholder
+- Page Progression (frontend) : API prête, page encore un placeholder
 - Page Targets (frontend) : la vue globale `/my/targets` est livrée, seule la vue par challenge reste un placeholder
 - Logging structuré (remplacer les `print()`, ajouter des IDs de corrélation de requête)
 - Séparation config dev/prod (un seul `.env` utilisé pour les deux aujourd'hui)
@@ -339,7 +339,7 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 
 ### 🟠 Haute
 - Validation GPX avant traitement complet en mémoire
-- Recherche de caches par filtre (frontend) — API prête, page encore un placeholder
+- Recherche de caches par filtre (frontend) : API prête, page encore un placeholder
 - Email de notification "challenge complété"
 - Export GPX d'un challenge
 - Tests e2e Playwright intégrés en CI (les specs existent, mais ne tournent pas encore automatiquement)
@@ -350,11 +350,10 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.md`](
 - Valider le comportement du PATCH en masse des challenges
 - Support du streaming pour les gros fichiers GPX
 - Évaluation automatique de la progression après un import réussi
-- Clustering des marqueurs sur la carte
+- Clustering des marqueurs sur la carte (fait sur les pages de recherche, reste `MapDemo.vue` et le clustering côté serveur)
 - Vue carte dédiée pour les cibles d'un challenge
-- Vérification SMTP réelle dans `/health`
 - Statistiques utilisateur avancées (graphiques d'évolution, projections de milestone)
-- Recherche full-text sur les caches
+- Recherche full-text sur les caches (fonctionnelle, reste le scoring par pertinence)
 - Tests d'intégration challenges
 - Automatiser l'injection du `BUILD_DATE` en CI
 
@@ -414,20 +413,7 @@ La production était déjà configurée pour envoyer via Brevo plutôt que le `m
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
-
-1. Fork du projet
-2. Création d'une branche pour votre fonctionnalité (`git checkout -b feature/AmazingFeature`)
-3. Commit de vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouverture d'une Pull Request
-
-### Convention de nommage des branches
-- Fonctionnalités : `feat/description-courte`
-- Corrections : `fix/description-courte`
-- Chores / CI : `chore/description-courte`
-- Documentation : `docs/description-courte`
-- Tests : `test/description-courte`
+Les contributions sont les bienvenues ! Voir [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md) pour l'installation locale, la convention de nommage des branches, la convention de commit et le style de code.
 
 ---
 
