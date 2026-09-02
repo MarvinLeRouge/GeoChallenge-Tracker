@@ -47,7 +47,7 @@ La détection automatique de challenges à partir de données GPX importées, co
 - Challenges : créés à partir des caches ; les user-challenges supportent le listing, le patch par item, et la vérification matrice D/T et calendrier.
 - Cibles : évaluation, listing, recherche de proximité.
 - Statistiques : projections de complétion.
-- Lacune connue, non implémentée : une préférence utilisateur `dark_mode` existe déjà dans le modèle utilisateur backend mais n'a aucune implémentation correspondante côté frontend (aucune variante Tailwind `dark:` nulle part pour l'instant).
+- Mode sombre : la préférence utilisateur `dark_mode` (modèle utilisateur backend) est entièrement implémentée côté frontend via des variantes Tailwind `dark:` sur toutes les pages, avec une persistance gérée par un store `theme` dédié (`frontend/src/store/theme.ts`).
 
 ## Engagements de marque
 

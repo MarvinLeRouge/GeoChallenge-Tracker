@@ -47,7 +47,7 @@ Automatic challenge detection from imported GPX data, combined with a dedicated 
 - Challenges: created from caches; user-challenges support listing, per-item patch, D/T matrix and calendar verification.
 - Targets: evaluation, listing, proximity search.
 - Stats: completion projections.
-- Known, unimplemented gap: a `dark_mode` user preference already exists in the backend user model but has no corresponding implementation in the frontend (no `dark:` Tailwind variants anywhere yet).
+- Dark mode: the `dark_mode` user preference (backend user model) is fully implemented in the frontend via `dark:` Tailwind variants across all pages, with persistence handled by a dedicated `theme` store (`frontend/src/store/theme.ts`).
 
 ## Brand Commitments
 
