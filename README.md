@@ -414,20 +414,7 @@ Production was already configured to send via Brevo rather than the `mailhog` te
 
 ## 🤝 Contribution
 
-Contributions are welcome! Here's how you can contribute:
-
-1. Fork the project
-2. Create a branch for your feature (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Branch naming convention
-- Features: `feat/short-description`
-- Fixes: `fix/short-description`
-- Chores / CI: `chore/short-description`
-- Documentation: `docs/short-description`
-- Tests: `test/short-description`
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, branch naming, commit convention, and code style.
 
 ---
 

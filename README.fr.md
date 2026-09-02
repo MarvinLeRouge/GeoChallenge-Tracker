@@ -414,20 +414,7 @@ La production était déjà configurée pour envoyer via Brevo plutôt que le `m
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! Voici comment vous pouvez contribuer :
-
-1. Fork du projet
-2. Création d'une branche pour votre fonctionnalité (`git checkout -b feature/AmazingFeature`)
-3. Commit de vos changements (`git commit -m 'Add some AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouverture d'une Pull Request
-
-### Convention de nommage des branches
-- Fonctionnalités : `feat/description-courte`
-- Corrections : `fix/description-courte`
-- Chores / CI : `chore/description-courte`
-- Documentation : `docs/description-courte`
-- Tests : `test/description-courte`
+Les contributions sont les bienvenues ! Voir [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md) pour l'installation locale, la convention de nommage des branches, la convention de commit et le style de code.
 
 ---
 
