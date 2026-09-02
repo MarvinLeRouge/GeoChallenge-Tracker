@@ -1,156 +1,160 @@
-# Guide du développeur backend - GeoChallenge Tracker
+[🇫🇷 Version française](backend_developer_guide.fr.md) | 🇬🇧 English version
+
+---
+
+# Backend Developer Guide - GeoChallenge Tracker
 
 ## Technologies
 
-- **Framework** : FastAPI
-- **Langage** : Python 3.11
-- **Base de données** : MongoDB (via Motor)
-- **Validation** : Pydantic
-- **Authentification** : JWT
+- **Framework**: FastAPI
+- **Language**: Python 3.11
+- **Database**: MongoDB (via Motor)
+- **Validation**: Pydantic
+- **Authentication**: JWT
 
-## Structure des routes
+## Route structure
 
-Les routes sont organisées par domaines fonctionnels dans `backend/app/api/routes/` :
+Routes are organized by functional domain in `backend/app/api/routes/`:
 
-- `auth.py` : Authentification et gestion des utilisateurs
-- `caches.py` : Gestion des caches (import GPX, recherche, etc.)
-- `challenges.py` : Gestion des challenges
-- `my_challenges.py` : Challenges de l'utilisateur
-- `my_profile.py` : Profil utilisateur
-- `maintenance.py` : Outils d'administration
-- `zones.py` : Zones administratives — `/api/zones`
+- `auth.py`: authentication and user management
+- `caches.py`: cache management (GPX import, search, etc.)
+- `challenges.py`: challenge management
+- `my_challenges.py`: the user's challenges
+- `my_profile.py`: user profile
+- `maintenance.py`: admin tools
+- `zones.py`: administrative zones (`/api/zones`)
 
-## Modèles et validation
+## Models and validation
 
-Les modèles Pydantic sont utilisés pour la validation des données :
+Pydantic models are used for data validation:
 
-- **DTOs** : Dans `backend/app/api/dto/` pour les objets d'entrée/sortie API
-- **Domain Models** : Dans `backend/app/domain/models/` pour les entités métier pures
-- **Validation** : Automatique avec Pydantic via FastAPI
+- **DTOs**: in `backend/app/api/dto/` for API input/output objects
+- **Domain Models**: in `backend/app/domain/models/` for pure business entities
+- **Validation**: automatic via Pydantic through FastAPI
 
 ## Services
 
-La logique métier est organisée dans `backend/app/services/` :
+Business logic is organized in `backend/app/services/`:
 
-- **Architecture modulaire** : Chaque service complexe a son propre sous-dossier
-- **Responsabilités uniques** : Chaque module a une responsabilité claire
-- **Dépendances explicites** : Injection de dépendances via constructeurs
+- **Modular architecture**: each complex service has its own subfolder
+- **Single responsibility**: each module has a clear responsibility
+- **Explicit dependencies**: dependency injection via constructors
 
-Sous-dossiers principaux :
+Main subfolders:
 
-| Dossier | Description |
+| Folder | Description |
 |---------|-------------|
-| `gpx_import/` | Pipeline d'import GPX (parsing, validation, persistance) |
-| `parsers/` | Parsers GPX multi-formats |
-| `zones/` | Assignation de zones administratives et agrégations pour la carte |
-| `providers/` | Intégrations externes (Nominatim, élévation) |
+| `gpx_import/` | GPX import pipeline (parsing, validation, persistence) |
+| `parsers/` | Multi-format GPX parsers |
+| `zones/` | Administrative zone assignment and aggregations for the map |
+| `providers/` | External integrations (Nominatim, elevation) |
 
-## Accès à la base de données
+## Database access
 
-- **MongoDB** : Accès asynchrone via Motor
-- **Collections** : Abstraction via `get_collection()` dans `db/`
-- **Index géographiques** : Utilisés pour les requêtes spatiales
+- **MongoDB**: async access via Motor
+- **Collections**: abstracted via `get_collection()` in `db/`
+- **Geo indexes**: used for spatial queries
 
-## Gestion des erreurs
+## Error handling
 
-- **Erreurs HTTP** : Utilisation de `HTTPException` de FastAPI
-- **Validation** : Messages clairs via Pydantic
-- **Logging** : Structuré avec les niveaux appropriés
+- **HTTP errors**: FastAPI's `HTTPException`
+- **Validation**: clear messages via Pydantic
+- **Logging**: structured, with appropriate levels
 
-## Imports GPX
+## GPX imports
 
-Le système d'import GPX est hautement modulaire :
+The GPX import system is highly modular:
 
-- **Parsing** : Dans `services/parsers/` (MultiFormatGPXParser)
-- **Traitement** : Dans `services/gpx_import/` (architecture en plusieurs modules)
-- **Modes** : 'all' pour toutes les caches, 'found' pour les caches trouvées par l'utilisateur
+- **Parsing**: in `services/parsers/` (MultiFormatGPXParser)
+- **Processing**: in `services/gpx_import/` (multi-module architecture)
+- **Modes**: `all` for every cache, `found` for the user's found caches
 
-## Administration des attributs de caches
+## Cache attribute administration
 
-La route d'administration `/admin/upload-gpx` permet de réimporter les attributs des caches :
+The admin route `/maintenance/upload-gpx` allows re-importing cache attributes:
 
-- **Fonctionnalité** : Réimport des attributs des caches à partir d'un fichier GPX
-- **Accès** : Réservé aux administrateurs
-- **Utilité** : Correction des incohérences dans les attributs des caches dans la base de données
-- **Implémentation** : Réutilise les services d'import GPX existants
-- **Précautions** : Nécessite des droits d'administrateur, peut avoir un impact significatif sur la base de données
+- **Purpose**: re-import cache attributes from a GPX file
+- **Access**: admin only
+- **Use case**: correcting inconsistent cache attributes in the database
+- **Implementation**: reuses the existing GPX import services
+- **Caution**: requires admin rights, can significantly impact the database
 
-## Sécurité
+## Security
 
-- **JWT** : Tokens d'authentification
-- **Hashage** : Mots de passe avec bcrypt via PassLib
-- **Validation** : Force des mots de passe dans `core/security.py`
+- **JWT**: authentication tokens
+- **Hashing**: passwords with argon2id via Passlib (bcrypt is kept only to verify existing hashes; accounts migrate to argon2id progressively on login)
+- **Validation**: password strength in `core/security.py`
 
-## Développement
+## Development
 
-### Linting et formatage
+### Linting and formatting
 ```bash
 cd backend
-uv run ruff check .
-uv run ruff format .
+ruff check .
+ruff format .
 ```
 
-### Typage
+### Type checking
 ```bash
-uv run mypy .
+mypy .
 ```
 
 ### Tests
 ```bash
-uv run pytest
+pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
-## Données géographiques (carte choroplèthe)
+## Geographic data (choropleth map)
 
-La fonctionnalité de carte choroplèthe repose sur des fichiers GeoJSON et une collection MongoDB
-`administrative_zones`. Les scripts ci-dessous doivent être exécutés **à l'intérieur du conteneur backend**
-(ou avec la variable `ENV_FILE` pointant vers un `.env` valide).
+The choropleth map feature relies on GeoJSON files and a MongoDB collection
+`administrative_zones`. The scripts below must be run **inside the backend container**
+(or with the `ENV_FILE` variable pointing to a valid `.env`).
 
-### Setup initial
+### Initial setup
 
 ```bash
-# 1. Télécharger les fichiers GeoJSON manquants dans data/admin/
+# 1. Download missing GeoJSON files into data/admin/
 python scripts/download_geo_data.py
 
-# 2. Peupler la collection administrative_zones (idempotent)
+# 2. Populate the administrative_zones collection (idempotent)
 python scripts/seed_zones.py
 
-# 3. Assigner les zones administratives aux caches existantes (one-shot, idempotent)
+# 3. Assign administrative zones to existing caches (one-shot, idempotent)
 python scripts/assign_zones.py
 ```
 
-### Options des scripts
+### Script options
 
-| Script | Options utiles |
+| Script | Useful options |
 |--------|---------------|
-| `download_geo_data.py` | aucune — idempotent, skip les fichiers existants |
-| `seed_zones.py` | aucune — upsert par `code`, relançable sans effet |
-| `assign_zones.py` | `--country FR` (défaut), `--force` pour réassigner les caches déjà assignées |
+| `download_geo_data.py` | none (idempotent, skips existing files) |
+| `seed_zones.py` | none (upserts by `code`, safe to rerun) |
+| `assign_zones.py` | `--country FR` (default), `--force` to re-assign already-assigned caches |
 
-### Algorithme d'assignation (3 passes)
+### Assignment algorithm (3 passes)
 
-1. **Shapely STRtree** (exact) — point-in-polygon via `app/services/zones/zone_utils.py`
-2. **Nominatim** (batch, 1 req/s) — reverse geocoding pour les points hors polygone
-   (côtes simplifiées, presqu'îles, frontières)
-3. **Polygone le plus proche** — fallback final dans un rayon de 0,1° (~10 km)
+1. **Shapely STRtree** (exact), point-in-polygon via `app/services/zones/zone_utils.py`
+2. **Nominatim** (batch, 1 req/s), reverse geocoding for points outside any polygon
+   (simplified coastlines, peninsulas, borders)
+3. **Nearest polygon**, final fallback within a 0.1° (~10 km) radius
 
-Les nouvelles caches importées via GPX sont automatiquement assignées (étape 5b du pipeline
-`gpx_import_service.py`).
+New caches imported via GPX are automatically assigned (step 5b of the
+`gpx_import_service.py` pipeline).
 
 ### Endpoints
 
-| Méthode | Chemin | Description |
+| Method | Path | Description |
 |---------|--------|-------------|
-| `GET` | `/api/zones?country=FR&level=1` | Liste des zones avec compteurs de caches |
-| `GET` | `/api/zones/{code}` | Détail d'une zone avec les 10 premières caches |
-| `GET` | `/api/zones/{code}/type-stats` | Compteurs par type pour une zone (13 types, zéros inclus) |
-| `GET` | `/api/geo/FR/regions.geojson` | FeatureCollection des régions (StaticFiles) |
-| `GET` | `/api/geo/FR/departements.geojson` | FeatureCollection des départements (StaticFiles) |
+| `GET` | `/api/zones?country=FR&level=1` | List of zones with cache counters |
+| `GET` | `/api/zones/{code}` | Zone detail with the first 10 caches |
+| `GET` | `/api/zones/{code}/type-stats` | Per-type counters for a zone (13 types, zeros included) |
+| `GET` | `/api/geo/FR/regions.geojson` | Region FeatureCollection (StaticFiles) |
+| `GET` | `/api/geo/FR/departements.geojson` | Department FeatureCollection (StaticFiles) |
 
-## Bonnes pratiques
+## Best practices
 
-- **Annotations de type** : Obligatoires partout
-- **Docstrings** : Pour toutes les fonctions publiques
-- **Nommage** : snake_case pour les variables/fonctions
-- **Validation** : Utilisation systématique de Pydantic
-- **Gestion des erreurs** : Messages clairs et pertinents
+- **Type annotations**: mandatory everywhere
+- **Docstrings**: for every public function
+- **Naming**: snake_case for variables/functions
+- **Validation**: systematic use of Pydantic
+- **Error handling**: clear, relevant messages
