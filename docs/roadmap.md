@@ -10,7 +10,7 @@
 **Sources:** README, existing code
 
 > This document lists missing, incomplete, or planned features.
-> It does not cover bug fixes or technical debt, see [`roadmap-corrections.md`](roadmap-corrections.md).
+> It does not cover bug fixes or technical debt (tracked separately, outside the repository).
 
 ---
 

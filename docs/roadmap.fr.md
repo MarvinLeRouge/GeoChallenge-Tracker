@@ -10,7 +10,7 @@
 **Sources :** README, code existant
 
 > Ce document recense les fonctionnalités manquantes, incomplètes ou planifiées.
-> Il ne traite pas des corrections de bugs ou de dette technique, voir [`roadmap-corrections.md`](roadmap-corrections.md).
+> Il ne traite pas des corrections de bugs ou de dette technique (suivies séparément, hors dépôt).
 
 ---
 
