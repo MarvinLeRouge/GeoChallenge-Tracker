@@ -1,0 +1,257 @@
+# Changelog
+
+All notable changes to this project are documented in this file, generated from
+[Conventional Commits](https://www.conventionalcommits.org) history with [git-cliff](https://git-cliff.org).
+This project does not use tagged releases; commits are grouped chronologically under "Unreleased".
+
+Regenerate with `npm run changelog` after merging changes to `main`.
+## [unreleased]
+
+### 🚀 Features
+
+- *(appshell)* Base layout + router + home dummy
+- *(ui)* Add brand icon with white stroke
+- *(home)* Teaser landing with step-by-step, big icons & CTA
+- Implement e2e testing infrastructure
+- Add tiles service to production deployment
+- *(frontend)* Add phase 1 of userChallenges list
+- *(frontend)* Add legal mentions page
+- *(architecture)* Refactor backend and frontend for better separation of concerns
+- *(frontend)* Add Storybook for UI component documentation
+- *(backend)* Add user statistics API endpoint
+- *(frontend)* Add user statistics page
+- *(frontend)* Add Mon profil page with location management
+- *(auth)* Improve password validation error messages\n\n- Modified validate_password_strength to return detailed error messages\n- Updated register route to use specific error messages\n- Now provides clear feedback on password requirements (length, case, numbers, special chars)
+- *(api)* Standardize error response format\n\n- Created standardized response format models\n- Added global exception handlers for consistent error formatting\n- Handles HTTP exceptions, validation errors, and general exceptions\n- Maintains existing success response contracts
+- *(gpx)* Fix import and harmonize mode names
+- *(matrix-calendar)* Add matrix tours and calendar years to verification responses
+- *(matrix)* Add matrix tours display in UI
+- *(matrix)* Add next round completion tracking
+- *(matrix)* Enhance matrix UI with next round indicators
+- *(stats)* Add cache type statistics to user stats
+- *(frontend)* Add cache type statistics display in user stats
+- *(user-stats)* Add not found types to user-stats
+- *(user-stats)* Format user stat numbers
+- *(frontend)* Add Pinia challenges store and wire List.vue to it
+- *(backend)* Add admin route to clean expired verification codes
+- *(progress)* Display challenge progress in list and detail views
+- *(progress)* Auto-evaluate accepted UCs after GPX found import
+- *(targets)* Implement geo listing and fix target persistence
+- *(targets)* Implement targets page with smart refresh and nearby mode
+- *(infra)* Expose backend via Traefik on api subdomain
+- *(infra)* Rename api subdomain to api-gc-tracker.marvinlerouge.dev
+- *(frontend)* Add email verification page and complete test coverage
+- *(frontend)* Add unit test coverage and ci job
+- *(choropleth)* Add choropleth map with per-user zone cache counts
+- *(zones)* Add per-type cache breakdown map with zone click popover
+- *(infra)* Integrate Traefik into dev environment
+- *(infra)* Add docker-compose.prod.yml with Traefik path-based routing
+- *(infra)* Simplify frontend nginx to static file server only
+- *(infra)* Configure Vite for local Traefik domain
+- *(auth)* Add server-side refresh token revocation and logout endpoint
+- *(backend)* Log failed login attempts to a dedicated security logger
+- *(backend)* Migrate password hashing from bcrypt to argon2id
+- *(backend)* Expose and persist the dark_mode user preference
+- *(frontend)* Dark mode foundations and app shell support
+- *(frontend)* Dark mode toggle in profile page, fix theme leaking across accounts
+- *(frontend)* Dark: variants for Home, auth pages, and the rest of My profile
+- *(frontend)* Dark: variants for Caches pages, fix invisible radio checked state
+- *(frontend)* Dark: variants for Challenges pages
+- *(frontend)* Dark: variants for the Targets page
+- *(frontend)* Dark: variants for the misc pages
+- *(frontend)* Make calendar day details accessible beyond hover
+- *(frontend)* Give stat-tile colors a consistent, accessible meaning
+- *(frontend)* Give MyProfile.vue's cards a visual hierarchy
+- *(frontend)* Unify loading feedback into a shared LoadingIndicator
+
+### 🐛 Bug Fixes
+
+- Increase SCP timeout to 2 minutes
+- Correct mypy type errors and function signatures
+- Correct remaining mypy type errors
+- Add missing typing import for Any in user_challenge_sync
+- Complete mypy error resolution for user challenges
+- Correct type annotations and test imports
+- Correct all callable type annotations to Callable for mypy compliance
+- *(frontend)* Correction de l'affichage de la matrice D/T et du calendrier\n\n- Correction de la logique dans useMatrixData.ts pour prendre en compte les données missing_combinations\n- Ajout des propriétés terrainValues et difficultyValues dans Matrix.vue\n- Ajout de la fonction getDaysInMonth dans useCalendarData.ts\n- Correction des imports dans Calendar.vue et Matrix.vue pour accéder aux propriétés et fonctions nécessaires\n- Résolution des erreurs d'affichage dans les composants Matrix et Calendar
+- *(matrix)* Parameters type correction
+- Correction du traitement des sauvegardes complètes dans /maintenance/db_backups
+- *(router)* Move static basics routes before dynamic :id routes
+- *(backend)* Replace hardcoded JWT algorithm and module-level print
+- *(db)* Close MongoDB connection on application shutdown
+- *(settings)* Fix .env resolution path (parents[1] -> parents[2])
+- *(auth)* Migrate refresh token to HttpOnly cookie, add CORSMiddleware
+- *(models)* Migrate meta.py from legacy models/ to domain/models/
+- *(infra)* Fix GPX uploads volume to persist outside Docker
+- *(deps)* Remove abandoned dotenv package, split dev/prod requirements
+- *(maintenance)* Fix full_backup_restore to read from ZIP archive
+- *(frontend)* Add strict types and unify error handling in composables
+- *(backend)* Misc backend improvements (M1–M6)
+- *(frontend)* Remove trailing comma in package.json scripts
+- *(backend)* Align list_user_challenges response key total → nb_items
+- *(ci+backend)* Fix CI mypy setup and resolve type bugs in normalizer
+- *(import)* Move user challenge sync from frontend to backend
+- *(ci)* Add missing Settings env vars to backend-test job
+- *(auth)* Redirect to login with toast on session expiry
+- *(ui)* Standardize on vue-sonner, remove BaseToast
+- *(nav)* Replace targets accordion with direct link to /my/targets
+- *(targets)* Cap fitBounds zoom to 14 to avoid over-zoom on sparse targets
+- *(infra)* Correct healthcheck endpoint and rename api subdomain
+- *(infra)* Replace wget with curl in backend healthcheck
+- *(ci)* Add ADMIN_DEST_EMAIL to CI env to fix settings validation error
+- *(nginx)* Queue excess OSM tile requests instead of 503-ing them
+- *(frontend)* Queue excess tile requests instead of 503-ing them
+- *(ci)* Add root_dir to codecov frontend upload
+- *(ci)* Fix codecov frontend flag path mismatch
+- *(ci)* Switch codecov flags to root-level flags format
+- *(ci)* Fix codecov frontend flag via network_prefix
+- *(ci)* Remove network_prefix from codecov frontend upload
+- *(ci)* Restructure codecov.yml flags to match Summit-Stats pattern
+- *(coverage)* Add all: true to include unimported source files in lcov
+- *(coverage)* Align vitest exclude with codecov ignore for types/
+- *(deploy)* Add explicit project name to avoid docker compose collision
+- *(zones)* Rename to ZonesMap, fix popover and foreign-cache assignment
+- *(ci)* Mock zone assignment in GPX import unit tests, fix mypy stubs
+- *(ci)* Fix use-zones unit tests to match URL in fetchZoneDetail
+- *(ci)* Update deploy workflow to fetch docker-compose.prod.yml
+- *(infra)* Restore project name and add DOMAIN variable to prod compose
+- *(backend)* Add rate limiting on auth endpoints
+- *(backend)* Make now() track UTC instead of the host's local timezone
+- *(frontend)* Verify email via POST instead of GET to avoid logging the code
+- *(frontend)* Add missing HTTP security headers and fix nginx header inheritance bug
+- *(backend)* Cap cumulative decompressed size on GPX ZIP import
+- *(backend)* Hash email verification codes at rest
+- *(backend)* Return 401 instead of 500 for a malformed JWT sub claim
+- *(backend)* Enforce upload size limit on routes missing it
+- *(backend)* Make access token TTL follow settings.jwt_expiration_minutes
+- *(backend)* Log deleted old log files instead of printing them
+- *(backend)* Require confirmation before a destructive full DB restore
+- *(backend)* Document APP_FRONTEND_URL and isolate its default-value test
+- *(frontend)* Stop map z-index from covering the app FAB and drawer
+- *(ci)* Rename ADMIN_DEST_EMAIL to ADMIN_TEST_EMAIL in the CI workflow
+
+### 💼 Other
+
+- Add /auth/token route for Swagger
+- Swagger integration (pydantic schema + oauth token path)
+- Models & services (elevation, GPX import, parser)
+- Add /auth/token route for Swagger
+- Swagger integration (pydantic schema + oauth token path)
+- Models & services (elevation, GPX import, parser)
+- *(branch)* Backend/progress → main
+- *(frontend)* Docker dev env (Vite+HMR) + API proxy + multi-stage Dockerfile
+- Remove old user_challenge_tasks file after successful refactoring
+- *(caches)* Check caches routes functionality
+- Adapt compose and CI for Traefik deployment
+- Fix build-push workflow for Traefik deployment
+
+### 🚜 Refactor
+
+- *(backend)* Modernize type hints and improve code quality
+- Reorganize backend architecture with clean separation of concerns
+- *(services)* Standardize user profile service with clean architecture
+- *(services)* Major restructure of targets.py into clean service architecture
+- *(services)* Major restructure of gpx_importer.py into modular architecture
+- *(routes)* Précision des commentaires TODO pour les routes à vérifier
+- *(routes)* Mark auth and base routes as verified\n\n- Updated TODO comments to DONE for all routes in auth.py\n- Updated TODO comments to DONE for all routes in base.py\n- All routes have been reviewed and verified
+- *(constants)* Replace magic number 81 with constants
+- *(routes)* Normalize tags and move cache routes to Referentials
+- *(tests)* Refonte complète des tests d'intégration avec organisation par tags Swagger
+- *(deps)* Move FastAPI deps from security.py to api/deps.py
+- *(frontend)* Move all config files to repo root
+
+### 📚 Documentation
+
+- Add .env.example and clean up README backup
+- Add comprehensive refactoring guidelines based on successful transformations
+- Add TODO backlog markers to all API routes
+- Restructure documentation and add API endpoints documentation
+- Ajout de la documentation pour la route admin /admin/upload-gpx
+- Fixed README.md structure
+- Harmonize README structure and style across all projects
+- Split README by language
+- Updated roadmap
+- *(infra)* Document Atlas setup, env hierarchy, and fix .env.example
+- *(contributing)* Add bilingual CONTRIBUTING guide
+- *(frontend)* Update dev guide launch command for root-level config
+- Screenshots added
+- Update all READMEs and guides for the zones map feature
+- *(readme)* Reinject roadmap summary and add ongoing analysis tasks
+- *(roadmap)* Mark security hardening critical items as done
+- Mark the security hardening pass as complete in tracking docs
+- Drop strikethrough in the Recently completed section
+- Publish the frontend design system and close the design audit item in README
+- Mark mailhog removal and MAIL_FROM verification done in the Brevo backlog
+- Close the Brevo migration in README, real delivery confirmed
+- Fix stale roadmap claims about testing, CI, and the Targets page
+- Fix /ping->health error and complete the API endpoints reference
+- Sync README's test status with the corrected roadmap, refresh test counts
+- Replace duplicated contribution steps with a link to CONTRIBUTING.md
+- Add security policy
+
+### 🧪 Testing
+
+- Réorganisation complète des tests unitaires + tests sécurité JWT
+- 12 tests DTO validation user + update tracking doc
+- 14 tests GPX Import Services (100% unitaires sans DB)
+- 39 tests Challenge AST Models (100% unitaires sans DB)
+- 21 tests GPX Parsers (100% unitaires sans DB)
+- 15 tests Settings (100% unitaires sans DB)
+- 36 tests Domain Models (100% unitaires sans DB)
+- 7 tests Utils (100% unitaires sans DB)
+- 11 tests Logging (100% unitaires sans DB)
+- Restructure tests + smoke tests + integration tests
+- *(backend)* Add integration tests framework with Meta and Referentials endpoints
+- Fix integration tests for Meta, Referentials and Auth endpoints
+- Overhaul fixtures and DB duplication for integration tests
+- Refactor test DB setup and add elevation endpoint tests
+- *(backend)* Improve coverage for auth and caches endpoints
+- *(backend)* Add unit tests for progress service
+- *(backend)* Unit test audit — 97% coverage across backend services
+- *(backend)* Update test to reflect name/description moved to $set
+- *(targets)* Fix test expressions to use kind discriminator instead of type
+- *(frontend)* Add unit test suite with 99% coverage
+- Add missing coverage for choropleth map feature
+- *(frontend)* Improve coverage for ZoneTypeStatsMap and useZones
+- *(frontend)* Improve coverage for ZoneTypeStatsMap and useZones
+- *(backend)* Cover rate_limit.py and the new 429 exception handler
+- *(backend)* Cover the new security-logging lines in login()
+- *(backend)* Cover the upload size-cap lines in maintenance and my_profile routes
+- *(frontend)* Fix Codecov patch-coverage gap on Challenges pages
+- *(backend)* Cover the admin_test_email fallback on POST /maintenance/test-email
+
+### ⚙️ Miscellaneous Tasks
+
+- Fix deploy job with --env-file and verbose logging
+- Fix deploy job with --env-file and verbose logging
+- Fix deploy job with --env-file and verbose logging
+- Update dependency lock files
+- Add GitHub Actions workflow for ruff and mypy
+- Fixed paths in ci workflow
+- Minor code cleanup (backend + frontend)
+- Minor code cleanup and docstring harmonization
+- *(pre-commit)* Add eslint and vue-tsc hooks for frontend
+- *(indexes)* Add compound index (type_id, difficulty, terrain) on caches
+- *(indexes)* Optimize caches search — 2dsphere bbox and favorites index
+- *(ci)* Add coverage report and Codecov upload to backend-test job
+- *(codecov)* Add ignore section and relax patch threshold to 5%
+- *(codecov)* Split coverage reporting by backend and frontend flags
+- *(cd)* Rework build-push workflow with GHCR auth and curl-based deploy
+- *(ci)* Gate deploy on CI success and ignore doc-only changes
+- Cd pipeline test
+- Cd pipeline test
+- *(pre-commit)* Add prettier hook and fix eslint/prettier conflict
+- *(frontend)* Add eslint-config-prettier dependency
+- Rename documentation/ to docs/
+- Ignore vite.config.js build artifact
+- Add mypy stubs overrides for shapely, requests, yaml in /mypy.ini
+- *(docs)* Rename work-in-progress directory and add traefik harmonization plan
+- *(infra)* Add DOMAIN variable to .env.example
+- *(infra)* Remove ops/deploy/docker-compose.yml
+- *(backend)* Patch known dependency vulnerabilities (pip-audit)
+- *(frontend)* Patch known dependency vulnerabilities (npm audit)
+- Add dependency vulnerability scanning (pip-audit, npm audit)
+- *(frontend)* Remove leftover debug console.log calls
+- Remove the now-dead mailhog service from prod and confirm Brevo is live
+- *(backend)* Rename ADMIN_DEST_EMAIL to ADMIN_TEST_EMAIL for clarity
+- *(docs)* Remove obsolete archived tests and completed working plan
