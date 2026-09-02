@@ -1,97 +1,102 @@
-# Guide du développeur frontend - GeoChallenge Tracker
+[🇫🇷 Version française](frontend_developer_guide.fr.md) | 🇬🇧 English version
+
+---
+
+# Frontend Developer Guide - GeoChallenge Tracker
 
 ## Technologies
 
-- **Framework** : Vue.js 3
-- **Langage** : TypeScript
-- **Styling** : Tailwind CSS + Flowbite
-- **Cartographie** : Leaflet
-- **Build** : Vite
-- **Tests** : Vitest + Playwright
+- **Framework**: Vue.js 3
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + Flowbite
+- **Mapping**: Leaflet
+- **Build**: Vite
+- **Tests**: Vitest + Playwright
 
-## Structure des pages
+## Page structure
 
-Les pages sont organisées par fonctionnalités dans `frontend/src/pages/` :
+Pages are organized by feature in `frontend/src/pages/`:
 
-- `auth/` : Pages d'authentification
-- `caches/` : Pages liées aux caches (import GPX, recherche, carte choroplèthe)
-- `userChallenges/` : Pages liées aux challenges utilisateur (matrix, calendar, etc.)
-- `misc/` : Pages diverses
+- `auth/`: authentication pages
+- `caches/`: cache-related pages (GPX import, search, choropleth map)
+- `userChallenges/`: user challenge pages (matrix, calendar, etc.)
+- `profile/`: user profile page
+- `misc/`: miscellaneous pages
 
-### Pages caches notables
+### Notable cache pages
 
-| Fichier | Route | Description |
-|---------|-------|-------------|
-| `ImportGpx.vue` | `/caches/import` | Import de fichiers GPX/ZIP |
-| `ZonesMap.vue` | `/caches/zones` | Carte choroplèthe — caches trouvées par zone |
-| `ZoneTypeStatsMap.vue` | `/caches/zone-types` | Carte choroplèthe — répartition par type par zone |
-| `WithinBbox.vue` | `/caches/bbox` | Recherche dans une zone rectangulaire |
-| `WithinRadius.vue` | `/caches/radius` | Recherche dans un rayon |
+| File | Route | Description |
+|------|-------|-------------|
+| `ImportGpx.vue` | `/caches/import` | GPX/ZIP file import |
+| `ZonesMap.vue` | `/caches/zones` | Choropleth map, caches found by zone |
+| `ZoneTypeStatsMap.vue` | `/caches/zone-types` | Choropleth map, breakdown by type per zone |
+| `WithinBbox.vue` | `/caches/bbox` | Search within a rectangular area |
+| `WithinRadius.vue` | `/caches/radius` | Search within a radius |
 
 ## Composables
 
-La logique métier est extraite des composants dans des composables réutilisables :
+Business logic is extracted from components into reusable composables:
 
-- `useUserStats.ts` : Gestion des statistiques utilisateur
-- `useMatrixData.ts` : Logique de la matrice D/T
-- `useCalendarData.ts` : Logique du calendrier
-- `useUserProfile.ts` : Gestion du profil utilisateur
-- `useZones.ts` : Appels API pour les zones administratives — `fetchZones`, `fetchZoneDetail`, `fetchZoneTypeStats`
+- `useUserStats.ts`: user statistics management
+- `useMatrixData.ts`: D/T matrix logic
+- `useCalendarData.ts`: calendar logic
+- `useUserProfile.ts`: user profile management
+- `useZones.ts`: API calls for administrative zones (`fetchZones`, `fetchZoneDetail`, `fetchZoneTypeStats`)
 
 ## Types
 
-Tous les objets sont typés avec TypeScript dans `frontend/src/types/` :
+All objects are typed with TypeScript in `frontend/src/types/`:
 
-- **Domaine** : Types correspondant aux modèles backend
-- **Composants** : Types spécifiques aux composants
-- **API** : Types pour les réponses/requêtes API
+- **Domain**: types matching backend models
+- **Components**: component-specific types
+- **API**: types for API requests/responses
 
-## Communication avec le backend
+## Backend communication
 
-- **Client API** : Dans `frontend/src/api/http.ts`
-- **Sérialisation des paramètres** : `paramsSerializer` personnalisé — les tableaux sont encodés sans bracket (`type=a&type=b`), compatible FastAPI qui n'accepte pas `type[]=a`
-- **Refresh token** : intercepteur de réponse — les 401 déclenchent un refresh silencieux puis un retry de la requête originale
+- **API client**: in `frontend/src/api/http.ts`
+- **Parameter serialization**: custom `paramsSerializer`, arrays are encoded without brackets (`type=a&type=b`), matching FastAPI which does not accept `type[]=a`
+- **Refresh token**: response interceptor, 401s trigger a silent refresh then a retry of the original request
 
-## Composants
+## Components
 
-- **Réutilisables** : Dans `frontend/src/components/`
-- **Spécifiques** : Associés directement aux pages qui les utilisent
-- **Cartographie** : Composants Leaflet dans `frontend/src/components/map/`
+- **Reusable**: in `frontend/src/components/`
+- **Specific**: tied directly to the pages that use them
+- **Mapping**: Leaflet components in `frontend/src/components/map/`
 
-## Routage
+## Routing
 
-- **Vue Router** : Configuration dans `frontend/src/router/index.ts`
-- **Navigation** : Basée sur les noms de routes pour la maintenabilité
+- **Vue Router**: configured in `frontend/src/router/index.ts`
+- **Navigation**: based on route names for maintainability
 
-## Gestion d'état
+## State management
 
-- **Pinia** : Pour les données globales (ex: authStore)
-- **Props/Events** : Pour la communication composant-parent/enfant
-- **Composables** : Pour la logique métier partagée
+- **Pinia**: for global data (e.g. authStore)
+- **Props/Events**: for parent/child component communication
+- **Composables**: for shared business logic
 
-## Bonnes pratiques
+## Best practices
 
 ### Composition API
-- Utilisation systématique de `<script setup>`
-- Déclaration des props et emits explicites
+- Consistent use of `<script setup>`
+- Explicit props and emits declarations
 
-### Typage
-- TypeScript pour tous les composants
-- Types stricts pour les props et les retours de fonctions
+### Typing
+- TypeScript for all components
+- Strict types for props and function return values
 
-### Nommage
-- PascalCase pour les composants Vue
-- camelCase pour les variables/fonctions
-- Utilisation de préfixes pour les composables (use*, get*, etc.)
+### Naming
+- PascalCase for Vue components
+- camelCase for variables/functions
+- Prefixes for composables (use*, get*, etc.)
 
 ### Structure
-- Composables pour la logique métier
-- Composants pour la présentation
-- Pages pour l'orchestration
+- Composables for business logic
+- Components for presentation
+- Pages for orchestration
 
-## Développement
+## Development
 
-### Lancement
+### Running
 ```bash
 npm install
 npm run dev
@@ -104,19 +109,19 @@ npm run lint
 
 ### Tests
 ```bash
-# Tests unitaires
+# Unit tests
 npm run test:unit
 
-# Tests e2e
+# E2E tests
 npm run test:e2e
 ```
 
-## Dépendances importantes
+## Key dependencies
 
-- **Vue 3** : Framework principal
-- **TypeScript** : Typage statique
-- **Tailwind CSS** : Styling utility-first
-- **Flowbite** : Composants UI
-- **Leaflet** : Cartographie interactive
-- **Pinia** : Gestion d'état
-- **Vue Router** : Routage
+- **Vue 3**: main framework
+- **TypeScript**: static typing
+- **Tailwind CSS**: utility-first styling
+- **Flowbite**: UI components
+- **Leaflet**: interactive mapping
+- **Pinia**: state management
+- **Vue Router**: routing
