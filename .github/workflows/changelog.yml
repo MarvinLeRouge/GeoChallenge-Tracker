@@ -26,14 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Regenerate changelog
-        run: npm run changelog
+        run: npx --yes git-cliff@2.13.1 --config cliff.toml --output CHANGELOG.md
 
       # main is protected: no direct push, so open a PR instead of committing
       # straight to it. Reuses the same branch across runs, updating the
@@ -47,3 +42,4 @@ jobs:
           body: Automated CHANGELOG.md regeneration via git-cliff, triggered by a push to main.
           branch: chore/update-changelog
           delete-branch: true
+          labels: changelog
