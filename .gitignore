@@ -107,7 +107,7 @@ backups/
 !backups/**/.gitkeep
 
 # Documentation
-docs/ai/work-in-progress
+docs/work-in-progress/
 
 # Impeccable skill (design tooling working files, not committed)
 /PRODUCT.md
