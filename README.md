@@ -28,6 +28,12 @@ The application enables passionate geocachers to:
 
 ---
 
+## 🏗️ Architecture
+
+FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See [docs/architecture.md](docs/architecture.md) for the overview, [docs/architecture/backend_architecture.md](docs/architecture/backend_architecture.md) and [docs/architecture/frontend_architecture.md](docs/architecture/frontend_architecture.md) for implementation details.
+
+---
+
 ## 📸 Screenshots
 
 ### Caches search
