@@ -28,6 +28,12 @@ L'application permet aux géocacheurs passionnés de :
 
 ---
 
+## 🏗️ Architecture
+
+Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 + TypeScript. Voir [docs/architecture.fr.md](docs/architecture.fr.md) pour la vue d'ensemble, [docs/architecture/backend_architecture.fr.md](docs/architecture/backend_architecture.fr.md) et [docs/architecture/frontend_architecture.fr.md](docs/architecture/frontend_architecture.fr.md) pour les détails d'implémentation.
+
+---
+
 ## 📸 Copes d'écran
 
 ### Recherche de caches
