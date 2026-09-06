@@ -210,6 +210,7 @@ To regenerate locally, run `npm run changelog`.
 - Fix stale npm install path and drop em dash in backend/frontend READMEs
 - Fix stale frontend install path and drop em dash in CONTRIBUTING
 - Add code of conduct and link it from CONTRIBUTING
+- *(adr)* Add ADR index
 
 ### 🧪 Testing
 
