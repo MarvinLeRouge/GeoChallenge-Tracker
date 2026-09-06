@@ -212,6 +212,7 @@ To regenerate locally, run `npm run changelog`.
 - Add code of conduct and link it from CONTRIBUTING
 - *(adr)* Add ADR index
 - Add architecture summary page
+- Link architecture decision records from README
 
 ### 🧪 Testing
 
