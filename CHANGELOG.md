@@ -280,3 +280,4 @@ To regenerate locally, run `npm run changelog`.
 - Automate CHANGELOG.md regeneration on push to main
 - *(changelog)* Pin git-cliff and drop npm wrapper
 - Standardize AI working notes folder to docs/work-in-progress
+- *(github)* Add issue and pull request templates
