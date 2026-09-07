@@ -284,3 +284,4 @@ To regenerate locally, run `npm run changelog`.
 - *(changelog)* Pin git-cliff and drop npm wrapper
 - Standardize AI working notes folder to docs/work-in-progress
 - *(github)* Add issue and pull request templates
+- *(traefik)* Add security headers middleware on the API router
