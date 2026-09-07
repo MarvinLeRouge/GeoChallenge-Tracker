@@ -132,6 +132,8 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Stop map z-index from covering the app FAB and drawer
 - *(ci)* Rename ADMIN_DEST_EMAIL to ADMIN_TEST_EMAIL in the CI workflow
 - *(ci)* Open a pull request instead of pushing changelog updates to main
+- *(backend)* Correct GPX uploads directory path mismatch
+- *(backend)* Fall back to repo-relative uploads dir outside Docker
 
 ### 💼 Other
 
@@ -244,6 +246,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Cover the upload size-cap lines in maintenance and my_profile routes
 - *(frontend)* Fix Codecov patch-coverage gap on Challenges pages
 - *(backend)* Cover the admin_test_email fallback on POST /maintenance/test-email
+- *(backend)* Cover _default_uploads_dir Docker branch
 
 ### ⚙️ Miscellaneous Tasks
 
