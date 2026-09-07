@@ -24,9 +24,18 @@ services:
       - "traefik.http.routers.gctracker-api.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api.tls=true"
       - "traefik.http.routers.gctracker-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.gctracker-api.middlewares=gctracker-strip-api"
+      - "traefik.http.routers.gctracker-api.middlewares=gctracker-api-headers,gctracker-strip-api"
       - "traefik.http.routers.gctracker-api.service=gctracker-backend"
       - "traefik.http.middlewares.gctracker-strip-api.stripprefix.prefixes=/api"
+      # Security headers for the JSON API, mirroring the frontend's nginx-security-headers.conf
+      # where meaningful for an API (no CSP directives that only make sense for HTML, e.g. script-src).
+      - "traefik.http.middlewares.gctracker-api-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.frameDeny=true"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.referrerPolicy=no-referrer"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.gctracker-api-headers.headers.customResponseHeaders.Content-Security-Policy=default-src 'none'"
       - "traefik.http.services.gctracker-backend.loadbalancer.server.port=8000"
     networks:
       - traefik-public
