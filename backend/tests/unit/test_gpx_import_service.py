@@ -3,6 +3,7 @@
 import datetime as dt
 import io
 import zipfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,7 +11,7 @@ from fastapi import HTTPException
 
 from app.services.gpx_import.cache_validator import CacheValidator
 from app.services.gpx_import.data_normalizer import DataNormalizer
-from app.services.gpx_import.file_handler import FileHandler
+from app.services.gpx_import.file_handler import FileHandler, _default_uploads_dir
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -26,6 +27,20 @@ def _make_zip(*gpx_entries: tuple[str, bytes]) -> bytes:
         for name, content in gpx_entries:
             zf.writestr(name, content)
     return buf.getvalue()
+
+
+class TestDefaultUploadsDir:
+    """Test _default_uploads_dir() Docker detection."""
+
+    def test_uses_repo_relative_path_when_no_dockerenv(self):
+        with patch("pathlib.Path.exists", return_value=False):
+            result = _default_uploads_dir()
+            assert "uploads" in str(result) and result.name == "gpx"
+
+    def test_uses_container_path_when_dockerenv_exists(self):
+        with patch("pathlib.Path.exists", return_value=True):
+            result = _default_uploads_dir()
+            assert result == Path("/app/uploads/gpx")
 
 
 class TestFileHandler:

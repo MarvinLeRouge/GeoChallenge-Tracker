@@ -17,6 +17,18 @@ MAX_TOTAL_EXTRACTED_SIZE = 200 * 1024 * 1024  # 200 MB
 _EXTRACT_CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
+def _default_uploads_dir() -> Path:
+    """Resolve the default GPX uploads directory.
+
+    Same container-side path (/app/uploads/gpx) in dev and prod, both running
+    under Docker. Falls back to a repo-relative path when running outside a
+    container (e.g. CI, native pytest), mirroring backup_config.py's approach.
+    """
+    if Path("/.dockerenv").exists():
+        return Path("/app/uploads/gpx")
+    return Path(__file__).resolve().parents[4] / "uploads" / "gpx"
+
+
 class FileHandler:
     """GPX and ZIP file management service.
 
@@ -31,7 +43,7 @@ class FileHandler:
         Args:
             uploads_dir: Upload storage directory.
         """
-        self.uploads_dir = uploads_dir or Path("../uploads/gpx").resolve()
+        self.uploads_dir = uploads_dir or _default_uploads_dir()
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
 
     def is_zip_file(self, data: bytes) -> bool:
