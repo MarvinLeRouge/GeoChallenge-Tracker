@@ -31,7 +31,7 @@ class FileHandler:
         Args:
             uploads_dir: Upload storage directory.
         """
-        self.uploads_dir = uploads_dir or Path("../uploads/gpx").resolve()
+        self.uploads_dir = uploads_dir or Path("/app/uploads/gpx").resolve()
         self.uploads_dir.mkdir(parents=True, exist_ok=True)
 
     def is_zip_file(self, data: bytes) -> bool:

@@ -20,7 +20,7 @@ services:
     volumes:
       - ./backend:/app
       - ./backups:/backups
-      - ./uploads:/uploads
+      - ./uploads:/app/uploads
       - ./backend/data/samples:/app/data/samples
     restart: unless-stopped
     labels:
