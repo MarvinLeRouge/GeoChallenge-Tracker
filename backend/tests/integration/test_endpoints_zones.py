@@ -4,7 +4,7 @@ Integration tests for the /zones endpoints.
 Tests:
 - GET /zones requires authentication
 - GET /zones returns zones for a given country/level (per-user found caches)
-- GET /zones/{code} returns zone detail (per-user found caches)
+- GET /zones/{code} returns zone detail with per-type breakdown (per-user found caches)
 - GET /zones/{code} returns 404 for unknown code
 """
 
@@ -62,6 +62,12 @@ async def zones_fixtures(test_db):
     )
     ct_doc = await test_db.cache_types.find_one({"code": "traditional"})
     ct_id = ct_doc["_id"]
+
+    await test_db.countries.update_one(
+        {"name": "France"},
+        {"$set": {"code": "FR", "name_fr": "France"}, "$setOnInsert": {"name": "France"}},
+        upsert=True,
+    )
 
     await test_db.caches.delete_many({"GC": {"$in": ["GCTEST01", "GCTEST02"]}})
     result = await test_db.caches.insert_many(
@@ -192,6 +198,17 @@ class TestListZones:
         assert "FR-TEST-1" not in codes
 
     @pytest.mark.asyncio
+    async def test_list_zones_multiple_type_filter(self, auth_client, zones_fixtures):
+        response = await auth_client.get(
+            "/zones",
+            params={"country": "FR", "level": 1, "type": ["traditional", "mystery"]},
+        )
+        assert response.status_code == 200
+        items = response.json()["items"]
+        codes = [i["code"] for i in items]
+        assert "FR-TEST-1" in codes
+
+    @pytest.mark.asyncio
     async def test_list_zones_missing_country_returns_422(self, auth_client, zones_fixtures):
         response = await auth_client.get("/zones", params={"level": 1})
         assert response.status_code == 422
@@ -200,6 +217,19 @@ class TestListZones:
     async def test_list_zones_invalid_level_returns_422(self, auth_client, zones_fixtures):
         response = await auth_client.get("/zones", params={"country": "FR", "level": 5})
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_list_zones_level0_returns_countries(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones", params={"level": 0})
+        assert response.status_code == 200
+        data = response.json()
+        codes = [item["code"] for item in data["items"]]
+        assert "FR" in codes
+
+    @pytest.mark.asyncio
+    async def test_list_zones_level0_does_not_require_country(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones", params={"level": 0})
+        assert response.status_code == 200
 
 
 # ── Tests: GET /zones/{code} ───────────────────────────────────────────────────
@@ -216,66 +246,14 @@ class TestGetZoneDetail:
         assert data["code"] == "FR-TEST-2"
         assert data["name"] == "Test Département"
         assert data["cache_count"] == 2
-        assert len(data["caches"]) == 2
 
     @pytest.mark.asyncio
-    async def test_get_zone_detail_cache_fields(self, auth_client, zones_fixtures):
+    async def test_get_zone_detail_type_counts_fields(self, auth_client, zones_fixtures):
         response = await auth_client.get("/zones/FR-TEST-2")
         assert response.status_code == 200
-        cache = response.json()["caches"][0]
-        assert "GC" in cache
-        assert "title" in cache
-        assert "difficulty" in cache
-        assert "terrain" in cache
-
-    @pytest.mark.asyncio
-    async def test_get_zone_not_found(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-NONEXISTENT-9999")
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_get_zone_type_filter(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-2", params={"type": "traditional"})
-        assert response.status_code == 200
         data = response.json()
-        assert data["cache_count"] == 2
-
-    @pytest.mark.asyncio
-    async def test_get_zone_type_filter_no_match(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-2", params={"type": "mystery"})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["cache_count"] == 0
-        assert data["caches"] == []
-
-
-# ── Tests: GET /zones/{code}/type-stats ───────────────────────────────────────
-
-
-class TestGetZoneTypeStats:
-    """Tests for GET /zones/{code}/type-stats."""
-
-    @pytest.mark.asyncio
-    async def test_requires_auth(self, client):
-        response = await client.get("/zones/FR-TEST-1/type-stats")
-        assert response.status_code == 401
-
-    @pytest.mark.asyncio
-    async def test_returns_404_for_unknown_zone(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-NONEXISTENT-9999/type-stats")
-        assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_returns_all_types_including_zeros(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
-        assert response.status_code == 200
-        data = response.json()
-        assert data["code"] == "FR-TEST-1"
-        assert data["name"] == "Test Région"
         assert "type_counts" in data
-        # All types present, at least the 13 seeded ones
         assert len(data["type_counts"]) >= 1
-        # Every item has the expected fields
         for item in data["type_counts"]:
             assert "type_code" in item
             assert "type_name" in item
@@ -283,8 +261,13 @@ class TestGetZoneTypeStats:
             assert item["count"] >= 0
 
     @pytest.mark.asyncio
+    async def test_get_zone_not_found(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-NONEXISTENT-9999")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
     async def test_traditional_count_matches_found_caches(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        response = await auth_client.get("/zones/FR-TEST-1", params={"level": 1})
         assert response.status_code == 200
         data = response.json()
         traditional = next(
@@ -295,7 +278,7 @@ class TestGetZoneTypeStats:
 
     @pytest.mark.asyncio
     async def test_non_traditional_types_have_zero_count(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
+        response = await auth_client.get("/zones/FR-TEST-1", params={"level": 1})
         assert response.status_code == 200
         data = response.json()
         non_traditional = [t for t in data["type_counts"] if t["type_code"] != "traditional"]
@@ -304,19 +287,16 @@ class TestGetZoneTypeStats:
             assert item["count"] == 0
 
     @pytest.mark.asyncio
-    async def test_total_matches_sum_of_nonzero_counts(self, auth_client, zones_fixtures):
-        type_stats_resp = await auth_client.get("/zones/FR-TEST-1/type-stats", params={"level": 1})
-        zone_resp = await auth_client.get("/zones/FR-TEST-1", params={"level": 1})
-        assert type_stats_resp.status_code == 200
-        assert zone_resp.status_code == 200
-        type_data = type_stats_resp.json()
-        zone_data = zone_resp.json()
-        total_from_type_stats = sum(t["count"] for t in type_data["type_counts"])
-        assert total_from_type_stats == zone_data["cache_count"]
+    async def test_cache_count_matches_sum_of_type_counts(self, auth_client, zones_fixtures):
+        response = await auth_client.get("/zones/FR-TEST-1", params={"level": 1})
+        assert response.status_code == 200
+        data = response.json()
+        total_from_type_counts = sum(t["count"] for t in data["type_counts"])
+        assert total_from_type_counts == data["cache_count"]
 
     @pytest.mark.asyncio
     async def test_works_for_level2_zone(self, auth_client, zones_fixtures):
-        response = await auth_client.get("/zones/FR-TEST-2/type-stats", params={"level": 2})
+        response = await auth_client.get("/zones/FR-TEST-2", params={"level": 2})
         assert response.status_code == 200
         data = response.json()
         assert data["code"] == "FR-TEST-2"

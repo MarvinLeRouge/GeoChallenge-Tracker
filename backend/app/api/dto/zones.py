@@ -30,40 +30,6 @@ class ZoneListResponse(BaseModel):
     items: list[ZoneListItem]
 
 
-class CacheInZone(BaseModel):
-    """Compact cache summary for use inside a zone detail popover.
-
-    Attributes:
-        GC (str): Geocaching code.
-        title (str): Cache title.
-        type_code (str | None): Cache type code (e.g. "traditional").
-        difficulty (float | None): Difficulty rating.
-        terrain (float | None): Terrain rating.
-    """
-
-    GC: str
-    title: str
-    type_code: str | None = None
-    difficulty: float | None = None
-    terrain: float | None = None
-
-
-class ZoneDetail(BaseModel):
-    """Detail of an administrative zone with its top caches.
-
-    Attributes:
-        code (str): Zone code.
-        name (str): Display name.
-        cache_count (int): Total number of user caches in this zone.
-        caches (list[CacheInZone]): First 10 caches (for popover preview).
-    """
-
-    code: str
-    name: str
-    cache_count: int
-    caches: list[CacheInZone]
-
-
 class ZoneTypeStatItem(BaseModel):
     """Count of found caches for a single cache type within a zone.
 
@@ -78,16 +44,18 @@ class ZoneTypeStatItem(BaseModel):
     count: int
 
 
-class ZoneTypeStatsResponse(BaseModel):
-    """Response for GET /api/zones/{code}/type-stats.
+class ZoneDetail(BaseModel):
+    """Detail of an administrative zone with its per-type cache breakdown.
 
     Attributes:
         code (str): Zone code.
         name (str): Display name.
+        cache_count (int): Total number of user caches in this zone (sum of type_counts).
         type_counts (list[ZoneTypeStatItem]): All cache types ordered by canonical GC order,
             count is 0 for types with no found caches in this zone.
     """
 
     code: str
     name: str
+    cache_count: int
     type_counts: list[ZoneTypeStatItem]

@@ -13,11 +13,13 @@ class CountryBase(BaseModel):
     """Country (reference data).
 
     Attributes:
-        name (str): Name (e.g. "France").
+        name (str): English name (e.g. "Germany"). Used as the GPX-import matching key.
+        name_fr (str | None): French display name (e.g. "Allemagne").
         code (str | None): ISO 3166-1 alpha-2 code (e.g. "FR").
     """
 
-    name: str  # e.g. "France"
+    name: str  # e.g. "Germany" — matches the GPX country name, kept in English
+    name_fr: str | None = None  # e.g. "Allemagne"
     code: str | None = None  # e.g. "FR", "DE", ISO 3166-1 alpha-2
 
 
@@ -32,10 +34,12 @@ class CountryUpdate(BaseModel):
 
     Attributes:
         name (str | None): New name.
+        name_fr (str | None): New French display name.
         code (str | None): New code.
     """
 
     name: str | None
+    name_fr: str | None
     code: str | None
 
 
