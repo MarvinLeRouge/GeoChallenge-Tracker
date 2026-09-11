@@ -61,8 +61,38 @@ vi.mock("@/components/map/MapBase.vue", () => ({
   },
 }));
 
+const capturedLayerHandlers = vi.hoisted(
+  () => new Map<string, Record<string, (e: unknown) => void>>(),
+);
+
 vi.mock("leaflet", () => ({
-  default: { geoJSON: vi.fn(), map: vi.fn() },
+  default: {
+    geoJSON: vi.fn((geoData, options) => {
+      capturedLayerHandlers.clear();
+      if (Array.isArray(geoData?.features)) {
+        for (const feature of geoData.features) {
+          if (options?.style) options.style(feature);
+          if (options?.onEachFeature) {
+            const mockLayer = {
+              bindTooltip: vi.fn(),
+              bringToFront: vi.fn(),
+              setStyle: vi.fn(),
+              getBounds: vi.fn().mockReturnValue("mock-bounds"),
+              on: vi.fn((handlers: Record<string, (e: unknown) => void>) => {
+                capturedLayerHandlers.set(
+                  feature.properties.code as string,
+                  handlers,
+                );
+              }),
+            };
+            options.onEachFeature(feature, mockLayer);
+          }
+        }
+      }
+      return { addTo: vi.fn().mockReturnThis(), resetStyle: vi.fn() };
+    }),
+    map: vi.fn(),
+  },
 }));
 
 import ZonesExplorer from "@/pages/caches/ZonesExplorer.vue";
@@ -138,5 +168,57 @@ describe("ZonesExplorer - World view", () => {
 
     expect(wrapper.find('[data-testid="map-base"]').exists()).toBe(true);
     expect(mockFetchZones).toHaveBeenCalledWith(1, "FR", []);
+  });
+});
+
+describe("ZonesExplorer - Country view", () => {
+  const geoData = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { code: "84", nom: "Auvergne-Rhône-Alpes" },
+        geometry: null,
+      },
+    ],
+  };
+
+  it("fetches the country-level geojson and level-1 zone counts when drilling in", async () => {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", geoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-84", name: "Auvergne-Rhône-Alpes", cache_count: 3 },
+    ]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+
+    expect(mockGet).toHaveBeenCalledWith("/geo/FR/adm1.geojson");
+    expect(mockFetchZones).toHaveBeenCalledWith(1, "FR", []);
+  });
+
+  it("shows a not-available message when the geojson 404s", async () => {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", new Error("404"));
+    mockFetchZones.mockResolvedValueOnce([]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="geo-unavailable"]').exists()).toBe(true);
   });
 });

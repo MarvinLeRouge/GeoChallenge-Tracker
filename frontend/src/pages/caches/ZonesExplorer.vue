@@ -53,17 +53,50 @@
     </div>
 
     <template v-else>
+      <div
+        class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 bg-white rounded-lg shadow-md px-3 py-2 text-sm dark:bg-gray-900"
+      >
+        <button
+          type="button"
+          class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          @click="goBack"
+        >
+          ← Retour
+        </button>
+        <div class="h-4 w-px bg-gray-200 dark:bg-gray-700" />
+        <TypeFilterDropdown v-model="selectedTypes" :options="cacheTypes" />
+      </div>
+
+      <div
+        v-if="geoUnavailable"
+        data-testid="geo-unavailable"
+        class="absolute inset-0 z-10 flex items-center justify-center text-gray-500 dark:text-gray-400"
+      >
+        Données GeoJSON pas encore disponibles pour ce pays.
+      </div>
+
       <MapBase ref="mapRef" :zoom="6" @ready="onMapReady" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import L from "leaflet";
+import type { GeoJsonObject } from "geojson";
 import MapBase from "@/components/map/MapBase.vue";
 import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
+import TypeFilterDropdown from "@/components/zones/TypeFilterDropdown.vue";
 import { useZones } from "@/composables/useZones";
+import api from "@/api/http";
 import type { Country, ZoneListItem } from "@/types/zones";
+
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const COLOR_LOW = "#edf8fb";
+const COLOR_HIGH = "#006d2c";
+const COLOR_HOVER = "#fbbf24";
+const COLOR_ZERO = "#fca5a5";
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -72,9 +105,20 @@ const { loading, fetchCountries, fetchZones } = useZones();
 
 const level = ref<0 | 1 | 2>(0);
 const selectedCountry = ref<string | null>(null);
+const selectedTypes = ref<string[]>([]);
+const geoUnavailable = ref(false);
 
 const allCountries = ref<Country[]>([]);
 const zonesLevel0 = ref<ZoneListItem[]>([]);
+
+interface CacheTypeOption {
+  code: string;
+  name: string;
+}
+const cacheTypes = ref<CacheTypeOption[]>([]);
+
+let leafletMap: L.Map | null = null;
+let choroplethLayer: L.GeoJSON | null = null;
 
 // ── World view derived lists ────────────────────────────────────────────────
 
@@ -89,7 +133,7 @@ const emptyCountries = computed(() => {
     .sort((a, b) => a.name.localeCompare(b.name));
 });
 
-// ── Loading ──────────────────────────────────────────────────────────────────
+// ── World loading ────────────────────────────────────────────────────────────
 
 async function loadWorld() {
   const [countries, zones] = await Promise.all([
@@ -100,17 +144,167 @@ async function loadWorld() {
   zonesLevel0.value = zones;
 }
 
-onMounted(loadWorld);
+async function loadCacheTypes() {
+  try {
+    const { data } =
+      await api.get<{ code: string; name: string }[]>("/cache_types");
+    cacheTypes.value = data.map((t) => ({ code: t.code, name: t.name }));
+  } catch {
+    // non-blocking
+  }
+}
 
-// ── Drill-down (Country/Region rendering completed in Tasks 8-9) ───────────
+onMounted(() => {
+  loadWorld();
+  loadCacheTypes();
+});
+
+// ── Choropleth helpers ───────────────────────────────────────────────────────
+
+function hexToRgb(hex: string): [number, number, number] {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff];
+}
+
+function interpolateColor(t: number): string {
+  const low = hexToRgb(COLOR_LOW);
+  const high = hexToRgb(COLOR_HIGH);
+  const r = Math.round(low[0] + t * (high[0] - low[0]));
+  const g = Math.round(low[1] + t * (high[1] - low[1]));
+  const b = Math.round(low[2] + t * (high[2] - low[2]));
+  return `rgb(${r},${g},${b})`;
+}
+
+function buildCountMap(items: ZoneListItem[]): Map<string, number> {
+  return new Map(items.map((z) => [z.code, z.cache_count]));
+}
+
+function maxCount(items: ZoneListItem[]): number {
+  return items.reduce((m, z) => Math.max(m, z.cache_count), 1);
+}
+
+async function fetchGeoJson(path: string): Promise<GeoJsonObject | null> {
+  try {
+    const { data } = await api.get<GeoJsonObject>(path);
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function removeChoropleth() {
+  if (choroplethLayer && leafletMap) {
+    leafletMap.removeLayer(choroplethLayer);
+    choroplethLayer = null;
+  }
+}
+
+async function renderChoropleth(zoomLevel: 1 | 2, country: string) {
+  if (!leafletMap) return;
+
+  const geoPath = `/geo/${country}/adm${zoomLevel}.geojson`;
+  const [geoData, zoneItems] = await Promise.all([
+    fetchGeoJson(geoPath),
+    fetchZones(zoomLevel, country, selectedTypes.value),
+  ]);
+
+  if (!geoData) {
+    geoUnavailable.value = true;
+    removeChoropleth();
+    return;
+  }
+  geoUnavailable.value = false;
+
+  const countMap = buildCountMap(zoneItems);
+  const max = maxCount(zoneItems);
+
+  removeChoropleth();
+
+  choroplethLayer = L.geoJSON(geoData, {
+    style(feature) {
+      const featureCode = feature?.properties?.code as string | undefined;
+      const zoneCode = featureCode ? `${country}-${featureCode}` : null;
+      const count = zoneCode ? (countMap.get(zoneCode) ?? 0) : 0;
+      const t = count > 0 ? Math.sqrt(count / max) : 0;
+      return {
+        fillColor: count > 0 ? interpolateColor(t) : COLOR_ZERO,
+        fillOpacity: 0.75,
+        color: "#6b7280",
+        weight: 1,
+      };
+    },
+    onEachFeature(feature, layer) {
+      const featureCode = feature?.properties?.code as string | undefined;
+      const zoneCode = featureCode ? `${country}-${featureCode}` : null;
+      const zoneName = feature?.properties?.nom as string | undefined;
+      const count = zoneCode ? (countMap.get(zoneCode) ?? 0) : 0;
+
+      layer.bindTooltip(
+        `<strong>${zoneName ?? zoneCode ?? "?"}</strong><br/>${count.toLocaleString("fr-FR")} cache${count > 1 ? "s" : ""}`,
+        { sticky: true, opacity: 0.9 },
+      );
+
+      layer.on({
+        mouseover(e) {
+          const l = e.target as L.Path;
+          l.setStyle({ weight: 2, color: COLOR_HOVER });
+          l.bringToFront();
+        },
+        mouseout(e) {
+          choroplethLayer?.resetStyle(e.target as L.Path);
+        },
+        click(e) {
+          if (!zoneCode || count === 0) return;
+          onZoneClick(zoneCode, zoomLevel, layer as L.Polygon, e);
+        },
+      });
+    },
+  });
+
+  choroplethLayer.addTo(leafletMap);
+}
+
+// ── Zone click (level-1 drills to Region in Task 9, level-2 opens popup) ────
+
+function onZoneClick(
+  code: string,
+  zoomLevel: 1 | 2,
+  layer: L.Polygon,
+  event: L.LeafletMouseEvent,
+) {
+  // Extended in Task 9.
+  void code;
+  void zoomLevel;
+  void layer;
+  void event;
+}
+
+// ── World -> Country drill-down ─────────────────────────────────────────────
 
 function drillToCountry(code: string) {
   selectedCountry.value = code;
   level.value = 1;
 }
 
-async function onMapReady() {
-  // Populated in Task 8 with the level-1 choropleth render.
-  await fetchZones(1, selectedCountry.value ?? undefined, []);
+function goBack() {
+  if (level.value === 1) {
+    level.value = 0;
+    selectedCountry.value = null;
+    removeChoropleth();
+    leafletMap = null;
+  }
+  // Region -> Country handled in Task 9.
 }
+
+async function onMapReady(map: L.Map) {
+  leafletMap = map;
+  if (level.value === 1 && selectedCountry.value) {
+    await renderChoropleth(1, selectedCountry.value);
+  }
+}
+
+onUnmounted(() => {
+  removeChoropleth();
+  leafletMap = null;
+});
 </script>
