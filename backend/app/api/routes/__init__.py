@@ -1,6 +1,7 @@
 # backend/app/api/routes/__init__.py
 # Point d’entrée : regroupe tous les routeurs de l’API pour inclusion dans FastAPI.
 
+from .admin_geo import router as admin_geo_router
 from .auth import router as auth_router
 from .caches import router as caches_router
 from .caches_elevation import router as caches_elevation_router
@@ -20,6 +21,7 @@ routers = [
     health_router,
     referentials_router,
     auth_router,
+    admin_geo_router,
     caches_router,
     caches_elevation_router,
     caches_geocoding_router,

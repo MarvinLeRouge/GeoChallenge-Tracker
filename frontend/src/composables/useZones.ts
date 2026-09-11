@@ -4,7 +4,7 @@
 import { ref } from "vue";
 import api from "@/api/http";
 import { useApiErrorHandler } from "@/composables/useApiErrorHandler";
-import type { ZoneListItem, ZoneDetail } from "@/types/zones";
+import type { ZoneListItem, ZoneDetail, Country } from "@/types/zones";
 
 export function useZones() {
   const loading = ref(false);
@@ -66,10 +66,29 @@ export function useZones() {
     }
   }
 
+  /**
+   * Fetches the full referential list of countries (independent of the
+   * current user's found caches).
+   */
+  async function fetchCountries(): Promise<Country[]> {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await api.get<Country[]>("/countries");
+      return data;
+    } catch (err: unknown) {
+      error.value = handleApiError(err).message;
+      return [];
+    } finally {
+      loading.value = false;
+    }
+  }
+
   return {
     loading,
     error,
     fetchZones,
     fetchZoneDetail,
+    fetchCountries,
   };
 }

@@ -10,6 +10,9 @@ const capturedAfter = vi.hoisted(() => ({
 const capturedScroll = vi.hoisted(() => ({
   fn: null as ((to: unknown, from: unknown, saved: unknown) => unknown) | null,
 }));
+const capturedRoutes = vi.hoisted(() => ({
+  routes: null as unknown[] | null,
+}));
 
 const mockAuthState = vi.hoisted(() => ({
   isAuthenticated: false,
@@ -21,21 +24,24 @@ vi.mock("@/store/auth", () => ({
 }));
 
 vi.mock("vue-router", () => ({
-  createRouter: vi.fn((options: { scrollBehavior: unknown }) => {
-    capturedScroll.fn = options.scrollBehavior as (
-      to: unknown,
-      from: unknown,
-      saved: unknown,
-    ) => unknown;
-    return {
-      beforeEach: vi.fn((fn: (to: unknown) => unknown) => {
-        capturedBefore.fn = fn;
-      }),
-      afterEach: vi.fn((fn: (to: unknown) => void) => {
-        capturedAfter.fn = fn;
-      }),
-    };
-  }),
+  createRouter: vi.fn(
+    (options: { scrollBehavior: unknown; routes: unknown[] }) => {
+      capturedScroll.fn = options.scrollBehavior as (
+        to: unknown,
+        from: unknown,
+        saved: unknown,
+      ) => unknown;
+      capturedRoutes.routes = options.routes;
+      return {
+        beforeEach: vi.fn((fn: (to: unknown) => unknown) => {
+          capturedBefore.fn = fn;
+        }),
+        afterEach: vi.fn((fn: (to: unknown) => void) => {
+          capturedAfter.fn = fn;
+        }),
+      };
+    },
+  ),
   createWebHistory: vi.fn(() => ({})),
 }));
 
@@ -178,5 +184,17 @@ describe("scrollBehavior", () => {
   it("scrolls to top when no saved position and no hash", () => {
     const result = capturedScroll.fn!({ hash: "" }, {}, null);
     expect(result).toEqual({ top: 0 });
+  });
+});
+
+describe("routes configuration", () => {
+  it("registers /caches/zones-explorer resolving to the ZonesExplorer page", () => {
+    const route = capturedRoutes.routes?.find(
+      (r) => (r as { path?: string }).path === "/caches/zones-explorer",
+    ) as { name?: string; component?: () => unknown } | undefined;
+
+    expect(route).toBeDefined();
+    expect(route?.name).toBe("caches/zones-explorer");
+    expect(route?.component?.toString()).toContain("ZonesExplorer.vue");
   });
 });

@@ -35,3 +35,27 @@ async def get_cache_sizes():
         cache_size["_id"] = str(cache_size["_id"])
 
     return cache_sizes
+
+
+# DONE: [ZONES-EXPLORER] Route /countries (GET) - referential list for the World view
+@router.get("/countries", summary="Get all countries with a known ISO code")
+async def get_countries():
+    """Get all countries that have a resolved ISO 3166-1 alpha-2 code.
+
+    Description:
+        Countries without a resolved `code` are excluded since they cannot be
+        matched to `administrative_zones.country_code` or to `/zones` results.
+        Used by the zones explorer's World view, independently of the
+        authenticated user's found-cache counts (unlike `GET /zones?level=0`).
+    """
+    countries_coll = await get_collection("countries")
+    docs = await countries_coll.find(
+        {"code": {"$ne": None}}, {"_id": 0, "code": 1, "name": 1, "name_fr": 1}
+    ).to_list(length=None)
+    items = [
+        {"code": d["code"], "name": d.get("name_fr") or d["name"]}
+        for d in docs
+        if d.get("code") is not None
+    ]
+    items.sort(key=lambda c: c["name"])
+    return items

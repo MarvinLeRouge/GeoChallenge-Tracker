@@ -314,7 +314,7 @@ class TestGetIndex:
         mock_col.find.return_value.to_list = AsyncMock(
             return_value=[
                 {
-                    "geojson_file": "FR/regions.geojson",
+                    "geojson_file": "FR/adm1.geojson",
                     "country_code": "FR",
                     "level": 1,
                     "code": "FR-84",
@@ -337,12 +337,12 @@ class TestGetIndex:
     async def test_builds_and_caches_index_when_geojson_exists(self, tmp_path):
         fr_dir = tmp_path / "FR"
         fr_dir.mkdir()
-        geojson_path = fr_dir / "regions.geojson"
+        geojson_path = fr_dir / "adm1.geojson"
         geojson_path.write_text(json.dumps({"type": "FeatureCollection", "features": []}))
 
         zone_docs = [
             {
-                "geojson_file": "FR/regions.geojson",
+                "geojson_file": "FR/adm1.geojson",
                 "country_code": "FR",
                 "level": 1,
                 "code": "FR-84",
