@@ -27,3 +27,9 @@ export interface ZoneDetail {
   cache_count: number;
   type_counts: ZoneTypeStatItem[];
 }
+
+/** Referential country entry, independent of the current user's found caches. */
+export interface Country {
+  code: string;
+  name: string;
+}

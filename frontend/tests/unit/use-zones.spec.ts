@@ -10,7 +10,8 @@ vi.mock("@/composables/useApiErrorHandler", () => ({
 }));
 
 import { useZones } from "@/composables/useZones";
-import type { ZoneListItem, ZoneDetail } from "@/types/zones";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import type { ZoneListItem, ZoneDetail, Country } from "@/types/zones";
 
 const makeZoneItem = (code: string, count = 5): ZoneListItem => ({
   code,
@@ -206,5 +207,40 @@ describe("fetchZoneDetail", () => {
     await fetchZoneDetail("FR-84");
 
     expect(error.value).toBe("api error");
+  });
+});
+
+// ── fetchCountries ───────────────────────────────────────────────────────────
+
+describe("fetchCountries", () => {
+  it("calls GET /countries", async () => {
+    mockGet.mockResolvedValueOnce({ data: [] });
+    const { fetchCountries } = useZones();
+
+    await fetchCountries();
+
+    expect(mockGet).toHaveBeenCalledWith("/countries");
+  });
+
+  it("returns the country list on success", async () => {
+    const countries = [
+      { code: "FR", name: "France" },
+      { code: "DE", name: "Allemagne" },
+    ];
+    mockGet.mockResolvedValueOnce({ data: countries });
+    const { fetchCountries } = useZones();
+
+    const result = await fetchCountries();
+
+    expect(result).toEqual(countries);
+  });
+
+  it("returns an empty array on error", async () => {
+    mockGet.mockRejectedValueOnce(new Error("network"));
+    const { fetchCountries } = useZones();
+
+    const result = await fetchCountries();
+
+    expect(result).toEqual([]);
   });
 });
