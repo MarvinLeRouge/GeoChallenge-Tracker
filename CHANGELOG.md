@@ -65,6 +65,8 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Give MyProfile.vue's cards a visual hierarchy
 - *(frontend)* Unify loading feedback into a shared LoadingIndicator
 - *(matrix)* Highlight next-round target cells and list missing combos
+- *(backend)* Unify zones endpoint into a single level 0-2 drill-down with multi-type filter
+- *(frontend)* Update zones types and composable to the level 0-2 contract
 
 ### 🐛 Bug Fixes
 
@@ -247,6 +249,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Fix Codecov patch-coverage gap on Challenges pages
 - *(backend)* Cover the admin_test_email fallback on POST /maintenance/test-email
 - *(backend)* Cover _default_uploads_dir Docker branch
+- *(backend)* Add unit tests for the zones routes error branches
 
 ### ⚙️ Miscellaneous Tasks
 
