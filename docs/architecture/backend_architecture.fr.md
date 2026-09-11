@@ -78,7 +78,7 @@ Chaque document représente une zone (région ou département) :
 - `country_code` : `FR`
 - `level` : `1` (région) ou `2` (département)
 - `name` : nom lisible
-- `geojson_file` : chemin relatif dans `data/admin/`, ex. `FR/departements.geojson`
+- `geojson_file` : chemin relatif dans `data/admin/`, ex. `FR/adm2.geojson`
 - `feature_code` : code du feature dans le FeatureCollection
 - `bbox` : `[lon_min, lat_min, lon_max, lat_max]`
 
@@ -104,8 +104,8 @@ Chaque document possède un champ `sort_order` (entier 1–13) qui définit l'or
 - `GET /api/zones?country=FR&level=1[&type=traditional]`
 - `GET /api/zones/{code}[?level=1&type=traditional]`
 - `GET /api/zones/{code}/type-stats[?level=1]`
-- `GET /api/geo/FR/regions.geojson` (StaticFiles)
-- `GET /api/geo/FR/departements.geojson` (StaticFiles)
+- `GET /api/geo/FR/adm1.geojson` (StaticFiles)
+- `GET /api/geo/FR/adm2.geojson` (StaticFiles)
 
 ### Administration des attributs de caches
 - **Route** : `/maintenance/upload-gpx` (POST)

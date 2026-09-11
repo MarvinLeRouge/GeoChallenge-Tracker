@@ -153,10 +153,10 @@
 
 ### GeoJSON statiques
 
-- **URL** : `GET /geo/FR/regions.geojson`
+- **URL** : `GET /geo/FR/adm1.geojson`
 - **Description** : FeatureCollection GeoJSON des régions françaises. Servi par FastAPI StaticFiles.
 
-- **URL** : `GET /geo/FR/departements.geojson`
+- **URL** : `GET /geo/FR/adm2.geojson`
 - **Description** : FeatureCollection GeoJSON des départements français.
 
 ## Challenges (`/challenges`)

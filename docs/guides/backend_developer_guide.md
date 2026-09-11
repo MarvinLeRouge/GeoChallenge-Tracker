@@ -148,8 +148,8 @@ New caches imported via GPX are automatically assigned (step 5b of the
 | `GET` | `/api/zones?country=FR&level=1` | List of zones with cache counters |
 | `GET` | `/api/zones/{code}` | Zone detail with the first 10 caches |
 | `GET` | `/api/zones/{code}/type-stats` | Per-type counters for a zone (13 types, zeros included) |
-| `GET` | `/api/geo/FR/regions.geojson` | Region FeatureCollection (StaticFiles) |
-| `GET` | `/api/geo/FR/departements.geojson` | Department FeatureCollection (StaticFiles) |
+| `GET` | `/api/geo/FR/adm1.geojson` | Region FeatureCollection (StaticFiles) |
+| `GET` | `/api/geo/FR/adm2.geojson` | Department FeatureCollection (StaticFiles) |
 
 ## Best practices
 

@@ -69,7 +69,7 @@ frontend/src/
 La page `pages/caches/ZonesMap.vue` affiche une carte Leaflet interactive colorée par densité de caches trouvées par zone administrative.
 
 **Comportement :**
-- Niveau 0 → charge les régions GeoJSON (`/api/geo/FR/regions.geojson`) et leurs compteurs (`/api/zones?country=FR&level=1`)
+- Niveau 0 → charge les régions GeoJSON (`/api/geo/FR/adm1.geojson`) et leurs compteurs (`/api/zones?country=FR&level=1`)
 - Clic sur une région → zoom `fitBounds` + chargement des départements (niveau 2)
 - Clic sur un département → popover avec le total et les 10 premières caches
 - Filtre par type → relance uniquement les appels `/api/zones`, pas le GeoJSON
