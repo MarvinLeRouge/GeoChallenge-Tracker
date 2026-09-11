@@ -68,6 +68,12 @@ const cachesRoutes = [
     component: () => import("@/pages/caches/MapDemo.vue"),
     meta: { dense: true, noFabPadding: true, title: "Map - Démo" },
   },
+  {
+    path: "/caches/zones-explorer",
+    name: "caches/zones-explorer",
+    component: () => import("@/pages/caches/ZonesExplorer.vue"),
+    meta: { dense: true, noFabPadding: true, title: "Zones administratives" },
+  },
 ];
 
 // Challenges (placeholder)
