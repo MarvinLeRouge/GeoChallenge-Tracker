@@ -26,3 +26,21 @@ class MissingCountriesResponse(BaseModel):
     """
 
     items: list[MissingCountryItem]
+
+
+class GeoUploadResponse(BaseModel):
+    """Response for POST /admin/geo/{country_code}/upload.
+
+    Attributes:
+        country_code (str): ISO country code the file was uploaded for.
+        level (int): Administrative level (0, 1 or 2).
+        features_count (int): Number of features in the uploaded FeatureCollection.
+        inserted (int): Number of new administrative_zones documents created (0 at level 0).
+        updated (int): Number of existing administrative_zones documents updated (0 at level 0).
+    """
+
+    country_code: str
+    level: int
+    features_count: int
+    inserted: int
+    updated: int
