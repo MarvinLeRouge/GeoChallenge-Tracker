@@ -222,3 +222,113 @@ describe("ZonesExplorer - Country view", () => {
     expect(wrapper.find('[data-testid="geo-unavailable"]').exists()).toBe(true);
   });
 });
+
+describe("ZonesExplorer - Region view and popup", () => {
+  const regionGeoData = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { code: "84", nom: "Auvergne-Rhône-Alpes" },
+        geometry: null,
+      },
+    ],
+  };
+  const departementGeoData = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { code: "38", nom: "Isère" },
+        geometry: null,
+      },
+    ],
+  };
+
+  // Drives the component to the Country (level 1) choropleth, exactly like
+  // Task 8's tests. Each test then simulates its own feature click via
+  // capturedLayerHandlers, since regular DOM events don't reach Leaflet
+  // layers rendered outside the component's own template.
+  //
+  // Mocks are queued before mount() (not after, as a wrapper-accepting
+  // helper would require): ZonesExplorer's onMounted -> loadWorld() runs
+  // synchronously during mount(), so fetchCountries()/fetchZones(0) would
+  // otherwise consume the base mockResolvedValue([]) default instead of
+  // the France fixtures, leaving the found-countries section empty.
+  async function drillToRegionView(): Promise<ReturnType<typeof mount>> {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", regionGeoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-84", name: "Auvergne-Rhône-Alpes", cache_count: 3 },
+    ]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+    return wrapper;
+  }
+
+  it("zooms to the clicked region's bounds instead of calling a new geojson endpoint", async () => {
+    await drillToRegionView();
+
+    const callsToLevel1 = mockGet.mock.calls.filter(
+      (c) => c[0] === "/geo/FR/adm1.geojson",
+    );
+    expect(callsToLevel1).toHaveLength(1);
+
+    mockGetResponses.set("/geo/FR/adm2.geojson", departementGeoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-38", name: "Isère", cache_count: 3 },
+    ]);
+
+    const regionHandlers = capturedLayerHandlers.get("84");
+    expect(regionHandlers).toBeDefined();
+    regionHandlers?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    expect(mockGet).toHaveBeenCalledWith("/geo/FR/adm2.geojson");
+    expect(mockFetchZones).toHaveBeenCalledWith(2, "FR", []);
+    expect(mockLeafletMap.fitBounds).toHaveBeenCalledWith("mock-bounds");
+    // Region drill-down reuses the already-fetched country-wide level-2
+    // geojson scope - no second call to the level-1 endpoint was made.
+    expect(
+      mockGet.mock.calls.filter((c) => c[0] === "/geo/FR/adm1.geojson"),
+    ).toHaveLength(1);
+  });
+
+  it("opens the zone-detail popup with the full type breakdown, ignoring the active type filter", async () => {
+    const wrapper = await drillToRegionView();
+
+    mockGetResponses.set("/geo/FR/adm2.geojson", departementGeoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-38", name: "Isère", cache_count: 3 },
+    ]);
+    capturedLayerHandlers.get("84")?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    mockFetchZoneDetail.mockResolvedValueOnce({
+      code: "FR-38",
+      name: "Isère",
+      cache_count: 3,
+      type_counts: [
+        { type_code: "traditional", type_name: "Traditional", count: 3 },
+      ],
+    });
+    const departementHandlers = capturedLayerHandlers.get("38");
+    expect(departementHandlers).toBeDefined();
+    departementHandlers?.click({ latlng: { lat: 45.2, lng: 5.7 } });
+    await flushPromises();
+
+    expect(mockFetchZoneDetail).toHaveBeenCalledWith("FR-38", 2);
+    const popover = wrapper.find('[data-testid="zone-popover"]');
+    expect(popover.exists()).toBe(true);
+    expect(popover.text()).toContain("Isère");
+    expect(popover.text()).toContain("Traditional");
+  });
+});

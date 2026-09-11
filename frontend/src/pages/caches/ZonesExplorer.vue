@@ -76,12 +76,48 @@
       </div>
 
       <MapBase ref="mapRef" :zoom="6" @ready="onMapReady" />
+
+      <div
+        v-if="popoverVisible && popoverDetail"
+        data-testid="zone-popover"
+        class="absolute z-30 bg-white rounded-lg shadow-xl border border-gray-200 w-72 text-sm dark:bg-gray-900 dark:border-gray-700"
+        :style="{ top: popoverPos.y + 'px', left: popoverPos.x + 'px' }"
+      >
+        <div class="flex items-start justify-between p-3 pb-1">
+          <div class="font-semibold text-gray-900 dark:text-gray-100">
+            {{ popoverDetail.name }}
+          </div>
+          <button
+            type="button"
+            class="text-gray-400 hover:text-gray-600 ml-2 shrink-0 dark:text-gray-500 dark:hover:text-gray-300"
+            @click="closePopover"
+          >
+            ✕
+          </button>
+        </div>
+        <div class="px-3 pb-1 text-gray-500 text-xs dark:text-gray-400">
+          {{ popoverDetail.cache_count.toLocaleString("fr-FR") }} cache{{
+            popoverDetail.cache_count > 1 ? "s" : ""
+          }}
+        </div>
+        <hr class="my-1 border-gray-100 dark:border-gray-800" />
+        <ul class="px-3 pb-2 space-y-1">
+          <li
+            v-for="t in popoverDetail.type_counts"
+            :key="t.type_code"
+            class="flex items-center justify-between text-gray-700 dark:text-gray-300"
+          >
+            <span>{{ t.type_name }}</span>
+            <span class="text-gray-400">{{ t.count }}</span>
+          </li>
+        </ul>
+      </div>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import L from "leaflet";
 import type { GeoJsonObject } from "geojson";
 import MapBase from "@/components/map/MapBase.vue";
@@ -89,7 +125,7 @@ import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import TypeFilterDropdown from "@/components/zones/TypeFilterDropdown.vue";
 import { useZones } from "@/composables/useZones";
 import api from "@/api/http";
-import type { Country, ZoneListItem } from "@/types/zones";
+import type { Country, ZoneDetail, ZoneListItem } from "@/types/zones";
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -101,12 +137,16 @@ const COLOR_ZERO = "#fca5a5";
 // ── State ────────────────────────────────────────────────────────────────────
 
 const mapRef = ref<InstanceType<typeof MapBase> | null>(null);
-const { loading, fetchCountries, fetchZones } = useZones();
+const { loading, fetchCountries, fetchZones, fetchZoneDetail } = useZones();
 
 const level = ref<0 | 1 | 2>(0);
 const selectedCountry = ref<string | null>(null);
+const selectedRegion = ref<string | null>(null);
 const selectedTypes = ref<string[]>([]);
 const geoUnavailable = ref(false);
+const popoverVisible = ref(false);
+const popoverDetail = ref<ZoneDetail | null>(null);
+const popoverPos = ref({ x: 16, y: 60 });
 
 const allCountries = ref<Country[]>([]);
 const zonesLevel0 = ref<ZoneListItem[]>([]);
@@ -264,19 +304,52 @@ async function renderChoropleth(zoomLevel: 1 | 2, country: string) {
   choroplethLayer.addTo(leafletMap);
 }
 
-// ── Zone click (level-1 drills to Region in Task 9, level-2 opens popup) ────
+// ── Zone click (level-1 drills to Region, level-2 opens popup) ─────────────
 
-function onZoneClick(
+async function onZoneClick(
   code: string,
   zoomLevel: 1 | 2,
   layer: L.Polygon,
   event: L.LeafletMouseEvent,
 ) {
-  // Extended in Task 9.
-  void code;
-  void zoomLevel;
-  void layer;
-  void event;
+  if (zoomLevel === 1) {
+    selectedRegion.value = code;
+    level.value = 2;
+    if (leafletMap) leafletMap.fitBounds(layer.getBounds());
+    await renderChoropleth(2, selectedCountry.value!);
+    return;
+  }
+  await openPopover(code, event, zoomLevel);
+}
+
+async function openPopover(
+  code: string,
+  event: L.LeafletMouseEvent,
+  zoomLevel: 1 | 2,
+) {
+  popoverVisible.value = false;
+
+  const containerPoint = leafletMap?.latLngToContainerPoint(event.latlng);
+  if (containerPoint) {
+    popoverPos.value = {
+      x: Math.min(containerPoint.x + 12, window.innerWidth - 300),
+      y: Math.min(
+        Math.max(containerPoint.y - 20, 60),
+        window.innerHeight - 420,
+      ),
+    };
+  }
+
+  const detail = await fetchZoneDetail(code, zoomLevel);
+  if (detail) {
+    popoverDetail.value = detail;
+    popoverVisible.value = true;
+  }
+}
+
+function closePopover() {
+  popoverVisible.value = false;
+  popoverDetail.value = null;
 }
 
 // ── World -> Country drill-down ─────────────────────────────────────────────
@@ -287,14 +360,28 @@ function drillToCountry(code: string) {
 }
 
 function goBack() {
+  closePopover();
+  if (level.value === 2) {
+    level.value = 1;
+    selectedRegion.value = null;
+    if (selectedCountry.value) renderChoropleth(1, selectedCountry.value);
+    return;
+  }
   if (level.value === 1) {
     level.value = 0;
     selectedCountry.value = null;
     removeChoropleth();
     leafletMap = null;
   }
-  // Region -> Country handled in Task 9.
 }
+
+watch(selectedTypes, async () => {
+  if (level.value === 1 && selectedCountry.value) {
+    await renderChoropleth(1, selectedCountry.value);
+  } else if (level.value === 2 && selectedCountry.value) {
+    await renderChoropleth(2, selectedCountry.value);
+  }
+});
 
 async function onMapReady(map: L.Map) {
   leafletMap = map;
