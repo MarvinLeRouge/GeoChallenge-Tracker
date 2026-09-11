@@ -112,3 +112,14 @@ class TestReferentialEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
+
+    @pytest.mark.asyncio
+    async def test_countries_endpoint(self, client):
+        """Test que /countries répond."""
+        response = await client.get("/countries")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        if data:
+            assert set(data[0].keys()) == {"code", "name"}
