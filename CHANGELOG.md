@@ -67,6 +67,15 @@ To regenerate locally, run `npm run changelog`.
 - *(matrix)* Highlight next-round target cells and list missing combos
 - *(backend)* Unify zones endpoint into a single level 0-2 drill-down with multi-type filter
 - *(frontend)* Update zones types and composable to the level 0-2 contract
+- *(backend)* Add GET /countries referential endpoint
+- *(backend)* Add GET /admin/geo/missing-countries endpoint
+- *(backend)* Add POST /admin/geo/{country_code}/upload endpoint
+- *(frontend)* Add Country type and fetchCountries()
+- *(frontend)* Add TypeFilterDropdown checkbox multi-select
+- *(frontend)* Add ZonesExplorer World view
+- *(frontend)* Add ZonesExplorer Country choropleth view
+- *(frontend)* Add ZonesExplorer Region view and zone-detail popup
+- *(frontend)* Wire ZonesExplorer into the router and nav
 
 ### 🐛 Bug Fixes
 
@@ -136,6 +145,7 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Open a pull request instead of pushing changelog updates to main
 - *(backend)* Correct GPX uploads directory path mismatch
 - *(backend)* Fall back to repo-relative uploads dir outside Docker
+- *(frontend)* Address final review findings in ZonesExplorer
 
 ### 💼 Other
 
@@ -292,3 +302,4 @@ To regenerate locally, run `npm run changelog`.
 - *(github)* Add issue and pull request templates
 - *(traefik)* Add security headers middleware on the API router
 - *(backend)* Run container as non-root user
+- *(backend)* Rename FR geojson files to the adm1/adm2 convention
