@@ -10,11 +10,7 @@ vi.mock("@/composables/useApiErrorHandler", () => ({
 }));
 
 import { useZones } from "@/composables/useZones";
-import type {
-  ZoneListItem,
-  ZoneDetail,
-  ZoneTypeStatsResponse,
-} from "@/types/zones";
+import type { ZoneListItem, ZoneDetail } from "@/types/zones";
 
 const makeZoneItem = (code: string, count = 5): ZoneListItem => ({
   code,
@@ -25,15 +21,10 @@ const makeZoneItem = (code: string, count = 5): ZoneListItem => ({
 const makeZoneDetail = (code: string): ZoneDetail => ({
   code,
   name: `Zone ${code}`,
-  cache_count: 3,
-  caches: [
-    {
-      GC: "GC00001",
-      title: "Cache A",
-      type_code: "traditional",
-      difficulty: 2,
-      terrain: 2,
-    },
+  cache_count: 5,
+  type_counts: [
+    { type_code: "traditional", type_name: "Traditional", count: 5 },
+    { type_code: "mystery", type_name: "Mystery", count: 0 },
   ],
 });
 
@@ -42,39 +33,65 @@ beforeEach(() => vi.clearAllMocks());
 // ── fetchZones ───────────────────────────────────────────────────────────────
 
 describe("fetchZones", () => {
-  it("calls GET /zones with country and level params", async () => {
+  it("calls GET /zones with level param", async () => {
     mockGet.mockResolvedValueOnce({ data: { items: [] } });
     const { fetchZones } = useZones();
 
-    await fetchZones("FR", 1);
+    await fetchZones(0);
 
     expect(mockGet).toHaveBeenCalledWith(
       "/zones",
       expect.objectContaining({
-        params: expect.objectContaining({ country: "FR", level: 1 }),
+        params: expect.objectContaining({ level: 0 }),
       }),
     );
   });
 
-  it("appends type param when a type code is provided", async () => {
+  it("does not include country param when omitted", async () => {
     mockGet.mockResolvedValueOnce({ data: { items: [] } });
     const { fetchZones } = useZones();
 
-    await fetchZones("FR", 2, "traditional");
+    await fetchZones(0);
+
+    const callParams = mockGet.mock.calls[0][1].params;
+    expect(callParams).not.toHaveProperty("country");
+  });
+
+  it("includes country param when provided", async () => {
+    mockGet.mockResolvedValueOnce({ data: { items: [] } });
+    const { fetchZones } = useZones();
+
+    await fetchZones(1, "FR");
 
     expect(mockGet).toHaveBeenCalledWith(
       "/zones",
       expect.objectContaining({
-        params: expect.objectContaining({ type: "traditional" }),
+        params: expect.objectContaining({ level: 1, country: "FR" }),
       }),
     );
   });
 
-  it("does not include type param when undefined", async () => {
+  it("appends type param as an array when type codes are provided", async () => {
     mockGet.mockResolvedValueOnce({ data: { items: [] } });
     const { fetchZones } = useZones();
 
-    await fetchZones("FR", 1, undefined);
+    await fetchZones(2, "FR", ["traditional", "mystery"]);
+
+    expect(mockGet).toHaveBeenCalledWith(
+      "/zones",
+      expect.objectContaining({
+        params: expect.objectContaining({
+          type: ["traditional", "mystery"],
+        }),
+      }),
+    );
+  });
+
+  it("does not include type param when empty or undefined", async () => {
+    mockGet.mockResolvedValueOnce({ data: { items: [] } });
+    const { fetchZones } = useZones();
+
+    await fetchZones(1, "FR", []);
 
     const callParams = mockGet.mock.calls[0][1].params;
     expect(callParams).not.toHaveProperty("type");
@@ -85,7 +102,7 @@ describe("fetchZones", () => {
     mockGet.mockResolvedValueOnce({ data: { items } });
     const { fetchZones } = useZones();
 
-    const result = await fetchZones("FR", 1);
+    const result = await fetchZones(1, "FR");
 
     expect(result).toEqual(items);
   });
@@ -94,7 +111,7 @@ describe("fetchZones", () => {
     mockGet.mockRejectedValueOnce(new Error("network"));
     const { fetchZones } = useZones();
 
-    const result = await fetchZones("FR", 1);
+    const result = await fetchZones(1, "FR");
 
     expect(result).toEqual([]);
   });
@@ -103,7 +120,7 @@ describe("fetchZones", () => {
     mockGet.mockResolvedValueOnce({ data: { items: [] } });
     const { loading, fetchZones } = useZones();
 
-    const promise = fetchZones("FR", 1);
+    const promise = fetchZones(1, "FR");
     expect(loading.value).toBe(true);
     await promise;
     expect(loading.value).toBe(false);
@@ -113,7 +130,7 @@ describe("fetchZones", () => {
     mockGet.mockRejectedValueOnce(new Error("fail"));
     const { error, fetchZones } = useZones();
 
-    await fetchZones("FR", 1);
+    await fetchZones(1, "FR");
 
     expect(error.value).toBe("api error");
   });
@@ -121,11 +138,11 @@ describe("fetchZones", () => {
   it("clears error before each call", async () => {
     mockGet.mockRejectedValueOnce(new Error("fail"));
     const { error, fetchZones } = useZones();
-    await fetchZones("FR", 1);
+    await fetchZones(1, "FR");
     expect(error.value).toBe("api error");
 
     mockGet.mockResolvedValueOnce({ data: { items: [] } });
-    await fetchZones("FR", 1);
+    await fetchZones(1, "FR");
     expect(error.value).toBeNull();
   });
 });
@@ -133,45 +150,27 @@ describe("fetchZones", () => {
 // ── fetchZoneDetail ───────────────────────────────────────────────────────────
 
 describe("fetchZoneDetail", () => {
-  it("calls GET /zones/{code}", async () => {
+  it("calls GET /zones/{code} without params when level is omitted", async () => {
     mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
     const { fetchZoneDetail } = useZones();
 
     await fetchZoneDetail("FR-84");
 
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84");
-  });
-
-  it("appends type param when provided", async () => {
-    mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
-    const { fetchZoneDetail } = useZones();
-
-    await fetchZoneDetail("FR-84", "mystery");
-
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84?type=mystery");
+    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84", { params: {} });
   });
 
   it("appends level param when provided", async () => {
     mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
     const { fetchZoneDetail } = useZones();
 
-    await fetchZoneDetail("FR-84", undefined, 1);
+    await fetchZoneDetail("FR-84", 1);
 
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84?level=1");
+    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84", {
+      params: { level: 1 },
+    });
   });
 
-  it("appends both level and type params when both provided", async () => {
-    mockGet.mockResolvedValueOnce({ data: makeZoneDetail("FR-84") });
-    const { fetchZoneDetail } = useZones();
-
-    await fetchZoneDetail("FR-84", "traditional", 2);
-
-    expect(mockGet).toHaveBeenCalledWith(
-      "/zones/FR-84?level=2&type=traditional",
-    );
-  });
-
-  it("returns zone detail on success", async () => {
+  it("returns zone detail with type_counts on success", async () => {
     const detail = makeZoneDetail("FR-84");
     mockGet.mockResolvedValueOnce({ data: detail });
     const { fetchZoneDetail } = useZones();
@@ -199,84 +198,13 @@ describe("fetchZoneDetail", () => {
     await promise;
     expect(loading.value).toBe(false);
   });
-});
-
-// ── fetchZoneTypeStats ────────────────────────────────────────────────────────
-
-const makeZoneTypeStats = (code: string): ZoneTypeStatsResponse => ({
-  code,
-  name: `Zone ${code}`,
-  type_counts: [
-    { type_code: "traditional", type_name: "Traditional", count: 5 },
-    { type_code: "mystery", type_name: "Mystery", count: 0 },
-  ],
-});
-
-describe("fetchZoneTypeStats", () => {
-  it("calls GET /zones/{code}/type-stats without level when not provided", async () => {
-    mockGet.mockResolvedValueOnce({ data: makeZoneTypeStats("FR-84") });
-    const { fetchZoneTypeStats } = useZones();
-
-    await fetchZoneTypeStats("FR-84");
-
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84/type-stats");
-  });
-
-  it("appends level param when provided", async () => {
-    mockGet.mockResolvedValueOnce({ data: makeZoneTypeStats("FR-84") });
-    const { fetchZoneTypeStats } = useZones();
-
-    await fetchZoneTypeStats("FR-84", 1);
-
-    expect(mockGet).toHaveBeenCalledWith("/zones/FR-84/type-stats?level=1");
-  });
-
-  it("returns the response on success", async () => {
-    const stats = makeZoneTypeStats("FR-84");
-    mockGet.mockResolvedValueOnce({ data: stats });
-    const { fetchZoneTypeStats } = useZones();
-
-    const result = await fetchZoneTypeStats("FR-84", 1);
-
-    expect(result).toEqual(stats);
-  });
-
-  it("returns null on error", async () => {
-    mockGet.mockRejectedValueOnce(new Error("not found"));
-    const { fetchZoneTypeStats } = useZones();
-
-    const result = await fetchZoneTypeStats("FR-UNKNOWN");
-
-    expect(result).toBeNull();
-  });
-
-  it("sets loading during call", async () => {
-    mockGet.mockResolvedValueOnce({ data: makeZoneTypeStats("FR-84") });
-    const { loading, fetchZoneTypeStats } = useZones();
-
-    const promise = fetchZoneTypeStats("FR-84", 1);
-    expect(loading.value).toBe(true);
-    await promise;
-    expect(loading.value).toBe(false);
-  });
 
   it("sets error on failure", async () => {
     mockGet.mockRejectedValueOnce(new Error("fail"));
-    const { error, fetchZoneTypeStats } = useZones();
+    const { error, fetchZoneDetail } = useZones();
 
-    await fetchZoneTypeStats("FR-84");
+    await fetchZoneDetail("FR-84");
 
     expect(error.value).toBe("api error");
-  });
-
-  it("clears error before each call", async () => {
-    mockGet.mockRejectedValueOnce(new Error("fail"));
-    const { error, fetchZoneTypeStats } = useZones();
-    await fetchZoneTypeStats("FR-84");
-    expect(error.value).toBe("api error");
-
-    mockGet.mockResolvedValueOnce({ data: makeZoneTypeStats("FR-84") });
-    await fetchZoneTypeStats("FR-84");
-    expect(error.value).toBeNull();
   });
 });

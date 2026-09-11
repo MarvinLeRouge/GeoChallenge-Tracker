@@ -69,3 +69,21 @@ python scripts/download_geo_data.py
 python scripts/seed_zones.py
 python scripts/assign_zones.py
 ```
+
+---
+
+## Referential data scripts
+
+### `backfill_country_codes.py`
+
+**Backfills ISO 3166-1 alpha-2 `code` and French `name_fr` on the `countries` collection**, from `data/seeds/countries.json` (249 territories).
+
+- Backs up the whole `countries` collection to a timestamped `countries_backup_<timestamp>` collection before writing anything
+- Idempotent: matches existing countries by normalized English name (same normalization as the GPX import), updates them in place; inserts new ISO entries that have no existing match
+- Already run once against production (2026-09-10) — re-running is safe but shouldn't be needed unless the seed data changes
+
+```bash
+cd backend
+python scripts/backfill_country_codes.py --dry-run   # Preview without writing
+python scripts/backfill_country_codes.py              # Apply (with automatic backup)
+```

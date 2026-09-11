@@ -3,14 +3,15 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.api.deps import CurrentUserId
-from app.api.dto.zones import ZoneDetail, ZoneListResponse, ZoneTypeStatsResponse
+from app.api.dto.zones import ZoneDetail, ZoneListResponse
 from app.services.zones.zone_service import (
     get_zone_detail,
-    get_zone_type_stats,
     get_zones_with_counts,
 )
 
@@ -27,9 +28,13 @@ router = APIRouter(
 )
 async def list_zones(
     current_user_id: CurrentUserId,
-    country: str = Query(..., description="ISO country code, e.g. 'FR'"),
-    level: int = Query(..., ge=1, le=2, description="Administrative level: 1=region, 2=department"),
-    type: str | None = Query(default=None, description="Filter by cache type code"),
+    level: int = Query(
+        ..., ge=0, le=2, description="Administrative level: 0=country, 1=region, 2=department"
+    ),
+    country: str | None = Query(
+        default=None, description="ISO country code, e.g. 'FR'. Required for level 1/2."
+    ),
+    type: Annotated[list[str] | None, Query(description="Filter by cache type code(s)")] = None,
 ) -> ZoneListResponse:
     """Returns administrative zones with found-cache counts for the current user.
 
@@ -37,22 +42,30 @@ async def list_zones(
         Used by the choropleth map to color polygons according to the density of caches
         the authenticated user has found.  Only zones where the user found at least one
         cache are returned.
-        Optionally filtered by cache type code (e.g. 'traditional', 'mystery').
+        Optionally filtered by one or more cache type codes (e.g. 'traditional', 'mystery').
 
     Args:
         current_user_id: Injected authenticated user ObjectId.
-        country (str): ISO country code.
-        level (int): Administrative level (1 or 2).
+        level (int): Administrative level (0=country, 1=region, 2=department).
+        country (str | None): ISO country code. Required for level 1/2, ignored at level 0.
         type (list[str] | None): Optional cache type filter.
 
     Returns:
         ZoneListResponse: List of zones with counts, sorted by name.
+
+    Raises:
+        422: If level is 1 or 2 and country is missing.
     """
+    if level != 0 and not country:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="country is required for level 1 and 2.",
+        )
     items = await get_zones_with_counts(
-        country=country,
         level=level,
         user_id=ObjectId(current_user_id),
-        type_code=type,
+        country=country,
+        type_codes=type,
     )
     return ZoneListResponse(items=items)
 
@@ -60,12 +73,11 @@ async def list_zones(
 @router.get(
     "/{code}",
     response_model=ZoneDetail,
-    summary="Get zone detail with top found caches",
+    summary="Get zone detail with per-type cache breakdown",
 )
 async def get_zone(
     code: str,
     current_user_id: CurrentUserId,
-    type: str | None = Query(default=None, description="Filter by cache type code"),
     level: int | None = Query(
         default=None,
         ge=1,
@@ -73,53 +85,10 @@ async def get_zone(
         description="Level hint to disambiguate codes shared between levels",
     ),
 ) -> ZoneDetail:
-    """Returns zone detail with total found-cache count and first 10 found caches.
-
-    Args:
-        code (str): Zone code, e.g. 'FR-84' or 'FR-38'.
-        current_user_id: Injected authenticated user ObjectId.
-        type (list[str] | None): Optional cache type filter.
-        level (int | None): Level hint (1 or 2) to disambiguate codes that exist at both levels.
-
-    Returns:
-        ZoneDetail: Zone name, total count, and first 10 caches.
-
-    Raises:
-        404: If the zone code is not found in administrative_zones.
-    """
-    detail = await get_zone_detail(
-        code=code,
-        user_id=ObjectId(current_user_id),
-        type_code=type,
-        level=level,
-    )
-    if detail is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Zone '{code}' not found.",
-        )
-    return detail
-
-
-@router.get(
-    "/{code}/type-stats",
-    response_model=ZoneTypeStatsResponse,
-    summary="Get found-cache counts per type for a zone",
-)
-async def get_zone_type_stats_endpoint(
-    code: str,
-    current_user_id: CurrentUserId,
-    level: int | None = Query(
-        default=None,
-        ge=1,
-        le=2,
-        description="Level hint to disambiguate codes shared between levels",
-    ),
-) -> ZoneTypeStatsResponse:
-    """Returns the count of found caches for every cache type within a zone.
+    """Returns zone detail with total found-cache count and per-type breakdown.
 
     Description:
-        All cache types are always included in the response (count=0 for types with no
+        All cache types are always included in the breakdown (count=0 for types with no
         found caches in this zone), ordered by canonical GC.com type order.
 
     Args:
@@ -128,19 +97,19 @@ async def get_zone_type_stats_endpoint(
         level (int | None): Level hint (1 or 2) to disambiguate codes that exist at both levels.
 
     Returns:
-        ZoneTypeStatsResponse: Zone name and per-type cache counts.
+        ZoneDetail: Zone name, total count, and per-type cache counts.
 
     Raises:
         404: If the zone code is not found in administrative_zones.
     """
-    result = await get_zone_type_stats(
+    detail = await get_zone_detail(
         code=code,
         user_id=ObjectId(current_user_id),
         level=level,
     )
-    if result is None:
+    if detail is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Zone '{code}' not found.",
         )
-    return result
+    return detail

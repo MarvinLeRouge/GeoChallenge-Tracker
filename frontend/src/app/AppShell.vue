@@ -240,30 +240,6 @@
                     <span>Autour d’un point</span>
                   </RouterLink>
                 </li>
-                <li>
-                  <RouterLink
-                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
-                    to="/caches/zones"
-                  >
-                    <GlobeEuropeAfricaIcon
-                      class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
-                      aria-hidden="true"
-                    />
-                    <span>Trouvées par zones</span>
-                  </RouterLink>
-                </li>
-                <li>
-                  <RouterLink
-                    class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
-                    to="/caches/zone-types"
-                  >
-                    <GlobeEuropeAfricaIcon
-                      class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
-                      aria-hidden="true"
-                    />
-                    <span>Types trouvés par zones</span>
-                  </RouterLink>
-                </li>
               </ul>
             </div>
 
@@ -448,7 +424,6 @@ import {
   AdjustmentsHorizontalIcon,
   RectangleGroupIcon,
   RssIcon,
-  GlobeEuropeAfricaIcon,
   QuestionMarkCircleIcon,
   DocumentTextIcon,
   ChartBarIcon,
