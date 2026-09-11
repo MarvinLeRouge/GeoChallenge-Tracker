@@ -8,6 +8,12 @@
       <h1 class="text-lg font-semibold mb-4 dark:text-gray-100">
         Zones administratives
       </h1>
+      <div
+        v-if="error"
+        class="text-center text-red-600 text-sm dark:text-red-400"
+      >
+        {{ error }}
+      </div>
       <div v-if="loading">
         <LoadingIndicator label="Chargement…" />
       </div>
@@ -124,6 +130,7 @@ import MapBase from "@/components/map/MapBase.vue";
 import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
 import TypeFilterDropdown from "@/components/zones/TypeFilterDropdown.vue";
 import { useZones } from "@/composables/useZones";
+import { useApiErrorHandler } from "@/composables/useApiErrorHandler";
 import api from "@/api/http";
 import type { Country, ZoneDetail, ZoneListItem } from "@/types/zones";
 
@@ -137,7 +144,9 @@ const COLOR_ZERO = "#fca5a5";
 // ── State ────────────────────────────────────────────────────────────────────
 
 const mapRef = ref<InstanceType<typeof MapBase> | null>(null);
-const { loading, fetchCountries, fetchZones, fetchZoneDetail } = useZones();
+const { loading, error, fetchCountries, fetchZones, fetchZoneDetail } =
+  useZones();
+const { handleApiError } = useApiErrorHandler();
 
 const level = ref<0 | 1 | 2>(0);
 const selectedCountry = ref<string | null>(null);
@@ -189,8 +198,10 @@ async function loadCacheTypes() {
     const { data } =
       await api.get<{ code: string; name: string }[]>("/cache_types");
     cacheTypes.value = data.map((t) => ({ code: t.code, name: t.name }));
-  } catch {
-    // non-blocking
+  } catch (err) {
+    // Non-blocking: the type filter simply stays empty, but the failure
+    // must still be diagnosable rather than silently discarded.
+    console.error("Failed to load cache types", err);
   }
 }
 
@@ -223,12 +234,27 @@ function maxCount(items: ZoneListItem[]): number {
   return items.reduce((m, z) => Math.max(m, z.cache_count), 1);
 }
 
-async function fetchGeoJson(path: string): Promise<GeoJsonObject | null> {
+interface GeoJsonFetchResult {
+  data: GeoJsonObject | null;
+  /** True only for a genuine 404 (geojson genuinely not uploaded yet). */
+  notFound: boolean;
+}
+
+async function fetchGeoJson(path: string): Promise<GeoJsonFetchResult> {
   try {
     const { data } = await api.get<GeoJsonObject>(path);
-    return data;
-  } catch {
-    return null;
+    return { data, notFound: false };
+  } catch (err) {
+    const apiError = handleApiError(err);
+    if (apiError.status === 404) {
+      return { data: null, notFound: true };
+    }
+    // A real failure (network error, 500, ...) must not be presented as
+    // "not available yet" - log it and surface it through the shared
+    // error banner instead.
+    console.error("Failed to fetch geojson", path, err);
+    error.value = apiError.message;
+    return { data: null, notFound: false };
   }
 }
 
@@ -239,17 +265,29 @@ function removeChoropleth() {
   }
 }
 
-async function renderChoropleth(zoomLevel: 1 | 2, country: string) {
+let currentRenderToken = 0;
+
+async function renderChoropleth(
+  zoomLevel: 1 | 2,
+  country: string,
+  fit = false,
+) {
   if (!leafletMap) return;
+  const token = ++currentRenderToken;
 
   const geoPath = `/geo/${country}/adm${zoomLevel}.geojson`;
-  const [geoData, zoneItems] = await Promise.all([
+  const [geoResult, zoneItems] = await Promise.all([
     fetchGeoJson(geoPath),
     fetchZones(zoomLevel, country, selectedTypes.value),
   ]);
 
-  if (!geoData) {
-    geoUnavailable.value = true;
+  // A newer render started (or the map was torn down) while this one was
+  // in flight - drop this stale result rather than let it overwrite the
+  // current, more recent state.
+  if (token !== currentRenderToken || !leafletMap) return;
+
+  if (!geoResult.data) {
+    geoUnavailable.value = geoResult.notFound;
     removeChoropleth();
     return;
   }
@@ -260,7 +298,7 @@ async function renderChoropleth(zoomLevel: 1 | 2, country: string) {
 
   removeChoropleth();
 
-  choroplethLayer = L.geoJSON(geoData, {
+  choroplethLayer = L.geoJSON(geoResult.data, {
     style(feature) {
       const featureCode = feature?.properties?.code as string | undefined;
       const zoneCode = featureCode ? `${country}-${featureCode}` : null;
@@ -302,6 +340,12 @@ async function renderChoropleth(zoomLevel: 1 | 2, country: string) {
   });
 
   choroplethLayer.addTo(leafletMap);
+
+  // Only fit the viewport when entering a country for the first time; a
+  // type-filter re-render must not yank the user's current viewport back.
+  if (fit) {
+    leafletMap.fitBounds(choroplethLayer.getBounds());
+  }
 }
 
 // ── Zone click (level-1 drills to Region, level-2 opens popup) ─────────────
@@ -386,7 +430,7 @@ watch(selectedTypes, async () => {
 async function onMapReady(map: L.Map) {
   leafletMap = map;
   if (level.value === 1 && selectedCountry.value) {
-    await renderChoropleth(1, selectedCountry.value);
+    await renderChoropleth(1, selectedCountry.value, true);
   }
 }
 

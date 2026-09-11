@@ -1,5 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
+import { ref } from "vue";
+
+// Builds a minimal object that passes axios's isAxiosError() check (it only
+// checks e.isAxiosError === true), mirroring tests/unit/api-error-handler.spec.ts.
+const axiosError = (opts: {
+  response?: { status: number; data?: unknown };
+  request?: unknown;
+  message?: string;
+}) => ({
+  isAxiosError: true,
+  response: opts.response ?? null,
+  request: opts.request ?? null,
+  message: opts.message ?? "Axios error",
+});
 
 const mockFetchCountries = vi.hoisted(() => vi.fn().mockResolvedValue([]));
 const mockFetchZones = vi.hoisted(() => vi.fn().mockResolvedValue([]));
@@ -20,7 +34,13 @@ const mockGet = vi.hoisted(() =>
   vi.fn((path: string) => {
     if (mockGetResponses.has(path)) {
       const value = mockGetResponses.get(path);
-      if (value instanceof Error) return Promise.reject(value);
+      const isAxiosErrorShaped =
+        typeof value === "object" &&
+        value !== null &&
+        (value as { isAxiosError?: boolean }).isAxiosError === true;
+      if (value instanceof Error || isAxiosErrorShaped) {
+        return Promise.reject(value);
+      }
       return Promise.resolve({ data: value });
     }
     return Promise.resolve({ data: {} });
@@ -33,9 +53,12 @@ const mockLeafletMap = vi.hoisted(() => ({
 }));
 
 vi.mock("@/composables/useZones", () => ({
+  // A real Vue ref (not a plain { value: null } object) so that ZonesExplorer
+  // assigning error.value directly (e.g. from fetchGeoJson) triggers a
+  // template re-render, exactly like the real composable's ref.
   useZones: () => ({
     loading: mockLoading,
-    error: { value: null },
+    error: ref<string | null>(null),
     fetchCountries: mockFetchCountries,
     fetchZones: mockFetchZones,
     fetchZoneDetail: mockFetchZoneDetail,
@@ -89,7 +112,11 @@ vi.mock("leaflet", () => ({
           }
         }
       }
-      return { addTo: vi.fn().mockReturnThis(), resetStyle: vi.fn() };
+      return {
+        addTo: vi.fn().mockReturnThis(),
+        resetStyle: vi.fn(),
+        getBounds: vi.fn().mockReturnValue("mock-country-bounds"),
+      };
     }),
     map: vi.fn(),
   },
@@ -209,7 +236,13 @@ describe("ZonesExplorer - Country view", () => {
     mockFetchZones.mockResolvedValueOnce([
       { code: "FR", name: "France", cache_count: 12 },
     ]);
-    mockGetResponses.set("/geo/FR/adm1.geojson", new Error("404"));
+    // A genuine axios 404 (geojson genuinely not uploaded yet), not just any
+    // failure - see the "surfaces a non-404 geojson failure" test below for
+    // the distinction the fix introduces.
+    mockGetResponses.set(
+      "/geo/FR/adm1.geojson",
+      axiosError({ response: { status: 404, data: {} } }),
+    );
     mockFetchZones.mockResolvedValueOnce([]);
 
     const wrapper = mount(ZonesExplorer);
@@ -220,6 +253,96 @@ describe("ZonesExplorer - Country view", () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="geo-unavailable"]').exists()).toBe(true);
+  });
+
+  it("re-renders the choropleth when the type filter changes at Country level", async () => {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", geoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-84", name: "Auvergne-Rhône-Alpes", cache_count: 3 },
+    ]);
+    mockGetResponses.set("/cache_types", [
+      { code: "traditional", name: "Traditional" },
+    ]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-84", name: "Auvergne-Rhône-Alpes", cache_count: 1 },
+    ]);
+
+    await wrapper.find('[data-testid="dropdown-toggle"]').trigger("click");
+    await wrapper.find('input[type="checkbox"]').setValue(true);
+    await flushPromises();
+
+    expect(mockFetchZones).toHaveBeenLastCalledWith(1, "FR", ["traditional"]);
+  });
+
+  it("does not drill into a region when clicking a zero-count feature at Country level", async () => {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", geoData);
+    // No zone item for "FR-84" - the feature's computed count is 0.
+    mockFetchZones.mockResolvedValueOnce([]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+
+    const handlers = capturedLayerHandlers.get("84");
+    expect(handlers).toBeDefined();
+    handlers?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    expect(
+      mockGet.mock.calls.some((c) => c[0] === "/geo/FR/adm2.geojson"),
+    ).toBe(false);
+    expect(mockFetchZoneDetail).not.toHaveBeenCalled();
+    expect(mockLeafletMap.fitBounds).not.toHaveBeenCalledWith("mock-bounds");
+    expect(wrapper.find('[data-testid="zone-popover"]').exists()).toBe(false);
+  });
+
+  it("returns to the World view when going back from Country level", async () => {
+    mockFetchCountries.mockResolvedValueOnce([{ code: "FR", name: "France" }]);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR", name: "France", cache_count: 12 },
+    ]);
+    mockGetResponses.set("/geo/FR/adm1.geojson", geoData);
+    mockFetchZones.mockResolvedValueOnce([]);
+
+    const wrapper = mount(ZonesExplorer);
+    await flushPromises();
+    await wrapper
+      .find('[data-testid="world-found-group"] button')
+      .trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="map-base"]').exists()).toBe(true);
+
+    const backButton = wrapper
+      .findAll("button")
+      .find((b) => b.text().includes("Retour"));
+    expect(backButton).toBeDefined();
+    await backButton!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="map-base"]').exists()).toBe(false);
+    const found = wrapper.find('[data-testid="world-found-group"]');
+    expect(found.exists()).toBe(true);
+    expect(found.text()).toContain("France");
   });
 });
 
@@ -330,5 +453,74 @@ describe("ZonesExplorer - Region view and popup", () => {
     expect(popover.exists()).toBe(true);
     expect(popover.text()).toContain("Isère");
     expect(popover.text()).toContain("Traditional");
+  });
+
+  it("re-renders the choropleth when the type filter changes at Region level", async () => {
+    mockGetResponses.set("/cache_types", [
+      { code: "traditional", name: "Traditional" },
+    ]);
+    const wrapper = await drillToRegionView();
+
+    mockGetResponses.set("/geo/FR/adm2.geojson", departementGeoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-38", name: "Isère", cache_count: 3 },
+    ]);
+    capturedLayerHandlers.get("84")?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-38", name: "Isère", cache_count: 1 },
+    ]);
+
+    await wrapper.find('[data-testid="dropdown-toggle"]').trigger("click");
+    await wrapper.find('input[type="checkbox"]').setValue(true);
+    await flushPromises();
+
+    expect(mockFetchZones).toHaveBeenLastCalledWith(2, "FR", ["traditional"]);
+  });
+
+  it("does not open the popup when clicking a zero-count feature at Region level", async () => {
+    const wrapper = await drillToRegionView();
+
+    mockGetResponses.set("/geo/FR/adm2.geojson", departementGeoData);
+    // No zone item for "FR-38" - the feature's computed count is 0.
+    mockFetchZones.mockResolvedValueOnce([]);
+    capturedLayerHandlers.get("84")?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    const departementHandlers = capturedLayerHandlers.get("38");
+    expect(departementHandlers).toBeDefined();
+    departementHandlers?.click({ latlng: { lat: 45.2, lng: 5.7 } });
+    await flushPromises();
+
+    expect(mockFetchZoneDetail).not.toHaveBeenCalled();
+    expect(wrapper.find('[data-testid="zone-popover"]').exists()).toBe(false);
+  });
+
+  it("returns to the Country choropleth when going back from Region level", async () => {
+    const wrapper = await drillToRegionView();
+
+    mockGetResponses.set("/geo/FR/adm2.geojson", departementGeoData);
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-38", name: "Isère", cache_count: 3 },
+    ]);
+    capturedLayerHandlers.get("84")?.click({ latlng: { lat: 45.5, lng: 5.5 } });
+    await flushPromises();
+
+    mockFetchZones.mockResolvedValueOnce([
+      { code: "FR-84", name: "Auvergne-Rhône-Alpes", cache_count: 3 },
+    ]);
+
+    const backButton = wrapper
+      .findAll("button")
+      .find((b) => b.text().includes("Retour"));
+    expect(backButton).toBeDefined();
+    await backButton!.trigger("click");
+    await flushPromises();
+
+    // Still on the Country/Region view (map still mounted), and the level-1
+    // choropleth was re-fetched.
+    expect(wrapper.find('[data-testid="map-base"]').exists()).toBe(true);
+    expect(mockFetchZones).toHaveBeenLastCalledWith(1, "FR", []);
   });
 });
