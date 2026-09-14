@@ -51,7 +51,12 @@ async def lifespan(app: FastAPI):
     await close_mongodb_connection()
 
 
-app = FastAPI(title=settings.app_name + " API", version=settings.api_version, lifespan=lifespan)
+app = FastAPI(
+    title=settings.app_name + " API",
+    version=settings.api_version,
+    lifespan=lifespan,
+    root_path="/api",
+)
 app.state.limiter = limiter
 # ⚠️ Ordre des middlewares = ordre d’ajout.
 # CORS en premier pour que les requêtes OPTIONS (preflight) ne soient pas bloquées.
