@@ -232,6 +232,7 @@ To regenerate locally, run `npm run changelog`.
 - *(adr)* Add ADR index
 - Add architecture summary page
 - Link architecture decision records from README
+- Add Epic 9 multi-country admin zones planning, reformat README tables
 
 ### 🧪 Testing
 
