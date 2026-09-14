@@ -146,6 +146,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Correct GPX uploads directory path mismatch
 - *(backend)* Fall back to repo-relative uploads dir outside Docker
 - *(frontend)* Address final review findings in ZonesExplorer
+- *(api)* Add root_path to fix Swagger UI behind reverse proxy
 
 ### 💼 Other
 
