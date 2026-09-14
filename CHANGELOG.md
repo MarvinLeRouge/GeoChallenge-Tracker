@@ -147,6 +147,10 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Fall back to repo-relative uploads dir outside Docker
 - *(frontend)* Address final review findings in ZonesExplorer
 - *(api)* Add root_path to fix Swagger UI behind reverse proxy
+- *(backend)* Self-host Swagger UI assets and stop stripping /api prefix
+- *(traefik)* Pin explicit priorities on all prod routers
+- *(traefik)* Use explicit OR-ed PathPrefix matchers for the docs router
+- *(traefik)* Allow inline script in the docs CSP for Swagger UI bootstrap
 
 ### 💼 Other
 
