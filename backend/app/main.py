@@ -5,8 +5,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import routers
@@ -56,6 +58,7 @@ app = FastAPI(
     version=settings.api_version,
     lifespan=lifespan,
     root_path="/api",
+    docs_url=None,
 )
 app.state.limiter = limiter
 # ⚠️ Ordre des middlewares = ordre d’ajout.
@@ -78,6 +81,24 @@ register_exception_handlers(app)
 # Inclusion des routes (comme avant)
 for r in routers:
     app.include_router(r)
+
+# Swagger UI static assets, self-hosted instead of loaded from a CDN: the prod CSP
+# (`default-src 'none'`) blocks third-party domains, see docs/roadmap-corrections.md URGENT-2.
+_swagger_static_path = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(_swagger_static_path)), name="static")
+
+
+@app.get("/docs", include_in_schema=False)
+async def swagger_ui_html(request: Request) -> HTMLResponse:
+    root_path = request.scope.get("root_path", "").rstrip("/")
+    return get_swagger_ui_html(
+        openapi_url=root_path + app.openapi_url,
+        title=f"{app.title} - Swagger UI",
+        swagger_js_url=f"{root_path}/static/swagger-ui/swagger-ui-bundle.js",
+        swagger_css_url=f"{root_path}/static/swagger-ui/swagger-ui.css",
+        swagger_favicon_url=f"{root_path}/static/swagger-ui/favicon.png",
+    )
+
 
 # GeoJSON static files (administrative zones for choropleth map)
 # Served only if the data directory exists (skipped in environments without geo data)
