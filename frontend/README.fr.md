@@ -31,13 +31,13 @@ npm run dev
 
 À lancer depuis la racine du dépôt.
 
-| Commande | Description |
-|----------|-------------|
-| `npm run dev` | Serveur de développement avec hot-reload |
-| `npm run build` | Build de production |
-| `npm run lint` | Vérification ESLint |
-| `npm run typecheck` | Vérification des types TypeScript |
-| `npm run test:unit` | Tests unitaires avec Vitest |
+| Commande            | Description                              |
+| ------------------- | ---------------------------------------- |
+| `npm run dev`       | Serveur de développement avec hot-reload |
+| `npm run build`     | Build de production                      |
+| `npm run lint`      | Vérification ESLint                      |
+| `npm run typecheck` | Vérification des types TypeScript        |
+| `npm run test:unit` | Tests unitaires avec Vitest              |
 
 ## Structure du projet
 
