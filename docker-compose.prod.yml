@@ -33,7 +33,7 @@ services:
       # Dedicated router for the Swagger UI page and its static assets: it serves real HTML/JS/CSS
       # (self-hosted, see backend/app/static/swagger-ui/), unlike the rest of the JSON-only API,
       # so it needs a less restrictive CSP. Higher priority than gctracker-api so it wins on overlap.
-      - "traefik.http.routers.gctracker-api-docs.rule=Host(`${DOMAIN}`) && PathPrefix(`/api/docs`, `/api/openapi.json`, `/api/static`)"
+      - "traefik.http.routers.gctracker-api-docs.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api/docs`) || PathPrefix(`/api/openapi.json`) || PathPrefix(`/api/static`))"
       - "traefik.http.routers.gctracker-api-docs.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api-docs.tls=true"
       - "traefik.http.routers.gctracker-api-docs.tls.certresolver=letsencrypt"
