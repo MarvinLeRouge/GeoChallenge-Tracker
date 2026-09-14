@@ -31,13 +31,13 @@ npm run dev
 
 Run from the repository root.
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start dev server with hot-reload |
-| `npm run build` | Production build |
-| `npm run lint` | ESLint check |
-| `npm run typecheck` | TypeScript type check |
-| `npm run test:unit` | Run unit tests with Vitest |
+| Command             | Description                      |
+| ------------------- | -------------------------------- |
+| `npm run dev`       | Start dev server with hot-reload |
+| `npm run build`     | Production build                 |
+| `npm run lint`      | ESLint check                     |
+| `npm run typecheck` | TypeScript type check            |
+| `npm run test:unit` | Run unit tests with Vitest       |
 
 ## Project structure
 

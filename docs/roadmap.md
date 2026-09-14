@@ -26,6 +26,7 @@
 - [Epic 6: Statistics & exports](#epic-6-statistics--exports)
 - [Epic 7: Quality, tests & observability](#epic-7-quality-tests--observability)
 - [Epic 8: Infrastructure & deployment](#epic-8-infrastructure--deployment)
+- [Epic 9: Geographic data & administrative zones](#epic-9-geographic-data--administrative-zones)
 - [Priority synthesis](#priority-synthesis)
 
 ---
@@ -475,6 +476,37 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 ---
 
+## Epic 9: Geographic data & administrative zones
+
+### 9.1 Multi-country normalization framework for administrative zones ❌ 🟡 `XL`
+
+**Context:** Seeding of administrative zones (`administrative_zones`) currently covers only France, via a dedicated pipeline (`scripts/seed_zones.py` + `config/geo_sources.yml`) that consumes raw INSEE source files (`code` property = bare region/department number, no country prefix). Exploring new countries (Germany, Spain, United Kingdom) shows that the external sources under consideration (`geoBoundaries`, `geonames`) are not uniform across countries:
+
+- **Germany:** `geoBoundaries` provides a `shapeISO` field directly usable (`DE-BW`, etc.)
+- **Spain:** `shapeISO` is broken in `geoBoundaries` (same `"ESP"` value across all 19 regions) - requires a name-based join with `geonames` codes
+- **United Kingdom:** `geoBoundaries`'s ADM1 level has only 4 entities (nations), too coarse to serve as a "region" level - the ADM2 level (~185 counties/unitary authorities) is more relevant
+- **France:** INSEE source files already retrieved in the meantime, INSEE-specific structure, to be folded into this new pipeline or not (see scope below)
+
+The normalized output format expected by the zone upload endpoint (`geo_admin_service.py::upload_zone_level`) is fixed by `~/projets/geo_json/CONTRACT.md` (`code` country-prefixed, `feature_code` bare, `nom`, `parent_code`, `bbox`).
+
+**Design sketched during brainstorming (to be refined at implementation time):**
+- A single normalization wrapper, country-agnostic, that handles `bbox` computation (Shapely), `code` prefixing, geometric resolution of `parent_code`, and writing the `CONTRACT.md` format
+- A declarative per-country profile (source file paths, name aliases for joins, etc.) that selects a *handler*
+- Handlers reused across countries rather than one handler per country: `geoboundaries_direct` (DE), `geonames_join` (ES), `admin2_as_region` (GB), and potentially `insee_source` (FR) if migration is decided
+- Common handler interface: return `(feature_code, nom, geometry, parent_feature_code)` tuples per level - the wrapper handles the rest identically regardless of the handler
+
+**Elements to cover during preparation (before implementation):**
+- Handling the different sources (`geoBoundaries`, `geonames`, INSEE)
+- Zone code normalization (country prefixing, name-based join cases with an alias table)
+- Syncing normalized files with external server-side folders (deployment)
+- Scope decision: migrate France to this framework (`insee_source` handler) or leave it on `seed_zones.py` indefinitely
+
+**Point of attention identified during design:** `geo_admin_service.py::upload_zone_level` (line 139) currently reads `feature_code` from `props["code"]` instead of `props["feature_code"]`, which would produce double-prefixed zone codes (`FR-FR-84`) for any file that actually conforms to `CONTRACT.md`. Masked by the current test fixture (`_feature()` in `test_geo_admin_service.py`, which sets the same value for both `code` and `feature_code`). Not addressed here (bugs tracked outside the repo), but blocking for this feature - must be fixed before any real upload of normalized files.
+
+**Dependencies:** `CONTRACT.md` (`~/projets/geo_json/`), `download_geoboundaries.py` / `download_geonames.py` scripts (`~/projets/geo_data/`).
+
+---
+
 ## Priority synthesis
 
 ### 🔴 Critical, to address first
@@ -520,14 +552,15 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 | 27 | Challenge integration tests | 7.3 | M |
 | 28 | ~~HTTP security headers~~ ✅ done | 8.5 | S |
 | 29 | Automate build_date in CI | 8.6 | S |
+| 30 | Multi-country normalization framework (admin zones) | 9.1 | XL |
 
 ### 🟢 Nice-to-have, long-term
 
 | # | Feature | Epic | Size |
 |---|---------|------|------|
-| 30 | ~~Logout with server-side invalidation~~ ✅ done | 1.4 | M |
-| 31 | Challenge suggestions | 3.4 | L |
-| 32 | Finds heatmap | 4.2 | M |
-| 33 | In-app notifications | 5.3 | L |
-| 34 | Prometheus metrics | 7.6 | S |
-| 35 | Centralized production logs | 8.7 | L |
+| 31 | ~~Logout with server-side invalidation~~ ✅ done | 1.4 | M |
+| 32 | Challenge suggestions | 3.4 | L |
+| 33 | Finds heatmap | 4.2 | M |
+| 34 | In-app notifications | 5.3 | L |
+| 35 | Prometheus metrics | 7.6 | S |
+| 36 | Centralized production logs | 8.7 | L |
