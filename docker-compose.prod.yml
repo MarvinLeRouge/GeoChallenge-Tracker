@@ -24,7 +24,10 @@ services:
       - "traefik.http.routers.gctracker-api.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api.tls=true"
       - "traefik.http.routers.gctracker-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.gctracker-api.priority=1"
+      # Explicit priorities on every router below (instead of relying on Traefik's
+      # rule-length auto-computation) so /api/* always outranks the frontend's
+      # catch-all Host()-only router, regardless of domain string length.
+      - "traefik.http.routers.gctracker-api.priority=50"
       - "traefik.http.routers.gctracker-api.middlewares=gctracker-api-headers"
       - "traefik.http.routers.gctracker-api.service=gctracker-backend"
       # Dedicated router for the Swagger UI page and its static assets: it serves real HTML/JS/CSS
@@ -34,7 +37,7 @@ services:
       - "traefik.http.routers.gctracker-api-docs.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api-docs.tls=true"
       - "traefik.http.routers.gctracker-api-docs.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.gctracker-api-docs.priority=10"
+      - "traefik.http.routers.gctracker-api-docs.priority=100"
       - "traefik.http.routers.gctracker-api-docs.middlewares=gctracker-api-docs-headers"
       - "traefik.http.routers.gctracker-api-docs.service=gctracker-backend"
       # No stripprefix: the /api prefix is kept and handled by FastAPI's root_path="/api"
@@ -78,6 +81,9 @@ services:
       - "traefik.http.routers.gctracker-frontend.entrypoints=websecure"
       - "traefik.http.routers.gctracker-frontend.tls=true"
       - "traefik.http.routers.gctracker-frontend.tls.certresolver=letsencrypt"
+      # Explicit low priority: this is the catch-all router (Host() only, no
+      # PathPrefix) and must never outrank the more specific /api and /tiles routers.
+      - "traefik.http.routers.gctracker-frontend.priority=1"
       - "traefik.http.services.gctracker-frontend.loadbalancer.server.port=80"
     networks:
       - traefik-public
@@ -116,6 +122,7 @@ services:
       - "traefik.http.routers.gctracker-tiles.entrypoints=websecure"
       - "traefik.http.routers.gctracker-tiles.tls=true"
       - "traefik.http.routers.gctracker-tiles.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.gctracker-tiles.priority=50"
       - "traefik.http.services.gctracker-tiles.loadbalancer.server.port=80"
     networks:
       - traefik-public
