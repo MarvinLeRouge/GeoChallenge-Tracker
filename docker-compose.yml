@@ -28,9 +28,10 @@ services:
       - "traefik.docker.network=traefik-public"
       - "traefik.http.routers.gctracker-api-dev.rule=Host(`gc-tracker.marvinlerouge.local`) && PathPrefix(`/api`)"
       - "traefik.http.routers.gctracker-api-dev.entrypoints=web"
-      - "traefik.http.routers.gctracker-api-dev.middlewares=gctracker-strip-api-dev"
       - "traefik.http.routers.gctracker-api-dev.service=gctracker-backend-dev"
-      - "traefik.http.middlewares.gctracker-strip-api-dev.stripprefix.prefixes=/api"
+      # No stripprefix: the /api prefix is kept and handled by FastAPI's root_path="/api"
+      # instead, since Starlette's Mount() resolution (StaticFiles for /geo, /static) breaks
+      # when root_path is set but the proxy already stripped the prefix from the actual path.
       - "traefik.http.services.gctracker-backend-dev.loadbalancer.server.port=8000"
     networks:
       - traefik-public
