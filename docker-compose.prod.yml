@@ -59,7 +59,9 @@ services:
       - "traefik.http.middlewares.gctracker-api-docs-headers.headers.stsSeconds=31536000"
       - "traefik.http.middlewares.gctracker-api-docs-headers.headers.stsIncludeSubdomains=true"
       - "traefik.http.middlewares.gctracker-api-docs-headers.headers.forceSTSHeader=true"
-      - "traefik.http.middlewares.gctracker-api-docs-headers.headers.customResponseHeaders.Content-Security-Policy=default-src 'self'"
+      # 'unsafe-inline' on script-src is required because FastAPI's get_swagger_ui_html()
+      # bootstraps SwaggerUIBundle via an inline <script>, which default-src 'self' alone blocks.
+      - "traefik.http.middlewares.gctracker-api-docs-headers.headers.customResponseHeaders.Content-Security-Policy=default-src 'self'; script-src 'self' 'unsafe-inline'"
       - "traefik.http.services.gctracker-backend.loadbalancer.server.port=8000"
     networks:
       - traefik-public
