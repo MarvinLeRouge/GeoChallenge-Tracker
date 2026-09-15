@@ -119,4 +119,7 @@ backend/logs/*
 !backend/logs/.gitkeep
 
 # Headroom
-.serena.worktrees/
+.serena
+
+# Worktrees
+.worktrees/
