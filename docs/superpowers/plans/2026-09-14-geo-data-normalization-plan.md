@@ -21,7 +21,7 @@
 - Migration scope is **metropolitan France only** (13 regions, INSEE codes `11,24,27,28,32,44,52,53,75,76,84,93,94`; 96 departments, INSEE `DEP` not starting with `97`/`98`). The 5 overseas regions (Guadeloupe, Martinique, Guyane, La Réunion, Mayotte - INSEE `REG` `01,02,03,04,06`) stay out of scope: not produced by the new pipeline, not removed from the database, untouched by this work.
 - INSEE's accented `NCCENR` name is the canonical reference name for France. Any geoBoundaries `shapeName` spelling that differs is recorded as a variant, never silently substituted and never required to be entered in a fully manual alias table.
 - Name matching: exact match first (after whitespace stripping); on failure, nearest match by Levenshtein distance, accepted only if the best candidate is within distance 2 **and** no other candidate is within 1 of the best (ambiguous cases raise instead of guessing - see Task 4 for why `distance <= 2` and margin `1` are safe for the real FR dataset).
-- `parent_feature_code` is resolved via the source's own join keys (e.g. INSEE's `DEP.REG` field) wherever available, not geometric centroid-containment - this was the legacy pipeline's weakest point. Geometric containment is only used as an explicit, documented fallback for countries with no attribute-based hierarchy (Italy, Task 12).
+- `parent_feature_code` is resolved via the source's own join keys (e.g. INSEE's `DEP.REG` field) wherever available, not geometric containment - this was the legacy pipeline's weakest point. Geometric containment is only used as an explicit, documented fallback for countries with no attribute-based hierarchy (Italy, Task 12), and uses each shape's `representative_point()` (a point guaranteed to lie inside the geometry), not its `centroid` (the area-weighted mean, which can fall outside a multi-part shape entirely - verified against the real data: 3 of Italy's 107 provinces, `Livorno`/`Cagliari`/`Rimini`, all have offshore-island parts that pull their centroid into the sea, outside every region polygon).
 - Raw source data (`data/insee`, `data/geonames`, `data/geoboundaries`) and generated output (`data/normalized`) are never committed to git (large, reproducible/regeneratable).
 - `geo_data`'s `origin` remote points at the upstream `stefangabos/world_countries` package; this work renames it to `upstream` and stops pushing to it, treating the directory as an independent project going forward.
 - No new MongoDB collections; `administrative_zones` already accommodates new countries additively.
@@ -1631,7 +1631,9 @@ git commit -m "chore: add persistent volume for geo_data_dir in prod"
 - Consumes: `load_geoboundaries_level` (Task 5), `ZoneRecord`, `ResolutionResult` (Task 3), `CountryConfig`/`LevelConfig` (Task 3).
 - Produces: `Admin2AsRegionHandler` implementing `NormalizationHandler`, registered as `"admin2_as_region"` (Task 13).
 
-**Why this handler differs from `insee_geoboundaries_join`:** Italy has no live data to preserve and no local authoritative code table (`data/insee` is France-only), so there is nothing to join against by name. `feature_code` is instead a deterministic slug of `shapeName` (e.g. `"Valle d'Aosta"` -> `"valle-d-aosta"`), and `parent_feature_code` (level 2 only) is resolved by centroid-in-polygon containment against the parent level's shapes - geoBoundaries carries no attribute linking a province to its region (verified: ADM2/ADM3 properties are only `shapeName`, `shapeISO`, `shapeID`, `shapeGroup`, `shapeType`). This is the explicit, documented fallback the Global Constraints call out - not used for France, which does have a reliable attribute key (INSEE's `DEP.REG`).
+**Why this handler differs from `insee_geoboundaries_join`:** Italy has no live data to preserve and no local authoritative code table (`data/insee` is France-only), so there is nothing to join against by name. `feature_code` is instead a deterministic slug of `shapeName` (e.g. `"Valle d'Aosta"` -> `"valle-d-aosta"`), and `parent_feature_code` (level 2 only) is resolved by point-in-polygon containment against the parent level's shapes - geoBoundaries carries no attribute linking a province to its region (verified: ADM2/ADM3 properties are only `shapeName`, `shapeISO`, `shapeID`, `shapeGroup`, `shapeType`). This is the explicit, documented fallback the Global Constraints call out - not used for France, which does have a reliable attribute key (INSEE's `DEP.REG`).
+
+**Why `representative_point()`, not `centroid`:** verified against the real Italy archives (`data/geoboundaries/ITA/`) that plain `centroid`-in-polygon containment fails for 3 of the 107 real provinces - `Livorno`, `Cagliari`, `Rimini` - because their geometry includes offshore islands whose area pulls the area-weighted centroid out into the sea, outside every region polygon (0/1 region matched instead of exactly 1). `representative_point()` is guaranteed by Shapely to return a point inside the geometry itself, and resolves all 107/107 provinces correctly. Since level 2 features require a `parent_code` (`CONTRACT.md`, enforced by `geo_admin_service._validate_feature_collection`), an unresolved parent is not a cosmetic gap - it would make the exported file rejected on upload.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1697,6 +1699,36 @@ class TestResolveLevel2:
         record = result.records[0]
         assert record.feature_code == "torino"
         assert record.parent_feature_code == "piemonte"
+
+    def test_resolves_parent_for_a_province_with_a_distant_offshore_part(self):
+        # Regression test for a real failure found against the actual Italy data:
+        # a province whose geometry has two disjoint, similarly-sized parts (like
+        # Livorno's mainland territory plus Elba and other islands) has an
+        # area-weighted centroid that can land in the gap between them, outside
+        # every region - representative_point() must be used instead, since it is
+        # guaranteed to fall inside the geometry.
+        region_square = [[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0], [0.0, 0.0]]
+        island_shape = {
+            "name": "Livorno",
+            "iso": "",
+            "geometry": {
+                "type": "MultiPolygon",
+                "coordinates": [
+                    [[[0.5, 0.5], [1.0, 0.5], [1.0, 1.0], [0.5, 1.0], [0.5, 0.5]]],
+                    [[[20.0, 20.0], [20.5, 20.0], [20.5, 20.5], [20.0, 20.5], [20.0, 20.0]]],
+                ],
+            },
+        }
+
+        def _load(iso3: str, adm_level: int):
+            if adm_level == 2:
+                return {"region-1": _shape("Toscana", region_square)}
+            return {"province-1": island_shape}
+
+        with patch(f"{HANDLER_MODULE}.load_geoboundaries_level", side_effect=_load):
+            result = Admin2AsRegionHandler().resolve(2, IT_CONFIG)
+
+        assert result.records[0].parent_feature_code == "toscana"
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1746,7 +1778,8 @@ class Admin2AsRegionHandler:
 
     There is no local authoritative code table to join against for these countries, so
     `feature_code` is a deterministic slug of the geoBoundaries `shapeName`, and (level 2
-    only) `parent_feature_code` is resolved by centroid-in-polygon containment against the
+    only) `parent_feature_code` is resolved by point-in-polygon containment (using each
+    shape's `representative_point()`, not its `centroid` - see below) against the
     level 1 shapes, since geoBoundaries carries no attribute linking the two levels.
     """
 
@@ -1772,9 +1805,9 @@ class Admin2AsRegionHandler:
 
             records = []
             for s in shapes.values():
-                centroid = shapely_shape(s["geometry"]).centroid
+                point = shapely_shape(s["geometry"]).representative_point()
                 parent_code = next(
-                    (code for code, geom in parent_geoms.items() if geom.contains(centroid)),
+                    (code for code, geom in parent_geoms.items() if geom.contains(point)),
                     None,
                 )
                 records.append(
