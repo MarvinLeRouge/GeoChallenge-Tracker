@@ -11,6 +11,7 @@ services:
     volumes:
       - ../shared/backups:/backups
       - ../shared/uploads:/app/uploads
+      - ../shared/geo-admin:/app/data/admin
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
