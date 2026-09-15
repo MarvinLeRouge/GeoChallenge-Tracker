@@ -478,7 +478,17 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 ## Epic 9: Geographic data & administrative zones
 
-### 9.1 Multi-country normalization framework for administrative zones ❌ 🟡 `XL`
+### 9.1 Multi-country normalization framework for administrative zones 🔧 🟡 `XL`
+
+**State (2026-09-15):** implementation complete for France (metropolitan) and Italy, split
+across two repos - `geo_data` (normalization pipeline, `feat/geo-data-normalization`, merged)
+and this repo's consumer side (spatial index, upload validation, FR non-regression check,
+`feat/geo-data-normalization`, merged). Production still runs on the legacy `seed_zones.py`
+data until the VPS upload steps from the plan
+(`docs/superpowers/plans/2026-09-14-geo-data-normalization-plan.md`, "VPS actions") are run -
+those are handed to the user, no SSH access from here. The 5 FR overseas regions
+(Guadeloupe, Martinique, Guyane, La Réunion, Mayotte) are out of scope for this migration and
+lose geometry coverage once the new export is uploaded (documents retained, not deleted).
 
 **Context:** Seeding of administrative zones (`administrative_zones`) currently covers only France, via a dedicated pipeline (`scripts/seed_zones.py` + `config/geo_sources.yml`) that consumes raw INSEE source files (`code` property = bare region/department number, no country prefix). Exploring new countries (Germany, Spain, United Kingdom) shows that the external sources under consideration (`geoBoundaries`, `geonames`) are not uniform across countries:
 
@@ -552,7 +562,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 | 27 | Challenge integration tests | 7.3 | M |
 | 28 | ~~HTTP security headers~~ ✅ done | 8.5 | S |
 | 29 | Automate build_date in CI | 8.6 | S |
-| 30 | Multi-country normalization framework (admin zones) | 9.1 | XL |
+| 30 | ~~Multi-country normalization framework (admin zones)~~ 🔧 code merged, VPS upload pending | 9.1 | XL |
 
 ### 🟢 Nice-to-have, long-term
 

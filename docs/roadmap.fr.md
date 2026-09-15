@@ -478,7 +478,18 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 
 ## Épic 9 : Données géographiques & zones administratives
 
-### 9.1 Framework de normalisation multi-pays pour les zones administratives ❌ 🟡 `XL`
+### 9.1 Framework de normalisation multi-pays pour les zones administratives 🔧 🟡 `XL`
+
+**État (2026-09-15) :** implémentation terminée pour la France (métropolitaine) et l'Italie,
+répartie sur deux dépôts : `geo_data` (pipeline de normalisation, `feat/geo-data-normalization`,
+mergée) et le côté consommateur de ce dépôt (index spatial, validation à l'upload, vérification
+de non-régression FR, `feat/geo-data-normalization`, mergée). La production tourne encore sur les
+données legacy de `seed_zones.py` tant que les étapes VPS du plan
+(`docs/superpowers/plans/2026-09-14-geo-data-normalization-plan.md`, "VPS actions") n'ont pas été
+exécutées - étapes confiées à l'utilisateur, pas d'accès SSH depuis ici. Les 5 régions d'outre-mer
+françaises (Guadeloupe, Martinique, Guyane, La Réunion, Mayotte) sont hors périmètre de cette
+migration et perdent leur couverture géométrique une fois le nouvel export uploadé (documents
+conservés, non supprimés).
 
 **Contexte :** Le seeding des zones administratives (`administrative_zones`) ne couvre aujourd'hui que la France, via un pipeline dédié (`scripts/seed_zones.py` + `config/geo_sources.yml`) qui consomme des fichiers source INSEE bruts (propriété `code` = numéro de région/département nu, sans préfixe pays). L'exploration de nouveaux pays (Allemagne, Espagne, Royaume-Uni) montre que les sources externes envisagées (`geoBoundaries`, `geonames`) ne sont pas uniformes d'un pays à l'autre :
 
@@ -552,7 +563,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 | 27 | Tests d'intégration challenges | 7.3 | M |
 | 28 | ~~Security headers HTTP~~ ✅ fait | 8.5 | S |
 | 29 | Automatisation build_date CI | 8.6 | S |
-| 30 | Framework de normalisation multi-pays (zones admin) | 9.1 | XL |
+| 30 | ~~Framework de normalisation multi-pays (zones admin)~~ 🔧 code mergé, upload VPS en attente | 9.1 | XL |
 
 ### 🟢 Nice-to-have, long terme
 
