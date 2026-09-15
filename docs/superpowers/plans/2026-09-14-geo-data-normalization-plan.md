@@ -104,7 +104,8 @@ Expected: `no tests ran` (or similar), exit code 0 or 5 (pytest's "no tests coll
 - [ ] **Step 5: Commit**
 
 ```bash
-git add .gitignore pyproject.toml uv.lock data/normalized/.gitkeep
+git add .gitignore pyproject.toml data/normalized/.gitkeep
+git add -f uv.lock  # -f needed: Step 1's .gitignore already ignores uv.lock at this point
 git commit -m "chore: bootstrap normalization tooling (deps, gitignore, venv config)"
 ```
 
