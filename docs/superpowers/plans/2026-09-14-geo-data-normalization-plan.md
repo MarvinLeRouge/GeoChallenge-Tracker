@@ -1291,7 +1291,7 @@ git commit -m "feat: add CONTRACT.md export step (bbox, code prefixing)"
 # backend/tests/unit/scripts/test_verify_fr_non_regression.py
 from __future__ import annotations
 
-from backend.scripts.verify_fr_non_regression import compare_zones
+from scripts.verify_fr_non_regression import compare_zones
 
 
 def _live(code: str, name: str, bbox: list[float]) -> dict:
@@ -1337,7 +1337,7 @@ def test_bbox_mismatch_uses_a_small_tolerance():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `docker compose exec backend pytest backend/tests/unit/scripts/test_verify_fr_non_regression.py -v` (or the project's usual local test command)
+Run: `docker compose exec backend pytest tests/unit/scripts/test_verify_fr_non_regression.py -v` (or the project's usual local test command)
 Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Write `verify_fr_non_regression.py`**
@@ -1349,8 +1349,8 @@ Expected: FAIL with `ModuleNotFoundError`
 migration covers (overseas regions are out of scope, see the implementation
 plan's Global Constraints, and are skipped rather than reported as missing).
 
-Usage:
-    python backend/scripts/verify_fr_non_regression.py <exported_fr_dir>
+Usage (from `backend/`, matching this project's other one-shot scripts, e.g. assign_zones.py):
+    python scripts/verify_fr_non_regression.py <exported_fr_dir>
 
 Where <exported_fr_dir> is `~/projets/geo_data/data/gctracker_export/FR`
 (Task 8's export_country output for FR).
@@ -1448,7 +1448,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `docker compose exec backend pytest backend/tests/unit/scripts/test_verify_fr_non_regression.py -v`
+Run: `docker compose exec backend pytest tests/unit/scripts/test_verify_fr_non_regression.py -v`
 Expected: PASS (5 tests)
 
 - [ ] **Step 5: Commit**
@@ -1469,14 +1469,16 @@ uv run python -m normalize.common.pipeline FR
 uv run python -m normalize.gctracker.export_contract FR
 ```
 
-This writes `~/projets/geo_data/data/gctracker_export/FR/adm1.geojson` and `adm2.geojson`. Then run the comparison from the GeoChallenge-Tracker checkout:
+This writes `~/projets/geo_data/data/gctracker_export/FR/adm1.geojson` and `adm2.geojson`. The `backend` container only has `./backend` (and a few specific data subdirs) mounted, not `~/projets/geo_data` - copy the export into `backend/data/`, which is already git-ignored (`/backend/data/*` in the root `.gitignore`) and fully bind-mounted in dev, so it becomes visible inside the container:
 
 ```bash
 cd ~/projets/GeoChallenge-Tracker
-docker compose exec backend python backend/scripts/verify_fr_non_regression.py /home/mlr/projets/geo_data/data/gctracker_export/FR
+mkdir -p backend/data/gctracker_export
+cp -r ~/projets/geo_data/data/gctracker_export/FR backend/data/gctracker_export/FR
+docker compose exec backend python scripts/verify_fr_non_regression.py data/gctracker_export/FR
 ```
 
-Expected: `OK: 109 exported zones match the live data (overseas regions skipped).` Do not proceed to replacing any FR data in the database until this passes.
+Expected: `OK: 109 exported zones match the live data (overseas regions skipped).` Do not proceed to replacing any FR data in the database until this passes. Afterwards, remove the local copy (`rm -rf backend/data/gctracker_export`) - it was only needed to make the container see the files.
 
 ---
 
@@ -1551,7 +1553,7 @@ Add to `backend/tests/unit/test_geo_admin_service.py`, inside `TestUploadZoneLev
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `docker compose exec backend pytest backend/tests/unit/test_geo_admin_service.py -v -k "feature_code_from_its_own or double_prefixed"`
+Run: `docker compose exec backend pytest tests/unit/test_geo_admin_service.py -v -k "feature_code_from_its_own or double_prefixed"`
 Expected: FAIL - the first test fails because `feature_code` is asserted with `"84"` but the current code produces the same value as `code` (masked by the old fixture, but this new fixture exposes it: since `code="FR-84"` and the bug reads `feature_code = str(props["code"])`, `zone_doc["feature_code"]` becomes `"FR-84"`, not `"84"`); the second test fails with no exception raised.
 
 - [ ] **Step 3: Apply the fix and add the double-prefix guard**
@@ -1574,7 +1576,7 @@ In `backend/app/services/zones/geo_admin_service.py`:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `docker compose exec backend pytest backend/tests/unit/test_geo_admin_service.py -v`
+Run: `docker compose exec backend pytest tests/unit/test_geo_admin_service.py -v`
 Expected: PASS (all tests, including the two new ones and the pre-existing ones - `test_writes_file_and_upserts_level_1` still passes since its fixture sets `code == feature_code`).
 
 - [ ] **Step 5: Commit**
@@ -1895,17 +1897,20 @@ uv run python -m normalize.common.pipeline IT
 uv run python -m normalize.gctracker.export_contract IT
 ```
 
-Then, in `~/projets/GeoChallenge-Tracker`:
+The `backend` container only has `./backend` (and a few specific data subdirs) mounted, not `~/projets/geo_data` - copy the export into `backend/data/`, which is already git-ignored (`/backend/data/*` in the root `.gitignore`) and fully bind-mounted in dev, so it becomes visible inside the container. Then, in `~/projets/GeoChallenge-Tracker`:
 
 ```bash
+mkdir -p backend/data/gctracker_export
+cp -r ~/projets/geo_data/data/gctracker_export/IT backend/data/gctracker_export/IT
 docker compose exec backend python -c "
 import json
 from app.services.zones.geo_admin_service import _validate_feature_collection
 for level in (1, 2):
-    payload = json.load(open(f'/path/to/geo_data/data/gctracker_export/IT/adm{level}.geojson'))
+    payload = json.load(open(f'data/gctracker_export/IT/adm{level}.geojson'))
     features = _validate_feature_collection(payload, level)
     print(f'adm{level}: {len(features)} features OK')
 "
+rm -rf backend/data/gctracker_export
 ```
 
 Expected: both levels print `OK` with no `ValueError` raised - confirms the generic pipeline produces contract-compliant output for a second country, end to end, with zero DB writes.
