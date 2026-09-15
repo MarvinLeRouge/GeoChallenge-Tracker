@@ -919,6 +919,7 @@ git commit -m "feat: add insee_geoboundaries_join handler for FR regions and dep
 - Create: `scripts/normalize/common/handlers/__init__.py` (handler registry - overwrites the empty file from Task 3)
 - Create: `scripts/normalize/common/countries/__init__.py` (empty)
 - Create: `scripts/normalize/common/countries/fr.py`
+- Modify: `scripts/normalize/common/country_config.py` (append `FR_CONFIG` re-export)
 - Create: `scripts/normalize/common/pipeline.py`
 - Create: `scripts/tests/normalize/common/test_pipeline.py`
 
@@ -1063,6 +1064,27 @@ def run_pipeline(country_config: CountryConfig, output_dir: Path) -> None:
         (country_dir / "name_variants.json").write_text(
             json.dumps(all_variants, ensure_ascii=False, indent=2, sort_keys=True)
         )
+
+
+def _load_country_config(country_code: str) -> CountryConfig:
+    """Looks up a country's config by convention: `{code}_CONFIG` in `country_config`.
+
+    This makes `python -m normalize.common.pipeline <CODE>` work for any country
+    whose config is re-exported from `country_config.py`, without needing to edit
+    this module every time a new country is added (e.g. Task 13 adding IT_CONFIG).
+    """
+    import normalize.common.country_config as country_config_module
+
+    try:
+        return getattr(country_config_module, f"{country_code}_CONFIG")
+    except AttributeError as exc:
+        raise ValueError(f"No CountryConfig registered for {country_code!r}") from exc
+
+
+if __name__ == "__main__":
+    import sys
+
+    run_pipeline(_load_country_config(sys.argv[1]), Path("data/normalized"))
 ```
 
 - [ ] **Step 6: Create the empty package marker**
@@ -1227,6 +1249,12 @@ def export_country(country_code: str, normalized_dir: Path, output_dir: Path) ->
             "features": [_export_feature(country_code, f) for f in payload["features"]],
         }
         (dest_dir / source_path.name).write_text(json.dumps(exported, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    import sys
+
+    export_country(sys.argv[1], Path("data/normalized"), Path("data/gctracker_export"))
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
@@ -1433,11 +1461,19 @@ git commit -m "test: add FR non-regression comparison script (metropolitan zones
 
 - [ ] **Step 6: Run the script for real, against the actual pipeline output (manual, not automated)**
 
-After Task 7/8 have produced `~/projets/geo_data/data/gctracker_export/FR/`:
+First generate the FR export in the `geo_data` checkout (Tasks 7-8's pipeline and export step):
+
+```bash
+cd ~/projets/geo_data
+uv run python -m normalize.common.pipeline FR
+uv run python -m normalize.gctracker.export_contract FR
+```
+
+This writes `~/projets/geo_data/data/gctracker_export/FR/adm1.geojson` and `adm2.geojson`. Then run the comparison from the GeoChallenge-Tracker checkout:
 
 ```bash
 cd ~/projets/GeoChallenge-Tracker
-docker compose exec backend python backend/scripts/verify_fr_non_regression.py /path/to/geo_data/data/gctracker_export/FR
+docker compose exec backend python backend/scripts/verify_fr_non_regression.py /home/mlr/projets/geo_data/data/gctracker_export/FR
 ```
 
 Expected: `OK: 109 exported zones match the live data (overseas regions skipped).` Do not proceed to replacing any FR data in the database until this passes.
@@ -1773,6 +1809,7 @@ git commit -m "feat: add admin2_as_region handler with geometric parent fallback
 **Files:**
 - Modify: `scripts/normalize/common/handlers/__init__.py` (register `admin2_as_region`)
 - Create: `scripts/normalize/common/countries/it.py`
+- Modify: `scripts/normalize/common/country_config.py` (append `IT_CONFIG` re-export)
 - Modify: `scripts/tests/normalize/common/test_pipeline.py` (add an Italy dry-run test)
 - Modify: `scripts/docs/SOURCES.md` (fill in the FR and IT rows)
 
