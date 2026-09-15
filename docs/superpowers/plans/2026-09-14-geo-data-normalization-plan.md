@@ -845,15 +845,16 @@ class InseeGeoboundariesJoinHandler:
     """
 
     def resolve(self, level: int, country_config: "CountryConfig") -> ResolutionResult:
+        if level not in (1, 2):
+            raise ValueError(f"insee_geoboundaries_join does not support level {level}")
+
         level_config = country_config.levels[level]
         shapes = load_geoboundaries_level(country_config.iso3, level_config.geoboundaries_adm)
         candidates = {shape_id: shape["name"] for shape_id, shape in shapes.items()}
 
         if level == 1:
             return self._resolve_regions(candidates, shapes)
-        if level == 2:
-            return self._resolve_departements(candidates, shapes)
-        raise ValueError(f"insee_geoboundaries_join does not support level {level}")
+        return self._resolve_departements(candidates, shapes)
 
     def _resolve_regions(self, candidates: dict[str, str], shapes: dict) -> ResolutionResult:
         records = []
@@ -1777,6 +1778,9 @@ class Admin2AsRegionHandler:
     """
 
     def resolve(self, level: int, country_config: "CountryConfig") -> ResolutionResult:
+        if level not in (1, 2):
+            raise ValueError(f"admin2_as_region does not support level {level}")
+
         level_config = country_config.levels[level]
         shapes = load_geoboundaries_level(country_config.iso3, level_config.geoboundaries_adm)
 
@@ -1787,33 +1791,30 @@ class Admin2AsRegionHandler:
             ]
             return ResolutionResult(records=records)
 
-        if level == 2:
-            parent_level_config = country_config.levels[1]
-            parent_shapes = load_geoboundaries_level(
-                country_config.iso3, parent_level_config.geoboundaries_adm
+        parent_level_config = country_config.levels[1]
+        parent_shapes = load_geoboundaries_level(
+            country_config.iso3, parent_level_config.geoboundaries_adm
+        )
+        parent_geoms = {
+            _slugify(s["name"]): shapely_shape(s["geometry"]) for s in parent_shapes.values()
+        }
+
+        records = []
+        for s in shapes.values():
+            point = shapely_shape(s["geometry"]).representative_point()
+            parent_code = next(
+                (code for code, geom in parent_geoms.items() if geom.contains(point)),
+                None,
             )
-            parent_geoms = {
-                _slugify(s["name"]): shapely_shape(s["geometry"]) for s in parent_shapes.values()
-            }
-
-            records = []
-            for s in shapes.values():
-                point = shapely_shape(s["geometry"]).representative_point()
-                parent_code = next(
-                    (code for code, geom in parent_geoms.items() if geom.contains(point)),
-                    None,
+            records.append(
+                ZoneRecord(
+                    feature_code=_slugify(s["name"]),
+                    name=s["name"],
+                    geometry=s["geometry"],
+                    parent_feature_code=parent_code,
                 )
-                records.append(
-                    ZoneRecord(
-                        feature_code=_slugify(s["name"]),
-                        name=s["name"],
-                        geometry=s["geometry"],
-                        parent_feature_code=parent_code,
-                    )
-                )
-            return ResolutionResult(records=records)
-
-        raise ValueError(f"admin2_as_region does not support level {level}")
+            )
+        return ResolutionResult(records=records)
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**
