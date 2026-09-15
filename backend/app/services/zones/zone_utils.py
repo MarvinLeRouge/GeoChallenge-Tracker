@@ -66,7 +66,12 @@ def build_spatial_index(geojson_path: Path, zone_docs: list[dict]) -> SpatialInd
         SpatialIndex: Populated index (tree, shapes, zones).
     """
     features = _load_feature_collection(str(geojson_path))
-    code_to_geom = {str(f["properties"]["code"]): shape(f["geometry"]) for f in features}
+    code_to_geom: dict[str, object] = {}
+    for f in features:
+        props = f["properties"]
+        geom = shape(f["geometry"])
+        code_to_geom[str(props.get("feature_code", props["code"]))] = geom
+        code_to_geom.setdefault(str(props["code"]), geom)
 
     shapes = []
     matched_zones = []

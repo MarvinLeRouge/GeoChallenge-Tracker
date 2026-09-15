@@ -87,3 +87,20 @@ cd backend
 python scripts/backfill_country_codes.py --dry-run   # Preview without writing
 python scripts/backfill_country_codes.py              # Apply (with automatic backup)
 ```
+
+---
+
+## Migration verification scripts
+
+### `verify_fr_non_regression.py`
+
+**Compares the live FR `administrative_zones` documents against the exported CONTRACT.md GeoJSON, before uploading it.**
+
+- FR-only and hardcoded to the 2026-09 geo-data normalization migration - not a generic tool (Italy has no live data to regress against)
+- Matches on `(level, code)`, reports name/bbox/duplicate/export-only discrepancies as failures, bbox drift within tolerance and overseas regions as informational notes
+- Exits non-zero on any failure
+
+```bash
+cd backend
+ENV_FILE=<path to your .env> PYTHONPATH=. .venv/bin/python scripts/verify_fr_non_regression.py <exported_fr_dir>
+```

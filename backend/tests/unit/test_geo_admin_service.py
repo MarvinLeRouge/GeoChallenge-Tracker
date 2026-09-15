@@ -222,3 +222,60 @@ class TestUploadZoneLevel:
             "updated": 0,
         }
         mock_get_collection.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_stores_feature_code_from_its_own_property_not_from_code(self, tmp_path: Path):
+        # Regression test: props["code"] is already prefixed ("FR-84"); props["feature_code"]
+        # is the raw value ("84"). Using props["code"] for feature_code double-prefixes it.
+        feature = {
+            "type": "Feature",
+            "properties": {"code": "FR-84", "nom": "Auvergne-Rhône-Alpes", "feature_code": "84"},
+            "bbox": [4.0, 44.0, 7.0, 46.5],
+            "geometry": {"type": "Point", "coordinates": [0, 0]},
+        }
+        fc = {"type": "FeatureCollection", "features": [feature]}
+        content = jsonlib.dumps(fc).encode()
+        col = _mock_upsert_collection()
+        with (
+            patch.object(svc, "_geo_data_dir", return_value=tmp_path),
+            patch.object(svc, "get_collection", AsyncMock(return_value=col)),
+        ):
+            await svc.upload_zone_level("FR", 1, content)
+
+        col.update_one.assert_awaited_once_with(
+            {"code": "FR-84", "level": 1},
+            {
+                "$set": {
+                    "code": "FR-84",
+                    "country_code": "FR",
+                    "level": 1,
+                    "name": "Auvergne-Rhône-Alpes",
+                    "parent_code": None,
+                    "geojson_file": "FR/adm1.geojson",
+                    "feature_code": "84",
+                    "bbox": [4.0, 44.0, 7.0, 46.5],
+                }
+            },
+            upsert=True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_rejects_double_prefixed_feature_code(self, tmp_path: Path):
+        # Defensive guard: if feature_code already starts with "{country_code}-",
+        # something upstream produced a bad file - fail loudly instead of writing it.
+        feature = {
+            "type": "Feature",
+            "properties": {
+                "code": "FR-FR-84",
+                "nom": "Auvergne-Rhône-Alpes",
+                "feature_code": "FR-84",
+            },
+            "bbox": [4.0, 44.0, 7.0, 46.5],
+            "geometry": {"type": "Point", "coordinates": [0, 0]},
+        }
+        fc = {"type": "FeatureCollection", "features": [feature]}
+        content = jsonlib.dumps(fc).encode()
+        with patch.object(svc, "_geo_data_dir", return_value=tmp_path):
+            with pytest.raises(ValueError, match="double-prefixed"):
+                await svc.upload_zone_level("FR", 1, content)
+        assert not (tmp_path / "FR").exists()

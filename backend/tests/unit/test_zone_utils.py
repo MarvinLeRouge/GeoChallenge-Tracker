@@ -183,3 +183,22 @@ class TestBuildSpatialIndex:
 
         assert result is not None
         assert result["code"] == "FR-38"
+
+    def test_build_index_matches_on_feature_code_not_prefixed_code(self, tmp_path):
+        # Contract-shaped feature: GeoJSON "code" is prefixed ("FR-38"), zone doc's
+        # feature_code is bare ("38") - the map must be keyed so these match.
+        zone_geom = mapping(shapely_box(0.0, 0.0, 1.0, 1.0))
+        features = [
+            {
+                "type": "Feature",
+                "properties": {"code": "FR-38", "feature_code": "38"},
+                "geometry": zone_geom,
+            },
+        ]
+        geojson_path = _write_geojson(features, tmp_path)
+        zone_docs = [{"code": "FR-38", "feature_code": "38"}]
+
+        idx = build_spatial_index(geojson_path, zone_docs)
+
+        assert len(idx.shapes) == 1
+        assert idx.zones[0]["code"] == "FR-38"

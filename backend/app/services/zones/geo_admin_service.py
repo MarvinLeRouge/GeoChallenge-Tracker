@@ -63,12 +63,13 @@ async def get_missing_countries() -> list[dict]:
     return missing
 
 
-def _validate_feature_collection(payload: dict, level: int) -> list[dict]:
+def _validate_feature_collection(payload: dict, level: int, country_code: str) -> list[dict]:
     """Validates the normalized GeoJSON contract and returns its features.
 
     Args:
         payload (dict): Parsed JSON content.
         level (int): Administrative level being uploaded (0, 1 or 2).
+        country_code (str): ISO 3166-1 alpha-2 code, e.g. "FR".
 
     Returns:
         list[dict]: The FeatureCollection's `features` list.
@@ -93,6 +94,11 @@ def _validate_feature_collection(payload: dict, level: int) -> list[dict]:
             raise ValueError(f"Feature {i} is missing required property 'parent_code' (level 2).")
         if "bbox" not in feature:
             raise ValueError(f"Feature {i} is missing the GeoJSON 'bbox' member.")
+        if str(props["feature_code"]).startswith(f"{country_code}-"):
+            raise ValueError(
+                f"Feature {i} has a double-prefixed feature_code "
+                f"({props['feature_code']!r}) - expected the raw value without the country prefix."
+            )
 
     return features
 
@@ -124,7 +130,7 @@ async def upload_zone_level(country_code: str, level: int, content: bytes) -> di
     except json.JSONDecodeError as exc:
         raise ValueError("Uploaded file is not valid JSON.") from exc
 
-    features = _validate_feature_collection(payload, level)
+    features = _validate_feature_collection(payload, level, country_code)
 
     dest_rel = f"{country_code}/adm{level}.geojson"
     dest_path = _geo_data_dir() / dest_rel
@@ -136,7 +142,7 @@ async def upload_zone_level(country_code: str, level: int, content: bytes) -> di
         collection = await get_collection("administrative_zones")
         for feature in features:
             props = feature["properties"]
-            feature_code = str(props["code"])
+            feature_code = str(props["feature_code"])
             zone_doc = {
                 "code": f"{country_code}-{feature_code}",
                 "country_code": country_code,
