@@ -23,7 +23,7 @@
 - Name matching: exact match first (after whitespace stripping); on failure, nearest match by Levenshtein distance, accepted only if the best candidate is within distance 2 **and** no other candidate is within 1 of the best (ambiguous cases raise instead of guessing - see Task 4 for why `distance <= 2` and margin `1` are safe for the real FR dataset).
 - `parent_feature_code` is resolved via the source's own join keys (e.g. INSEE's `DEP.REG` field) wherever available, not geometric containment - this was the legacy pipeline's weakest point. Geometric containment is only used as an explicit, documented fallback for countries with no attribute-based hierarchy (Italy, Task 12), and uses each shape's `representative_point()` (a point guaranteed to lie inside the geometry), not its `centroid` (the area-weighted mean, which can fall outside a multi-part shape entirely - verified against the real data: 3 of Italy's 107 provinces, `Livorno`/`Cagliari`/`Rimini`, all have offshore-island parts that pull their centroid into the sea, outside every region polygon).
 - Raw source data (`data/insee`, `data/geonames`, `data/geoboundaries`) and generated output (`data/normalized`) are never committed to git (large, reproducible/regeneratable).
-- `geo_data`'s `origin` remote points at the upstream `stefangabos/world_countries` package; this work renames it to `upstream` and stops pushing to it, treating the directory as an independent project going forward.
+- `geo_data`'s git history and non-tooling files (the `stefangabos/world_countries` PHP/JS package the directory was originally cloned from - `composer.json`, `package.json`, its own `README.md`/`LICENSE.txt`/`docs/`, and its data payload `data/countries/`, `data/subdivisions/`, `data/flags/`) have already been removed; the repo was reinitialized with a clean history, `origin` now points at `https://github.com/MarvinLeRouge/geo_data.git`, and `CREDITS.md` credits `world_countries`, geoBoundaries, GeoNames and INSEE. Task 1 picks up from this clean state - it does not rename any remote.
 - No new MongoDB collections; `administrative_zones` already accommodates new countries additively.
 - The assistant has no SSH access to the VPS; all production actions (Task 11, Task 13) are handed to the user as exact commands to run themselves.
 
@@ -41,19 +41,9 @@
 **Interfaces:**
 - Produces: a working `uv run pytest` command from the repo root, with `scripts/` on `pythonpath` so `from normalize....` imports resolve in tests.
 
-- [ ] **Step 1: Rename the upstream remote**
+- [ ] **Step 1: Extend `.gitignore`**
 
-```bash
-cd ~/projets/geo_data
-git remote rename origin upstream
-git remote -v
-```
-
-Expected: `upstream` points to `https://github.com/stefangabos/world_countries.git` (fetch and push), no `origin` remains.
-
-- [ ] **Step 2: Extend `.gitignore`**
-
-Append to the existing `~/projets/geo_data/.gitignore` (keep the current PHP-package entries untouched):
+Append to the existing `~/projets/geo_data/.gitignore` (already reduced to just `.worktrees/` after the repo's clean reinit):
 
 ```gitignore
 
@@ -71,7 +61,7 @@ data/normalized/*
 !data/normalized/.gitkeep
 ```
 
-- [ ] **Step 3: Create `pyproject.toml`**
+- [ ] **Step 2: Create `pyproject.toml`**
 
 ```toml
 [project]
@@ -94,7 +84,7 @@ pythonpath = ["scripts"]
 testpaths = ["scripts/tests"]
 ```
 
-- [ ] **Step 4: Create the venv and lockfile**
+- [ ] **Step 3: Create the venv and lockfile**
 
 ```bash
 mkdir -p data/normalized && touch data/normalized/.gitkeep
@@ -103,7 +93,7 @@ uv sync
 
 Expected: `.venv/` created, `uv.lock` generated, no errors.
 
-- [ ] **Step 5: Verify the test runner works with zero tests**
+- [ ] **Step 4: Verify the test runner works with zero tests**
 
 ```bash
 uv run pytest
@@ -111,10 +101,10 @@ uv run pytest
 
 Expected: `no tests ran` (or similar), exit code 0 or 5 (pytest's "no tests collected" code) - not an import/config error.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add .gitignore pyproject.toml uv.lock data/normalized/.gitkeep download_geoboundaries.py download_geonames.py
+git add .gitignore pyproject.toml uv.lock data/normalized/.gitkeep
 git commit -m "chore: bootstrap normalization tooling (deps, gitignore, venv config)"
 ```
 
@@ -155,7 +145,9 @@ and normalized.
 - **geoBoundaries** boundary geometries - CC-BY 4.0 - https://www.geoboundaries.org
 - **INSEE** French reference tables (`data/insee/`) - Licence Ouverte / Open Licence - https://www.insee.fr
 - **geonames** worldwide admin code tables (`data/geonames/`) - CC-BY 4.0 - https://www.geonames.org
-- **world_countries** package (this repo's original upstream, `data/countries/`, `data/subdivisions/`, `data/flags/`) - CC-BY-SA 4.0 - https://github.com/stefangabos/world_countries
+
+See `CREDITS.md` at the repo root for the `world_countries` package this repo's workspace was
+originally cloned from (no code or data from it is used by this pipeline).
 
 ## Per-country tracking
 
