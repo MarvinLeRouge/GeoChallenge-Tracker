@@ -136,7 +136,12 @@ async def upload_zone_level(country_code: str, level: int, content: bytes) -> di
         collection = await get_collection("administrative_zones")
         for feature in features:
             props = feature["properties"]
-            feature_code = str(props["code"])
+            feature_code = str(props["feature_code"])
+            if feature_code.startswith(f"{country_code}-"):
+                raise ValueError(
+                    f"Feature has a double-prefixed feature_code ({feature_code!r}) - "
+                    "expected the raw value without the country prefix."
+                )
             zone_doc = {
                 "code": f"{country_code}-{feature_code}",
                 "country_code": country_code,
