@@ -157,6 +157,7 @@ To regenerate locally, run `npm run changelog`.
 - Match live zones by level+code, not code alone, in FR non-regression check
 - Key spatial index by feature_code, not prefixed code
 - Harden FR non-regression check and validate feature_code before write
+- Restore .serena ignore entry and properly ignore .worktrees/
 
 ### 💼 Other
 
