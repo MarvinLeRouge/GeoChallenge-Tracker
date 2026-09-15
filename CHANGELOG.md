@@ -151,6 +151,12 @@ To regenerate locally, run `npm run changelog`.
 - *(traefik)* Pin explicit priorities on all prod routers
 - *(traefik)* Use explicit OR-ed PathPrefix matchers for the docs router
 - *(traefik)* Allow inline script in the docs CSP for Swagger UI bootstrap
+- *(plan)* Validate level support before dict lookup in join handlers
+- Rebuild backend .venv against python3.11 to avoid mypy config drift
+- Read feature_code from its own property, guard against double-prefixing
+- Match live zones by level+code, not code alone, in FR non-regression check
+- Key spatial index by feature_code, not prefixed code
+- Harden FR non-regression check and validate feature_code before write
 
 ### 💼 Other
 
@@ -233,6 +239,13 @@ To regenerate locally, run `npm run changelog`.
 - Add architecture summary page
 - Link architecture decision records from README
 - Add Epic 9 multi-country admin zones planning, reformat README tables
+- Add multi-country geo data normalization design (Epic 9.1)
+- Add geo data normalization implementation plan
+- Fix plan gaps found in SDD pre-flight scan (CLI entrypoints, file lists)
+- Fix container path mismatches in plan's manual verification steps
+- Switch Italy parent-fallback to representative_point (fixes 3 real provinces)
+- Update plan for geo_data repo's clean reinit
+- Fix Task 1 git add command for gitignored uv.lock
 
 ### 🧪 Testing
 
@@ -266,6 +279,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Cover the admin_test_email fallback on POST /maintenance/test-email
 - *(backend)* Cover _default_uploads_dir Docker branch
 - *(backend)* Add unit tests for the zones routes error branches
+- Add FR non-regression comparison script (metropolitan zones only)
 
 ### ⚙️ Miscellaneous Tasks
 
@@ -309,3 +323,5 @@ To regenerate locally, run `npm run changelog`.
 - *(traefik)* Add security headers middleware on the API router
 - *(backend)* Run container as non-root user
 - *(backend)* Rename FR geojson files to the adm1/adm2 convention
+- Ignore .worktrees/ directory
+- Add persistent volume for geo_data_dir in prod
