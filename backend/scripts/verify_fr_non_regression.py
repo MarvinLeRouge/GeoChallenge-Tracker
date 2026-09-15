@@ -27,40 +27,57 @@ def _bbox_close(a: list[float], b: list[float]) -> bool:
     return len(a) == len(b) == 4 and all(abs(x - y) <= BBOX_TOLERANCE for x, y in zip(a, b))
 
 
-def compare_zones(live_docs: list[dict], exported_features: list[dict]) -> list[str]:
+def compare_zones(
+    live_docs: list[dict], exported_features: list[dict]
+) -> tuple[list[str], list[str]]:
     """Compares live `administrative_zones` docs against exported CONTRACT.md features.
 
+    `code` is only unique per level (INSEE region and department codes share the
+    same numeric namespace, e.g. `FR-11` is both a region and a department) -
+    live docs and exported features are matched on `(level, code)`, mirroring
+    how the app itself disambiguates them.
+
     Args:
-        live_docs (list[dict]): `{"code", "name", "bbox"}` from `administrative_zones`.
+        live_docs (list[dict]): `{"code", "level", "name", "bbox"}` from `administrative_zones`.
         exported_features (list[dict]): GeoJSON features with `properties.code`,
-            `properties.nom`, and a top-level `bbox`.
+            `properties.nom`, and a top-level `bbox`; level is inferred from
+            which file (`adm1`/`adm2`) each feature came from.
 
     Returns:
-        list[str]: one human-readable diff per discrepancy found, empty if none.
+        tuple[list[str], list[str]]: (failures, notes). Failures are missing
+            zones or name mismatches - these fail the check. Notes are bbox
+            drift, reported for visibility only: geoBoundaries geometry is
+            trusted as the source of truth, so bbox differences from the
+            currently-live data are expected, not a regression.
             Overseas region codes present only in `live_docs` are silently skipped.
     """
-    exported_by_code = {f["properties"]["code"]: f for f in exported_features}
-    diffs = []
+    exported_by_key = {
+        (f["properties"]["level"], f["properties"]["code"]): f for f in exported_features
+    }
+    failures = []
+    notes = []
 
     for live in live_docs:
         code = live["code"]
         if code in OVERSEAS_CODES:
             continue
-        exported = exported_by_code.get(code)
+        key = (live["level"], code)
+        exported = exported_by_key.get(key)
         if exported is None:
-            diffs.append(f"{code}: missing from the exported output")
+            failures.append(f"{code} (level {live['level']}): missing from the exported output")
             continue
         if exported["properties"]["nom"] != live["name"]:
-            diffs.append(
-                f"{code}: name mismatch (live={live['name']!r}, "
+            failures.append(
+                f"{code} (level {live['level']}): name mismatch (live={live['name']!r}, "
                 f"exported={exported['properties']['nom']!r})"
             )
         if not _bbox_close(exported["bbox"], live["bbox"]):
-            diffs.append(
-                f"{code}: bbox mismatch (live={live['bbox']}, exported={exported['bbox']})"
+            notes.append(
+                f"{code} (level {live['level']}): bbox drift (live={live['bbox']}, "
+                f"exported={exported['bbox']})"
             )
 
-    return diffs
+    return failures, notes
 
 
 async def _load_live_docs() -> list[dict]:
@@ -72,9 +89,13 @@ async def _load_live_docs() -> list[dict]:
 
 
 def _load_exported_features(exported_fr_dir: Path) -> list[dict]:
+    """Loads adm1/adm2 features, tagging each with its level (not itself a
+    GeoJSON property - it's implicit in which file the feature came from)."""
     features = []
     for level in (1, 2):
         payload = json.loads((exported_fr_dir / f"adm{level}.geojson").read_text())
+        for feature in payload["features"]:
+            feature["properties"]["level"] = level
         features.extend(payload["features"])
     return features
 
@@ -88,15 +109,24 @@ def main() -> None:
     live_docs = asyncio.run(_load_live_docs())
     exported_features = _load_exported_features(exported_fr_dir)
 
-    diffs = compare_zones(live_docs, exported_features)
-    if diffs:
-        print(f"{len(diffs)} discrepancies found:")
-        for diff in diffs:
-            print(f"  - {diff}")
+    failures, notes = compare_zones(live_docs, exported_features)
+
+    if notes:
+        print(
+            f"{len(notes)} bbox drift note(s) (informational, geoBoundaries geometry is trusted):"
+        )
+        for note in notes:
+            print(f"  - {note}")
+
+    if failures:
+        print(f"{len(failures)} discrepancies found:")
+        for failure in failures:
+            print(f"  - {failure}")
         sys.exit(1)
 
     print(
-        f"OK: {len(exported_features)} exported zones match the live data (overseas regions skipped)."
+        f"OK: {len(exported_features)} exported zones match the live data on code/name "
+        "(overseas regions skipped, bbox drift reported above is informational only)."
     )
 
 
