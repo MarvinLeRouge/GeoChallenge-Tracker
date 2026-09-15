@@ -278,3 +278,4 @@ class TestUploadZoneLevel:
         with patch.object(svc, "_geo_data_dir", return_value=tmp_path):
             with pytest.raises(ValueError, match="double-prefixed"):
                 await svc.upload_zone_level("FR", 1, content)
+        assert not (tmp_path / "FR").exists()

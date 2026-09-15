@@ -18,7 +18,7 @@
 
 - Code, comments, docstrings, commit messages: English (global CLAUDE.md default; `geo_data` has no project-level CLAUDE.md overriding it).
 - Output must conform exactly to `CONTRACT.md` (`code`, `nom`, `feature_code`, `parent_code` at level 2 only, `bbox`).
-- Migration scope is **metropolitan France only** (13 regions, INSEE codes `11,24,27,28,32,44,52,53,75,76,84,93,94`; 96 departments, INSEE `DEP` not starting with `97`/`98`). The 5 overseas regions (Guadeloupe, Martinique, Guyane, La Réunion, Mayotte - INSEE `REG` `01,02,03,04,06`) stay out of scope: not produced by the new pipeline, not removed from the database, untouched by this work.
+- Migration scope is **metropolitan France only** (13 regions, INSEE codes `11,24,27,28,32,44,52,53,75,76,84,93,94`; 96 departments, INSEE `DEP` not starting with `97`/`98`). The 5 overseas regions (Guadeloupe, Martinique, Guyane, La Réunion, Mayotte - INSEE `REG` `01,02,03,04,06`) stay out of scope: not produced by the new pipeline, not removed from the database. Their documents are retained, but once the new `adm1.geojson` is uploaded they lose geometry coverage (the new export contains only the 13 metropolitan regions) until a later migration adds them - this is a deliberate scope boundary, not an oversight; see the final whole-branch review, Tasks 9-11, for the analysis.
 - INSEE's accented `NCCENR` name is the canonical reference name for France. Any geoBoundaries `shapeName` spelling that differs is recorded as a variant, never silently substituted and never required to be entered in a fully manual alias table.
 - Name matching: exact match first (after whitespace stripping); on failure, nearest match by Levenshtein distance, accepted only if the best candidate is within distance 2 **and** no other candidate is within 1 of the best (ambiguous cases raise instead of guessing - see Task 4 for why `distance <= 2` and margin `1` are safe for the real FR dataset).
 - `parent_feature_code` is resolved via the source's own join keys (e.g. INSEE's `DEP.REG` field) wherever available, not geometric containment - this was the legacy pipeline's weakest point. Geometric containment is only used as an explicit, documented fallback for countries with no attribute-based hierarchy (Italy, Task 12), and uses each shape's `representative_point()` (a point guaranteed to lie inside the geometry), not its `centroid` (the area-weighted mean, which can fall outside a multi-part shape entirely - verified against the real data: 3 of Italy's 107 provinces, `Livorno`/`Cagliari`/`Rimini`, all have offshore-island parts that pull their centroid into the sea, outside every region polygon).
@@ -1969,11 +1969,14 @@ Only relevant once Tasks 9-11 are done and the FR non-regression check (Task 9, 
 1. Create the host directory for the new persistent volume before deploying:
    ```bash
    mkdir -p ../shared/geo-admin
+   chown -R 1000:1000 ../shared/geo-admin
    ```
-2. Copy the 3 existing FR files out of the currently-baked-in image directory into the new volume, once, before redeploying (avoids a service gap between the old baked-in directory being removed and the new empty volume):
+   The `chown` matches `backend/Dockerfile:29`'s non-root UID 1000 convention, same as `shared/backups` and `shared/uploads`.
+2. Copy the 3 existing FR files out of the running container's writable layer into the new volume, once, before redeploying (avoids a service gap between the old files being removed and the new empty volume). These files are not baked into the image - there is no `.dockerignore`d or baked `/app/data/admin` - they were written to the running container by `download_geo_data.py` on the VPS:
    ```bash
-   docker compose cp geo-backend:/app/data/admin/FR ../shared/geo-admin/
+   docker compose cp backend:/app/data/admin/FR ../shared/geo-admin/
    ```
+   If the container was redeployed recently, this source path may not exist; the recovery is re-running `download_geo_data.py`.
 3. Deploy normally (merge Task 11's PR, pull, `docker compose up -d`).
 4. Back up `administrative_zones` before the first real upload of new FR or Italy data (standing project rule for structural changes, targeted `mongodump` as already practiced for `countries_backup_*`):
    ```bash
