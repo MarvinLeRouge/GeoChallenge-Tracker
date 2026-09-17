@@ -158,6 +158,7 @@ To regenerate locally, run `npm run changelog`.
 - Key spatial index by feature_code, not prefixed code
 - Harden FR non-regression check and validate feature_code before write
 - Restore .serena ignore entry and properly ignore .worktrees/
+- *(ci)* Trigger workflow on all pull requests, not just non-doc changes
 
 ### 💼 Other
 
