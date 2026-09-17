@@ -241,3 +241,13 @@ jobs:
           flags: frontend
           fail_ci_if_error: false
           use_oidc: true
+
+  ci-status:
+    name: CI status
+    if: always()
+    needs: [changes, backend-lint, backend-test, backend-security, frontend, frontend-security, frontend-unit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
