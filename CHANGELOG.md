@@ -328,3 +328,5 @@ To regenerate locally, run `npm run changelog`.
 - Ignore .worktrees/ directory
 - Add persistent volume for geo_data_dir in prod
 - Add path-filter to skip backend/frontend jobs on unrelated changes
+- Dedupe paths-ignore entries
+- *(ci)* Bump codecov-action to v7
