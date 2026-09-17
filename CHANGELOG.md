@@ -248,6 +248,7 @@ To regenerate locally, run `npm run changelog`.
 - Update plan for geo_data repo's clean reinit
 - Fix Task 1 git add command for gitignored uv.lock
 - Mark Epic 9.1 as partially implemented, code merged pending VPS upload
+- *(contributing)* Document codecov coverage thresholds
 
 ### 🧪 Testing
 
