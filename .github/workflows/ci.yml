@@ -15,7 +15,39 @@ on:
       - "**.md"
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
+              - 'eslint.config.js'
+              - 'tsconfig.json'
+              - 'tsconfig.node.json'
+              - 'tailwind.config.ts'
+              - 'postcss.config.cjs'
+              - 'vitest.config.ts'
+              - 'vitest.shims.d.ts'
+              - 'playwright.config.ts'
+              - '.github/workflows/ci.yml'
+
   backend-lint:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -41,6 +73,8 @@ jobs:
         run: mypy backend/
 
   backend-test:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
 
     permissions:
@@ -97,6 +131,8 @@ jobs:
           use_oidc: true
 
   backend-security:
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -127,6 +163,8 @@ jobs:
           fi
 
   frontend:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -152,6 +190,8 @@ jobs:
         run: npm run build
 
   frontend-security:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -172,6 +212,8 @@ jobs:
         run: npm audit --audit-level=critical
 
   frontend-unit:
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
 
     permissions:
