@@ -330,3 +330,4 @@ To regenerate locally, run `npm run changelog`.
 - Add path-filter to skip backend/frontend jobs on unrelated changes
 - Dedupe paths-ignore entries
 - *(ci)* Bump codecov-action to v7
+- *(ci)* Add ci-status aggregator job
