@@ -327,3 +327,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Rename FR geojson files to the adm1/adm2 convention
 - Ignore .worktrees/ directory
 - Add persistent volume for geo_data_dir in prod
+- Add path-filter to skip backend/frontend jobs on unrelated changes
