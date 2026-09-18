@@ -159,6 +159,7 @@ To regenerate locally, run `npm run changelog`.
 - Harden FR non-regression check and validate feature_code before write
 - Restore .serena ignore entry and properly ignore .worktrees/
 - *(ci)* Trigger workflow on all pull requests, not just non-doc changes
+- *(tests)* Mock token revocation check in refresh token tests
 
 ### 💼 Other
 
@@ -250,6 +251,7 @@ To regenerate locally, run `npm run changelog`.
 - Fix Task 1 git add command for gitignored uv.lock
 - Mark Epic 9.1 as partially implemented, code merged pending VPS upload
 - *(contributing)* Document codecov coverage thresholds
+- *(zones-explorer)* Add step 5 unified drill-down implementation plan
 
 ### 🧪 Testing
 
@@ -284,6 +286,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Cover _default_uploads_dir Docker branch
 - *(backend)* Add unit tests for the zones routes error branches
 - Add FR non-regression comparison script (metropolitan zones only)
+- *(routes)* Add coverage for maintenance, caches, auth, geocoding, elevation and targets routes
 
 ### ⚙️ Miscellaneous Tasks
 
