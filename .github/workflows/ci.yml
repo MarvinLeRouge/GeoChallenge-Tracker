@@ -24,6 +24,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'codecov.yml'
               - '.github/workflows/ci.yml'
             frontend:
               - 'frontend/**'
@@ -38,6 +39,7 @@ jobs:
               - 'vitest.config.ts'
               - 'vitest.shims.d.ts'
               - 'playwright.config.ts'
+              - 'codecov.yml'
               - '.github/workflows/ci.yml'
 
   backend-lint:
