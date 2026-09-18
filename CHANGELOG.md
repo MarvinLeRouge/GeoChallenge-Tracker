@@ -338,3 +338,4 @@ To regenerate locally, run `npm run changelog`.
 - Dedupe paths-ignore entries
 - *(ci)* Bump codecov-action to v7
 - *(ci)* Add ci-status aggregator job
+- *(ci)* Watch codecov.yml in backend and frontend path filters
