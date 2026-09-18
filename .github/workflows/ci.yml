@@ -43,6 +43,7 @@ jobs:
               - '.github/workflows/ci.yml'
 
   backend-lint:
+    name: "Backend: lint"
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -70,6 +71,7 @@ jobs:
         run: mypy backend/
 
   backend-test:
+    name: "Backend: test"
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -128,6 +130,7 @@ jobs:
           use_oidc: true
 
   backend-security:
+    name: "Backend: security"
     needs: changes
     if: ${{ needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
@@ -159,7 +162,8 @@ jobs:
             pip-audit -r requirements.txt -r requirements-dev.txt --ignore-vuln PYSEC-2026-1325
           fi
 
-  frontend:
+  frontend-lint:
+    name: "Frontend: lint"
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
@@ -187,6 +191,7 @@ jobs:
         run: npm run build
 
   frontend-security:
+    name: "Frontend: security"
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
@@ -208,7 +213,8 @@ jobs:
         # Reports every finding, but only fails the build on critical severity.
         run: npm audit --audit-level=critical
 
-  frontend-unit:
+  frontend-test:
+    name: "Frontend: test"
     needs: changes
     if: ${{ needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
@@ -244,7 +250,7 @@ jobs:
   ci-status:
     name: CI status
     if: always()
-    needs: [changes, backend-lint, backend-test, backend-security, frontend, frontend-security, frontend-unit]
+    needs: [changes, backend-lint, backend-test, backend-security, frontend-lint, frontend-security, frontend-test]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any required job failed or was cancelled
