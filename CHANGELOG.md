@@ -339,3 +339,4 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Bump codecov-action to v7
 - *(ci)* Add ci-status aggregator job
 - *(ci)* Watch codecov.yml in backend and frontend path filters
+- Homogenize job naming and labels across backend/frontend stages
