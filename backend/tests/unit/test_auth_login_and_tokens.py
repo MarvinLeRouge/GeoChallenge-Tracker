@@ -124,7 +124,7 @@ class TestRefreshToken:
         assert response.json()["detail"] == "Invalid refresh token"
 
     @pytest.mark.asyncio
-    async def test_valid_token_for_inactive_user_returns_401(self):
+    async def test_valid_token_for_inactive_user_returns_401(self, monkeypatch):
         from bson import ObjectId
 
         user_id = ObjectId()
@@ -134,6 +134,8 @@ class TestRefreshToken:
         mock_users.find_one = AsyncMock(return_value=None)
         app = _make_app(mock_users)
 
+        monkeypatch.setattr(auth_module, "is_refresh_token_revoked", AsyncMock(return_value=False))
+
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             client.cookies.set("refresh_token", token)
             response = await client.post("/auth/refresh")
@@ -142,7 +144,7 @@ class TestRefreshToken:
         assert response.json()["detail"] == "Invalid refresh token"
 
     @pytest.mark.asyncio
-    async def test_valid_token_for_active_user_returns_new_access_token(self):
+    async def test_valid_token_for_active_user_returns_new_access_token(self, monkeypatch):
         from bson import ObjectId
 
         user_id = ObjectId()
@@ -151,6 +153,8 @@ class TestRefreshToken:
         mock_users = AsyncMock()
         mock_users.find_one = AsyncMock(return_value={"_id": user_id, "is_active": True})
         app = _make_app(mock_users)
+
+        monkeypatch.setattr(auth_module, "is_refresh_token_revoked", AsyncMock(return_value=False))
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             client.cookies.set("refresh_token", token)
