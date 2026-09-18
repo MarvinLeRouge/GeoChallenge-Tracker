@@ -253,6 +253,7 @@ To regenerate locally, run `npm run changelog`.
 - Mark Epic 9.1 as partially implemented, code merged pending VPS upload
 - *(contributing)* Document codecov coverage thresholds
 - *(zones-explorer)* Add step 5 unified drill-down implementation plan
+- *(readme)* Sync test counts, add flagged coverage badges and fix license link
 
 ### 🧪 Testing
 
