@@ -160,6 +160,7 @@ To regenerate locally, run `npm run changelog`.
 - Restore .serena ignore entry and properly ignore .worktrees/
 - *(ci)* Trigger workflow on all pull requests, not just non-doc changes
 - *(tests)* Mock token revocation check in refresh token tests
+- *(codecov)* Enable carryforward for backend and frontend flags
 
 ### 💼 Other
 
