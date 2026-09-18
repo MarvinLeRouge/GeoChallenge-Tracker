@@ -7,12 +7,14 @@
 > *Full-stack geocaching challenge tracker — FastAPI + MongoDB REST API, Vue.js 3 frontend, GPX import, interactive maps.*
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.117+-009688?logo=fastapi&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-009688?logo=fastapi&logoColor=white)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![CI](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions)
-[![codecov](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker/graph/badge.svg)](https://codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
-![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds)
+[![Backend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=backend&label=backend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
+[![Frontend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=frontend&label=frontend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
+![Tests](https://img.shields.io/badge/Tests-1879%20passing-brightgreen)
+[![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds=3600)](LICENSE)
 
 ## Concept
 
@@ -282,12 +284,12 @@ VITE_API_URL=http://localhost:8000/api
 ### 🧪 Running tests
 
 ```bash
-# Backend tests (1291 tests)
+# Backend tests (1472 tests)
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
-# Frontend tests (419 tests)
+# Frontend tests (407 tests)
 npx vitest run frontend/tests/unit
 ```
 
