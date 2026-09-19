@@ -341,3 +341,4 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Add ci-status aggregator job
 - *(ci)* Watch codecov.yml in backend and frontend path filters
 - Homogenize job naming and labels across backend/frontend stages
+- Add local post-commit hook for changelog generation

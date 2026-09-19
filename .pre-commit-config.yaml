@@ -1,3 +1,5 @@
+default_install_hook_types: [pre-commit, post-commit]
+
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.1
@@ -39,3 +41,11 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/.*\.(ts|tsx|vue)$
+
+      - id: changelog
+        name: Update CHANGELOG.md (git-cliff)
+        entry: bash scripts/changelog-post-commit.sh
+        language: system
+        stages: [post-commit]
+        pass_filenames: false
+        always_run: true
