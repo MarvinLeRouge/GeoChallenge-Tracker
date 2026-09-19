@@ -25,6 +25,7 @@ Thumbs.db
 *.tsv
 *.sh
 !/build.sh
+!/scripts/changelog-post-commit.sh
 .coverage
 
 # Python
