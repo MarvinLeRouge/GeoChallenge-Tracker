@@ -161,6 +161,7 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Trigger workflow on all pull requests, not just non-doc changes
 - *(tests)* Mock token revocation check in refresh token tests
 - *(codecov)* Enable carryforward for backend and frontend flags
+- *(docker)* Resolve critical CVEs and apply multi-stage build
 
 ### 💼 Other
 

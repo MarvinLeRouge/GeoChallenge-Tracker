@@ -1,33 +1,48 @@
 # ---------------------------
 # 📦 backend/Dockerfile - FastAPI
 # ---------------------------
-    FROM python:3.11-slim
+# ---------------------------------------------------
+# STAGE 1 : Builder (Isolé - ne sera pas dans l'image finale)
+# ---------------------------------------------------
+FROM python:3.11-slim AS builder
 
-    ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+WORKDIR /app
 
-    # 👇 IMPORTANT: certifs racine pour TLS (Mongo Atlas)
-    RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl build-essential \
+RUN pip install --no-cache-dir --upgrade uv
+
+COPY requirements.txt ./
+
+# Création du venv et installation des dépendances Python
+RUN uv venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN uv pip install --upgrade -r requirements.txt
+
+# ---------------------------------------------------
+# STAGE 2 : Final Runtime (Image de production)
+# ---------------------------------------------------
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
+
+# 1. Certificats CA (requis pour TLS/Mongo Atlas) + Mise à jour de sécurité de l'OS
+RUN apt-get update && apt-get dist-upgrade -y \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && update-ca-certificates \
+    && apt-get purge -y linux-libc-dev \
+    && apt-get autoremove -y \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-    # Création du dossier de l’app
-    WORKDIR /app
-    
-    # Installer uv
-    RUN pip install uv
+WORKDIR /app
 
-    # Copier le fichier pyproject et installer les deps
-    COPY requirements.txt ./
-    RUN uv pip install -r requirements.txt --system
+# Copie uniquement de l'environnement virtuel pré-construit (sans tools de build)
+COPY --from=builder /opt/venv /opt/venv
+COPY . .
 
-    # Copie du code source
-    COPY . .
+# Utilisateur non-root
+RUN useradd -u 1000 -m appuser && chown -R appuser:appuser /app
+USER appuser
 
-    # Non-root user (UID 1000, matches shared/backups and shared/uploads ownership on the VPS)
-    RUN useradd -u 1000 -m appuser && chown -R appuser:appuser /app
-    USER appuser
-
-    # Commande de lancement
-    CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
