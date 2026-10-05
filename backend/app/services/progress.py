@@ -265,14 +265,575 @@ async def _first_found_date(user_id: ObjectId, match_caches: dict[str, Any]) -> 
 # ---------- Public API ----------
 
 
+async def _get_cached_completed_snapshot(
+    uc_id: ObjectId, force: bool, uc_status: str | None, uc_computed_status: str | None
+) -> dict[str, Any] | None:
+    """Return the last persisted snapshot if the UC is already completed and not forced.
+
+    Description:
+        Mirrors the short-circuit at the top of `evaluate_progress`: when the UC is
+        already `completed` and `force` is False, no recalculation is needed. Returns
+        `None` when a snapshot should be (re)computed, either because the UC isn't
+        completed, `force` is True, or no snapshot exists yet.
+
+    Args:
+        uc_id (ObjectId): UserChallenge.
+        force (bool): Force recalculation even if the UC is completed.
+        uc_status (str | None): Declared UC status.
+        uc_computed_status (str | None): Computed UC status.
+
+    Returns:
+        dict | None: The last snapshot, or None if evaluation should proceed.
+    """
+    if force or not (uc_computed_status == "completed" or uc_status == "completed"):
+        return None
+    coll_progress = await get_collection("progress")
+    return await coll_progress.find_one(
+        {"user_challenge_id": uc_id}, sort=[("checked_at", -1), ("created_at", -1)]
+    )
+
+
+def _build_done_override_snapshot(
+    t: dict[str, Any], title: str, order: int, status: str, min_count: int
+) -> dict[str, Any]:
+    """Build the snapshot for a task already marked `done` by the user (no recompute).
+
+    Args:
+        t (dict): Task document.
+        title (str): Task title.
+        order (int): Task order.
+        status (str): Current task status (always "done" when called).
+        min_count (int): Task's `min_count` constraint.
+
+    Returns:
+        dict: Task snapshot.
+    """
+    return {
+        "task_id": t["_id"],
+        "order": order,
+        "title": title,
+        "status": status,
+        "supported_for_progress": True,
+        "compiled_signature": "override:done",
+        "min_count": min_count,
+        "current_count": min_count,
+        "percent": 100.0,
+        "notes": ["user override: done"],
+        "evaluated_in_ms": 0,
+        "last_evaluated_at": now(),
+        "updated_at": t.get("updated_at"),
+        "created_at": t.get("created_at"),
+    }
+
+
+def _build_unsupported_snapshot(
+    t: dict[str, Any],
+    title: str,
+    order: int,
+    sig: str,
+    notes: list[str],
+    min_count: int,
+) -> dict[str, Any]:
+    """Build the snapshot for a task whose expression isn't supported for progress.
+
+    Args:
+        t (dict): Task document.
+        title (str): Task title.
+        order (int): Task order.
+        sig (str): Compiled expression signature.
+        notes (list[str]): Compilation notes/warnings.
+        min_count (int): Task's `min_count` constraint.
+
+    Returns:
+        dict: Task snapshot.
+    """
+    return {
+        "task_id": t["_id"],
+        "order": order,
+        "title": title,
+        "supported_for_progress": False,
+        "compiled_signature": sig,
+        "min_count": min_count,
+        "current_count": 0,
+        "percent": 0.0,
+        "notes": notes,
+        "evaluated_in_ms": 0,
+        "last_evaluated_at": now(),
+        "updated_at": t.get("updated_at"),
+        "created_at": t.get("created_at"),
+    }
+
+
+async def _compute_aggregate_fields(
+    user_id: ObjectId, match_caches: dict[str, Any], agg_spec: dict[str, Any] | None
+) -> tuple[int | None, int | None, float | None, str | None]:
+    """Compute the aggregate total/target/percent/unit for a task, if it has an aggregate spec.
+
+    Args:
+        user_id (ObjectId): User.
+        match_caches (dict): Compiled AND conditions on `caches`.
+        agg_spec (dict | None): Aggregate specification, or None if the task has none.
+
+    Returns:
+        tuple: `(aggregate_total, aggregate_target, aggregate_percent, aggregate_unit)`,
+            all None when `agg_spec` is None.
+    """
+    if not agg_spec:
+        return None, None, None, None
+
+    aggregate_total = await _aggregate_total(user_id, match_caches, agg_spec)
+    aggregate_target = int(agg_spec.get("min_total", 0)) or None
+    if aggregate_target and aggregate_target > 0:
+        aggregate_percent = max(
+            0.0,
+            min(100.0, 100.0 * (float(aggregate_total) / float(aggregate_target))),
+        )
+    else:
+        aggregate_percent = None
+
+    agg_kind = agg_spec.get("kind")
+    if agg_kind == "altitude":
+        aggregate_unit = "meters"
+    elif agg_kind == "distinct_countries":
+        aggregate_unit = "countries"
+    elif agg_kind == "dt_matrix":
+        aggregate_unit = "cells"
+    else:
+        aggregate_unit = "points"
+
+    return aggregate_total, aggregate_target, aggregate_percent, aggregate_unit
+
+
+def _resolve_new_task_status(
+    min_count: int,
+    current: int,
+    agg_spec: dict[str, Any] | None,
+    aggregate_total: int | None,
+    aggregate_target: int | None,
+    status: str,
+) -> str:
+    """Resolve whether a task becomes `done`, based on its count and aggregate constraints.
+
+    Description:
+        A task is `done` when the found-cache count meets `min_count` (if set) AND the
+        aggregate total meets its target (if set). Handles pure-aggregate tasks where
+        `min_count == 0`.
+
+    Args:
+        min_count (int): Task's `min_count` constraint.
+        current (int): Current matching found-cache count.
+        agg_spec (dict | None): Aggregate specification, or None.
+        aggregate_total (int | None): Computed aggregate total.
+        aggregate_target (int | None): Aggregate target.
+        status (str): Current task status, kept unchanged if not done.
+
+    Returns:
+        str: `"done"` or the unchanged `status`.
+    """
+    count_ok = (min_count == 0) or (current >= min_count)
+    agg_ok = (
+        (not agg_spec)
+        or (not aggregate_target)
+        or (aggregate_total is not None and aggregate_total >= aggregate_target)
+    )
+    return "done" if (count_ok and agg_ok) else status
+
+
+async def _persist_task_status_if_changed(
+    coll_uctasks: Any, task_id: ObjectId, status: str, new_status: str
+) -> None:
+    """Persist the task's new status, unless it was already `done`.
+
+    Args:
+        coll_uctasks (Any): `user_challenge_tasks` collection.
+        task_id (ObjectId): Task id.
+        status (str): Status before this evaluation.
+        new_status (str): Status resolved by this evaluation.
+    """
+    if status != "done":
+        await coll_uctasks.update_one(
+            {"_id": task_id},
+            {
+                "$set": {
+                    "status": new_status,
+                    "last_evaluated_at": utcnow(),
+                    "updated_at": utcnow(),
+                }
+            },
+        )
+
+
+def _resolve_final_percent(
+    agg_spec: dict[str, Any] | None,
+    min_count: int,
+    count_percent: float,
+    aggregate_percent: float | None,
+) -> float:
+    """Resolve the task's final percent from its count and/or aggregate percent.
+
+    Description (MVP rule):
+        - Both count and aggregate constraints -> `min(count_percent, aggregate_percent)`.
+        - Only count -> `count_percent`.
+        - Only aggregate -> `aggregate_percent` (or 0 if None).
+
+    Args:
+        agg_spec (dict | None): Aggregate specification, or None.
+        min_count (int): Task's `min_count` constraint.
+        count_percent (float): Percent based on `min_count`.
+        aggregate_percent (float | None): Percent based on the aggregate target.
+
+    Returns:
+        float: Final percent for the task.
+    """
+    if agg_spec and min_count > 0:
+        return min(count_percent, (aggregate_percent or 0.0))
+    if agg_spec and min_count == 0:
+        return aggregate_percent or 0.0
+    return count_percent
+
+
+async def _persist_task_progress_dates(
+    user_id: ObjectId,
+    coll_uctasks: Any,
+    t: dict[str, Any],
+    match_caches: dict[str, Any],
+    min_count: int,
+    current: int,
+) -> None:
+    """Persist `start_found_at`/`completed_at` on the task, mutating `t` in place.
+
+    Description:
+        - `start_found_at`: date of the first matching found cache, set once.
+        - `completed_at`: date of the `min_count`-th matching find, set when reached and
+          cleared if it was set but no longer valid.
+
+    Args:
+        user_id (ObjectId): User.
+        coll_uctasks (Any): `user_challenge_tasks` collection.
+        t (dict): Task document, mutated in place.
+        match_caches (dict): Compiled AND conditions on `caches`.
+        min_count (int): Task's `min_count` constraint.
+        current (int): Current matching found-cache count.
+    """
+    task_id = t["_id"]
+
+    # start_found_at: first matching found cache
+    start_dt = await _first_found_date(user_id, match_caches)
+    if start_dt and not t.get("start_found_at"):
+        await coll_uctasks.update_one(
+            {"_id": task_id},
+            {"$set": {"start_found_at": start_dt, "updated_at": utcnow()}},
+        )
+        t["start_found_at"] = start_dt  # in-memory update for subsequent use
+
+    # completed_at: date of the min_count-th matching find
+    completed_dt = None
+    if min_count > 0 and current >= min_count:
+        completed_dt = await _nth_found_date(user_id, match_caches, min_count)
+
+    # persist the date if reached, or clear it if it was set but no longer valid
+    if completed_dt:
+        if t.get("completed_at") != completed_dt:
+            await coll_uctasks.update_one(
+                {"_id": task_id},
+                {"$set": {"completed_at": completed_dt, "updated_at": utcnow()}},
+            )
+            t["completed_at"] = completed_dt
+    else:
+        if t.get("completed_at") is not None:
+            await coll_uctasks.update_one(
+                {"_id": task_id},
+                {"$set": {"completed_at": None, "updated_at": utcnow()}},
+            )
+            t["completed_at"] = None
+
+
+def _build_supported_snapshot(
+    t: dict[str, Any],
+    title: str,
+    order: int,
+    sig: str,
+    min_count: int,
+    current: int,
+    final_percent: float,
+    agg_spec: dict[str, Any] | None,
+    aggregate_total: int | None,
+    aggregate_target: int | None,
+    aggregate_unit: str | None,
+    notes: list[str],
+    ms: int,
+) -> dict[str, Any]:
+    """Build the snapshot for a fully evaluated, supported task.
+
+    Args:
+        t (dict): Task document (its current `status` is read from it).
+        title (str): Task title.
+        order (int): Task order.
+        sig (str): Compiled expression signature.
+        min_count (int): Task's `min_count` constraint.
+        current (int): Current matching found-cache count.
+        final_percent (float): Resolved final percent.
+        agg_spec (dict | None): Aggregate specification, or None.
+        aggregate_total (int | None): Computed aggregate total.
+        aggregate_target (int | None): Aggregate target.
+        aggregate_unit (str | None): Aggregate unit label.
+        notes (list[str]): Compilation notes/warnings.
+        ms (int): Evaluation duration in milliseconds.
+
+    Returns:
+        dict: Task snapshot.
+    """
+    return {
+        "task_id": t["_id"],
+        "order": order,
+        "title": title,
+        "status": t["status"],
+        "supported_for_progress": True,
+        "compiled_signature": sig,
+        "min_count": min_count,
+        "current_count": current,
+        "percent": final_percent,
+        # per-task aggregate block for DTO:
+        "aggregate": (
+            None
+            if not agg_spec
+            else {
+                "total": aggregate_total,
+                "target": aggregate_target or 0,
+                "unit": aggregate_unit or "points",
+            }
+        ),
+        "notes": notes,
+        "evaluated_in_ms": ms,
+        "last_evaluated_at": now(),
+        "updated_at": t.get("updated_at"),
+        "created_at": t.get("created_at"),
+    }
+
+
+async def _evaluate_supported_task(
+    user_id: ObjectId,
+    coll_uctasks: Any,
+    t: dict[str, Any],
+    title: str,
+    order: int,
+    status: str,
+    min_count: int,
+    sig: str,
+    match_caches: dict[str, Any],
+    agg_spec: dict[str, Any] | None,
+    notes: list[str],
+) -> dict[str, Any]:
+    """Fully evaluate a supported task: count, aggregate, status, percent, dates, snapshot.
+
+    Args:
+        user_id (ObjectId): User.
+        coll_uctasks (Any): `user_challenge_tasks` collection.
+        t (dict): Task document, mutated in place (`status`, progress dates).
+        title (str): Task title.
+        order (int): Task order.
+        status (str): Status before this evaluation.
+        min_count (int): Task's `min_count` constraint.
+        sig (str): Compiled expression signature.
+        match_caches (dict): Compiled AND conditions on `caches`.
+        agg_spec (dict | None): Aggregate specification, or None.
+        notes (list[str]): Compilation notes/warnings.
+
+    Returns:
+        dict: Task snapshot.
+    """
+    tic = utcnow()
+    current = await _count_found_caches_matching(user_id, match_caches)
+    ms = int((utcnow() - tic).total_seconds() * 1000)
+
+    bounded = min(current, min_count) if min_count > 0 else current
+    count_percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
+
+    (
+        aggregate_total,
+        aggregate_target,
+        aggregate_percent,
+        aggregate_unit,
+    ) = await _compute_aggregate_fields(user_id, match_caches, agg_spec)
+
+    new_status = _resolve_new_task_status(
+        min_count, current, agg_spec, aggregate_total, aggregate_target, status
+    )
+    task_id = t["_id"]
+    t["status"] = new_status
+    await _persist_task_status_if_changed(coll_uctasks, task_id, status, new_status)
+
+    final_percent = _resolve_final_percent(agg_spec, min_count, count_percent, aggregate_percent)
+
+    await _persist_task_progress_dates(user_id, coll_uctasks, t, match_caches, min_count, current)
+
+    return _build_supported_snapshot(
+        t,
+        title,
+        order,
+        sig,
+        min_count,
+        current,
+        final_percent,
+        agg_spec,
+        aggregate_total,
+        aggregate_target,
+        aggregate_unit,
+        notes,
+        ms,
+    )
+
+
+def _compute_aggregate_percent(
+    snapshots: list[dict[str, Any]], sum_current: int, sum_min: int
+) -> float:
+    """Compute the UC-level aggregate percent from its task snapshots.
+
+    Description:
+        Weighted by `min_count` when any task has one, otherwise the average of
+        task-level percents (handles pure-aggregate tasks where `min_count == 0`).
+
+    Args:
+        snapshots (list[dict]): Task snapshots.
+        sum_current (int): Sum of bounded current counts across count-based tasks.
+        sum_min (int): Sum of `min_count` across tasks.
+
+    Returns:
+        float: Aggregate percent, rounded to 1 decimal.
+    """
+    if sum_min > 0:
+        return round(100.0 * (sum_current / sum_min), 1)
+    supported_snaps = [s for s in snapshots if s.get("supported_for_progress")]
+    if not supported_snaps:
+        return 0.0
+    return round(sum(s["percent"] for s in supported_snaps) / len(supported_snaps), 1)
+
+
+async def _finalize_uc_status(
+    coll_uc: Any,
+    uc_id: ObjectId,
+    uc_computed_status: str | None,
+    tasks_done: int,
+    tasks_supported: int,
+    progress_snapshot: dict[str, Any],
+) -> None:
+    """Mark the UC `completed` if all supported tasks are done, else persist progress only.
+
+    Args:
+        coll_uc (Any): `user_challenges` collection.
+        uc_id (ObjectId): UserChallenge.
+        uc_computed_status (str | None): Computed UC status before this evaluation.
+        tasks_done (int): Number of supported tasks marked `done`.
+        tasks_supported (int): Number of supported tasks.
+        progress_snapshot (dict): Progress summary to persist on the UC document.
+    """
+    if (uc_computed_status != "completed") and (tasks_done == tasks_supported):
+        await coll_uc.update_one(
+            {"_id": uc_id},
+            {
+                "$set": {
+                    "computed_status": "completed",
+                    "status": "completed",
+                    "progress": progress_snapshot,
+                    "updated_at": utcnow(),
+                }
+            },
+        )
+    else:
+        # Always persist the latest progress snapshot on the UC document so the
+        # detail view can display current progress without an extra query.
+        await coll_uc.update_one(
+            {"_id": uc_id},
+            {"$set": {"progress": progress_snapshot, "updated_at": utcnow()}},
+        )
+
+
+async def _evaluate_task(
+    user_id: ObjectId, coll_uctasks: Any, t: dict[str, Any], force: bool
+) -> dict[str, Any]:
+    """Evaluate a single task and return its snapshot.
+
+    Description:
+        Dispatches to the "done override" snapshot (user already marked it done and not
+        forced), the "unsupported" snapshot (expression can't be compiled for progress),
+        or a full evaluation via `_evaluate_supported_task`.
+
+    Args:
+        user_id (ObjectId): User.
+        coll_uctasks (Any): `user_challenge_tasks` collection.
+        t (dict): Task document, possibly mutated in place by a full evaluation.
+        force (bool): Force recalculation even if the task is already `done`.
+
+    Returns:
+        dict: Task snapshot.
+    """
+    min_count = int((t.get("constraints") or {}).get("min_count") or 0)
+    title = t.get("title") or "Task"
+    order = int(t.get("order") or 0)
+    status = (t.get("status") or "todo").lower()
+    expr = t.get("expression") or {}
+
+    if status == "done" and not force:
+        return _build_done_override_snapshot(t, title, order, status, min_count)
+
+    sig, match_caches, supported, notes, agg_spec = compile_and_only(expr)
+    if not supported:
+        return _build_unsupported_snapshot(t, title, order, sig, notes, min_count)
+
+    return await _evaluate_supported_task(
+        user_id,
+        coll_uctasks,
+        t,
+        title,
+        order,
+        status,
+        min_count,
+        sig,
+        match_caches,
+        agg_spec,
+        notes,
+    )
+
+
+def _accumulate_task_totals(
+    snap: dict[str, Any], totals: tuple[int, int, int, int]
+) -> tuple[int, int, int, int]:
+    """Fold one task snapshot into the UC-level running totals.
+
+    Args:
+        snap (dict): Task snapshot.
+        totals (tuple): `(sum_current, sum_min, tasks_supported, tasks_done)` so far.
+
+    Returns:
+        tuple: Updated `(sum_current, sum_min, tasks_supported, tasks_done)`.
+    """
+    sum_current, sum_min, tasks_supported, tasks_done = totals
+    if not snap["supported_for_progress"]:
+        return totals
+
+    min_count = snap["min_count"]
+    tasks_supported += 1
+    sum_min += max(0, min_count)
+    bounded_for_sum = (
+        min(snap["current_count"], min_count) if min_count > 0 else snap["current_count"]
+    )
+    sum_current += bounded_for_sum
+    # A task is done when its status is "done" (handles both count-based
+    # and pure-aggregate tasks where min_count == 0).
+    if snap.get("status") == "done":
+        tasks_done += 1
+
+    return sum_current, sum_min, tasks_supported, tasks_done
+
+
 async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> dict[str, Any]:
     """Evaluate tasks for a UC and insert a progress snapshot.
 
     Description:
         - Verifies UC ownership (`_ensure_uc_owned`).\n
         - If `force=False` and the UC is already `completed`, returns the last snapshot (if any).\n
-        - For each task, compiles the expression (`compile_and_only`), counts matching found caches,
-          optionally updates the task status, and computes aggregates and percentage.\n
+        - Evaluates each task (`_evaluate_task`) and folds its snapshot into the running
+          totals (`_accumulate_task_totals`).\n
         - Computes the global aggregate and creates a `progress` document. If all supported tasks are `done`,
           updates `user_challenges` to `completed` (both declared and computed statuses).
 
@@ -296,220 +857,19 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
     uc_statuses = await coll_uc.find_one({"_id": uc_id}, {"status": 1, "computed_status": 1})
     uc_status = (uc_statuses or {}).get("status")
     uc_computed_status = (uc_statuses or {}).get("computed_status")
-    if (not force) and (uc_computed_status == "completed" or uc_status == "completed"):
-        # Return the last existing snapshot without recalculating or inserting
-        coll_progress = await get_collection("progress")
-        last = await coll_progress.find_one(
-            {"user_challenge_id": uc_id}, sort=[("checked_at", -1), ("created_at", -1)]
-        )
-        if last:
-            return last  # same shape as persisted snapshots
-        # If no snapshot exists yet, fall through to normal calculation
+
+    cached = await _get_cached_completed_snapshot(uc_id, force, uc_status, uc_computed_status)
+    if cached:
+        return cached  # same shape as persisted snapshots
 
     for t in tasks:
-        min_count = int((t.get("constraints") or {}).get("min_count") or 0)
-        title = t.get("title") or "Task"
-        order = int(t.get("order") or 0)
-        status = (t.get("status") or "todo").lower()
-        expr = t.get("expression") or {}
-
-        if status == "done" and not force:
-            snap = {
-                "task_id": t["_id"],
-                "order": order,
-                "title": title,
-                "status": status,
-                "supported_for_progress": True,
-                "compiled_signature": "override:done",
-                "min_count": min_count,
-                "current_count": min_count,
-                "percent": 100.0,
-                "notes": ["user override: done"],
-                "evaluated_in_ms": 0,
-                "last_evaluated_at": now(),
-                "updated_at": t.get("updated_at"),
-                "created_at": t.get("created_at"),
-            }
-        else:
-            sig, match_caches, supported, notes, agg_spec = compile_and_only(expr)
-            if not supported:
-                snap = {
-                    "task_id": t["_id"],
-                    "order": order,
-                    "title": title,
-                    "supported_for_progress": False,
-                    "compiled_signature": sig,
-                    "min_count": min_count,
-                    "current_count": 0,
-                    "percent": 0.0,
-                    "notes": notes,
-                    "evaluated_in_ms": 0,
-                    "last_evaluated_at": now(),
-                    "updated_at": t.get("updated_at"),
-                    "created_at": t.get("created_at"),
-                }
-            else:
-                tic = utcnow()
-                current = await _count_found_caches_matching(user_id, match_caches)
-                ms = int((utcnow() - tic).total_seconds() * 1000)
-
-                # base percent on min_count
-                bounded = min(current, min_count) if min_count > 0 else current
-                count_percent = (100.0 * (bounded / min_count)) if min_count > 0 else 100.0
-
-                # aggregate handling (computed before status so it can influence new_status)
-                aggregate_total = None
-                aggregate_target = None
-                aggregate_percent = None
-                aggregate_unit = None
-                if agg_spec:
-                    aggregate_total = await _aggregate_total(user_id, match_caches, agg_spec)
-                    aggregate_target = int(agg_spec.get("min_total", 0)) or None
-                    if aggregate_target and aggregate_target > 0:
-                        aggregate_percent = max(
-                            0.0,
-                            min(
-                                100.0,
-                                100.0 * (float(aggregate_total) / float(aggregate_target)),
-                            ),
-                        )
-                    else:
-                        aggregate_percent = None
-                    agg_kind = agg_spec.get("kind")
-                    if agg_kind == "altitude":
-                        aggregate_unit = "meters"
-                    elif agg_kind == "distinct_countries":
-                        aggregate_unit = "countries"
-                    elif agg_kind == "dt_matrix":
-                        aggregate_unit = "cells"
-                    else:
-                        aggregate_unit = "points"
-
-                # determine task status: count must meet min_count (if set) AND
-                # aggregate must meet its target (if set) — handles pure-aggregate tasks
-                count_ok = (min_count == 0) or (current >= min_count)
-                agg_ok = (
-                    (not agg_spec)
-                    or (not aggregate_target)
-                    or (aggregate_total is not None and aggregate_total >= aggregate_target)
-                )
-                new_status = "done" if (count_ok and agg_ok) else status
-                task_id = t["_id"]
-                t["status"] = new_status
-                if status != "done":
-                    await coll_uctasks.update_one(
-                        {"_id": task_id},
-                        {
-                            "$set": {
-                                "status": new_status,
-                                "last_evaluated_at": utcnow(),
-                                "updated_at": utcnow(),
-                            }
-                        },
-                    )
-
-                # final percent rule (MVP):
-                # - if both count & aggregate constraints exist -> percent = min(count_percent, aggregate_percent)
-                # - if only count -> count_percent
-                # - if only aggregate -> aggregate_percent or 0 if None
-                if agg_spec and min_count > 0:
-                    final_percent = min(count_percent, (aggregate_percent or 0.0))
-                elif agg_spec and min_count == 0:
-                    final_percent = aggregate_percent or 0.0
-                else:
-                    final_percent = count_percent
-
-                # --- progress dates persisted on the task ---
-                task_id = t["_id"]
-                min_count = int((t.get("constraints") or {}).get("min_count") or 0)
-
-                # 2.1 start_found_at: first matching found cache
-                start_dt = await _first_found_date(user_id, match_caches)
-                if start_dt and not t.get("start_found_at"):
-                    await coll_uctasks.update_one(
-                        {"_id": task_id},
-                        {"$set": {"start_found_at": start_dt, "updated_at": utcnow()}},
-                    )
-                    t["start_found_at"] = start_dt  # in-memory update for subsequent use
-
-                # 2.2 completed_at: date of the min_count-th matching find
-                completed_dt = None
-                if min_count > 0 and current >= min_count:
-                    completed_dt = await _nth_found_date(user_id, match_caches, min_count)
-
-                # persist the date if reached, or clear it if it was set but no longer valid
-                if completed_dt:
-                    if t.get("completed_at") != completed_dt:
-                        await coll_uctasks.update_one(
-                            {"_id": task_id},
-                            {
-                                "$set": {
-                                    "completed_at": completed_dt,
-                                    "updated_at": utcnow(),
-                                }
-                            },
-                        )
-                        t["completed_at"] = completed_dt
-                else:
-                    if t.get("completed_at") is not None:
-                        await coll_uctasks.update_one(
-                            {"_id": task_id},
-                            {"$set": {"completed_at": None, "updated_at": utcnow()}},
-                        )
-                        t["completed_at"] = None
-
-                snap = {
-                    "task_id": t["_id"],
-                    "order": order,
-                    "title": title,
-                    "status": t["status"],
-                    "supported_for_progress": True,
-                    "compiled_signature": sig,
-                    "min_count": min_count,
-                    "current_count": current,
-                    "percent": final_percent,
-                    # per-task aggregate block for DTO:
-                    "aggregate": (
-                        None
-                        if not agg_spec
-                        else {
-                            "total": aggregate_total,
-                            "target": aggregate_target or 0,
-                            "unit": aggregate_unit or "points",
-                        }
-                    ),
-                    "notes": notes,
-                    "evaluated_in_ms": ms,
-                    "last_evaluated_at": now(),
-                    "updated_at": t.get("updated_at"),
-                    "created_at": t.get("created_at"),
-                }
-
-        if snap["supported_for_progress"]:
-            tasks_supported += 1
-            sum_min += max(0, min_count)
-            bounded_for_sum = (
-                min(snap["current_count"], min_count) if min_count > 0 else snap["current_count"]
-            )
-            sum_current += bounded_for_sum
-            # A task is done when its status is "done" (handles both count-based
-            # and pure-aggregate tasks where min_count == 0).
-            if snap.get("status") == "done":
-                tasks_done += 1
-
+        snap = await _evaluate_task(user_id, coll_uctasks, t, force)
+        sum_current, sum_min, tasks_supported, tasks_done = _accumulate_task_totals(
+            snap, (sum_current, sum_min, tasks_supported, tasks_done)
+        )
         snapshots.append(snap)
 
-    # Aggregate percent: weighted by min_count when set, otherwise average of
-    # task-level percents (handles pure-aggregate tasks where min_count == 0).
-    if sum_min > 0:
-        aggregate_percent = round(100.0 * (sum_current / sum_min), 1)
-    else:
-        supported_snaps = [s for s in snapshots if s.get("supported_for_progress")]
-        aggregate_percent = (
-            round(sum(s["percent"] for s in supported_snaps) / len(supported_snaps), 1)
-            if supported_snaps
-            else 0.0
-        )
+    aggregate_percent = _compute_aggregate_percent(snapshots, sum_current, sum_min)
 
     progress_snapshot = {
         "percent": aggregate_percent,
@@ -530,26 +890,10 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
         "message": None,
         "created_at": now(),
     }
-    if (uc_computed_status != "completed") and (tasks_done == tasks_supported):
-        new_status = "completed"
-        await coll_uc.update_one(
-            {"_id": uc_id},
-            {
-                "$set": {
-                    "computed_status": new_status,
-                    "status": new_status,
-                    "progress": progress_snapshot,
-                    "updated_at": utcnow(),
-                }
-            },
-        )
-    else:
-        # Always persist the latest progress snapshot on the UC document so the
-        # detail view can display current progress without an extra query.
-        await coll_uc.update_one(
-            {"_id": uc_id},
-            {"$set": {"progress": progress_snapshot, "updated_at": utcnow()}},
-        )
+    await _finalize_uc_status(
+        coll_uc, uc_id, uc_computed_status, tasks_done, tasks_supported, progress_snapshot
+    )
+
     coll_progress = await get_collection("progress")
     await coll_progress.insert_one(doc)
     # enrich for response

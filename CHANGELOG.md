@@ -192,6 +192,7 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Move FastAPI deps from security.py to api/deps.py
 - *(frontend)* Move all config files to repo root
 - *(query-builder)* Split leaf compiler into per-kind helpers with dispatch table
+- *(progress)* Split evaluate_progress into single-purpose helpers
 
 ### 📚 Documentation
 
