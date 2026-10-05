@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Callable
 
 from bson import ObjectId
 
@@ -134,16 +134,12 @@ def _extract_aggregate_spec(
     return agg, cache_leaves
 
 
-def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
-    """Compile an AST leaf into `(field, condition)` pairs on `caches`.
+def _compile_type_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `type_in` leaf into `(field, condition)` pairs.
 
     Description:
-        Supports in particular:
-        - `type_in`, `size_in` (resolution via reference data/aliases)
-        - `country_is`, `state_in`
-        - `placed_year`, `placed_before`, `placed_after`
-        - `difficulty_between`, `terrain_between`
-        - `attributes` (±, `attributes.$elemMatch`)
+        Resolves cache types via canonical `types` entries, legacy `codes`, or legacy
+        `type_ids`, deduplicating the resulting ObjectIds.
 
     Args:
         leaf (dict): Individual leaf.
@@ -151,196 +147,330 @@ def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     Returns:
         list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
     """
-    k = leaf.get("kind")
     out: list[tuple[str, Any]] = []
-
     oids: list[ObjectId] = []
-    if k == "type_in":
-        # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code | code}]
-        for t in leaf.get("types") or []:
-            oid = t.get("cache_type_doc_id")
-            if oid:
-                try:
-                    oids.append(ObjectId(str(oid)))
-                except Exception:
-                    pass
-                continue
-            type_code = t.get("cache_type_code") or t.get("code")
-            if type_code:
-                resolved = resolve_type_code(type_code)
-                if resolved:
-                    oids.append(resolved)
 
-        # 2) legacy: codes: ["wherigo", ...]
-        for code in leaf.get("codes") or []:
-            oid = resolve_type_code(code)
-            if oid:
-                oids.append(oid)
-
-        # 3) legacy: type_ids: [<oid>, ...]
-        for tid in leaf.get("type_ids") or []:
+    # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code | code}]
+    for t in leaf.get("types") or []:
+        oid = t.get("cache_type_doc_id")
+        if oid:
             try:
-                oids.append(ObjectId(str(tid)))
+                oids.append(ObjectId(str(oid)))
+            except Exception:
+                pass
+            continue
+        type_code = t.get("cache_type_code") or t.get("code")
+        if type_code:
+            resolved = resolve_type_code(type_code)
+            if resolved:
+                oids.append(resolved)
+
+    # 2) legacy: codes: ["wherigo", ...]
+    for code in leaf.get("codes") or []:
+        oid = resolve_type_code(code)
+        if oid:
+            oids.append(oid)
+
+    # 3) legacy: type_ids: [<oid>, ...]
+    for tid in leaf.get("type_ids") or []:
+        try:
+            oids.append(ObjectId(str(tid)))
+        except Exception:
+            pass
+
+    if oids:
+        out.append(("type_id", {"$in": list(dict.fromkeys(oids))}))
+    return out
+
+
+def _compile_size_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `size_in` leaf into `(field, condition)` pairs.
+
+    Description:
+        Resolves cache sizes via canonical `sizes` entries, legacy `codes`/`names`, or
+        legacy `size_ids`, deduplicating the resulting ObjectIds.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    out: list[tuple[str, Any]] = []
+    oids: list[ObjectId] = []
+
+    # 1) canonique: sizes: [{cache_size_doc_id | cache_size_id | code | name}]
+    for s in leaf.get("sizes") or []:
+        oid = s.get("cache_size_doc_id")
+        if oid:
+            try:
+                oids.append(ObjectId(str(oid)))
+            except Exception:
+                pass
+            continue
+        if s.get("code"):
+            resolved = resolve_size_code(s["code"])
+            if resolved:
+                oids.append(ObjectId(str(resolved)))
+                continue
+        if s.get("name"):
+            resolved = resolve_size_name(s["name"])
+            if resolved:
+                oids.append(ObjectId(str(resolved)))
+
+    # 2) legacy: codes: ["micro", ...]
+    for code in leaf.get("codes") or []:
+        oid = resolve_size_code(code)
+        if oid:
+            oids.append(ObjectId(str(oid)))
+
+    # 3) legacy: names: ["micro", ...]
+    for nm in leaf.get("names") or []:
+        oid = resolve_size_name(nm)
+        if oid:
+            oids.append(ObjectId(str(oid)))
+
+    # 3) legacy: size_ids: [<oid>, ...]
+    for sid in leaf.get("size_ids") or []:
+        try:
+            oids.append(ObjectId(str(sid)))
+        except Exception:
+            pass
+
+    if oids:
+        out.append(("size_id", {"$in": list(dict.fromkeys(oids))}))
+    return out
+
+
+def _compile_country_is(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `country_is` leaf into `(field, condition)` pairs.
+
+    Description:
+        Accepts `leaf.country_id` or `leaf.country.{code|name}`. Falls back to an
+        impossible clause (0 matches) when the country cannot be resolved.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    out: list[tuple[str, Any]] = []
+    # Accept leaf.country_id OR leaf.country.{code|name}
+    cid = leaf.get("country_id")
+    if not cid:
+        c = leaf.get("country") or {}
+        if c.get("code"):
+            # Country cache is indexed by ‘name’; here we only have name => try name first,
+            # otherwise extend referentials_cache to handle code if needed.
+            # If countries have no "code", use resolve_country_name only.
+            cid = resolve_country_name(c.get("name") or c.get("code", ""))
+        elif c.get("name"):
+            cid = resolve_country_name(c["name"])
+    if cid:
+        out.append(("country_id", cid))
+    else:
+        # impossible clause -> 0 matches (avoid false positives)
+        out.append(("_id", ObjectId()))  # impossible _id
+    return out
+
+
+def _compile_state_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `state_in` leaf into `(field, condition)` pairs.
+
+    Description:
+        Accepts `state_ids` or `states[{name}]` (with country propagated via sibling).
+        Falls back to an impossible clause (0 matches) when no state resolves.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    out: list[tuple[str, Any]] = []
+    # Accepts state_ids OR states[{name}] (with country propagated via sibling)
+    ids: list[ObjectId] = list(leaf.get("state_ids") or [])
+
+    for s in leaf.get("states") or []:
+        sid = s.get("state_id")
+        if not sid and s.get("name"):
+            # on passe le country_id du leaf s’il est déjà là
+            country_id = leaf.get("country_id") or (leaf.get("country") or {}).get("country_id")
+            sid, _err = resolve_state_name(s["name"], country_id=country_id)
+        if sid:
+            try:
+                ids.append(ObjectId(str(sid)))
             except Exception:
                 pass
 
-        if oids:
-            out.append(("type_id", {"$in": list(dict.fromkeys(oids))}))
-        return out
+    if ids:
+        out.append(("state_id", {"$in": list(dict.fromkeys(ids))}))
+    else:
+        out.append(("_id", ObjectId()))  # clause impossible
+    return out
 
-    if k == "size_in":
-        # 1) canonique: sizes: [{cache_size_doc_id | cache_size_id | code | name}]
-        for s in leaf.get("sizes") or []:
-            oid = s.get("cache_size_doc_id")
-            if oid:
-                try:
-                    oids.append(ObjectId(str(oid)))
-                except Exception:
-                    pass
-                continue
-            if s.get("code"):
-                resolved = resolve_size_code(s["code"])
-                if resolved:
-                    oids.append(ObjectId(str(resolved)))
-                    continue
-            if s.get("name"):
-                resolved = resolve_size_name(s["name"])
-                if resolved:
-                    oids.append(ObjectId(str(resolved)))
 
-        # 2) legacy: codes: ["micro", ...]
-        for code in leaf.get("codes") or []:
-            oid = resolve_size_code(code)
-            if oid:
-                oids.append(ObjectId(str(oid)))
+def _compile_placed_year(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `placed_year` leaf into `(field, condition)` pairs.
 
-        # 3) legacy: names: ["micro", ...]
-        for nm in leaf.get("names") or []:
-            oid = resolve_size_name(nm)
-            if oid:
-                oids.append(ObjectId(str(oid)))
+    Args:
+        leaf (dict): Individual leaf.
 
-        # 3) legacy: size_ids: [<oid>, ...]
-        for sid in leaf.get("size_ids") or []:
-            try:
-                oids.append(ObjectId(str(sid)))
-            except Exception:
-                pass
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    y = int(leaf.get("year", 0))
+    start = datetime(y, 1, 1)
+    end = datetime(y + 1, 1, 1)
+    return [("placed_at", {"$gte": start, "$lt": end})]
 
-        if oids:
-            out.append(("size_id", {"$in": list(dict.fromkeys(oids))}))
-        return out
 
-    if k == "country_is":
-        # Accept leaf.country_id OR leaf.country.{code|name}
-        cid = leaf.get("country_id")
-        if not cid:
-            c = leaf.get("country") or {}
-            if c.get("code"):
-                # Country cache is indexed by ‘name’; here we only have name => try name first,
-                # otherwise extend referentials_cache to handle code if needed.
-                # If countries have no "code", use resolve_country_name only.
-                cid = resolve_country_name(c.get("name") or c.get("code", ""))
-            elif c.get("name"):
-                cid = resolve_country_name(c["name"])
-        if cid:
-            out.append(("country_id", cid))
-        else:
-            # impossible clause -> 0 matches (avoid false positives)
-            out.append(("_id", ObjectId()))  # impossible _id
-        return out
+def _compile_placed_before(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `placed_before` leaf into `(field, condition)` pairs.
 
-    if k == "state_in":
-        # Accepts state_ids OR states[{name}] (with country propagated via sibling)
-        ids: list[ObjectId] = list(leaf.get("state_ids") or [])
+    Args:
+        leaf (dict): Individual leaf.
 
-        for s in leaf.get("states") or []:
-            sid = s.get("state_id")
-            if not sid and s.get("name"):
-                # on passe le country_id du leaf s’il est déjà là
-                country_id = leaf.get("country_id") or (leaf.get("country") or {}).get("country_id")
-                sid, _err = resolve_state_name(s["name"], country_id=country_id)
-            if sid:
-                try:
-                    ids.append(ObjectId(str(sid)))
-                except Exception:
-                    pass
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    return [("placed_at", {"$lt": _mk_date(leaf.get("date"))})]
 
-        if ids:
-            out.append(("state_id", {"$in": list(dict.fromkeys(ids))}))
+
+def _compile_placed_after(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `placed_after` leaf into `(field, condition)` pairs.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    return [("placed_at", {"$gt": _mk_date(leaf.get("date"))})]
+
+
+def _compile_difficulty_between(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `difficulty_between` leaf into `(field, condition)` pairs.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    return [("difficulty", {"$gte": float(leaf["min"]), "$lte": float(leaf["max"])})]
+
+
+def _compile_terrain_between(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `terrain_between` leaf into `(field, condition)` pairs.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    return [("terrain", {"$gte": float(leaf["min"]), "$lte": float(leaf["max"])})]
+
+
+def _compile_attributes(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile an `attributes` leaf into `(field, condition)` pairs.
+
+    Description:
+        Canonical entries (`attributes: [{...}]`) and legacy `codes` (always positive)
+        are both compiled to `attributes.$elemMatch` conditions. An unresolvable entry
+        falls back to an impossible clause (0 matches) rather than being dropped.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    out: list[tuple[str, Any]] = []
+    # Canonical: [{"cache_attribute_doc_id"| "cache_attribute_id" | "code", "is_positive": bool}]
+    attrs = leaf.get("attributes") or []
+    for a in attrs:
+        is_pos = bool(a.get("is_positive", True))
+        attr_oid = a.get("cache_attribute_doc_id") or a.get("attribute_doc_id")
+        if not attr_oid and a.get("code"):
+            res = resolve_attribute_code(a["code"])
+            attr_oid = res[0] if res else None
+
+        if attr_oid:
+            out.append(
+                (
+                    "attributes",
+                    {
+                        "$elemMatch": {
+                            "attribute_doc_id": ObjectId(str(attr_oid)),
+                            "is_positive": is_pos,
+                        }
+                    },
+                )
+            )
         else:
             out.append(("_id", ObjectId()))  # clause impossible
-        return out
 
-    if k == "placed_year":
-        y = int(leaf.get("year", 0))
-        start = datetime(y, 1, 1)
-        end = datetime(y + 1, 1, 1)
-        out.append(("placed_at", {"$gte": start, "$lt": end}))
-        return out
-
-    if k == "placed_before":
-        out.append(("placed_at", {"$lt": _mk_date(leaf.get("date"))}))
-        return out
-
-    if k == "placed_after":
-        out.append(("placed_at", {"$gt": _mk_date(leaf.get("date"))}))
-        return out
-
-    if k == "difficulty_between":
-        out.append(("difficulty", {"$gte": float(leaf["min"]), "$lte": float(leaf["max"])}))
-        return out
-
-    if k == "terrain_between":
-        out.append(("terrain", {"$gte": float(leaf["min"]), "$lte": float(leaf["max"])}))
-        return out
-
-    if k == "attributes":
-        # Canonical: [{"cache_attribute_doc_id"| "cache_attribute_id" | "code", "is_positive": bool}]
-        attrs = leaf.get("attributes") or []
-        for a in attrs:
-            is_pos = bool(a.get("is_positive", True))
-            attr_oid = a.get("cache_attribute_doc_id") or a.get("attribute_doc_id")
-            if not attr_oid and a.get("code"):
-                res = resolve_attribute_code(a["code"])
-                attr_oid = res[0] if res else None
-
-            if attr_oid:
-                out.append(
-                    (
-                        "attributes",
-                        {
-                            "$elemMatch": {
-                                "attribute_doc_id": ObjectId(str(attr_oid)),
-                                "is_positive": is_pos,
-                            }
-                        },
-                    )
+    # legacy: "codes": ["picnic", "challenge"] (positifs)
+    for code in leaf.get("codes") or []:
+        res = resolve_attribute_code(code)
+        if res and res[0]:
+            out.append(
+                (
+                    "attributes",
+                    {
+                        "$elemMatch": {
+                            "attribute_doc_id": ObjectId(str(res[0])),
+                            "is_positive": True,
+                        }
+                    },
                 )
-            else:
-                out.append(("_id", ObjectId()))  # clause impossible
-
-        # legacy: "codes": ["picnic", "challenge"] (positifs)
-        for code in leaf.get("codes") or []:
-            res = resolve_attribute_code(code)
-            if res and res[0]:
-                out.append(
-                    (
-                        "attributes",
-                        {
-                            "$elemMatch": {
-                                "attribute_doc_id": ObjectId(str(res[0])),
-                                "is_positive": True,
-                            }
-                        },
-                    )
-                )
-            else:
-                out.append(("_id", ObjectId()))
-
-        return out
+            )
+        else:
+            out.append(("_id", ObjectId()))
 
     return out
+
+
+# Dispatch table for `_compile_leaf_to_cache_pairs`, keyed by `leaf["kind"]`.
+_LEAF_COMPILERS: dict[str, Callable[[dict[str, Any]], list[tuple[str, Any]]]] = {
+    "type_in": _compile_type_in,
+    "size_in": _compile_size_in,
+    "country_is": _compile_country_is,
+    "state_in": _compile_state_in,
+    "placed_year": _compile_placed_year,
+    "placed_before": _compile_placed_before,
+    "placed_after": _compile_placed_after,
+    "difficulty_between": _compile_difficulty_between,
+    "terrain_between": _compile_terrain_between,
+    "attributes": _compile_attributes,
+}
+
+
+def _compile_leaf_to_cache_pairs(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile an AST leaf into `(field, condition)` pairs on `caches`.
+
+    Description:
+        Dispatches to the per-`kind` compiler registered in `_LEAF_COMPILERS`. Supports
+        in particular:
+        - `type_in`, `size_in` (resolution via reference data/aliases)
+        - `country_is`, `state_in`
+        - `placed_year`, `placed_before`, `placed_after`
+        - `difficulty_between`, `terrain_between`
+        - `attributes` (±, `attributes.$elemMatch`)
+        An unknown `kind` compiles to no pairs.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    kind = leaf.get("kind")
+    compiler = _LEAF_COMPILERS.get(kind) if isinstance(kind, str) else None
+    return compiler(leaf) if compiler else []
 
 
 def compile_and_only(

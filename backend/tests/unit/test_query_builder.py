@@ -269,6 +269,16 @@ class TestCompileLeafToCachePairs:
         # Both resolve to the same OID → should deduplicate
         assert len(pairs[0][1]["$in"]) == 1
 
+    def test_type_in_invalid_canonical_doc_id_skipped(self):
+        leaf = {"kind": "type_in", "types": [{"cache_type_doc_id": "not-an-oid"}]}
+        pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs == []
+
+    def test_type_in_invalid_legacy_type_id_skipped(self):
+        leaf = {"kind": "type_in", "type_ids": ["not-an-oid"]}
+        pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs == []
+
     # --- size_in ---
 
     def test_size_in_canonical_doc_id(self):
@@ -294,6 +304,36 @@ class TestCompileLeafToCachePairs:
             pairs = _compile_leaf_to_cache_pairs(leaf)
         assert pairs == []
 
+    def test_size_in_invalid_canonical_doc_id_skipped(self):
+        leaf = {"kind": "size_in", "sizes": [{"cache_size_doc_id": "not-an-oid"}]}
+        pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs == []
+
+    def test_size_in_legacy_code_resolved(self):
+        leaf = {"kind": "size_in", "codes": ["S"]}
+        with patch("app.services.query_builder.resolve_size_code", return_value=_OID):
+            pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs[0][0] == "size_id"
+        assert _OID in pairs[0][1]["$in"]
+
+    def test_size_in_legacy_name_resolved(self):
+        leaf = {"kind": "size_in", "names": ["Small"]}
+        with patch("app.services.query_builder.resolve_size_name", return_value=_OID):
+            pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs[0][0] == "size_id"
+        assert _OID in pairs[0][1]["$in"]
+
+    def test_size_in_legacy_size_ids_valid(self):
+        leaf = {"kind": "size_in", "size_ids": [str(_OID)]}
+        pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs[0][0] == "size_id"
+        assert _OID in pairs[0][1]["$in"]
+
+    def test_size_in_legacy_size_ids_invalid_skipped(self):
+        leaf = {"kind": "size_in", "size_ids": ["not-an-oid"]}
+        pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs == []
+
     # --- country_is ---
 
     def test_country_is_with_country_id(self):
@@ -314,6 +354,15 @@ class TestCompileLeafToCachePairs:
         # Should return an impossible _id clause
         assert pairs[0][0] == "_id"
 
+    def test_country_is_resolved_by_code_only(self):
+        leaf = {"kind": "country_is", "country": {"code": "FR"}}
+        with patch(
+            "app.services.query_builder.resolve_country_name", return_value=_OID
+        ) as mock_resolve:
+            pairs = _compile_leaf_to_cache_pairs(leaf)
+        mock_resolve.assert_called_once_with("FR")
+        assert pairs[0] == ("country_id", _OID)
+
     # --- state_in ---
 
     def test_state_in_with_state_ids(self):
@@ -333,6 +382,16 @@ class TestCompileLeafToCachePairs:
     def test_state_in_unresolved_impossible_clause(self):
         leaf = {"kind": "state_in", "states": []}
         pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs[0][0] == "_id"
+
+    def test_state_in_resolved_name_invalid_oid_impossible_clause(self):
+        leaf = {"kind": "state_in", "states": [{"name": "Foo"}]}
+        with patch(
+            "app.services.query_builder.resolve_state_name",
+            return_value=("not-an-oid", None),
+        ):
+            pairs = _compile_leaf_to_cache_pairs(leaf)
+        # Invalid ObjectId is swallowed, so no id is collected → impossible clause
         assert pairs[0][0] == "_id"
 
     # --- placed_year ---
@@ -423,6 +482,12 @@ class TestCompileLeafToCachePairs:
             pairs = _compile_leaf_to_cache_pairs(leaf)
         assert pairs[0][0] == "attributes"
         assert pairs[0][1]["$elemMatch"]["is_positive"] is True
+
+    def test_attributes_legacy_codes_unresolved_impossible_clause(self):
+        leaf = {"kind": "attributes", "codes": ["unknown_attr"]}
+        with patch("app.services.query_builder.resolve_attribute_code", return_value=None):
+            pairs = _compile_leaf_to_cache_pairs(leaf)
+        assert pairs[0][0] == "_id"
 
     # --- unknown kind ---
 
