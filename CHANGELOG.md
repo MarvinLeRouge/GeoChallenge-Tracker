@@ -197,6 +197,7 @@ To regenerate locally, run `npm run changelog`.
 - *(maintenance)* Split orphan-cleanup and backup helpers out of route handlers
 - *(gpx-import)* Split pipeline steps and per-item logic into helpers
 - *(task-expression-validator)* Split per-kind and per-item validators
+- *(progress)* Split aggregate-kind and ETA-estimation helpers
 
 ### 📚 Documentation
 
