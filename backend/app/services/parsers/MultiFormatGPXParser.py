@@ -57,6 +57,43 @@ class MultiFormatGPXParser:
 
         self.sanitizer = HTMLSanitizer()
 
+    @staticmethod
+    def _detect_format_from_creator(creator: str) -> str | None:
+        """Detect the format from the GPX file's `creator` attribute."""
+        if "cgeo" in creator or "c:geo" in creator:
+            return "cgeo"
+        return None
+
+    @staticmethod
+    def _detect_format_from_schema_location(schema_location: str, creator: str) -> str | None:
+        """Detect the format from the XSI schemaLocation (and creator for Pocket Query)."""
+        if "cgeo" in schema_location:
+            return "cgeo"
+        if "pocket query" in schema_location or "pocket query" in creator:
+            return "pocket_query"
+        return None
+
+    @staticmethod
+    def _detect_format_from_groundspeak_namespace(root: Any) -> str | None:
+        """Detect the format from the groundspeak cache namespace URI/version."""
+        for _prefix, uri in root.nsmap.items():
+            if "groundspeak.com/cache" in uri:
+                if "1/0/1" in uri:
+                    return "cgeo"
+                if "1/0" in uri:
+                    return "pocket_query"
+        return None
+
+    @staticmethod
+    def _detect_format_from_text_content(root: Any) -> str | None:
+        """Last-resort format detection by searching the serialized XML text."""
+        root_text = etree.tostring(root, encoding="unicode", method="xml").lower()
+        if "c:geo" in root_text:
+            return "cgeo"
+        if "pocket query" in root_text:
+            return "pocket_query"
+        return None
+
     def _detect_format(self) -> str:
         """Detect the GPX format by reading root metadata.
 
@@ -73,35 +110,27 @@ class MultiFormatGPXParser:
 
             # Check the file creator
             creator = root.get("creator", "").lower()
-            if "cgeo" in creator or "c:geo" in creator:
-                return "cgeo"
+            detected = self._detect_format_from_creator(creator)
+            if detected:
+                return detected
 
             # Check schema URLs
             schema_location = root.get(
                 "{http://www.w3.org/2001/XMLSchema-instance}schemaLocation", ""
             ).lower()
-            if "cgeo" in schema_location:
-                return "cgeo"
-
-            # Check whether it is a Pocket Query
-            if "pocket query" in schema_location or "pocket query" in creator:
-                return "pocket_query"
+            detected = self._detect_format_from_schema_location(schema_location, creator)
+            if detected:
+                return detected
 
             # Check the groundspeak namespace if present in the root element
-            for _prefix, uri in root.nsmap.items():
-                if "groundspeak.com/cache" in uri:
-                    # Check the specific schema version
-                    if "1/0/1" in uri:
-                        return "cgeo"
-                    elif "1/0" in uri:
-                        return "pocket_query"
+            detected = self._detect_format_from_groundspeak_namespace(root)
+            if detected:
+                return detected
 
             # Last resort: search in the text content
-            root_text = etree.tostring(root, encoding="unicode", method="xml").lower()
-            if "c:geo" in root_text:
-                return "cgeo"
-            elif "pocket query" in root_text:
-                return "pocket_query"
+            detected = self._detect_format_from_text_content(root)
+            if detected:
+                return detected
 
         except Exception:
             # Error during format detection; continue with automatic detection
@@ -162,10 +191,17 @@ class MultiFormatGPXParser:
 
         return self.caches
 
-    def _extract_cache_data(self, wpt, cache_elem) -> dict:
-        """Extract cache data according to the detected format."""
-        # Start with the base fields common to all formats
-        cache = {
+    def _build_base_cache_fields(self, wpt: Any, cache_elem: Any) -> dict[str, Any]:
+        """Build the cache fields common to all GPX formats.
+
+        Args:
+            wpt: The waypoint XML element.
+            cache_elem: The groundspeak cache XML element.
+
+        Returns:
+            dict: Base cache fields.
+        """
+        return {
             "GC": self.find_text_deep(wpt, "gpx:name"),
             "title": self.find_text_deep(wpt, "gpx:desc"),
             "latitude": float(wpt.attrib["lat"]) if "lat" in wpt.attrib else None,
@@ -184,45 +220,83 @@ class MultiFormatGPXParser:
             "attributes": self._parse_attributes(cache_elem),
         }
 
+    def _apply_cgeo_fields(self, cache: dict[str, Any], wpt: Any) -> None:
+        """Add cgeo/GSAK-specific fields to `cache`, mutating it in place.
+
+        Args:
+            cache: Cache dict to enrich.
+            wpt: The waypoint XML element.
+        """
+        cache["favorites"] = int(self.find_text_deep(wpt, "gsak:FavPoints") or 0)
+        cache["notes"] = self.find_text_deep(wpt, "gsak:GcNote")
+        cache["found_date"] = self.find_text_deep(wpt, "gsak:UserFound")
+
+    def _resolve_event_found_date(
+        self, wpt: Any, found_date: str | None, cache_type: str
+    ) -> str | None:
+        """Fall back to the placed date as the found date, for event-type caches.
+
+        Args:
+            wpt: The waypoint XML element.
+            found_date: Found date already resolved from logs (if any).
+            cache_type: Lowercased cache type.
+
+        Returns:
+            str | None: The resolved found date.
+        """
+        if found_date or "event" not in cache_type:
+            return found_date
+
+        # Use the placed date as the found date for event caches
+        # Try the direct <time> field first, then gpx:time
+        event_time = self.find_text_deep(wpt, "time") or self.find_text_deep(wpt, "gpx:time")
+        if not event_time:
+            return found_date
+
+        if not event_time.endswith("Z"):
+            event_time += "Z"
+        return event_time
+
+    def _apply_pocket_query_fields(self, cache: dict[str, Any], wpt: Any, cache_elem: Any) -> None:
+        """Add pocket-query-specific fields to `cache`, mutating it in place.
+
+        Args:
+            cache: Cache dict to enrich.
+            wpt: The waypoint XML element.
+            cache_elem: The groundspeak cache XML element.
+        """
+        # For now, initialize with default values
+        # Can be improved by looking for additional format-specific fields
+        cache["favorites"] = 0  # Pocket queries do not carry GSAK FavPoints
+        cache["notes"] = None
+
+        # Check whether logs are available in the pocket query format
+        found_date = self._extract_found_date_from_logs(cache_elem)
+
+        # For event-type caches, if no found date is available,
+        # use the placed date (time) as the found date
+        raw_cache_type = cache.get("cache_type", "")
+
+        # Ensure it is a string before calling .lower()
+        if isinstance(raw_cache_type, str):
+            cache_type = raw_cache_type.lower()
+        else:
+            # Convert to str if it is another type (float, list, etc.)
+            cache_type = str(raw_cache_type).lower()
+
+        cache["found_date"] = self._resolve_event_found_date(wpt, found_date, cache_type)
+
+    def _extract_cache_data(self, wpt, cache_elem) -> dict:
+        """Extract cache data according to the detected format."""
+        cache = self._build_base_cache_fields(wpt, cache_elem)
+
         # Add format-specific fields
         if self.format_type == "cgeo":
             # Fields specific to the cgeo format (with GSAK)
-            cache["favorites"] = int(self.find_text_deep(wpt, "gsak:FavPoints") or 0)
-            cache["notes"] = self.find_text_deep(wpt, "gsak:GcNote")
-            cache["found_date"] = self.find_text_deep(wpt, "gsak:UserFound")
+            self._apply_cgeo_fields(cache, wpt)
         elif self.format_type == "pocket_query":
             # Fields specific to the pocket query format
-            # For now, initialize with default values
-            # Can be improved by looking for additional format-specific fields
-            cache["favorites"] = 0  # Pocket queries do not carry GSAK FavPoints
-            cache["notes"] = None
-
-            # Check whether logs are available in the pocket query format
-            found_date = self._extract_found_date_from_logs(cache_elem)
-
-            # For event-type caches, if no found date is available,
-            # use the placed date (time) as the found date
-            raw_cache_type = cache.get("cache_type", "")
-
-            # Ensure it is a string before calling .lower()
-            if isinstance(raw_cache_type, str):
-                cache_type = raw_cache_type.lower()
-            else:
-                # Convert to str if it is another type (float, list, etc.)
-                cache_type = str(raw_cache_type).lower()
-
-            if not found_date and ("event" in cache_type):
-                # Use the placed date as the found date for event caches
-                # Try the direct <time> field first, then gpx:time
-                event_time = self.find_text_deep(wpt, "time") or self.find_text_deep(
-                    wpt, "gpx:time"
-                )
-                if event_time:
-                    found_date = event_time
-                    if not found_date.endswith("Z"):
-                        found_date += "Z"
-
-            cache["found_date"] = found_date
+            self._apply_pocket_query_fields(cache, wpt, cache_elem)
 
         return cache
 

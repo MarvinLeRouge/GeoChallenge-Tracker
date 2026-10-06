@@ -206,6 +206,7 @@ To regenerate locally, run `npm run changelog`.
 - *(target-evaluator)* Split pipeline-stage and dt-cell helpers
 - *(cache-validators)* Split comprehensive validation into single-purpose checks
 - *(matrix-verification)* Split filter resolution and tours computation
+- *(gpx-parser)* Split format detection and cache-data extraction
 
 ### 📚 Documentation
 
