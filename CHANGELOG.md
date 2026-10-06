@@ -212,6 +212,7 @@ To regenerate locally, run `npm run changelog`.
 - *(zone-assigner)* Split the 3-pass zone resolution into per-pass helpers
 - *(user-stats)* Split user resolution and per-stat computation
 - *(auth)* Split login into credential/auth/rehash/verification helpers
+- *(data-normalizer)* Split field-group extraction helpers
 
 ### 📚 Documentation
 
