@@ -210,6 +210,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-maintenance)* Extract mock-db setup and backup-request helpers
 - *(calendar-verification)* Split filter resolution and tours computation
 - *(zone-assigner)* Split the 3-pass zone resolution into per-pass helpers
+- *(user-stats)* Split user resolution and per-stat computation
 
 ### 📚 Documentation
 
