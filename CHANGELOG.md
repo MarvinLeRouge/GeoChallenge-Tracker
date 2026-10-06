@@ -193,6 +193,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Move all config files to repo root
 - *(query-builder)* Split leaf compiler into per-kind helpers with dispatch table
 - *(progress)* Split evaluate_progress into single-purpose helpers
+- *(query-builder)* Split remaining complex leaf/aggregate helpers
 
 ### 📚 Documentation
 

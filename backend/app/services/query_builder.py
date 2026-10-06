@@ -71,18 +71,76 @@ def _flatten_and_nodes(expr: dict[str, Any]) -> list[dict[str, Any]] | None:
     return [expr]  # leaf
 
 
+def _build_difficulty_agg_spec(lf: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the aggregate spec for `aggregate_sum_difficulty_at_least`."""
+    if lf.get("min_total") is None:
+        return None
+    return {"kind": "difficulty", "min_total": int(lf["min_total"])}
+
+
+def _build_terrain_agg_spec(lf: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the aggregate spec for `aggregate_sum_terrain_at_least`."""
+    if lf.get("min_total") is None:
+        return None
+    return {"kind": "terrain", "min_total": int(lf["min_total"])}
+
+
+def _build_diff_plus_terr_agg_spec(lf: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the aggregate spec for `aggregate_sum_diff_plus_terr_at_least`."""
+    if lf.get("min_total") is None:
+        return None
+    return {"kind": "diff_plus_terr", "min_total": int(lf["min_total"])}
+
+
+def _build_altitude_agg_spec(lf: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the aggregate spec for `aggregate_sum_altitude_at_least`."""
+    if lf.get("min_total") is None:
+        return None
+    return {"kind": "altitude", "min_total": int(lf["min_total"])}
+
+
+def _build_distinct_countries_agg_spec(lf: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the aggregate spec for `aggregate_count_distinct_countries_at_least`."""
+    if lf.get("min_total") is None:
+        return None
+    return {"kind": "distinct_countries", "min_total": int(lf["min_total"])}
+
+
+def _build_dt_matrix_agg_spec(lf: dict[str, Any]) -> dict[str, Any]:
+    """Build the aggregate spec for `aggregate_dt_matrix_complete`."""
+    max_d = float(lf.get("max_difficulty", 5.0))
+    max_t = float(lf.get("max_terrain", 5.0))
+    n_d = round((max_d - 1.0) / 0.5) + 1
+    n_t = round((max_t - 1.0) / 0.5) + 1
+    return {
+        "kind": "dt_matrix",
+        "max_difficulty": max_d,
+        "max_terrain": max_t,
+        "min_total": n_d * n_t,
+    }
+
+
+# Dispatch table for `_extract_aggregate_spec`, keyed by leaf `kind`.
+_AGGREGATE_SPEC_BUILDERS: dict[str, Callable[[dict[str, Any]], dict[str, Any] | None]] = {
+    "aggregate_sum_difficulty_at_least": _build_difficulty_agg_spec,
+    "aggregate_sum_terrain_at_least": _build_terrain_agg_spec,
+    "aggregate_sum_diff_plus_terr_at_least": _build_diff_plus_terr_agg_spec,
+    "aggregate_sum_altitude_at_least": _build_altitude_agg_spec,
+    "aggregate_count_distinct_countries_at_least": _build_distinct_countries_agg_spec,
+    "aggregate_dt_matrix_complete": _build_dt_matrix_agg_spec,
+}
+
+
 def _extract_aggregate_spec(
     leaves: list[dict[str, Any]],
 ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
     """Extract the aggregate specification and the cache-level leaves.
 
     Description:
-        Detects the **first** aggregate leaf among:
-        - `aggregate_sum_difficulty_at_least`
-        - `aggregate_sum_terrain_at_least`
-        - `aggregate_sum_diff_plus_terr_at_least`
-        - `aggregate_sum_altitude_at_least`
-        Returns `(agg_spec, leaves_without_aggregate)`.
+        Detects the **first** aggregate leaf, dispatching to the builder registered in
+        `_AGGREGATE_SPEC_BUILDERS` for its `kind`. Any other leaf is kept in
+        `cache_leaves`; a recognized aggregate-kind leaf is always dropped from
+        `cache_leaves`, even if its builder returns None (e.g. missing `min_total`).
 
     Args:
         leaves (list[dict]): AND leaves.
@@ -90,48 +148,78 @@ def _extract_aggregate_spec(
     Returns:
         tuple[dict | None, list[dict]]: Aggregate spec (or None) and remaining leaves.
     """
-    agg = None
+    agg: dict[str, Any] | None = None
     cache_leaves: list[dict[str, Any]] = []
     for lf in leaves:
-        k = lf.get("kind")
-        if k in (
-            "aggregate_sum_difficulty_at_least",
-            "aggregate_sum_terrain_at_least",
-            "aggregate_sum_diff_plus_terr_at_least",
-            "aggregate_sum_altitude_at_least",
-            "aggregate_count_distinct_countries_at_least",
-            "aggregate_dt_matrix_complete",
-        ):
-            if agg is None:
-                if k == "aggregate_sum_difficulty_at_least" and lf.get("min_total") is not None:
-                    agg = {"kind": "difficulty", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_sum_terrain_at_least" and lf.get("min_total") is not None:
-                    agg = {"kind": "terrain", "min_total": int(lf["min_total"])}
-                elif (
-                    k == "aggregate_sum_diff_plus_terr_at_least" and lf.get("min_total") is not None
-                ):
-                    agg = {"kind": "diff_plus_terr", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_sum_altitude_at_least" and lf.get("min_total") is not None:
-                    agg = {"kind": "altitude", "min_total": int(lf["min_total"])}
-                elif (
-                    k == "aggregate_count_distinct_countries_at_least"
-                    and lf.get("min_total") is not None
-                ):
-                    agg = {"kind": "distinct_countries", "min_total": int(lf["min_total"])}
-                elif k == "aggregate_dt_matrix_complete":
-                    max_d = float(lf.get("max_difficulty", 5.0))
-                    max_t = float(lf.get("max_terrain", 5.0))
-                    n_d = round((max_d - 1.0) / 0.5) + 1
-                    n_t = round((max_t - 1.0) / 0.5) + 1
-                    agg = {
-                        "kind": "dt_matrix",
-                        "max_difficulty": max_d,
-                        "max_terrain": max_t,
-                        "min_total": n_d * n_t,
-                    }
-        else:
+        kind = lf.get("kind")
+        builder = _AGGREGATE_SPEC_BUILDERS.get(kind) if isinstance(kind, str) else None
+        if builder is None:
             cache_leaves.append(lf)
+            continue
+        if agg is None:
+            agg = builder(lf)
     return agg, cache_leaves
+
+
+def _resolve_type_ids_from_canonical(types: list[dict[str, Any]]) -> list[ObjectId]:
+    """Resolve type ObjectIds from canonical `types` entries.
+
+    Args:
+        types (list[dict]): `{cache_type_doc_id | cache_type_code | code}` entries.
+
+    Returns:
+        list[ObjectId]: Resolved ObjectIds (invalid/unresolvable entries are skipped).
+    """
+    oids: list[ObjectId] = []
+    for t in types:
+        oid = t.get("cache_type_doc_id")
+        if oid:
+            try:
+                oids.append(ObjectId(str(oid)))
+            except Exception:
+                pass
+            continue
+        type_code = t.get("cache_type_code") or t.get("code")
+        if type_code:
+            resolved = resolve_type_code(type_code)
+            if resolved:
+                oids.append(resolved)
+    return oids
+
+
+def _resolve_type_ids_from_legacy_codes(codes: list[str]) -> list[ObjectId]:
+    """Resolve type ObjectIds from legacy `codes` (e.g. `["wherigo", ...]`).
+
+    Args:
+        codes (list[str]): Legacy type codes.
+
+    Returns:
+        list[ObjectId]: Resolved ObjectIds (unresolvable codes are skipped).
+    """
+    oids: list[ObjectId] = []
+    for code in codes:
+        oid = resolve_type_code(code)
+        if oid:
+            oids.append(oid)
+    return oids
+
+
+def _resolve_type_ids_from_legacy_ids(type_ids: list[Any]) -> list[ObjectId]:
+    """Resolve type ObjectIds from legacy `type_ids`.
+
+    Args:
+        type_ids (list): Legacy raw ObjectId-like values.
+
+    Returns:
+        list[ObjectId]: Valid ObjectIds (invalid values are skipped).
+    """
+    oids: list[ObjectId] = []
+    for tid in type_ids:
+        try:
+            oids.append(ObjectId(str(tid)))
+        except Exception:
+            pass
+    return oids
 
 
 def _compile_type_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
@@ -147,60 +235,27 @@ def _compile_type_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     Returns:
         list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
     """
-    out: list[tuple[str, Any]] = []
-    oids: list[ObjectId] = []
-
-    # 1) canonique: types: [{cache_type_doc_id | cache_type_id | cache_type_code | code}]
-    for t in leaf.get("types") or []:
-        oid = t.get("cache_type_doc_id")
-        if oid:
-            try:
-                oids.append(ObjectId(str(oid)))
-            except Exception:
-                pass
-            continue
-        type_code = t.get("cache_type_code") or t.get("code")
-        if type_code:
-            resolved = resolve_type_code(type_code)
-            if resolved:
-                oids.append(resolved)
-
-    # 2) legacy: codes: ["wherigo", ...]
-    for code in leaf.get("codes") or []:
-        oid = resolve_type_code(code)
-        if oid:
-            oids.append(oid)
-
-    # 3) legacy: type_ids: [<oid>, ...]
-    for tid in leaf.get("type_ids") or []:
-        try:
-            oids.append(ObjectId(str(tid)))
-        except Exception:
-            pass
-
+    oids = [
+        *_resolve_type_ids_from_canonical(leaf.get("types") or []),
+        *_resolve_type_ids_from_legacy_codes(leaf.get("codes") or []),
+        *_resolve_type_ids_from_legacy_ids(leaf.get("type_ids") or []),
+    ]
     if oids:
-        out.append(("type_id", {"$in": list(dict.fromkeys(oids))}))
-    return out
+        return [("type_id", {"$in": list(dict.fromkeys(oids))})]
+    return []
 
 
-def _compile_size_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
-    """Compile a `size_in` leaf into `(field, condition)` pairs.
-
-    Description:
-        Resolves cache sizes via canonical `sizes` entries, legacy `codes`/`names`, or
-        legacy `size_ids`, deduplicating the resulting ObjectIds.
+def _resolve_size_ids_from_canonical(sizes: list[dict[str, Any]]) -> list[ObjectId]:
+    """Resolve size ObjectIds from canonical `sizes` entries.
 
     Args:
-        leaf (dict): Individual leaf.
+        sizes (list[dict]): `{cache_size_doc_id | code | name}` entries.
 
     Returns:
-        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+        list[ObjectId]: Resolved ObjectIds (invalid/unresolvable entries are skipped).
     """
-    out: list[tuple[str, Any]] = []
     oids: list[ObjectId] = []
-
-    # 1) canonique: sizes: [{cache_size_doc_id | cache_size_id | code | name}]
-    for s in leaf.get("sizes") or []:
+    for s in sizes:
         oid = s.get("cache_size_doc_id")
         if oid:
             try:
@@ -217,29 +272,83 @@ def _compile_size_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
             resolved = resolve_size_name(s["name"])
             if resolved:
                 oids.append(ObjectId(str(resolved)))
+    return oids
 
-    # 2) legacy: codes: ["micro", ...]
-    for code in leaf.get("codes") or []:
+
+def _resolve_size_ids_from_legacy_codes(codes: list[str]) -> list[ObjectId]:
+    """Resolve size ObjectIds from legacy `codes` (e.g. `["micro", ...]`).
+
+    Args:
+        codes (list[str]): Legacy size codes.
+
+    Returns:
+        list[ObjectId]: Resolved ObjectIds (unresolvable codes are skipped).
+    """
+    oids: list[ObjectId] = []
+    for code in codes:
         oid = resolve_size_code(code)
         if oid:
             oids.append(ObjectId(str(oid)))
+    return oids
 
-    # 3) legacy: names: ["micro", ...]
-    for nm in leaf.get("names") or []:
+
+def _resolve_size_ids_from_legacy_names(names: list[str]) -> list[ObjectId]:
+    """Resolve size ObjectIds from legacy `names` (e.g. `["micro", ...]`).
+
+    Args:
+        names (list[str]): Legacy size names.
+
+    Returns:
+        list[ObjectId]: Resolved ObjectIds (unresolvable names are skipped).
+    """
+    oids: list[ObjectId] = []
+    for nm in names:
         oid = resolve_size_name(nm)
         if oid:
             oids.append(ObjectId(str(oid)))
+    return oids
 
-    # 3) legacy: size_ids: [<oid>, ...]
-    for sid in leaf.get("size_ids") or []:
+
+def _resolve_size_ids_from_legacy_ids(size_ids: list[Any]) -> list[ObjectId]:
+    """Resolve size ObjectIds from legacy `size_ids`.
+
+    Args:
+        size_ids (list): Legacy raw ObjectId-like values.
+
+    Returns:
+        list[ObjectId]: Valid ObjectIds (invalid values are skipped).
+    """
+    oids: list[ObjectId] = []
+    for sid in size_ids:
         try:
             oids.append(ObjectId(str(sid)))
         except Exception:
             pass
+    return oids
 
+
+def _compile_size_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile a `size_in` leaf into `(field, condition)` pairs.
+
+    Description:
+        Resolves cache sizes via canonical `sizes` entries, legacy `codes`/`names`, or
+        legacy `size_ids`, deduplicating the resulting ObjectIds.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    oids = [
+        *_resolve_size_ids_from_canonical(leaf.get("sizes") or []),
+        *_resolve_size_ids_from_legacy_codes(leaf.get("codes") or []),
+        *_resolve_size_ids_from_legacy_names(leaf.get("names") or []),
+        *_resolve_size_ids_from_legacy_ids(leaf.get("size_ids") or []),
+    ]
     if oids:
-        out.append(("size_id", {"$in": list(dict.fromkeys(oids))}))
-    return out
+        return [("size_id", {"$in": list(dict.fromkeys(oids))})]
+    return []
 
 
 def _compile_country_is(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
@@ -275,6 +384,31 @@ def _compile_country_is(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     return out
 
 
+def _resolve_state_ids(leaf: dict[str, Any], states: list[dict[str, Any]]) -> list[ObjectId]:
+    """Resolve state ObjectIds from `state_ids` plus `states[{name}]` entries.
+
+    Args:
+        leaf (dict): Individual leaf (used for `state_ids` and the sibling country).
+        states (list[dict]): `{state_id | name}` entries.
+
+    Returns:
+        list[ObjectId]: Valid ObjectIds (invalid/unresolvable entries are skipped).
+    """
+    ids: list[ObjectId] = list(leaf.get("state_ids") or [])
+    for s in states:
+        sid = s.get("state_id")
+        if not sid and s.get("name"):
+            # on passe le country_id du leaf s'il est déjà là
+            country_id = leaf.get("country_id") or (leaf.get("country") or {}).get("country_id")
+            sid, _err = resolve_state_name(s["name"], country_id=country_id)
+        if sid:
+            try:
+                ids.append(ObjectId(str(sid)))
+            except Exception:
+                pass
+    return ids
+
+
 def _compile_state_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     """Compile a `state_in` leaf into `(field, condition)` pairs.
 
@@ -288,27 +422,10 @@ def _compile_state_in(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     Returns:
         list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
     """
-    out: list[tuple[str, Any]] = []
-    # Accepts state_ids OR states[{name}] (with country propagated via sibling)
-    ids: list[ObjectId] = list(leaf.get("state_ids") or [])
-
-    for s in leaf.get("states") or []:
-        sid = s.get("state_id")
-        if not sid and s.get("name"):
-            # on passe le country_id du leaf s’il est déjà là
-            country_id = leaf.get("country_id") or (leaf.get("country") or {}).get("country_id")
-            sid, _err = resolve_state_name(s["name"], country_id=country_id)
-        if sid:
-            try:
-                ids.append(ObjectId(str(sid)))
-            except Exception:
-                pass
-
+    ids = _resolve_state_ids(leaf, leaf.get("states") or [])
     if ids:
-        out.append(("state_id", {"$in": list(dict.fromkeys(ids))}))
-    else:
-        out.append(("_id", ObjectId()))  # clause impossible
-    return out
+        return [("state_id", {"$in": list(dict.fromkeys(ids))})]
+    return [("_id", ObjectId())]  # clause impossible
 
 
 def _compile_placed_year(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
@@ -374,23 +491,20 @@ def _compile_terrain_between(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
     return [("terrain", {"$gte": float(leaf["min"]), "$lte": float(leaf["max"])})]
 
 
-def _compile_attributes(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
-    """Compile an `attributes` leaf into `(field, condition)` pairs.
+def _compile_attribute_entries(attrs: list[dict[str, Any]]) -> list[tuple[str, Any]]:
+    """Compile canonical attribute entries into `attributes.$elemMatch` pairs.
 
     Description:
-        Canonical entries (`attributes: [{...}]`) and legacy `codes` (always positive)
-        are both compiled to `attributes.$elemMatch` conditions. An unresolvable entry
-        falls back to an impossible clause (0 matches) rather than being dropped.
+        Canonical: `[{"cache_attribute_doc_id" | "attribute_doc_id" | "code", "is_positive": bool}]`.
+        An unresolvable entry falls back to an impossible clause (0 matches).
 
     Args:
-        leaf (dict): Individual leaf.
+        attrs (list[dict]): Canonical attribute entries.
 
     Returns:
         list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
     """
     out: list[tuple[str, Any]] = []
-    # Canonical: [{"cache_attribute_doc_id"| "cache_attribute_id" | "code", "is_positive": bool}]
-    attrs = leaf.get("attributes") or []
     for a in attrs:
         is_pos = bool(a.get("is_positive", True))
         attr_oid = a.get("cache_attribute_doc_id") or a.get("attribute_doc_id")
@@ -412,9 +526,24 @@ def _compile_attributes(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
             )
         else:
             out.append(("_id", ObjectId()))  # clause impossible
+    return out
 
-    # legacy: "codes": ["picnic", "challenge"] (positifs)
-    for code in leaf.get("codes") or []:
+
+def _compile_attribute_legacy_codes(codes: list[str]) -> list[tuple[str, Any]]:
+    """Compile legacy, always-positive attribute codes into `attributes.$elemMatch` pairs.
+
+    Description:
+        Legacy: `"codes": ["picnic", "challenge"]` (always positive). An unresolvable
+        code falls back to an impossible clause (0 matches).
+
+    Args:
+        codes (list[str]): Legacy attribute codes.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    out: list[tuple[str, Any]] = []
+    for code in codes:
         res = resolve_attribute_code(code)
         if res and res[0]:
             out.append(
@@ -430,8 +559,26 @@ def _compile_attributes(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
             )
         else:
             out.append(("_id", ObjectId()))
-
     return out
+
+
+def _compile_attributes(leaf: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Compile an `attributes` leaf into `(field, condition)` pairs.
+
+    Description:
+        Canonical entries (`attributes: [{...}]`) and legacy `codes` (always positive)
+        are both compiled to `attributes.$elemMatch` conditions. An unresolvable entry
+        falls back to an impossible clause (0 matches) rather than being dropped.
+
+    Args:
+        leaf (dict): Individual leaf.
+
+    Returns:
+        list[tuple[str, Any]]: `(field, condition)` pairs to merge with AND.
+    """
+    return _compile_attribute_entries(
+        leaf.get("attributes") or []
+    ) + _compile_attribute_legacy_codes(leaf.get("codes") or [])
 
 
 # Dispatch table for `_compile_leaf_to_cache_pairs`, keyed by `leaf["kind"]`.
