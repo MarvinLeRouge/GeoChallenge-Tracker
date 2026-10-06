@@ -16,92 +16,104 @@ class CalendarVerificationService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
 
-    async def verify_user_calendar(self, user_id: str, filters: CalendarFilters) -> CalendarResult:
-        """
-        Verify if user has completed calendar challenges.
+    async def _resolve_cache_type_id(
+        self, cache_type_name: str | None
+    ) -> tuple[ObjectId | None, bool]:
+        """Resolve a cache type name/code/ObjectId string to its ObjectId.
 
         Args:
-            user_id: The user ID to check
-            filters: Optional filters for cache type and size
+            cache_type_name: Cache type ObjectId string, name, or code (optional).
 
         Returns:
-            CalendarResult with completion status for both 365 and 366 days
+            tuple[ObjectId | None, bool]: `(resolved_id, not_found)`. `not_found` is
+                True when a filter was requested but couldn't be resolved to an
+                existing type.
         """
-        # Build query for found caches
+        if not cache_type_name:
+            return None, False
+
+        try:
+            potential_id = ObjectId(cache_type_name)
+            cache_type = await self.db.cache_types.find_one({"_id": potential_id})
+            if cache_type:
+                return potential_id, False
+            return None, True
+        except InvalidId:
+            cache_type = await self.db.cache_types.find_one(
+                {
+                    "$or": [
+                        {"name": {"$regex": f"^{cache_type_name}$", "$options": "i"}},
+                        {"code": {"$regex": f"^{cache_type_name}$", "$options": "i"}},
+                    ]
+                }
+            )
+            if cache_type:
+                return cache_type["_id"], False
+            return None, True
+
+    async def _resolve_cache_size_id(
+        self, cache_size_name: str | None
+    ) -> tuple[ObjectId | None, bool]:
+        """Resolve a cache size name/code/alias/ObjectId string to its ObjectId.
+
+        Args:
+            cache_size_name: Cache size ObjectId string, name, code, or alias (optional).
+
+        Returns:
+            tuple[ObjectId | None, bool]: `(resolved_id, not_found)`. `not_found` is
+                True when a filter was requested but couldn't be resolved to an
+                existing size.
+        """
+        if not cache_size_name:
+            return None, False
+
+        try:
+            potential_id = ObjectId(cache_size_name)
+            cache_size = await self.db.cache_sizes.find_one({"_id": potential_id})
+            if cache_size:
+                return potential_id, False
+            return None, True
+        except InvalidId:
+            cache_size = await self.db.cache_sizes.find_one(
+                {
+                    "$or": [
+                        {"name": {"$regex": f"^{cache_size_name}$", "$options": "i"}},
+                        {"code": {"$regex": f"^{cache_size_name}$", "$options": "i"}},
+                        {
+                            "aliases": {
+                                "$regex": f"^{cache_size_name}$",
+                                "$options": "i",
+                            }
+                        },
+                    ]
+                }
+            )
+            if cache_size:
+                return cache_size["_id"], False
+            return None, True
+
+    @staticmethod
+    def _build_found_caches_pipeline(
+        user_id: str, cache_type_id: ObjectId | None, cache_size_id: ObjectId | None
+    ) -> list[dict[str, Any]]:
+        """Build the aggregation pipeline fetching a user's found caches, with filters.
+
+        Args:
+            user_id: The user ID to check.
+            cache_type_id: Resolved cache type filter (optional).
+            cache_size_id: Resolved cache size filter (optional).
+
+        Returns:
+            list[dict]: Aggregation pipeline on `found_caches`.
+        """
         query = {"user_id": ObjectId(user_id)}
 
-        # Resolve cache type and size names to IDs if provided
-        cache_type_id = None
-        cache_size_id = None
-
-        if filters.cache_type_name:
-            # Check if it's a valid ObjectId first
-            try:
-                potential_id = ObjectId(filters.cache_type_name)
-                # Verify the ObjectId exists in cache_types
-                cache_type = await self.db.cache_types.find_one({"_id": potential_id})
-                if cache_type:
-                    cache_type_id = potential_id
-                else:
-                    # ObjectId not found - return empty result
-                    return self._empty_calendar_result(filters)
-            except InvalidId:
-                # Not a valid ObjectId, search by name OR code (case insensitive)
-                cache_type = await self.db.cache_types.find_one(
-                    {
-                        "$or": [
-                            {"name": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}},
-                            {"code": {"$regex": f"^{filters.cache_type_name}$", "$options": "i"}},
-                        ]
-                    }
-                )
-                if cache_type:
-                    cache_type_id = cache_type["_id"]
-                else:
-                    # Cache type name/code not found - return empty result
-                    return self._empty_calendar_result(filters)
-
-        if filters.cache_size_name:
-            # Check if it's a valid ObjectId first
-            try:
-                potential_id = ObjectId(filters.cache_size_name)
-                # Verify the ObjectId exists in cache_sizes
-                cache_size = await self.db.cache_sizes.find_one({"_id": potential_id})
-                if cache_size:
-                    cache_size_id = potential_id
-                else:
-                    # ObjectId not found - return empty result
-                    return self._empty_calendar_result(filters)
-            except InvalidId:
-                # Not a valid ObjectId, search by name OR code OR aliases (case insensitive)
-                cache_size = await self.db.cache_sizes.find_one(
-                    {
-                        "$or": [
-                            {"name": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
-                            {"code": {"$regex": f"^{filters.cache_size_name}$", "$options": "i"}},
-                            {
-                                "aliases": {
-                                    "$regex": f"^{filters.cache_size_name}$",
-                                    "$options": "i",
-                                }
-                            },
-                        ]
-                    }
-                )
-                if cache_size:
-                    cache_size_id = cache_size["_id"]
-                else:
-                    # Cache size name/code/alias not found - return empty result
-                    return self._empty_calendar_result(filters)
-
-        # Add cache filters if resolved
-        cache_filter = {}
+        cache_filter: dict[str, Any] = {}
         if cache_type_id:
             cache_filter["type_id"] = cache_type_id
         if cache_size_id:
             cache_filter["size_id"] = cache_size_id
 
-        # Get found caches with optional filtering
         pipeline: list[dict[str, Any]] = [
             {"$match": query},
             {
@@ -115,21 +127,27 @@ class CalendarVerificationService:
             {"$unwind": "$cache_info"},
         ]
 
-        # Add cache type/size filters to pipeline if needed
         if cache_filter:
             pipeline.append({"$match": {f"cache_info.{k}": v for k, v in cache_filter.items()}})
 
-        # Project only needed fields
         pipeline.append(
             {"$project": {"found_date": 1, "cache_info.type_id": 1, "cache_info.size_id": 1}}
         )
+        return pipeline
 
-        found_caches = await self.db.found_caches.aggregate(
-            cast(Sequence[Mapping[str, Any]], pipeline)
-        ).to_list(length=None)
+    @staticmethod
+    def _extract_day_combinations(
+        found_caches: list[dict[str, Any]],
+    ) -> tuple[set[str], dict[str, int]]:
+        """Extract unique (MM-DD) days, and their find counts, from found caches.
 
-        # Extract unique days from found dates
-        completed_days_set = set()
+        Args:
+            found_caches: Aggregated found-cache docs.
+
+        Returns:
+            tuple: `(completed_days_set, found_dates_count)`.
+        """
+        completed_days_set: set[str] = set()
         found_dates_count: dict[str, int] = {}
 
         for found_cache in found_caches:
@@ -141,6 +159,70 @@ class CalendarVerificationService:
                 found_dates_count[day_month] += 1
             else:
                 found_dates_count[day_month] = 1
+
+        return completed_days_set, found_dates_count
+
+    @staticmethod
+    def _group_missing_days_by_month(missing_days: list[str]) -> dict[str, list[str]]:
+        """Group missing (MM-DD) days by month.
+
+        Args:
+            missing_days: Sorted list of missing "MM-DD" days.
+
+        Returns:
+            dict: `{month: [day, ...]}`.
+        """
+        missing_days_by_month: dict[str, list[str]] = {}
+        for day in missing_days:
+            month = day[:2]  # Extract month part (MM from MM-DD)
+            if month not in missing_days_by_month:
+                missing_days_by_month[month] = []
+            missing_days_by_month[month].append(day)
+        return missing_days_by_month
+
+    @staticmethod
+    def _compute_calendar_tours(completed_365: int, completed_days: list[dict[str, Any]]) -> int:
+        """Compute the calendar-tours count.
+
+        Description:
+            Only meaningful once all 365 days are completed at least once.
+
+        Args:
+            completed_365: Number of distinct completed days (365-day scenario).
+            completed_days: `[{"day", "count"}, ...]`.
+
+        Returns:
+            int: Calendar tours (0 if not all 365 days are completed yet).
+        """
+        if completed_365 != 365:
+            return 0
+        return int(min(item["count"] for item in completed_days))
+
+    async def verify_user_calendar(self, user_id: str, filters: CalendarFilters) -> CalendarResult:
+        """
+        Verify if user has completed calendar challenges.
+
+        Args:
+            user_id: The user ID to check
+            filters: Optional filters for cache type and size
+
+        Returns:
+            CalendarResult with completion status for both 365 and 366 days
+        """
+        cache_type_id, type_not_found = await self._resolve_cache_type_id(filters.cache_type_name)
+        if type_not_found:
+            return self._empty_calendar_result(filters)
+
+        cache_size_id, size_not_found = await self._resolve_cache_size_id(filters.cache_size_name)
+        if size_not_found:
+            return self._empty_calendar_result(filters)
+
+        pipeline = self._build_found_caches_pipeline(user_id, cache_type_id, cache_size_id)
+        found_caches = await self.db.found_caches.aggregate(
+            cast(Sequence[Mapping[str, Any]], pipeline)
+        ).to_list(length=None)
+
+        completed_days_set, found_dates_count = self._extract_day_combinations(found_caches)
 
         # Generate all possible days
         all_days_365 = self._generate_all_days(include_leap_day=False)
@@ -155,25 +237,16 @@ class CalendarVerificationService:
         completion_rate_366 = completed_366 / 366
 
         # Find missing days (missing in both 365 and 366 day scenarios)
-        missing_days = sorted(list(set(all_days_366) - completed_days_set))
+        missing_days = sorted(set(all_days_366) - completed_days_set)
 
-        # Group missing days by month
-        missing_days_by_month: dict[str, list[str]] = {}
-        for day in missing_days:
-            month = day[:2]  # Extract month part (MM from MM-DD)
-            if month not in missing_days_by_month:
-                missing_days_by_month[month] = []
-            missing_days_by_month[month].append(day)
+        missing_days_by_month = self._group_missing_days_by_month(missing_days)
 
         # Format completed days with counts
         completed_days = [
             {"day": day, "count": found_dates_count[day]} for day in sorted(completed_days_set)
         ]
 
-        # Calendar tours
-        calendar_tours = 0
-        if completed_365 == 365:
-            calendar_tours = int(min(item["count"] for item in completed_days))
+        calendar_tours = self._compute_calendar_tours(completed_365, completed_days)
 
         # Use the filter names directly (already resolved above)
         cache_type_name = filters.cache_type_name if cache_type_id else None

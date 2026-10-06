@@ -208,6 +208,7 @@ To regenerate locally, run `npm run changelog`.
 - *(matrix-verification)* Split filter resolution and tours computation
 - *(gpx-parser)* Split format detection and cache-data extraction
 - *(test-maintenance)* Extract mock-db setup and backup-request helpers
+- *(calendar-verification)* Split filter resolution and tours computation
 
 ### 📚 Documentation
 
