@@ -199,6 +199,7 @@ To regenerate locally, run `npm run changelog`.
 - *(task-expression-validator)* Split per-kind and per-item validators
 - *(progress)* Split aggregate-kind and ETA-estimation helpers
 - *(test-utils)* Split db duplication script into per-step helpers
+- *(test-scripts)* Split expression renderer and referential sampler
 
 ### 📚 Documentation
 
