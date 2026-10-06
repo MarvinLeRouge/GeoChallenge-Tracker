@@ -100,6 +100,74 @@ def _build_param(points: list[tuple[float, float]]) -> str:
     return "|".join(f"{lat},{lon}" for (lat, lon) in points)
 
 
+def _cut_chunk_by_url_length(remaining: str, max_param_len: int) -> tuple[str, str]:
+    """Cut the next chunk off `remaining`, respecting the max URL-encoded length.
+
+    Description:
+        Cuts at the last pipe `|` to avoid splitting a lat/lon pair.
+
+    Args:
+        remaining (str): Locations string still to be chunked.
+        max_param_len (int): Maximum length allowed for one chunk.
+
+    Returns:
+        tuple[str, str]: `(chunk, new_remaining)`.
+    """
+    take = remaining[:max_param_len]
+    if len(take) == len(remaining):
+        return take, ""
+
+    # cut back to last '|' so we don't split a coordinate
+    cut = take.rfind("|")
+    if cut == -1:
+        # no '|' found -> single coordinate longer than max? take it anyway
+        return take, remaining[len(take) :]
+    return take[:cut], remaining[cut + 1 :]  # drop the '|'
+
+
+def _enforce_points_per_request_limit(chunk: str, remaining: str) -> tuple[str, str]:
+    """Truncate `chunk` to MAX_POINTS_PER_REQ points, reinjecting the overflow.
+
+    Description:
+        Number of points = number of pipes + 1 (unless chunk empty). Overflow is
+        prepended back onto `remaining`.
+
+    Args:
+        chunk (str): Candidate chunk (already cut to URL length).
+        remaining (str): What's left to process after this chunk.
+
+    Returns:
+        tuple[str, str]: `(chunk, remaining)`, possibly adjusted.
+    """
+    if not chunk:
+        return chunk, remaining
+
+    # number of points = number of pipes + 1 (unless chunk empty)
+    pipes = chunk.count("|")
+    if pipes < MAX_POINTS_PER_REQ:
+        return chunk, remaining
+
+    # keep only first MAX_POINTS_PER_REQ points (=> MAX_POINTS_PER_REQ-1 pipes)
+    # find the index of the (MAX_POINTS_PER_REQ-1)-th '|' (0-based)
+    keep_pipes = MAX_POINTS_PER_REQ - 1
+    idx = -1
+    count = 0
+    for i, ch in enumerate(chunk):
+        if ch == "|":
+            count += 1
+            if count == keep_pipes:
+                idx = i
+                break
+    if idx == -1:
+        return chunk, remaining
+
+    extra = chunk[idx + 1 :]
+    chunk = chunk[:idx]
+    # prepend overflow back to remaining (with a '|' if needed)
+    remaining = (extra + ("|" + remaining if remaining else "")).lstrip("|")
+    return chunk, remaining
+
+
 def _split_params_by_url_and_count(all_param: str) -> list[str]:
     """Split `locations` into URL-compatible and per-request quota chunks.
 
@@ -125,46 +193,59 @@ def _split_params_by_url_and_count(all_param: str) -> list[str]:
     chunks: list[str] = []
     remaining = all_param
     while remaining:
-        # take max slice by URL size
-        take = remaining[:max_param_len]
-        if len(take) == len(remaining):
-            chunk = take
-            remaining = ""
-        else:
-            # cut back to last '|' so we don't split a coordinate
-            cut = take.rfind("|")
-            if cut == -1:
-                # no '|' found -> single coordinate longer than max? take it anyway
-                chunk = take
-                remaining = remaining[len(take) :]
-            else:
-                chunk = take[:cut]
-                remaining = remaining[cut + 1 :]  # drop the '|'
-
-        # enforce MAX_POINTS_PER_REQ
-        # number of points = number of pipes + 1 (unless chunk empty)
-        if chunk:
-            pipes = chunk.count("|")
-            if pipes >= MAX_POINTS_PER_REQ:
-                # keep only first MAX_POINTS_PER_REQ points (=> MAX_POINTS_PER_REQ-1 pipes)
-                # find the index of the (MAX_POINTS_PER_REQ-1)-th '|' (0-based)
-                keep_pipes = MAX_POINTS_PER_REQ - 1
-                idx = -1
-                count = 0
-                for i, ch in enumerate(chunk):
-                    if ch == "|":
-                        count += 1
-                        if count == keep_pipes:
-                            idx = i
-                            break
-                if idx != -1:
-                    extra = chunk[idx + 1 :]
-                    chunk = chunk[:idx]
-                    # prepend overflow back to remaining (with a '|' if needed)
-                    remaining = (extra + ("|" + remaining if remaining else "")).lstrip("|")
-
+        chunk, remaining = _cut_chunk_by_url_length(remaining, max_param_len)
+        chunk, remaining = _enforce_points_per_request_limit(chunk, remaining)
         chunks.append(chunk)
     return [c for c in chunks if c]
+
+
+def _count_points_in_param_chunk(param: str) -> int:
+    """Count how many lat/lon points are encoded in one `locations` chunk.
+
+    Args:
+        param (str): One `locations` chunk (pipe-separated `lat,lon` pairs).
+
+    Returns:
+        int: Number of points in the chunk (0 if empty).
+    """
+    if not param:
+        return 0
+    if "|" not in param:
+        return 1
+    return param.count("|") + 1
+
+
+async def _fetch_chunk_elevations(
+    client: httpx.AsyncClient, param: str, n_pts: int
+) -> list[int | None]:
+    """Fetch elevations for one `locations` chunk, never raising.
+
+    Args:
+        client (httpx.AsyncClient): HTTP client to use.
+        param (str): One `locations` chunk.
+        n_pts (int): Number of points expected in this chunk.
+
+    Returns:
+        list[int | None]: One elevation (or None) per point in the chunk.
+    """
+    url = f"{ENDPOINT}?locations={param}"
+    elevations: list[int | None] = [None] * n_pts
+    try:
+        resp = await client.get(url)
+        if resp.status_code == 200:
+            data = resp.json() or {}
+            arr = data.get("results") or []
+            for j, rec in enumerate(arr[:n_pts]):
+                elev = rec.get("elevation", None)
+                if isinstance(elev, (int, float)):
+                    elevations[j] = int(round(elev))
+                else:
+                    elevations[j] = None
+        # else: leave None for this slice
+    except Exception:
+        # leave None for this slice
+        pass
+    return elevations
 
 
 async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
@@ -215,30 +296,14 @@ async def fetch(points: list[tuple[float, float]]) -> list[int | None]:
     async with httpx.AsyncClient(timeout=float(os.getenv("ELEVATION_TIMEOUT_S", "5.0"))) as client:
         for i, param in enumerate(param_chunks):
             # Determine how many points are in this chunk
-            n_pts = 1 if param and "|" not in param else (param.count("|") + 1 if param else 0)
+            n_pts = _count_points_in_param_chunk(param)
 
             # Quota guard: stop if next request would exceed
             if daily_count >= DAILY_LIMIT:
                 break
 
-            url = f"{ENDPOINT}?locations={param}"
-            try:
-                resp = await client.get(url)
-                if resp.status_code == 200:
-                    data = resp.json() or {}
-                    arr = data.get("results") or []
-                    for j, rec in enumerate(arr[:n_pts]):
-                        elev = rec.get("elevation", None)
-                        if isinstance(elev, (int, float)):
-                            results[idx_start + j] = int(round(elev))
-                        else:
-                            results[idx_start + j] = None
-                else:
-                    # leave None for this slice
-                    pass
-            except Exception:
-                # leave None for this slice
-                pass
+            chunk_elevations = await _fetch_chunk_elevations(client, param, n_pts)
+            results[idx_start : idx_start + n_pts] = chunk_elevations
 
             # update quota & delay
             daily_count += 1

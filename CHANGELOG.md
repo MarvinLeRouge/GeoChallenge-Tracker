@@ -202,6 +202,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-scripts)* Split expression renderer and referential sampler
 - *(caches)* Split filter-query building and gpx-upload pipeline helpers
 - *(referentials-cache)* Split collection indexing and state resolution
+- *(elevation-opentopo)* Split chunk-splitting and per-chunk fetch helpers
 
 ### 📚 Documentation
 
