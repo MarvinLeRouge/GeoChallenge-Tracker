@@ -99,6 +99,57 @@ def cleanup_targets():
 # -----------------------
 
 
+def _fetch_targets_evaluation_context(user_id, uc_id):
+    """Fetch the found-cache ids, username, and task ids needed to validate targets.
+
+    Args:
+        user_id: User id.
+        uc_id: UserChallenge id (string).
+
+    Returns:
+        tuple: `(found_ids, username, task_ids)`.
+    """
+    found_ids = set(
+        x["cache_id"]
+        for x in get_collection("found_caches").find(
+            {"user_id": user_id}, {"cache_id": 1, "_id": 0}
+        )
+    )
+    username = (get_collection("users").find_one({"_id": user_id}, {"username": 1}) or {}).get(
+        "username"
+    )
+    task_ids = set(
+        t["_id"]
+        for t in get_collection("user_challenge_tasks").find(
+            {"user_challenge_id": ObjectId(uc_id)}, {"_id": 1}
+        )
+    )
+    return found_ids, username, task_ids
+
+
+def _assert_target_item_invariants(it, uc_id, task_ids, found_ids, username):
+    """Assert structural invariants for one target item.
+
+    Args:
+        it: Target item from the API response.
+        uc_id: UserChallenge id (string).
+        task_ids: Valid task ids for this UC.
+        found_ids: Cache ids already found by the user.
+        username: The user's username (to check cache ownership).
+    """
+    assert it["user_challenge_id"] == uc_id
+    assert it["cache_id"]
+    assert isinstance(it["score"], float) and it["score"] >= 0.0
+    # matched_task_ids ⊆ tasks du UC
+    assert set(map(ObjectId, it["matched_task_ids"])).issubset(task_ids)
+    # pas déjà trouvée
+    assert ObjectId(it["cache_id"]) not in found_ids
+    # owner != username
+    cache = get_collection("caches").find_one({"_id": ObjectId(it["cache_id"])}, {"owner": 1})
+    if username and cache and "owner" in cache:
+        assert cache["owner"] != username
+
+
 def test_targets_e2e_api(auth_context, cleanup_targets):
     client, headers, user_id = auth_context
     uc = _one_multitask_uc_for_user(user_id)
@@ -128,34 +179,10 @@ def test_targets_e2e_api(auth_context, cleanup_targets):
     items = out["items"]
 
     # Cohérences de base
-    found_ids = set(
-        x["cache_id"]
-        for x in get_collection("found_caches").find(
-            {"user_id": user_id}, {"cache_id": 1, "_id": 0}
-        )
-    )
-    username = (get_collection("users").find_one({"_id": user_id}, {"username": 1}) or {}).get(
-        "username"
-    )
-    task_ids = set(
-        t["_id"]
-        for t in get_collection("user_challenge_tasks").find(
-            {"user_challenge_id": ObjectId(uc_id)}, {"_id": 1}
-        )
-    )
+    found_ids, username, task_ids = _fetch_targets_evaluation_context(user_id, uc_id)
 
     for it in items:
-        assert it["user_challenge_id"] == uc_id
-        assert it["cache_id"]
-        assert isinstance(it["score"], float) and it["score"] >= 0.0
-        # matched_task_ids ⊆ tasks du UC
-        assert set(map(ObjectId, it["matched_task_ids"])).issubset(task_ids)
-        # pas déjà trouvée
-        assert ObjectId(it["cache_id"]) not in found_ids
-        # owner != username
-        cache = get_collection("caches").find_one({"_id": ObjectId(it["cache_id"])}, {"owner": 1})
-        if username and cache and "owner" in cache:
-            assert cache["owner"] != username
+        _assert_target_item_invariants(it, uc_id, task_ids, found_ids, username)
 
 
 def test_targets_skip_and_force_api(auth_context, cleanup_targets):

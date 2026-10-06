@@ -213,6 +213,7 @@ To regenerate locally, run `npm run changelog`.
 - *(user-stats)* Split user resolution and per-stat computation
 - *(auth)* Split login into credential/auth/rehash/verification helpers
 - *(data-normalizer)* Split field-group extraction helpers
+- *(test-targets-smoke)* Extract evaluation-context fetch and per-item assertions
 
 ### 📚 Documentation
 
