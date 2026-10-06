@@ -203,6 +203,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Split filter-query building and gpx-upload pipeline helpers
 - *(referentials-cache)* Split collection indexing and state resolution
 - *(elevation-opentopo)* Split chunk-splitting and per-chunk fetch helpers
+- *(target-evaluator)* Split pipeline-stage and dt-cell helpers
 
 ### 📚 Documentation
 
