@@ -198,6 +198,7 @@ To regenerate locally, run `npm run changelog`.
 - *(gpx-import)* Split pipeline steps and per-item logic into helpers
 - *(task-expression-validator)* Split per-kind and per-item validators
 - *(progress)* Split aggregate-kind and ETA-estimation helpers
+- *(test-utils)* Split db duplication script into per-step helpers
 
 ### 📚 Documentation
 
