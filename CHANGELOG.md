@@ -200,6 +200,7 @@ To regenerate locally, run `npm run changelog`.
 - *(progress)* Split aggregate-kind and ETA-estimation helpers
 - *(test-utils)* Split db duplication script into per-step helpers
 - *(test-scripts)* Split expression renderer and referential sampler
+- *(caches)* Split filter-query building and gpx-upload pipeline helpers
 
 ### 📚 Documentation
 

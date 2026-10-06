@@ -147,6 +147,152 @@ def _compact_lookups_and_project():
 # ------------------------- routes -------------------------
 
 
+async def _read_upload_with_size_limit(file: UploadFile) -> bytes:
+    """Stream-read an upload file, enforcing the configured size limit.
+
+    Args:
+        file (UploadFile): The uploaded file.
+
+    Returns:
+        bytes: The full file content.
+
+    Raises:
+        HTTPException: 413 if the content exceeds `settings.max_upload_bytes`.
+    """
+    read_bytes = 0
+    chunks: list[bytes] = []
+    while True:
+        chunk = await file.read(settings.one_mb)
+        if not chunk:
+            break
+        read_bytes += len(chunk)
+        if read_bytes > settings.max_upload_bytes:
+            # Important: close the file and return 413
+            await file.close()
+            raise HTTPException(
+                status_code=413,
+                detail=f"Fichier trop volumineux (>{settings.max_upload_mb} Mo).",
+            )
+        chunks.append(chunk)
+
+    await file.close()
+    return b"".join(chunks)
+
+
+async def _import_gpx_or_raise(
+    payload: bytes,
+    filename: str | None,
+    import_mode: str,
+    user_id: ObjectId,
+    request: Request,
+    source_type: str,
+) -> dict[str, Any]:
+    """Import a GPX/ZIP payload, converting any failure to a 400 HTTPException.
+
+    Args:
+        payload (bytes): Raw file content.
+        filename (str | None): Original filename, if any.
+        import_mode (str): 'all' | 'found'.
+        user_id (ObjectId): Importing user.
+        request (Request): The current request (forwarded to the importer).
+        source_type (str): 'auto' | 'cgeo' | 'pocket_query'.
+
+    Returns:
+        dict: Import summary.
+
+    Raises:
+        HTTPException: 400 on any import failure.
+    """
+    try:
+        return await import_gpx_payload(
+            payload=payload,
+            filename=filename or "upload.gpx",
+            import_mode=import_mode,
+            user_id=user_id,
+            request=request,
+            source_type=source_type,
+            force_update_attributes=False,  # Always False in the standard version
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}") from e
+
+
+async def _create_challenges_after_import() -> dict[str, Any]:
+    """Create new challenges from newly imported caches, swallowing errors into the result.
+
+    Returns:
+        dict: Challenge creation stats, or `{"error": ...}` on failure.
+    """
+    try:
+        # Simple variant (optimized global scan: only processes new challenge caches)
+        return await create_new_challenges_from_caches()
+        # Optimized variant if you have the list of imported cache _ids:
+        # challenge_stats = create_new_challenges_from_caches(cache_ids=upserted_cache_ids)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def _sync_user_challenges_after_import(user_id: ObjectId) -> dict[str, Any]:
+    """Sync the user's challenges after import, swallowing errors into the result.
+
+    Args:
+        user_id (ObjectId): Importing user.
+
+    Returns:
+        dict: Sync stats, or `{"error": ...}` on failure.
+    """
+    try:
+        return await sync_user_challenges(user_id)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def _evaluate_progress_for_accepted_ucs(user_id: ObjectId) -> dict[str, Any]:
+    """Re-evaluate progress for all of the user's accepted UserChallenges after a 'found' import.
+
+    Args:
+        user_id (ObjectId): Importing user.
+
+    Returns:
+        dict: `{"evaluated": int, "total": int}`, or `{"error": ...}` on failure.
+    """
+    try:
+        coll_uc = await get_collection("user_challenges")
+        accepted_docs = await coll_uc.find(
+            {"user_id": user_id, "status": "accepted"},
+            {"_id": 1},
+        ).to_list(length=None)
+
+        log.info("[progress] GPX found import — evaluating %d accepted UC(s)", len(accepted_docs))
+
+        eval_results = await asyncio.gather(
+            *(evaluate_progress(user_id, doc["_id"]) for doc in accepted_docs),
+            return_exceptions=True,
+        )
+
+        evaluated = 0
+        for doc, res in zip(accepted_docs, eval_results):
+            uc_id_str = str(doc["_id"])
+            if isinstance(res, BaseException):
+                log.warning("[progress] UC %s — evaluation failed: %s", uc_id_str, res)
+            else:
+                pct = res.get("percent", "?")
+                done = res.get("tasks_done", "?")
+                total = res.get("tasks_total", "?")
+                log.info("[progress] UC %s — %s%% (%s/%s tasks done)", uc_id_str, pct, done, total)
+                evaluated += 1
+
+        return {
+            "evaluated": evaluated,
+            "total": len(accepted_docs),
+        }
+    except Exception as e:
+        log.exception("[progress] Unexpected error during post-import evaluation")
+        return {"error": str(e)}
+
+
 # DONE: [BACKLOG] Route /caches/upload-gpx (POST) verified
 @router.post(
     "/upload-gpx",
@@ -195,147 +341,32 @@ async def upload_gpx(
     Returns:
         dict: Object containing the import summary (`summary`) and challenge-related statistics (`challenges_stats`).
     """
+    payload = await _read_upload_with_size_limit(file)
 
-    result = {}
-    # streaming read with size limit
-    read_bytes = 0
-    chunks: list[bytes] = []
-    while True:
-        chunk = await file.read(settings.one_mb)
-        if not chunk:
-            break
-        read_bytes += len(chunk)
-        if read_bytes > settings.max_upload_bytes:
-            # Important: close the file and return 413
-            await file.close()
-            raise HTTPException(
-                status_code=413,
-                detail=f"Fichier trop volumineux (>{settings.max_upload_mb} Mo).",
-            )
-        chunks.append(chunk)
+    uid = ObjectId(str(user_id))
+    result: dict[str, Any] = {}
+    result["summary"] = await _import_gpx_or_raise(
+        payload, file.filename, import_mode, uid, request, source_type
+    )
 
-    await file.close()
-    payload = b"".join(chunks)
-
-    try:
-        result["summary"] = await import_gpx_payload(
-            payload=payload,
-            filename=file.filename or "upload.gpx",
-            import_mode=import_mode,
-            user_id=ObjectId(str(user_id)),
-            request=request,
-            source_type=source_type,
-            force_update_attributes=False,  # Always False in the standard version
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}") from e
-
-    try:
-        # Simple variant (optimized global scan: only processes new challenge caches)
-        challenges_stats = await create_new_challenges_from_caches()
-        # Optimized variant if you have the list of imported cache _ids:
-        # challenge_stats = create_new_challenges_from_caches(cache_ids=upserted_cache_ids)
-    except Exception as e:
-        challenges_stats = {"error": str(e)}
-    result["challenges_stats"] = challenges_stats
-
-    try:
-        result["sync_stats"] = await sync_user_challenges(ObjectId(str(user_id)))
-    except Exception as e:
-        result["sync_stats"] = {"error": str(e)}
+    result["challenges_stats"] = await _create_challenges_after_import()
+    result["sync_stats"] = await _sync_user_challenges_after_import(uid)
 
     if import_mode == "found":
-        try:
-            coll_uc = await get_collection("user_challenges")
-            uid = ObjectId(str(user_id))
-            accepted_docs = await coll_uc.find(
-                {"user_id": uid, "status": "accepted"},
-                {"_id": 1},
-            ).to_list(length=None)
-
-            log.info(
-                "[progress] GPX found import — evaluating %d accepted UC(s)", len(accepted_docs)
-            )
-
-            eval_results = await asyncio.gather(
-                *(evaluate_progress(uid, doc["_id"]) for doc in accepted_docs),
-                return_exceptions=True,
-            )
-
-            evaluated = 0
-            for doc, res in zip(accepted_docs, eval_results):
-                uc_id_str = str(doc["_id"])
-                if isinstance(res, BaseException):
-                    log.warning("[progress] UC %s — evaluation failed: %s", uc_id_str, res)
-                else:
-                    pct = res.get("percent", "?")
-                    done = res.get("tasks_done", "?")
-                    total = res.get("tasks_total", "?")
-                    log.info(
-                        "[progress] UC %s — %s%% (%s/%s tasks done)", uc_id_str, pct, done, total
-                    )
-                    evaluated += 1
-
-            result["progress_stats"] = {
-                "evaluated": evaluated,
-                "total": len(accepted_docs),
-            }
-        except Exception as e:
-            log.exception("[progress] Unexpected error during post-import evaluation")
-            result["progress_stats"] = {"error": str(e)}
+        result["progress_stats"] = await _evaluate_progress_for_accepted_ucs(uid)
 
     return result
 
 
-# DONE: [BACKLOG] Route /caches/by-filter (POST) verified
-@router.post(
-    "/by-filter",
-    summary="Search caches by filters",
-    description=(
-        "Returns a paginated list of geocaches based on combinable filters:\n"
-        "- Text (`$text`), type, size, country/state\n"
-        "- Difficulty/terrain (min/max ranges)\n"
-        "- Placement period (after/before)\n"
-        "- Positive/negative attributes\n"
-        "- Optional BBox and sort (-placed_at, -favorites, difficulty, terrain)"
-    ),
-)
-async def by_filter(
-    payload: Annotated[
-        CacheFilterIn,
-        Body(
-            ...,
-            description=(
-                "Filtering and pagination object:\n"
-                "- `q`: full-text search\n"
-                "- `type_id`, `size_id`, `country_id`, `state_id`\n"
-                "- `difficulty`, `terrain`: `Range {min,max}` objects\n"
-                "- `placed_after`, `placed_before`: time bounds\n"
-                "- `attr_pos`, `attr_neg`: attribute lists (ObjectId)\n"
-                "- `bbox`: `{min_lat,min_lon,max_lat,max_lon}`\n"
-                "- `sort`, `page`, `page_size`"
-            ),
-        ),
-    ],
-    compact: bool = Query(
-        True,
-        description="Returns an abbreviated version (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
-    ),
-):
-    """Multi-criteria geocache search.
-
-    Description:
-        Filters caches using multiple combinable criteria, applies sorting, and returns paginated results.
+def _build_cache_filter_query(payload: CacheFilterIn) -> dict[str, Any]:
+    """Build the Mongo filter query from the cache-filter payload.
 
     Args:
-        payload (CacheFilterIn): Filtering, sorting, and pagination parameters.
+        payload (CacheFilterIn): Filtering criteria.
 
     Returns:
-        dict: Paginated results `{items, total, page, page_size}`.
+        dict: Mongo query matching `caches`.
     """
-    coll = await get_collection("caches")
     q: dict[str, Any] = {}
 
     if payload.q:
@@ -412,7 +443,20 @@ async def by_filter(
             }
         }
 
-    # sort
+    return q
+
+
+def _resolve_sort_and_pagination(
+    payload: CacheFilterIn,
+) -> tuple[list[tuple[str, int]], int, int, int]:
+    """Resolve the sort order and pagination bounds from the payload.
+
+    Args:
+        payload (CacheFilterIn): Filtering, sorting, and pagination parameters.
+
+    Returns:
+        tuple: `(sort, page, page_size, skip)`.
+    """
     sort_map = {
         "-placed_at": [("placed_at", DESCENDING)],
         "-favorites": [("favorites", DESCENDING)],
@@ -424,7 +468,30 @@ async def by_filter(
     page_size = min(max(1, payload.page_size), 200)
     page = max(1, payload.page)
     skip = (page - 1) * page_size
+    return sort, page, page_size, skip
 
+
+async def _fetch_filtered_caches(
+    coll: Any,
+    q: dict[str, Any],
+    sort: list[tuple[str, int]],
+    skip: int,
+    page_size: int,
+    compact: bool,
+) -> list[dict[str, Any]]:
+    """Fetch the matching, paginated cache documents.
+
+    Args:
+        coll (Any): `caches` collection.
+        q (dict): Mongo filter query.
+        sort (list): Sort order.
+        skip (int): Number of documents to skip.
+        page_size (int): Page size (max documents to return).
+        compact (bool): Whether to use the abbreviated aggregation projection.
+
+    Returns:
+        list[dict]: Matching documents (already passed through `_doc`).
+    """
     if compact:
         pipeline = [
             {"$match": q},
@@ -433,9 +500,61 @@ async def by_filter(
             {"$limit": page_size},
             *_compact_lookups_and_project(),
         ]
-        docs = [_doc(d) async for d in coll.aggregate(pipeline)]
-    else:
-        docs = [_doc(d) async for d in coll.find(q).sort(sort).skip(skip).limit(page_size)]
+        return [_doc(d) async for d in coll.aggregate(pipeline)]
+    return [_doc(d) async for d in coll.find(q).sort(sort).skip(skip).limit(page_size)]
+
+
+# DONE: [BACKLOG] Route /caches/by-filter (POST) verified
+@router.post(
+    "/by-filter",
+    summary="Search caches by filters",
+    description=(
+        "Returns a paginated list of geocaches based on combinable filters:\n"
+        "- Text (`$text`), type, size, country/state\n"
+        "- Difficulty/terrain (min/max ranges)\n"
+        "- Placement period (after/before)\n"
+        "- Positive/negative attributes\n"
+        "- Optional BBox and sort (-placed_at, -favorites, difficulty, terrain)"
+    ),
+)
+async def by_filter(
+    payload: Annotated[
+        CacheFilterIn,
+        Body(
+            ...,
+            description=(
+                "Filtering and pagination object:\n"
+                "- `q`: full-text search\n"
+                "- `type_id`, `size_id`, `country_id`, `state_id`\n"
+                "- `difficulty`, `terrain`: `Range {min,max}` objects\n"
+                "- `placed_after`, `placed_before`: time bounds\n"
+                "- `attr_pos`, `attr_neg`: attribute lists (ObjectId)\n"
+                "- `bbox`: `{min_lat,min_lon,max_lat,max_lon}`\n"
+                "- `sort`, `page`, `page_size`"
+            ),
+        ),
+    ],
+    compact: bool = Query(
+        True,
+        description="Returns an abbreviated version (_id, GC, title, type_id, type, size_id, size, difficulty, terrain).",
+    ),
+):
+    """Multi-criteria geocache search.
+
+    Description:
+        Filters caches using multiple combinable criteria, applies sorting, and returns paginated results.
+
+    Args:
+        payload (CacheFilterIn): Filtering, sorting, and pagination parameters.
+
+    Returns:
+        dict: Paginated results `{items, total, page, page_size}`.
+    """
+    coll = await get_collection("caches")
+    q = _build_cache_filter_query(payload)
+    sort, page, page_size, skip = _resolve_sort_and_pagination(payload)
+
+    docs = await _fetch_filtered_caches(coll, q, sort, skip, page_size, compact)
 
     total = await coll.count_documents(q)
     nb_pages = math.ceil(total / page_size)
