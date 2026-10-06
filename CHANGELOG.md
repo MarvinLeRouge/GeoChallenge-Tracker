@@ -205,6 +205,7 @@ To regenerate locally, run `npm run changelog`.
 - *(elevation-opentopo)* Split chunk-splitting and per-chunk fetch helpers
 - *(target-evaluator)* Split pipeline-stage and dt-cell helpers
 - *(cache-validators)* Split comprehensive validation into single-purpose checks
+- *(matrix-verification)* Split filter resolution and tours computation
 
 ### 📚 Documentation
 
