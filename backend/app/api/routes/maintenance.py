@@ -265,6 +265,139 @@ async def maintenance_post_1() -> dict:
 # ============================================================================
 
 
+def _build_collection_references_map() -> dict[str, list[tuple[str, str]]]:
+    """Build a map of target_collection -> [(source_collection, field), ...] from REFERENCES_MAP.
+
+    Returns:
+        dict: Reverse-reference map used to detect orphans.
+    """
+    collection_references: dict[str, list[tuple[str, str]]] = {}
+    all_refs = {
+        **{
+            f"{coll}.{field}": ref_coll
+            for coll, field_refs in REFERENCES_MAP.items()
+            for field, ref_coll in field_refs.items()
+        },
+        "caches.attributes.attribute_doc_id": "cache_attributes",
+    }
+    for ref_key, target_collection in all_refs.items():
+        source_collection, field = ref_key.split(".", 1)
+        collection_references.setdefault(target_collection, []).append((source_collection, field))
+    return collection_references
+
+
+async def _find_nested_attribute_orphans(source_collection_obj: Any) -> list[str]:
+    """Find cache documents whose nested attribute references an invalid cache_attribute.
+
+    Args:
+        source_collection_obj (Any): The `caches` collection handle.
+
+    Returns:
+        list[str]: Orphan document ids (as strings).
+    """
+    pipeline = [
+        {"$unwind": "$attributes"},
+        {"$match": {"attributes.attribute_doc_id": {"$exists": True, "$ne": None}}},
+        {
+            "$lookup": {
+                "from": "cache_attributes",
+                "localField": "attributes.attribute_doc_id",
+                "foreignField": "_id",
+                "as": "valid_attribute",
+            }
+        },
+        {"$match": {"valid_attribute": {"$size": 0}}},  # No match found
+        {"$project": {"_id": 1}},
+        {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}},
+    ]
+    results = await source_collection_obj.aggregate(pipeline).to_list(length=None)
+    if results and results[0]["orphan_ids"]:
+        return [str(obj_id) for obj_id in results[0]["orphan_ids"]]
+    return []
+
+
+async def _find_reference_orphans(
+    source_collection_obj: Any, field: str, current_target_ids: set[Any]
+) -> list[str]:
+    """Find source documents whose `field` references an id outside `current_target_ids`.
+
+    Args:
+        source_collection_obj (Any): Source collection handle.
+        field (str): Field holding the reference.
+        current_target_ids (set): Still-valid target ids.
+
+    Returns:
+        list[str]: Orphan document ids (as strings).
+    """
+    pipeline = [
+        {"$match": {field: {"$exists": True, "$ne": None}}},
+        {"$match": {field: {"$nin": list(current_target_ids)}}},
+        {"$project": {"_id": 1}},
+    ]
+    cursor = source_collection_obj.aggregate(pipeline)
+    orphan_docs = await cursor.to_list(length=None)
+    return [str(doc["_id"]) for doc in orphan_docs]
+
+
+async def _find_orphan_ids_for_field(
+    source_collection: str,
+    source_collection_obj: Any,
+    field: str,
+    current_target_ids: set[Any],
+) -> list[str]:
+    """Find orphan ids for one (source_collection, field) reference, nested or regular.
+
+    Args:
+        source_collection (str): Name of the source collection.
+        source_collection_obj (Any): Source collection handle.
+        field (str): Field holding the reference (may be nested, e.g. `attributes.x`).
+        current_target_ids (set): Still-valid target ids (for non-nested references).
+
+    Returns:
+        list[str]: Orphan document ids (as strings).
+    """
+    if "." in field:
+        if f"{source_collection}.{field}" == "caches.attributes.attribute_doc_id":
+            # Handle nested reference case
+            return await _find_nested_attribute_orphans(source_collection_obj)
+        return []
+    return await _find_reference_orphans(source_collection_obj, field, current_target_ids)
+
+
+async def _detect_orphans_for_collection(
+    collection_name: str,
+    refs: list[tuple[str, str]],
+    simulated_orphan_ids: dict[str, set[Any]],
+    orphans: dict[str, list[str]],
+) -> None:
+    """Detect orphans for every (source_collection, field) referencing `collection_name`.
+
+    Description:
+        Mutates `simulated_orphan_ids` and `orphans` in place as orphans are found, so
+        later collections in the dependency order see the simulated removals.
+
+    Args:
+        collection_name (str): Collection currently being processed (the reference target).
+        refs (list[tuple]): `(source_collection, field)` pairs referencing it.
+        simulated_orphan_ids (dict): Per-collection sets of ids simulated as removed.
+        orphans (dict): `{"<collection>.<field>": [orphan_id, ...]}`, accumulated.
+    """
+    for source_collection, field in refs:
+        target_collection_obj = await get_collection(collection_name)
+        all_target_ids = set(await target_collection_obj.distinct("_id"))
+        current_target_ids = all_target_ids - simulated_orphan_ids[collection_name]
+
+        source_collection_obj = await get_collection(source_collection)
+        orphan_ids = await _find_orphan_ids_for_field(
+            source_collection, source_collection_obj, field, current_target_ids
+        )
+
+        if orphan_ids:
+            ref_key = f"{source_collection}.{field}"
+            orphans.setdefault(ref_key, []).extend(orphan_ids)
+            simulated_orphan_ids[source_collection].update(ObjectId(oid) for oid in orphan_ids)
+
+
 # DONE: [BACKLOG] Route /maintenance/db_cleanup (GET) verified
 @router.get("/db_cleanup")
 async def cleanup_analyze():
@@ -276,104 +409,25 @@ async def cleanup_analyze():
     """
     clean_expired_keys()
 
-    # Create a map of all references in the system: target_collection -> [(source_collection, field), ...]
-    collection_references = {}
-    for ref_key, target_collection in {
-        **{
-            f"{coll}.{field}": ref_coll
-            for coll, field_refs in REFERENCES_MAP.items()
-            for field, ref_coll in field_refs.items()
-        },
-        "caches.attributes.attribute_doc_id": "cache_attributes",
-    }.items():
-        if target_collection not in collection_references:
-            collection_references[target_collection] = []
-        source_collection, field = ref_key.split(".", 1)
-        collection_references[target_collection].append((source_collection, field))
+    collection_references = _build_collection_references_map()
 
     # Copy original collection contents to simulate removals
     # This is a simplified approach: we'll simulate by tracking what would be removed
     # and then calculate orphans based on that simulated state
-    simulated_orphan_ids = {}  # collection_name -> set of ObjectId that would be removed
-
-    # Initialize with empty sets
-    for collection_name in COLLECTION_DEPENDENCY_ORDER:
-        simulated_orphan_ids[collection_name] = set()
-
-    orphans = {}
+    simulated_orphan_ids: dict[str, set[Any]] = {
+        collection_name: set() for collection_name in COLLECTION_DEPENDENCY_ORDER
+    }
+    orphans: dict[str, list[str]] = {}
 
     # Process from most central to most dependent
     for collection_name in COLLECTION_DEPENDENCY_ORDER:
-        # Check if this collection is a target of any references
         if collection_name in collection_references:
-            for source_collection, field in collection_references[collection_name]:
-                # Get all valid IDs in the target collection (excluding those already marked as orphans)
-                target_collection_obj = await get_collection(collection_name)
-                all_target_ids = set(await target_collection_obj.distinct("_id"))
-
-                # Exclude any IDs that are already marked as orphans in this simulation
-                current_target_ids = all_target_ids - simulated_orphan_ids[collection_name]
-
-                # Find documents in source collection that reference invalid target IDs
-                source_collection_obj = await get_collection(source_collection)
-
-                # Check if field is nested (like attributes.attribute_doc_id)
-                if "." in field:
-                    if f"{source_collection}.{field}" == "caches.attributes.attribute_doc_id":
-                        # Handle nested reference case
-                        # This is complex - need to find cache documents where nested attribute references invalid cache_attribute
-                        pipeline = [
-                            {"$unwind": "$attributes"},
-                            {
-                                "$match": {
-                                    "attributes.attribute_doc_id": {"$exists": True, "$ne": None}
-                                }
-                            },
-                            {
-                                "$lookup": {
-                                    "from": "cache_attributes",
-                                    "localField": "attributes.attribute_doc_id",
-                                    "foreignField": "_id",
-                                    "as": "valid_attribute",
-                                }
-                            },
-                            {"$match": {"valid_attribute": {"$size": 0}}},  # No match found
-                            {"$project": {"_id": 1}},
-                            {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}},
-                        ]
-
-                        results = await source_collection_obj.aggregate(pipeline).to_list(
-                            length=None
-                        )
-                        if results and results[0]["orphan_ids"]:
-                            orphan_ids = [str(obj_id) for obj_id in results[0]["orphan_ids"]]
-                        else:
-                            orphan_ids = []
-                    else:
-                        orphan_ids = []
-                else:
-                    # Regular reference
-                    pipeline = [
-                        {"$match": {field: {"$exists": True, "$ne": None}}},
-                        {"$match": {field: {"$nin": list(current_target_ids)}}},
-                        {"$project": {"_id": 1}},
-                    ]
-
-                    cursor = source_collection_obj.aggregate(pipeline)
-                    orphan_docs = await cursor.to_list(length=None)
-                    orphan_ids = [str(doc["_id"]) for doc in orphan_docs]
-
-                # Record the orphans found
-                ref_key = f"{source_collection}.{field}"
-                if orphan_ids:
-                    if ref_key not in orphans:
-                        orphans[ref_key] = []
-                    orphans[ref_key].extend(orphan_ids)
-
-                    # Add to simulated removals for this source collection
-                    simulated_orphan_ids[source_collection].update(
-                        [ObjectId(oid) for oid in orphan_ids]
-                    )
+            await _detect_orphans_for_collection(
+                collection_name,
+                collection_references[collection_name],
+                simulated_orphan_ids,
+                orphans,
+            )
 
     # Remove duplicates
     for key in orphans:
@@ -404,6 +458,76 @@ async def cleanup_analyze():
     }
 
 
+def _collect_orphan_object_ids(
+    collection_name: str, orphans_by_key_path: dict[str, list[str]]
+) -> list[ObjectId]:
+    """Collect every orphan ObjectId recorded for `collection_name` across all key paths.
+
+    Args:
+        collection_name (str): Collection currently being processed.
+        orphans_by_key_path (dict): `{"<collection>.<field>": [orphan_id, ...]}` from the analysis.
+
+    Returns:
+        list[ObjectId]: Deduplicated ObjectIds to delete from `collection_name`.
+    """
+    all_orphan_ids: set[str] = set()
+    for key_path, orphan_ids in orphans_by_key_path.items():
+        current_collection, _field = key_path.split(".", 1)
+        if current_collection == collection_name:
+            all_orphan_ids.update(orphan_ids)
+    return [ObjectId(oid) for oid in all_orphan_ids]
+
+
+async def _backup_and_delete_documents(
+    collection_name: str, object_ids: list[ObjectId], backup_data: dict[str, Any]
+) -> int:
+    """Back up then delete the given documents from `collection_name`.
+
+    Description:
+        Retrieves the full documents before deletion, appends them (serialized) to
+        `backup_data["data"][collection_name]`, then deletes them.
+
+    Args:
+        collection_name (str): Collection to delete from.
+        object_ids (list[ObjectId]): Document ids to back up and delete.
+        backup_data (dict): Backup payload, mutated in place.
+
+    Returns:
+        int: Number of documents actually deleted.
+    """
+    collection_obj = await get_collection(collection_name)
+    docs_to_delete = await collection_obj.find({"_id": {"$in": object_ids}}).to_list(None)
+
+    backup_data["data"].setdefault(collection_name, []).extend(
+        [serialize_mongo_doc(doc) for doc in docs_to_delete]
+    )
+
+    collection_obj = await get_collection(collection_name)
+    result = await collection_obj.delete_many({"_id": {"$in": object_ids}})
+    return result.deleted_count
+
+
+def _validate_cleanup_key(key: str) -> dict[str, Any]:
+    """Validate a cleanup confirmation key, raising if invalid or expired.
+
+    Args:
+        key (str): Confirmation key obtained via GET /db_cleanup.
+
+    Returns:
+        dict: The cached analysis data for this key.
+    """
+    cached_data = load_cleanup_pending(key)
+    if cached_data is None:
+        raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
+
+    if utcnow() > datetime.fromisoformat(cached_data["expires_at"]):
+        delete_cleanup_pending(key)
+        raise HTTPException(
+            status_code=410, detail="Confirmation key expired. Please request a new analysis."
+        )
+    return cached_data
+
+
 # DONE: [BACKLOG] Route /maintenance/db_cleanup (DELETE) verified
 @router.delete("/db_cleanup")
 async def cleanup_execute(key: str):
@@ -417,67 +541,26 @@ async def cleanup_execute(key: str):
     """
     clean_expired_keys()
 
-    # Verify the key
-    cached_data = load_cleanup_pending(key)
-    if cached_data is None:
-        raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
-
-    if utcnow() > datetime.fromisoformat(cached_data["expires_at"]):
-        delete_cleanup_pending(key)
-        raise HTTPException(
-            status_code=410, detail="Confirmation key expired. Please request a new analysis."
-        )
+    cached_data = _validate_cleanup_key(key)
 
     # Prepare backup data
-    backup_data = {"timestamp": utcnow().isoformat(), "deleted_by_collection": {}, "data": {}}
-
-    deleted_count = {}
+    backup_data: dict[str, Any] = {
+        "timestamp": utcnow().isoformat(),
+        "deleted_by_collection": {},
+        "data": {},
+    }
+    deleted_count: dict[str, int] = {}
 
     # Process collections in dependency order (most central first)
     # This ensures that when we remove items from central collections,
     # we process potential orphans in dependent collections appropriately
     for collection_name in COLLECTION_DEPENDENCY_ORDER:
-        # Find all orphan references for documents in this collection
-        collection_orphans = {}
-        for key_path, orphan_ids in cached_data["orphans"].items():
-            current_collection, field = key_path.split(".", 1)
-
-            # Check if this orphan refers to documents in the current collection being processed
-            if current_collection == collection_name:
-                collection_orphans[key_path] = orphan_ids
-
-        if not collection_orphans:
+        object_ids = _collect_orphan_object_ids(collection_name, cached_data["orphans"])
+        if not object_ids:
             continue
 
-        # Collect all document IDs from all orphan references for this collection
-        all_orphan_ids = set()
-        for _, orphan_ids in collection_orphans.items():
-            all_orphan_ids.update(orphan_ids)
-
-        # Convert IDs to ObjectId
-        object_ids = [ObjectId(oid) for oid in all_orphan_ids]
-
-        # Retrieve full documents BEFORE deletion
-        collection_obj = await get_collection(collection_name)
-        docs_to_delete = await collection_obj.find({"_id": {"$in": object_ids}}).to_list(None)
-
-        # Add to backup
-        if collection_name not in backup_data["data"]:
-            backup_data["data"][collection_name] = []
-
-        backup_data["data"][collection_name].extend(
-            [serialize_mongo_doc(doc) for doc in docs_to_delete]
-        )
-
-        # Delete the documents
-        collection_obj = await get_collection(collection_name)
-        result = await collection_obj.delete_many({"_id": {"$in": object_ids}})
-
-        # Aggregate counters per collection
-        if collection_name not in deleted_count:
-            deleted_count[collection_name] = 0
-        deleted_count[collection_name] += result.deleted_count
-
+        deleted = await _backup_and_delete_documents(collection_name, object_ids, backup_data)
+        deleted_count[collection_name] = deleted_count.get(collection_name, 0) + deleted
         backup_data["deleted_by_collection"][collection_name] = deleted_count[collection_name]
 
     backup_data["total_deleted"] = sum(deleted_count.values())
@@ -619,6 +702,107 @@ async def full_backup_create():
     }
 
 
+def _load_backup_payload(backup_file: Path) -> dict[str, Any]:
+    """Load the JSON payload from a full-backup zip archive.
+
+    Args:
+        backup_file (Path): Path to the backup `.zip` file.
+
+    Returns:
+        dict: Parsed backup payload (`collections`, `timestamp`, ...).
+    """
+    with ZipFile(backup_file, "r") as zf:
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            raise HTTPException(status_code=400, detail="No JSON found in backup archive")
+        return json.loads(zf.read(json_name).decode("utf-8"))
+
+
+def _resolve_destructive_confirmation(filename: str, key: str | None) -> dict[str, Any] | None:
+    """Resolve a destructive restore's two-step confirmation dance.
+
+    Description:
+        On first call (no `key`), generates and persists a confirmation key, returning
+        the response to send back to re-confirm. Once a valid, matching, non-expired
+        key is supplied, consumes it and returns None (restore may proceed).
+
+    Args:
+        filename (str): Backup filename being restored.
+        key (str | None): Confirmation key from a prior call, if any.
+
+    Returns:
+        dict | None: Confirmation response to return immediately, or None to proceed.
+    """
+    clean_expired_keys(PENDING_RESTORE_DIR)
+
+    if key is None:
+        confirmation_key = secrets.token_urlsafe(16)
+        expires_at = utcnow() + timedelta(minutes=CONFIRMATION_KEY_TTL)
+        save_restore_pending(confirmation_key, filename, expires_at)
+        return {
+            "confirmation_key": confirmation_key,
+            "expires_at": expires_at.isoformat(),
+            "message": (
+                "This would drop all existing data before restoring. Re-submit this "
+                "request with the confirmation key (?key=...) to proceed."
+            ),
+        }
+
+    pending = load_restore_pending(key)
+    if pending is None:
+        raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
+    if utcnow() > datetime.fromisoformat(pending["expires_at"]):
+        delete_restore_pending(key)
+        raise HTTPException(
+            status_code=410, detail="Confirmation key expired. Please request a new one."
+        )
+    if pending["filename"] != filename:
+        raise HTTPException(
+            status_code=400, detail="Confirmation key does not match this backup file."
+        )
+    delete_restore_pending(key)
+    return None
+
+
+async def _restore_backup_collection(
+    db: Any, collection_name: str, docs: list[dict[str, Any]], dry_run: bool, drop_existing: bool
+) -> tuple[int | None, bool]:
+    """Restore (or simulate restoring) one collection's documents from a backup.
+
+    Description:
+        Reconverts `{"$oid": ...}` placeholders back to `ObjectId`, optionally drops the
+        existing collection first, then inserts the documents (or just counts them when
+        `dry_run` is True).
+
+    Args:
+        db (Any): Database handle.
+        collection_name (str): Target collection.
+        docs (list[dict]): Documents to restore.
+        dry_run (bool): Simulate only, don't write.
+        drop_existing (bool): Drop the collection's existing data first.
+
+    Returns:
+        tuple[int | None, bool]: `(restored_count, was_dropped)`. `restored_count` is
+            None when nothing was actually inserted (non-dry-run with no documents).
+    """
+    for doc in docs:
+        if "_id" in doc and isinstance(doc["_id"], dict) and "$oid" in doc["_id"]:
+            doc["_id"] = ObjectId(doc["_id"]["$oid"])
+
+    if dry_run:
+        return len(docs), False
+
+    dropped = False
+    if drop_existing:
+        await db[collection_name].delete_many({})
+        dropped = True
+
+    if docs:
+        result = await db[collection_name].insert_many(docs)
+        return len(result.inserted_ids), dropped
+    return None, dropped
+
+
 # DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) verified
 @router.post("/db_full_restore/{filename}")
 async def full_backup_restore(
@@ -658,64 +842,24 @@ async def full_backup_restore(
     destructive = not dry_run and drop_existing
 
     if destructive:
-        clean_expired_keys(PENDING_RESTORE_DIR)
+        confirmation_response = _resolve_destructive_confirmation(filename, key)
+        if confirmation_response is not None:
+            return confirmation_response
 
-        if key is None:
-            confirmation_key = secrets.token_urlsafe(16)
-            expires_at = utcnow() + timedelta(minutes=CONFIRMATION_KEY_TTL)
-            save_restore_pending(confirmation_key, filename, expires_at)
-            return {
-                "confirmation_key": confirmation_key,
-                "expires_at": expires_at.isoformat(),
-                "message": (
-                    "This would drop all existing data before restoring. Re-submit this "
-                    "request with the confirmation key (?key=...) to proceed."
-                ),
-            }
+    backup_data = _load_backup_payload(backup_file)
 
-        pending = load_restore_pending(key)
-        if pending is None:
-            raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
-        if utcnow() > datetime.fromisoformat(pending["expires_at"]):
-            delete_restore_pending(key)
-            raise HTTPException(
-                status_code=410, detail="Confirmation key expired. Please request a new one."
-            )
-        if pending["filename"] != filename:
-            raise HTTPException(
-                status_code=400, detail="Confirmation key does not match this backup file."
-            )
-        delete_restore_pending(key)
-
-    with ZipFile(backup_file, "r") as zf:
-        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-        if not json_name:
-            raise HTTPException(status_code=400, detail="No JSON found in backup archive")
-        backup_data = json.loads(zf.read(json_name).decode("utf-8"))
-
-    restored = {}
-    dropped = []
+    restored: dict[str, int] = {}
+    dropped: list[str] = []
     db = get_db()
 
     for collection_name, docs in backup_data.get("collections", {}).items():
-        # Reconvertit les _id en ObjectId
-        for doc in docs:
-            if "_id" in doc and isinstance(doc["_id"], dict) and "$oid" in doc["_id"]:
-                doc["_id"] = ObjectId(doc["_id"]["$oid"])
-
-        if not dry_run:
-            # Drop the existing collection if requested
-            if drop_existing:
-                await db[collection_name].delete_many({})
-                dropped.append(collection_name)
-
-            # Actual insertion
-            if docs:
-                result = await db[collection_name].insert_many(docs)
-                restored[collection_name] = len(result.inserted_ids)
-        else:
-            # Simulation
-            restored[collection_name] = len(docs)
+        restored_count, was_dropped = await _restore_backup_collection(
+            db, collection_name, docs, dry_run, drop_existing
+        )
+        if was_dropped:
+            dropped.append(collection_name)
+        if restored_count is not None:
+            restored[collection_name] = restored_count
 
     response = {
         "restored": restored,
@@ -733,63 +877,102 @@ async def full_backup_restore(
     return response
 
 
+def _describe_cleanup_backup_file(backup_file: Path) -> dict[str, Any] | None:
+    """Build the summary entry for one cleanup-backup zip file.
+
+    Args:
+        backup_file (Path): Path to the backup `.zip` file.
+
+    Returns:
+        dict | None: Summary entry, or None if the archive has no JSON metadata.
+    """
+    with ZipFile(backup_file, "r") as zf:
+        # the internal JSON is named f"{base_name}.json"
+        # if the name is unknown, take the first .json entry
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            return None
+        data = json.loads(zf.read(json_name).decode("utf-8"))
+    return {
+        "filename": backup_file.name,
+        "timestamp": data.get("timestamp", "unknown"),
+        "total_deleted": data.get("total_deleted", 0),
+        "collections": list(data.get("deleted_by_collection", {}).keys()),
+        "size_kb": round(backup_file.stat().st_size / 1024, 2),
+        "type": "cleanup",
+    }
+
+
+def _list_cleanup_backup_entries() -> list[dict[str, Any]]:
+    """List all cleanup-backup zip files, newest first.
+
+    Returns:
+        list[dict]: One summary entry per file (or an error entry if it couldn't be read).
+    """
+    entries: list[dict[str, Any]] = []
+    for backup_file in sorted(CLEANUP_BACKUP_DIR.glob("*.zip"), reverse=True):
+        try:
+            entry = _describe_cleanup_backup_file(backup_file)
+            if entry:
+                entries.append(entry)
+        except Exception as e:
+            entries.append({"filename": backup_file.name, "error": str(e)})
+    return entries
+
+
+def _describe_full_backup_file(backup_file: Path) -> dict[str, Any]:
+    """Build the summary entry for one full-backup zip file.
+
+    Args:
+        backup_file (Path): Path to the backup `.zip` file.
+
+    Returns:
+        dict: Summary entry, or an error entry if the archive has no JSON metadata.
+    """
+    with ZipFile(backup_file, "r") as zf:
+        # the internal JSON is named f"{base_name}.json"
+        # if the name is unknown, take the first .json entry
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            # If no JSON file is found in the ZIP
+            return {
+                "filename": backup_file.name,
+                "error": "No JSON metadata file found in archive",
+            }
+        data = json.loads(zf.read(json_name).decode("utf-8"))
+    return {
+        "filename": backup_file.name,
+        "timestamp": data.get("timestamp", "unknown"),
+        "total_collections": data.get("total_collections", 0),
+        "total_documents": data.get("total_documents", 0),
+        "size_mb": round(backup_file.stat().st_size / (1024 * 1024), 2),
+        "type": "full",
+    }
+
+
+def _list_full_backup_entries() -> list[dict[str, Any]]:
+    """List all full-backup zip files, newest first.
+
+    Returns:
+        list[dict]: One summary entry per file (or an error entry if it couldn't be read).
+    """
+    entries: list[dict[str, Any]] = []
+    for backup_file in sorted(FULL_BACKUP_DIR.glob("*.zip"), reverse=True):
+        try:
+            entries.append(_describe_full_backup_file(backup_file))
+        except Exception as e:
+            entries.append({"filename": backup_file.name, "error": str(e)})
+    return entries
+
+
 # DONE: [BACKLOG] Route /maintenance/db_backups (GET) verified
 @router.get("/db_backups")
 async def list_all_backups():
     """Lists all backup files (cleanup + full)."""
-    backups = {"cleanup_backups": [], "full_backups": []}
-
-    # Cleanup backups
-    for backup_file in sorted(CLEANUP_BACKUP_DIR.glob("*.zip"), reverse=True):
-        try:
-            with ZipFile(backup_file, "r") as zf:
-                # the internal JSON is named f"{base_name}.json"
-                # if the name is unknown, take the first .json entry
-                json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-                if json_name:
-                    data = json.loads(zf.read(json_name).decode("utf-8"))
-                    backups["cleanup_backups"].append(
-                        {
-                            "filename": backup_file.name,
-                            "timestamp": data.get("timestamp", "unknown"),
-                            "total_deleted": data.get("total_deleted", 0),
-                            "collections": list(data.get("deleted_by_collection", {}).keys()),
-                            "size_kb": round(backup_file.stat().st_size / 1024, 2),
-                            "type": "cleanup",
-                        }
-                    )
-        except Exception as e:
-            backups["cleanup_backups"].append({"filename": backup_file.name, "error": str(e)})
-
-    # Full backups
-    for backup_file in sorted(FULL_BACKUP_DIR.glob("*.zip"), reverse=True):
-        try:
-            with ZipFile(backup_file, "r") as zf:
-                # the internal JSON is named f"{base_name}.json"
-                # if the name is unknown, take the first .json entry
-                json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-                if json_name:
-                    data = json.loads(zf.read(json_name).decode("utf-8"))
-                    backups["full_backups"].append(
-                        {
-                            "filename": backup_file.name,
-                            "timestamp": data.get("timestamp", "unknown"),
-                            "total_collections": data.get("total_collections", 0),
-                            "total_documents": data.get("total_documents", 0),
-                            "size_mb": round(backup_file.stat().st_size / (1024 * 1024), 2),
-                            "type": "full",
-                        }
-                    )
-                else:
-                    # If no JSON file is found in the ZIP
-                    backups["full_backups"].append(
-                        {
-                            "filename": backup_file.name,
-                            "error": "No JSON metadata file found in archive",
-                        }
-                    )
-        except Exception as e:
-            backups["full_backups"].append({"filename": backup_file.name, "error": str(e)})
+    backups = {
+        "cleanup_backups": _list_cleanup_backup_entries(),
+        "full_backups": _list_full_backup_entries(),
+    }
 
     return {
         "backups": backups,

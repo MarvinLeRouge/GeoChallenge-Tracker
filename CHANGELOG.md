@@ -194,6 +194,7 @@ To regenerate locally, run `npm run changelog`.
 - *(query-builder)* Split leaf compiler into per-kind helpers with dispatch table
 - *(progress)* Split evaluate_progress into single-purpose helpers
 - *(query-builder)* Split remaining complex leaf/aggregate helpers
+- *(maintenance)* Split orphan-cleanup and backup helpers out of route handlers
 
 ### 📚 Documentation
 
