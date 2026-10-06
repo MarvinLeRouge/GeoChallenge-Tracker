@@ -211,6 +211,7 @@ To regenerate locally, run `npm run changelog`.
 - *(calendar-verification)* Split filter resolution and tours computation
 - *(zone-assigner)* Split the 3-pass zone resolution into per-pass helpers
 - *(user-stats)* Split user resolution and per-stat computation
+- *(auth)* Split login into credential/auth/rehash/verification helpers
 
 ### 📚 Documentation
 

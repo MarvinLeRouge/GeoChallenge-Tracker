@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -194,6 +194,130 @@ async def register(
     }
 
 
+async def _extract_login_credentials(request: Request) -> tuple[str, str]:
+    """Extract (identifier, password) from a form or JSON login request.
+
+    Description:
+        Accepts `application/x-www-form-urlencoded`, `multipart/form-data`, and JSON.
+
+    Args:
+        request (Request): The current request.
+
+    Returns:
+        tuple[str, str]: `(ident, password)`, possibly empty if missing.
+    """
+    ctype = request.headers.get("content-type", "")
+
+    if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
+        form = await request.form()
+        # Safe extraction with type checking
+        raw_ident = form.get("username") or form.get("identifier") or ""
+        raw_password = form.get("password") or ""
+
+        # Ensure we have strings, not UploadFile objects
+        ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
+        password = raw_password if isinstance(raw_password, str) else ""
+        return ident, password
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    ident = (body.get("identifier") or body.get("username") or body.get("email") or "").strip()
+    password = body.get("password") or ""
+    return ident, password
+
+
+async def _authenticate_user(
+    users: AsyncIOMotorCollection, ident: str, password: str, request: Request
+) -> dict[str, Any]:
+    """Authenticate a user by identifier and password, raising on failure.
+
+    Args:
+        users (AsyncIOMotorCollection): Users collection.
+        ident (str): Username or email.
+        password (str): Plain password.
+        request (Request): The current request (for logging the client IP).
+
+    Returns:
+        dict: The authenticated user document.
+
+    Raises:
+        HTTPException: 401 if credentials are invalid.
+    """
+    user = await users.find_one(
+        {"$or": [{"email": ident}, {"username": ident}]},
+        collation=COLLATION_CI,
+    )
+    if user is None or not verify_password(password, user.get("password_hash", "")):
+        security_logger.warning(
+            "Failed login attempt (invalid credentials): identifier=%r ip=%s",
+            ident,
+            request.client.host if request.client else "unknown",
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    return user
+
+
+async def _rehash_password_if_needed(
+    users: AsyncIOMotorCollection, user: dict[str, Any], password: str
+) -> None:
+    """Transparently migrate a legacy password hash to the current scheme.
+
+    Description:
+        The plain password was just confirmed correct, so this is a safe place to
+        migrate legacy (bcrypt) hashes to the current scheme (argon2id).
+
+    Args:
+        users (AsyncIOMotorCollection): Users collection.
+        user (dict): The authenticated user document.
+        password (str): Plain password (already verified).
+    """
+    if needs_rehash(user.get("password_hash", "")):
+        await users.update_one(
+            {"_id": user["_id"]}, {"$set": {"password_hash": hash_password(password)}}
+        )
+
+
+def _ensure_user_verified(user: dict[str, Any], ident: str, request: Request) -> None:
+    """Raise if the authenticated user hasn't verified their account.
+
+    Args:
+        user (dict): The authenticated user document.
+        ident (str): Username or email (for logging).
+        request (Request): The current request (for logging the client IP).
+
+    Raises:
+        HTTPException: 401 if the account isn't verified.
+    """
+    if not user.get("is_verified", False):
+        security_logger.info(
+            "Login attempt on unverified account: identifier=%r ip=%s",
+            ident,
+            request.client.host if request.client else "unknown",
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
+
+
+def _set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
+    """Set the refresh-token HttpOnly cookie on the response.
+
+    Args:
+        response (Response): The current response.
+        refresh_token (str): The refresh token value.
+    """
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.environment == "production",
+        samesite="lax",
+        max_age=7 * 24 * 3600,
+        # Scoped to /auth (not just /auth/refresh) so it also reaches /auth/logout.
+        path="/auth",
+    )
+
+
 # DONE: [BACKLOG] Route /auth/login (POST) verified
 @router.post(
     "/login",
@@ -226,71 +350,23 @@ async def login(
     Returns:
         TokenPair: Contains access_token, refresh_token, and token_type.
     """
-    # Accept form-data OAuth2 (Swagger) OR JSON {identifier|username|email, password}
-    ctype = request.headers.get("content-type", "")
-    ident = ""
-    password = ""
-
-    if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
-        form = await request.form()
-        # Safe extraction with type checking
-        raw_ident = form.get("username") or form.get("identifier") or ""
-        raw_password = form.get("password") or ""
-
-        # Ensure we have strings, not UploadFile objects
-        ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
-        password = raw_password if isinstance(raw_password, str) else ""
-    else:
-        try:
-            body = await request.json()
-        except Exception:
-            body = {}
-        ident = (body.get("identifier") or body.get("username") or body.get("email") or "").strip()
-        password = body.get("password") or ""
+    ident, password = await _extract_login_credentials(request)
 
     if not ident or not password:
         raise HTTPException(status_code=422, detail="Missing credentials")
 
-    user = await users.find_one(
-        {"$or": [{"email": ident}, {"username": ident}]},
-        collation=COLLATION_CI,
-    )
-    if user is None or not verify_password(password, user.get("password_hash", "")):
-        security_logger.warning(
-            "Failed login attempt (invalid credentials): identifier=%r ip=%s",
-            ident,
-            request.client.host if request.client else "unknown",
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    user = await _authenticate_user(users, ident, password, request)
 
     # The plain password was just confirmed correct above, so this is a safe place to
     # transparently migrate legacy (bcrypt) hashes to the current scheme (argon2id).
-    if needs_rehash(user.get("password_hash", "")):
-        await users.update_one(
-            {"_id": user["_id"]}, {"$set": {"password_hash": hash_password(password)}}
-        )
+    await _rehash_password_if_needed(users, user, password)
 
-    if not user.get("is_verified", False):
-        security_logger.info(
-            "Login attempt on unverified account: identifier=%r ip=%s",
-            ident,
-            request.client.host if request.client else "unknown",
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
+    _ensure_user_verified(user, ident, request)
 
     sub = str(user["_id"])
     access_token = create_access_token(data={"sub": sub})
     refresh_token = create_refresh_token(data={"sub": sub})
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.environment == "production",
-        samesite="lax",
-        max_age=7 * 24 * 3600,
-        # Scoped to /auth (not just /auth/refresh) so it also reaches /auth/logout.
-        path="/auth",
-    )
+    _set_refresh_token_cookie(response, refresh_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
