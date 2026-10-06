@@ -207,6 +207,7 @@ To regenerate locally, run `npm run changelog`.
 - *(cache-validators)* Split comprehensive validation into single-purpose checks
 - *(matrix-verification)* Split filter resolution and tours computation
 - *(gpx-parser)* Split format detection and cache-data extraction
+- *(test-maintenance)* Extract mock-db setup and backup-request helpers
 
 ### 📚 Documentation
 
