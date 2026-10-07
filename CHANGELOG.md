@@ -240,6 +240,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-maintenance-full-backup-create)* Consolidate response-body assertions into a loop
 - *(test-progress)* Split into one file per tested function
 - *(progress)* Split into pure helpers, DB aggregates, and core logic
+- *(caches)* Split routes by concern into sibling modules
 
 ### 📚 Documentation
 

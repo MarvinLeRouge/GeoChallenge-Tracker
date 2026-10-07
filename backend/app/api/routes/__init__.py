@@ -1,6 +1,11 @@
 # backend/app/api/routes/__init__.py
 # Point d’entrée : regroupe tous les routeurs de l’API pour inclusion dans FastAPI.
 
+# caches_search/caches_geo_search/caches_lookup decorate the same shared
+# `caches_router` object (imported from .caches); they must be imported here,
+# even though unused, for their @router.* decorators to run and register
+# their routes.
+from . import caches_geo_search, caches_lookup, caches_search  # noqa: F401
 from .admin_geo import router as admin_geo_router
 from .auth import router as auth_router
 from .caches import router as caches_router
