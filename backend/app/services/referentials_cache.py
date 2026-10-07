@@ -45,6 +45,74 @@ def _build_collection_projection(
     return projection
 
 
+def _index_code_field(
+    d: dict[str, Any], code_field: str | None, code_map: dict[str, ObjectId], oid: ObjectId
+) -> None:
+    """Index a document's code field into code_map, if present, mutating it in place.
+
+    Args:
+        d: The document to index.
+        code_field: Key to index by "code" (optional).
+        code_map: `lower(code)` -> ObjectId map, mutated.
+        oid: The document's ObjectId.
+    """
+    if code_field and d.get(code_field):
+        code_map[str(d[code_field]).lower()] = oid
+
+
+def _index_name_field(
+    d: dict[str, Any], name_field: str | None, name_map: dict[str, ObjectId], oid: ObjectId
+) -> None:
+    """Index a document's name field into name_map, if present, mutating it in place.
+
+    Args:
+        d: The document to index.
+        name_field: Key to index by "name" (optional).
+        name_map: `lower(name)` -> ObjectId map, mutated.
+        oid: The document's ObjectId.
+    """
+    if name_field and d.get(name_field):
+        name_map[str(d[name_field]).lower()] = oid
+
+
+def _index_aliases_field(
+    d: dict[str, Any], aliases_field: str | None, alias_map: dict[str, ObjectId], oid: ObjectId
+) -> None:
+    """Index a document's alias list into alias_map, if present, mutating it in place.
+
+    Args:
+        d: The document to index.
+        aliases_field: Key to index by "alias" (optional).
+        alias_map: `lower(alias)` -> ObjectId map, mutated.
+        oid: The document's ObjectId.
+    """
+    if not (aliases_field and d.get(aliases_field)):
+        return
+    aliases_value = d[aliases_field]
+    if not isinstance(aliases_value, list):
+        return
+    for alias in aliases_value:
+        if alias:
+            alias_map[str(alias).lower()] = oid
+
+
+def _index_numeric_id_field(
+    d: dict[str, Any], extra_numeric_id_field: str | None, numeric_ids: set[int]
+) -> None:
+    """Index a document's extra numeric id into numeric_ids, if present, mutating it in place.
+
+    Args:
+        d: The document to index.
+        extra_numeric_id_field: Additional numeric key (optional).
+        numeric_ids: Set of extra numeric ids, mutated.
+    """
+    if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
+        try:
+            numeric_ids.add(int(d[extra_numeric_id_field]))
+        except Exception:
+            pass
+
+
 def _index_one_collection_document(
     d: dict[str, Any],
     code_field: str | None,
@@ -76,21 +144,10 @@ def _index_one_collection_document(
     oid = d["_id"]
     ids.add(oid)
     doc_by_id[oid] = d
-    if code_field and d.get(code_field):
-        code_map[str(d[code_field]).lower()] = oid
-    if name_field and d.get(name_field):
-        name_map[str(d[name_field]).lower()] = oid
-    if aliases_field and d.get(aliases_field):
-        aliases_value = d[aliases_field]
-        if isinstance(aliases_value, list):
-            for alias in aliases_value:
-                if alias:
-                    alias_map[str(alias).lower()] = oid
-    if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
-        try:
-            numeric_ids.add(int(d[extra_numeric_id_field]))
-        except Exception:
-            pass
+    _index_code_field(d, code_field, code_map, oid)
+    _index_name_field(d, name_field, name_map, oid)
+    _index_aliases_field(d, aliases_field, alias_map, oid)
+    _index_numeric_id_field(d, extra_numeric_id_field, numeric_ids)
 
 
 def _build_collection_index_output(
