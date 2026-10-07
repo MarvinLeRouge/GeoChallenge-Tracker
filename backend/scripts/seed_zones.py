@@ -177,6 +177,96 @@ async def seed_level(
     return seeded_zones
 
 
+def _load_geojson_features(path: Path) -> list[dict]:
+    """Load a GeoJSON file's feature list.
+
+    Args:
+        path: Path to the GeoJSON file.
+
+    Returns:
+        list[dict]: The `features` array.
+    """
+    with path.open(encoding="utf-8") as f:
+        fc = json.load(f)
+    return fc["features"]
+
+
+async def _rebuild_parent_shapes_from_db(
+    source: dict, sources: list[dict], data_dir: Path, level: int
+) -> tuple[list, list[dict]]:
+    """Rebuild parent shapes/zones from the DB and their source GeoJSON.
+
+    Description:
+        Used when level > 1 and no cached parent shapes are available yet.
+
+    Args:
+        source: Current source entry being seeded.
+        sources: All source entries (to find the parent level's GeoJSON).
+        data_dir: Base directory for GeoJSON files.
+        level: Current level (> 1).
+
+    Returns:
+        tuple: `(parent_shapes, parent_zones)`, both empty if the parent source
+            or matching docs aren't found.
+    """
+    parent_col = await get_collection("administrative_zones")
+    parent_docs = await parent_col.find(
+        {"country_code": source["country"], "level": level - 1}
+    ).to_list(length=None)
+
+    # Reload parent geometries from GeoJSON
+    parent_source = next(
+        (s for s in sources if s["country"] == source["country"] and s["level"] == level - 1),
+        None,
+    )
+    if not parent_source:
+        return [], []
+
+    parent_geojson = data_dir / parent_source["dest"]
+    features = _load_geojson_features(parent_geojson)
+    code_to_shape = {str(feat["properties"]["code"]): shape(feat["geometry"]) for feat in features}
+    parent_shapes = [
+        code_to_shape[z["feature_code"]] for z in parent_docs if z["feature_code"] in code_to_shape
+    ]
+    parent_zones = [z for z in parent_docs if z["feature_code"] in code_to_shape]
+    return parent_shapes, parent_zones
+
+
+async def _resolve_parent_shapes(
+    source: dict,
+    sources: list[dict],
+    data_dir: Path,
+    level: int,
+    parent_shapes: list,
+    parent_zones: list[dict],
+) -> tuple[list, list[dict]]:
+    """Resolve the parent shapes/zones to use for seeding one source.
+
+    Description:
+        Reuses already-built parent shapes/zones from the previous iteration when
+        available; otherwise rebuilds them from the DB (level > 1 only); level 1
+        has no parent, so the inputs are returned unchanged.
+
+    Args:
+        source: Current source entry.
+        sources: All source entries.
+        data_dir: Base directory for GeoJSON files.
+        level: Current level.
+        parent_shapes: Parent shapes carried over from the previous level.
+        parent_zones: Parent zones carried over from the previous level.
+
+    Returns:
+        tuple: `(parent_shapes, parent_zones)` to use for this source.
+    """
+    if level > 1 and parent_shapes:
+        # Parent shapes already built from previous level
+        return parent_shapes, parent_zones
+    if level > 1:
+        # Build parent shapes on the fly from the DB
+        return await _rebuild_parent_shapes_from_db(source, sources, data_dir, level)
+    return parent_shapes, parent_zones
+
+
 async def main() -> None:
     """Seeds all administrative zones from GeoJSON sources."""
     settings = get_settings()
@@ -197,46 +287,16 @@ async def main() -> None:
         dest_rel = source["dest"]
         print(f"[SEED] level {level} ← {dest_rel}")
 
-        if level > 1 and parent_shapes:
-            # Parent shapes already built from previous level
-            pass
-        elif level > 1:
-            # Build parent shapes on the fly from the DB
-            parent_col = await get_collection("administrative_zones")
-            parent_docs = await parent_col.find(
-                {"country_code": source["country"], "level": level - 1}
-            ).to_list(length=None)
-            # Reload parent geometries from GeoJSON
-            parent_source = next(
-                (
-                    s
-                    for s in sources
-                    if s["country"] == source["country"] and s["level"] == level - 1
-                ),
-                None,
-            )
-            if parent_source:
-                parent_geojson = data_dir / parent_source["dest"]
-                with parent_geojson.open(encoding="utf-8") as f:
-                    parent_fc = json.load(f)
-                code_to_shape = {
-                    str(feat["properties"]["code"]): shape(feat["geometry"])
-                    for feat in parent_fc["features"]
-                }
-                parent_shapes = [
-                    code_to_shape[z["feature_code"]]
-                    for z in parent_docs
-                    if z["feature_code"] in code_to_shape
-                ]
-                parent_zones = [z for z in parent_docs if z["feature_code"] in code_to_shape]
+        parent_shapes, parent_zones = await _resolve_parent_shapes(
+            source, sources, data_dir, level, parent_shapes, parent_zones
+        )
 
         seeded = await seed_level(source, data_dir, parent_shapes, parent_zones)
 
         # Use this level's shapes as parents for the next level
         geojson_path_level = data_dir / source["dest"]
-        with geojson_path_level.open(encoding="utf-8") as f:
-            fc = json.load(f)
-        parent_shapes = [shape(feat["geometry"]) for feat in fc["features"]]
+        features = _load_geojson_features(geojson_path_level)
+        parent_shapes = [shape(feat["geometry"]) for feat in features]
         parent_zones = seeded
 
     print("\nDone.")

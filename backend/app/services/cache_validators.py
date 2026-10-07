@@ -8,32 +8,20 @@ to follow the single responsibility principle.
 from typing import Any
 
 
-async def validate_cache_comprehensive(
-    item: dict[str, Any], all_types_by_name: dict, all_sizes_by_name: dict
-) -> dict[str, Any]:
-    """
-    Validator for comprehensive cache validation.
-
-    Validates:
-    - lat/lon existence and validity
-    - type_id and size_id existence in collections
-    - difficulty and terrain in valid range (1.0 to 5.0 in 0.5 increments)
+def _validate_coordinates(item: dict[str, Any]) -> dict[str, Any] | None:
+    """Validate that `item` has valid lat/lon coordinates.
 
     Args:
-        item: The cache item to validate
-        all_types_by_name: Cached lookup for types
-        all_sizes_by_name: Cached lookup for sizes
+        item: The cache item to validate.
 
     Returns:
-        dict: {"is_valid": bool, "reason": str}
+        dict | None: An invalid-result dict, or None if coordinates are valid.
     """
-    # Validate coordinates exist and are valid
     lat = item.get("latitude")
     lon = item.get("longitude")
     if lat is None or lon is None:
         return {"is_valid": False, "reason": "missing_coordinates"}
 
-    # Validate coordinates are valid numbers
     try:
         lat = float(lat)
         lon = float(lon)
@@ -42,7 +30,19 @@ async def validate_cache_comprehensive(
     except (TypeError, ValueError):
         return {"is_valid": False, "reason": "invalid_coordinate_values"}
 
-    # Validate type_id exists in cache_types collection
+    return None
+
+
+def _validate_cache_type(item: dict[str, Any], all_types_by_name: dict) -> dict[str, Any] | None:
+    """Validate that `item`'s cache type resolves to a known, existing type.
+
+    Args:
+        item: The cache item to validate.
+        all_types_by_name: Cached lookup for types.
+
+    Returns:
+        dict | None: An invalid-result dict, or None if the type is valid.
+    """
     type_name = item.get("cache_type")
     # Need to import the type lookup function from its new location
     from app.services.type_helpers import get_type_by_name
@@ -62,7 +62,19 @@ async def validate_cache_comprehensive(
         if not exists_id("cache_types", type_id):
             return {"is_valid": False, "reason": f"cache_type_not_in_db: {type_name}"}
 
-    # Validate size_id exists in cache_sizes collection
+    return None
+
+
+def _validate_cache_size(item: dict[str, Any], all_sizes_by_name: dict) -> dict[str, Any] | None:
+    """Validate that `item`'s cache size resolves to a known, existing size.
+
+    Args:
+        item: The cache item to validate.
+        all_sizes_by_name: Cached lookup for sizes.
+
+    Returns:
+        dict | None: An invalid-result dict, or None if the size is valid.
+    """
     size_name = item.get("cache_size")
     # Need to import the size lookup function from its new location
     from app.services.size_helpers import get_size_by_name
@@ -84,33 +96,71 @@ async def validate_cache_comprehensive(
         if not exists_id("cache_sizes", size_id):
             return {"is_valid": False, "reason": f"cache_size_not_in_db: {size_name}"}
 
-    # Validate difficulty and terrain are in range 1.0 to 5.0 with 0.5 increments
-    difficulty_str = item.get("difficulty", "")
-    terrain_str = item.get("terrain", "")
+    return None
 
+
+def _validate_dt_value(value_str: Any, label: str) -> dict[str, Any] | None:
+    """Validate a difficulty/terrain value: range 1.0 to 5.0 in 0.5 increments.
+
+    Args:
+        value_str: Raw difficulty/terrain value (often a string, possibly empty).
+        label: "difficulty" or "terrain", used to build the reason codes.
+
+    Returns:
+        dict | None: An invalid-result dict, or None if the value is valid (or empty).
+    """
     try:
-        difficulty = float(difficulty_str) if difficulty_str != "" else None
-        if difficulty is not None:
-            if not (1.0 <= difficulty <= 5.0):
-                return {"is_valid": False, "reason": f"difficulty_out_of_range: {difficulty}"}
+        value = float(value_str) if value_str != "" else None
+        if value is not None:
+            if not (1.0 <= value <= 5.0):
+                return {"is_valid": False, "reason": f"{label}_out_of_range: {value}"}
             # Check for valid 0.5 increments (e.g., 1.0, 1.5, 2.0, ..., 5.0)
-            if round(difficulty * 2) != difficulty * 2:
-                return {"is_valid": False, "reason": f"difficulty_invalid_increment: {difficulty}"}
+            if round(value * 2) != value * 2:
+                return {"is_valid": False, "reason": f"{label}_invalid_increment: {value}"}
     except (TypeError, ValueError):
-        if difficulty_str != "":  # Only error if not empty
-            return {"is_valid": False, "reason": f"difficulty_invalid_value: {difficulty_str}"}
+        if value_str != "":  # Only error if not empty
+            return {"is_valid": False, "reason": f"{label}_invalid_value: {value_str}"}
 
-    try:
-        terrain = float(terrain_str) if terrain_str != "" else None
-        if terrain is not None:
-            if not (1.0 <= terrain <= 5.0):
-                return {"is_valid": False, "reason": f"terrain_out_of_range: {terrain}"}
-            # Check for valid 0.5 increments (e.g., 1.0, 1.5, 2.0, ..., 5.0)
-            if round(terrain * 2) != terrain * 2:
-                return {"is_valid": False, "reason": f"terrain_invalid_increment: {terrain}"}
-    except (TypeError, ValueError):
-        if terrain_str != "":  # Only error if not empty
-            return {"is_valid": False, "reason": f"terrain_invalid_value: {terrain_str}"}
+    return None
 
-    # If all validations pass
+
+async def validate_cache_comprehensive(
+    item: dict[str, Any], all_types_by_name: dict, all_sizes_by_name: dict
+) -> dict[str, Any]:
+    """
+    Validator for comprehensive cache validation.
+
+    Validates:
+    - lat/lon existence and validity
+    - type_id and size_id existence in collections
+    - difficulty and terrain in valid range (1.0 to 5.0 in 0.5 increments)
+
+    Args:
+        item: The cache item to validate
+        all_types_by_name: Cached lookup for types
+        all_sizes_by_name: Cached lookup for sizes
+
+    Returns:
+        dict: {"is_valid": bool, "reason": str}
+    """
+    error = _validate_coordinates(item)
+    if error:
+        return error
+
+    error = _validate_cache_type(item, all_types_by_name)
+    if error:
+        return error
+
+    error = _validate_cache_size(item, all_sizes_by_name)
+    if error:
+        return error
+
+    error = _validate_dt_value(item.get("difficulty", ""), "difficulty")
+    if error:
+        return error
+
+    error = _validate_dt_value(item.get("terrain", ""), "terrain")
+    if error:
+        return error
+
     return {"is_valid": True, "reason": "valid"}

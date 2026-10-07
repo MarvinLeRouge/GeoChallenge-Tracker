@@ -33,6 +33,113 @@ async def _resolve_type_ids(type_codes: list[str]) -> list[ObjectId]:
     return [doc["_id"] for doc in docs]
 
 
+def _build_zone_match_and_group(
+    level: int, country: str | None, type_ids: list[ObjectId] | None
+) -> tuple[dict, str]:
+    """Builds the cache-side $match filter and group field for the given level.
+
+    Args:
+        level (int): Administrative level — 0 (country), 1 (region) or 2 (department).
+        country (str | None): ISO country code, required for level 1/2, ignored at level 0.
+        type_ids (list[ObjectId] | None): Optional cache type ObjectId filter.
+
+    Returns:
+        tuple[dict, str]: (cache_match, group_field).
+    """
+    cache_match: dict = {}
+    if level == 0:
+        cache_match["cache.zones.country"] = {"$ne": None}
+        group_field = "$cache.zones.country"
+    else:
+        level_field = f"zones.level{level}"
+        cache_match["cache.zones.country"] = country
+        cache_match[f"cache.{level_field}"] = {"$ne": None}
+        group_field = f"$cache.{level_field}"
+
+    if type_ids is not None:
+        cache_match["cache.type_id"] = {"$in": type_ids}
+
+    return cache_match, group_field
+
+
+async def _aggregate_zone_counts(user_id: ObjectId, cache_match: dict, group_field: str) -> dict:
+    """Aggregates found-cache counts per zone code for the given user.
+
+    Args:
+        user_id (ObjectId): Authenticated user's ObjectId.
+        cache_match (dict): Cache-side $match filter.
+        group_field (str): Field to group by (zone code at the requested level).
+
+    Returns:
+        dict: Mapping of zone code to cache_count.
+    """
+    found_col = await get_collection("found_caches")
+    pipeline = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$lookup": {
+                "from": "caches",
+                "localField": "cache_id",
+                "foreignField": "_id",
+                "as": "cache",
+            }
+        },
+        {"$unwind": "$cache"},
+        {"$match": cache_match},
+        {"$group": {"_id": group_field, "cache_count": {"$sum": 1}}},
+    ]
+
+    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
+    return {doc["_id"]: doc["cache_count"] for doc in raw}
+
+
+async def _build_country_zone_items(code_to_count: dict) -> list[ZoneListItem]:
+    """Builds ZoneListItem entries for level 0 (countries).
+
+    Args:
+        code_to_count (dict): Mapping of country code to cache_count.
+
+    Returns:
+        list[ZoneListItem]: Unsorted country zone items.
+    """
+    ref_col = await get_collection("countries")
+    ref_docs = await ref_col.find({"code": {"$in": list(code_to_count.keys())}}).to_list(
+        length=None
+    )
+    return [
+        ZoneListItem(
+            code=d["code"],
+            name=d.get("name_fr") or d["name"],
+            cache_count=code_to_count[d["code"]],
+        )
+        for d in ref_docs
+    ]
+
+
+async def _build_level_zone_items(code_to_count: dict, level: int) -> list[ZoneListItem]:
+    """Builds ZoneListItem entries for level 1/2 (administrative zones).
+
+    Args:
+        code_to_count (dict): Mapping of zone code to cache_count.
+        level (int): Administrative level — 1 (region) or 2 (department).
+
+    Returns:
+        list[ZoneListItem]: Unsorted zone items.
+    """
+    zones_col = await get_collection("administrative_zones")
+    zone_docs = await zones_col.find(
+        {"code": {"$in": list(code_to_count.keys())}, "level": level}
+    ).to_list(length=None)
+    return [
+        ZoneListItem(
+            code=z["code"],
+            name=z["name"],
+            cache_count=code_to_count[z["code"]],
+        )
+        for z in zone_docs
+    ]
+
+
 async def get_zones_with_counts(
     level: int,
     user_id: ObjectId,
@@ -65,67 +172,16 @@ async def get_zones_with_counts(
         if not type_ids:
             return []
 
-    cache_match: dict = {}
-    if level == 0:
-        cache_match["cache.zones.country"] = {"$ne": None}
-        group_field = "$cache.zones.country"
-    else:
-        level_field = f"zones.level{level}"
-        cache_match["cache.zones.country"] = country
-        cache_match[f"cache.{level_field}"] = {"$ne": None}
-        group_field = f"$cache.{level_field}"
-
-    if type_ids is not None:
-        cache_match["cache.type_id"] = {"$in": type_ids}
-
-    found_col = await get_collection("found_caches")
-    pipeline = [
-        {"$match": {"user_id": user_id}},
-        {
-            "$lookup": {
-                "from": "caches",
-                "localField": "cache_id",
-                "foreignField": "_id",
-                "as": "cache",
-            }
-        },
-        {"$unwind": "$cache"},
-        {"$match": cache_match},
-        {"$group": {"_id": group_field, "cache_count": {"$sum": 1}}},
-    ]
-
-    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
-    code_to_count = {doc["_id"]: doc["cache_count"] for doc in raw}
+    cache_match, group_field = _build_zone_match_and_group(level, country, type_ids)
+    code_to_count = await _aggregate_zone_counts(user_id, cache_match, group_field)
 
     if not code_to_count:
         return []
 
     if level == 0:
-        ref_col = await get_collection("countries")
-        ref_docs = await ref_col.find({"code": {"$in": list(code_to_count.keys())}}).to_list(
-            length=None
-        )
-        items = [
-            ZoneListItem(
-                code=d["code"],
-                name=d.get("name_fr") or d["name"],
-                cache_count=code_to_count[d["code"]],
-            )
-            for d in ref_docs
-        ]
+        items = await _build_country_zone_items(code_to_count)
     else:
-        zones_col = await get_collection("administrative_zones")
-        zone_docs = await zones_col.find(
-            {"code": {"$in": list(code_to_count.keys())}, "level": level}
-        ).to_list(length=None)
-        items = [
-            ZoneListItem(
-                code=z["code"],
-                name=z["name"],
-                cache_count=code_to_count[z["code"]],
-            )
-            for z in zone_docs
-        ]
+        items = await _build_level_zone_items(code_to_count, level)
 
     items.sort(key=lambda x: x.name)
     return items

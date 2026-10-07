@@ -326,6 +326,73 @@ _RULE_KINDS = {
 }
 
 
+_RULE_FIELD_NAMES = (
+    "attributes",
+    "type_ids",
+    "codes",
+    "size_ids",
+    "year",
+    "date",
+    "state_ids",
+    "country_id",
+    "min",
+    "max",
+    "min_total",
+)
+
+
+def _looks_like_rule(expr: dict[str, Any]) -> bool:
+    """Detect whether `expr` has direct rule fields (a "short rule" shorthand).
+
+    Args:
+        expr (dict): Candidate expression dict.
+
+    Returns:
+        bool: True if any rule-identifying field is present.
+    """
+    return any(field in expr for field in _RULE_FIELD_NAMES)
+
+
+def _normalize_missing_kind(expr: dict[str, Any]) -> dict[str, Any]:
+    """Normalize an expression with no `kind`, treated as an implicit AND.
+
+    Args:
+        expr (dict): Expression dict with no `kind` key.
+
+    Returns:
+        dict: Canonical `{"kind": "and", "nodes": [...]}`.
+    """
+    # Already has a ‘nodes’ list → force ‘and’
+    if "nodes" in expr and isinstance(expr["nodes"], list):
+        return {"kind": "and", "nodes": expr["nodes"]}
+
+    # Detect a "short rule" (direct attributes/type fields)
+    if _looks_like_rule(expr):
+        return {"kind": "and", "nodes": [expr]}
+
+    # Otherwise, still wrap in an empty AND (let validation handle it)
+    return {"kind": "and", "nodes": expr.get("nodes", [])}
+
+
+def _normalize_logical_kind_without_nodes(expr: dict[str, Any], k: str) -> dict[str, Any] | None:
+    """Normalize a logical-kind expression with rule fields but no `nodes`.
+
+    Description:
+        Transforms into `nodes=[this dict minus 'kind']` (rare but useful).
+
+    Args:
+        expr (dict): Expression dict (`kind` in `_LOGICAL_KINDS`, no `nodes`).
+        k (str): The expression's `kind`.
+
+    Returns:
+        dict | None: The normalized expression, or None if it doesn't look like a rule.
+    """
+    if not _looks_like_rule(expr):
+        return None
+    rule_like = {kk: vv for kk, vv in expr.items() if kk != "kind"}
+    return {"kind": k, "nodes": [rule_like]}
+
+
 def preprocess_expression_default_and(expr: Any) -> Any:
     """Normalizes a shorthand expression to an explicit `AND`.
 
@@ -346,32 +413,7 @@ def preprocess_expression_default_and(expr: Any) -> Any:
 
     # No ‘kind’ → treat as implicit AND
     if "kind" not in expr:
-        # Already has a ‘nodes’ list → force ‘and’
-        if "nodes" in expr and isinstance(expr["nodes"], list):
-            return {"kind": "and", "nodes": expr["nodes"]}
-
-        # Detect a "short rule" (direct attributes/type fields)
-        looks_like_rule = any(
-            k in expr
-            for k in (
-                "attributes",
-                "type_ids",
-                "codes",
-                "size_ids",
-                "year",
-                "date",
-                "state_ids",
-                "country_id",
-                "min",
-                "max",
-                "min_total",
-            )
-        )
-        if looks_like_rule:
-            return {"kind": "and", "nodes": [expr]}
-
-        # Otherwise, still wrap in an empty AND (let validation handle it)
-        return {"kind": "and", "nodes": expr.get("nodes", [])}
+        return _normalize_missing_kind(expr)
 
     # ‘kind’ is a rule at the top level → wrap in an AND
     k = expr.get("kind")
@@ -381,25 +423,9 @@ def preprocess_expression_default_and(expr: Any) -> Any:
     # ‘kind’ is logical but has no nodes and rule fields are present →
     # transform into nodes=[ this dict minus ‘kind’ ] (rare but useful)
     if isinstance(k, str) and k in _LOGICAL_KINDS and not expr.get("nodes"):
-        looks_like_rule = any(
-            field in expr
-            for field in (
-                "attributes",
-                "type_ids",
-                "codes",
-                "size_ids",
-                "year",
-                "date",
-                "state_ids",
-                "country_id",
-                "min",
-                "max",
-                "min_total",
-            )
-        )
-        if looks_like_rule:
-            rule_like = {kk: vv for kk, vv in expr.items() if kk != "kind"}
-            return {"kind": k, "nodes": [rule_like]}
+        normalized = _normalize_logical_kind_without_nodes(expr, k)
+        if normalized is not None:
+            return normalized
 
     # Already canonical
     return expr

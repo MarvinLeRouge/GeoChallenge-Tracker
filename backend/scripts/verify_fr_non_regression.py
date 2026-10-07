@@ -31,6 +31,95 @@ def _bbox_close(a: list[float], b: list[float]) -> bool:
     return len(a) == len(b) == 4 and all(abs(x - y) <= BBOX_TOLERANCE for x, y in zip(a, b))
 
 
+def _build_exported_by_key(
+    exported_features: list[dict], failures: list[str]
+) -> dict[tuple[int, str], dict]:
+    """Index exported features by `(level, code)`, flagging duplicates.
+
+    Args:
+        exported_features: GeoJSON features to index.
+        failures: Failure messages, appended to in place on duplicates.
+
+    Returns:
+        dict: `{(level, code): feature}`.
+    """
+    exported_by_key: dict[tuple[int, str], dict] = {}
+    for f in exported_features:
+        key = (f["properties"]["level"], f["properties"]["code"])
+        if key in exported_by_key:
+            failures.append(f"{key[1]} (level {key[0]}): duplicated in the exported output")
+        exported_by_key[key] = f
+    return exported_by_key
+
+
+def _compare_one_live_zone(
+    live: dict,
+    exported_by_key: dict[tuple[int, str], dict],
+    failures: list[str],
+    notes: list[str],
+) -> None:
+    """Compare one live zone doc against its exported counterpart, if any.
+
+    Description:
+        Appends to `failures`/`notes` in place: missing/name-mismatch/bbox-drift
+        failures, or an overseas/within-tolerance-bbox-drift note.
+
+    Args:
+        live: One live `administrative_zones` doc.
+        exported_by_key: Exported features indexed by `(level, code)`.
+        failures: Failure messages, mutated in place.
+        notes: Informational notes, mutated in place.
+    """
+    code = live["code"]
+    if code in OVERSEAS_CODES:
+        notes.append(
+            f"{code} (level {live['level']}): overseas - retained in DB, no geometry in this export"
+        )
+        return
+
+    key = (live["level"], code)
+    exported = exported_by_key.get(key)
+    if exported is None:
+        failures.append(f"{code} (level {live['level']}): missing from the exported output")
+        return
+
+    if exported["properties"]["nom"] != live["name"]:
+        failures.append(
+            f"{code} (level {live['level']}): name mismatch (live={live['name']!r}, "
+            f"exported={exported['properties']['nom']!r})"
+        )
+
+    if not _bbox_close(exported["bbox"], live["bbox"]):
+        if any(abs(x - y) > BBOX_DRIFT_MAX for x, y in zip(exported["bbox"], live["bbox"])):
+            failures.append(
+                f"{code} (level {live['level']}): bbox drift exceeds {BBOX_DRIFT_MAX} deg "
+                f"(live={live['bbox']}, exported={exported['bbox']}) - likely a bad join, not vintage drift"
+            )
+        else:
+            notes.append(
+                f"{code} (level {live['level']}): bbox drift (live={live['bbox']}, "
+                f"exported={exported['bbox']})"
+            )
+
+
+def _find_export_only_zones(
+    exported_by_key: dict[tuple[int, str], dict], live_docs: list[dict]
+) -> list[tuple[int, str]]:
+    """Find exported `(level, code)` keys with no matching live zone.
+
+    Args:
+        exported_by_key: Exported features indexed by `(level, code)`.
+        live_docs: Live `administrative_zones` docs.
+
+    Returns:
+        list[tuple[int, str]]: Sorted export-only `(level, code)` keys.
+    """
+    matched_keys = {
+        (live["level"], live["code"]) for live in live_docs if live["code"] not in OVERSEAS_CODES
+    }
+    return sorted(exported_by_key.keys() - matched_keys)
+
+
 def compare_zones(
     live_docs: list[dict], exported_features: list[dict]
 ) -> tuple[list[str], list[str]]:
@@ -58,49 +147,15 @@ def compare_zones(
             database but out of scope for this export, see the implementation
             plan's Global Constraints).
     """
-    failures = []
-    notes = []
+    failures: list[str] = []
+    notes: list[str] = []
 
-    exported_by_key: dict[tuple[int, str], dict] = {}
-    for f in exported_features:
-        key = (f["properties"]["level"], f["properties"]["code"])
-        if key in exported_by_key:
-            failures.append(f"{key[1]} (level {key[0]}): duplicated in the exported output")
-        exported_by_key[key] = f
+    exported_by_key = _build_exported_by_key(exported_features, failures)
 
     for live in live_docs:
-        code = live["code"]
-        if code in OVERSEAS_CODES:
-            notes.append(
-                f"{code} (level {live['level']}): overseas - retained in DB, no geometry in this export"
-            )
-            continue
-        key = (live["level"], code)
-        exported = exported_by_key.get(key)
-        if exported is None:
-            failures.append(f"{code} (level {live['level']}): missing from the exported output")
-            continue
-        if exported["properties"]["nom"] != live["name"]:
-            failures.append(
-                f"{code} (level {live['level']}): name mismatch (live={live['name']!r}, "
-                f"exported={exported['properties']['nom']!r})"
-            )
-        if not _bbox_close(exported["bbox"], live["bbox"]):
-            if any(abs(x - y) > BBOX_DRIFT_MAX for x, y in zip(exported["bbox"], live["bbox"])):
-                failures.append(
-                    f"{code} (level {live['level']}): bbox drift exceeds {BBOX_DRIFT_MAX} deg "
-                    f"(live={live['bbox']}, exported={exported['bbox']}) - likely a bad join, not vintage drift"
-                )
-            else:
-                notes.append(
-                    f"{code} (level {live['level']}): bbox drift (live={live['bbox']}, "
-                    f"exported={exported['bbox']})"
-                )
+        _compare_one_live_zone(live, exported_by_key, failures, notes)
 
-    matched_keys = {
-        (live["level"], live["code"]) for live in live_docs if live["code"] not in OVERSEAS_CODES
-    }
-    for level, code in sorted(exported_by_key.keys() - matched_keys):
+    for level, code in _find_export_only_zones(exported_by_key, live_docs):
         failures.append(f"{code} (level {level}): present in the export but not in the live data")
 
     return failures, notes

@@ -117,6 +117,54 @@ class HTMLSanitizer:
             child = child.next
         return "".join(out)
 
+    def _serialize_anchor_tag(self, node) -> str:
+        """Serialize an `<a>` tag, keeping only a safe `href`.
+
+        Args:
+            node: selectolax node for the `<a>` tag.
+
+        Returns:
+            str: Serialized `<a>` tag with its children.
+        """
+        href = node.attributes.get("href")
+        attrs = f' href="{href}"' if href and self._is_safe_href(href) else ""
+        return f"<a{attrs}>{self.serialize_children(node)}</a>"
+
+    def _serialize_img_tag(self, node) -> str:
+        """Serialize an `<img>` tag, dropping it if it has no `src`.
+
+        Args:
+            node: selectolax node for the `<img>` tag.
+
+        Returns:
+            str: Serialized `<img>` tag, or `""` if there's no `src`.
+        """
+        src = node.attributes.get("src", None)
+        if src is None:
+            return ""
+        name = node.attributes.get("name", "")
+        attrs = f' src="{src}" name="{name}"'
+        return f"<img{attrs} />"
+
+    def _serialize_allowed_tag(self, node, tag: str) -> str:
+        """Serialize a tag known to be in `self.allowed_tags`.
+
+        Args:
+            node: selectolax node.
+            tag: Lowercased tag name.
+
+        Returns:
+            str: Serialized tag.
+        """
+        if tag == "br":
+            return "<br/>"
+        if tag == "a":
+            return self._serialize_anchor_tag(node)
+        if tag == "img":
+            return self._serialize_img_tag(node)
+        # other allowed tags rendered without attributes
+        return f"<{tag}>{self.serialize_children(node)}</{tag}>"
+
     def _serialize_node(self, node) -> str:
         """Recursively serialize a node.
 
@@ -144,21 +192,7 @@ class HTMLSanitizer:
 
         # allowed tag
         if tag in self.allowed_tags:
-            if tag == "br":
-                return "<br/>"
-            if tag == "a":
-                href = node.attributes.get("href")
-                attrs = f' href="{href}"' if href and self._is_safe_href(href) else ""
-                return f"<a{attrs}>{self.serialize_children(node)}</a>"
-            if tag == "img":
-                src = node.attributes.get("src", None)
-                if src is None:
-                    return ""
-                name = node.attributes.get("name", "")
-                attrs = f' src="{src}" name="{name}"'
-                return f"<img{attrs} />"
-            # other allowed tags rendered without attributes
-            return f"<{tag}>{self.serialize_children(node)}</{tag}>"
+            return self._serialize_allowed_tag(node, tag)
 
         # disallowed tag (e.g. span, font, center, etc.) → unwrap content
         return self.serialize_children(node)

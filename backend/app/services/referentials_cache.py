@@ -16,6 +16,124 @@ _mapping_lock = asyncio.Lock()
 _mapping_ready = False
 
 
+def _build_collection_projection(
+    code_field: str | None,
+    name_field: str | None,
+    extra_numeric_id_field: str | None,
+    aliases_field: str | None,
+) -> dict[str, int]:
+    """Build the Mongo projection for a reference collection, skipping unset fields.
+
+    Args:
+        code_field: Key to index by "code" (optional).
+        name_field: Key to index by "name" (optional).
+        extra_numeric_id_field: Additional numeric key (optional).
+        aliases_field: Key to index by "alias" (optional).
+
+    Returns:
+        dict: Mongo projection document.
+    """
+    projection: dict[str, int] = {"_id": 1}
+    if code_field:
+        projection[code_field] = 1
+    if name_field:
+        projection[name_field] = 1
+    if extra_numeric_id_field:
+        projection[extra_numeric_id_field] = 1
+    if aliases_field:
+        projection[aliases_field] = 1
+    return projection
+
+
+def _index_one_collection_document(
+    d: dict[str, Any],
+    code_field: str | None,
+    name_field: str | None,
+    extra_numeric_id_field: str | None,
+    aliases_field: str | None,
+    ids: set[ObjectId],
+    code_map: dict[str, ObjectId],
+    name_map: dict[str, ObjectId],
+    alias_map: dict[str, ObjectId],
+    numeric_ids: set[int],
+    doc_by_id: dict[ObjectId, dict[str, Any]],
+) -> None:
+    """Index one reference document into the in-memory maps, mutating them in place.
+
+    Args:
+        d: The document to index.
+        code_field: Key to index by "code" (optional).
+        name_field: Key to index by "name" (optional).
+        extra_numeric_id_field: Additional numeric key (optional).
+        aliases_field: Key to index by "alias" (optional).
+        ids: Set of present ObjectIds, mutated.
+        code_map: `lower(code)` -> ObjectId map, mutated.
+        name_map: `lower(name)` -> ObjectId map, mutated.
+        alias_map: `lower(alias)` -> ObjectId map, mutated.
+        numeric_ids: Set of extra numeric ids, mutated.
+        doc_by_id: ObjectId -> doc map, mutated.
+    """
+    oid = d["_id"]
+    ids.add(oid)
+    doc_by_id[oid] = d
+    if code_field and d.get(code_field):
+        code_map[str(d[code_field]).lower()] = oid
+    if name_field and d.get(name_field):
+        name_map[str(d[name_field]).lower()] = oid
+    if aliases_field and d.get(aliases_field):
+        aliases_value = d[aliases_field]
+        if isinstance(aliases_value, list):
+            for alias in aliases_value:
+                if alias:
+                    alias_map[str(alias).lower()] = oid
+    if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
+        try:
+            numeric_ids.add(int(d[extra_numeric_id_field]))
+        except Exception:
+            pass
+
+
+def _build_collection_index_output(
+    ids: set[ObjectId],
+    doc_by_id: dict[ObjectId, dict[str, Any]],
+    code_map: dict[str, ObjectId],
+    name_map: dict[str, ObjectId],
+    alias_map: dict[str, ObjectId],
+    numeric_ids: set[int],
+    code_field: str | None,
+    name_field: str | None,
+    aliases_field: str | None,
+    extra_numeric_id_field: str | None,
+) -> dict[str, Any]:
+    """Assemble the final in-memory index for a reference collection.
+
+    Args:
+        ids: Set of present ObjectIds.
+        doc_by_id: ObjectId -> doc map.
+        code_map: `lower(code)` -> ObjectId map.
+        name_map: `lower(name)` -> ObjectId map.
+        alias_map: `lower(alias)` -> ObjectId map.
+        numeric_ids: Set of extra numeric ids.
+        code_field: Key to index by "code" (optional).
+        name_field: Key to index by "name" (optional).
+        aliases_field: Key to index by "alias" (optional).
+        extra_numeric_id_field: Additional numeric key (optional).
+
+    Returns:
+        dict: The collection's in-memory index.
+    """
+    out: dict[str, Any] = {"ids": ids, "doc_by_id": doc_by_id}
+    if code_field:
+        out["code"] = code_map
+    if name_field:
+        out["name"] = name_map
+    if aliases_field:
+        out["aliases"] = alias_map
+    if extra_numeric_id_field:
+        out["numeric_ids"] = numeric_ids
+    return out
+
+
 async def _map_collection(
     collection_name: str,
     *,
@@ -47,17 +165,9 @@ async def _map_collection(
     """
     collection_obj = await get_collection(collection_name)
 
-    # Build the projection dynamically to avoid None keys
-    projection: dict[str, int] = {"_id": 1}
-    if code_field:
-        projection[code_field] = 1
-    if name_field:
-        projection[name_field] = 1
-    if extra_numeric_id_field:
-        projection[extra_numeric_id_field] = 1
-    if aliases_field:
-        projection[aliases_field] = 1
-
+    projection = _build_collection_projection(
+        code_field, name_field, extra_numeric_id_field, aliases_field
+    )
     cursor = collection_obj.find({}, projection)
     docs = await cursor.to_list(length=None)
 
@@ -69,36 +179,32 @@ async def _map_collection(
     doc_by_id: dict[ObjectId, dict[str, Any]] = {}
 
     for d in docs:
-        oid = d["_id"]
-        ids.add(oid)
-        doc_by_id[oid] = d
-        if code_field and d.get(code_field):
-            code_map[str(d[code_field]).lower()] = oid
-        if name_field and d.get(name_field):
-            name_map[str(d[name_field]).lower()] = oid
-        if aliases_field and d.get(aliases_field):
-            aliases_value = d[aliases_field]
-            if isinstance(aliases_value, list):
-                for alias in aliases_value:
-                    if alias:
-                        alias_map[str(alias).lower()] = oid
-        if extra_numeric_id_field and d.get(extra_numeric_id_field) is not None:
-            try:
-                numeric_ids.add(int(d[extra_numeric_id_field]))
-            except Exception:
-                pass
+        _index_one_collection_document(
+            d,
+            code_field,
+            name_field,
+            extra_numeric_id_field,
+            aliases_field,
+            ids,
+            code_map,
+            name_map,
+            alias_map,
+            numeric_ids,
+            doc_by_id,
+        )
 
-    out: dict[str, Any] = {"ids": ids, "doc_by_id": doc_by_id}
-    if code_field:
-        out["code"] = code_map
-    if name_field:
-        out["name"] = name_map
-    if aliases_field:
-        out["aliases"] = alias_map
-    if extra_numeric_id_field:
-        out["numeric_ids"] = numeric_ids
-
-    collections_mapping[collection_name] = out
+    collections_mapping[collection_name] = _build_collection_index_output(
+        ids,
+        doc_by_id,
+        code_map,
+        name_map,
+        alias_map,
+        numeric_ids,
+        code_field,
+        name_field,
+        aliases_field,
+        extra_numeric_id_field,
+    )
 
 
 async def _map_collection_states() -> None:
@@ -337,6 +443,54 @@ def resolve_country_name(name: str) -> ObjectId | None:
     return _resolve_code_to_id("countries", "name", name)
 
 
+def _resolve_state_in_country(
+    by_country: dict[str, dict[str, ObjectId]],
+    target: str,
+    country_id: ObjectId,
+    state_name: str,
+) -> tuple[ObjectId | None, str | None]:
+    """Resolve a state by name within a specific country.
+
+    Args:
+        by_country: Per-country state name -> id maps.
+        target: Lowercased state name to look up.
+        country_id: Country filter.
+        state_name: Original (non-lowercased) state name, for the error message.
+
+    Returns:
+        tuple[ObjectId | None, str | None]: `(state_id, error message or None)`.
+    """
+    key = str(country_id if isinstance(country_id, ObjectId) else ObjectId(str(country_id)))
+    sid = (by_country.get(key) or {}).get(target)
+    if sid:
+        return sid, None
+    return None, f"state not found ‘{state_name}’ in country ‘{key}’"
+
+
+def _resolve_state_without_country(
+    by_country: dict[str, dict[str, ObjectId]], target: str, state_name: str
+) -> tuple[ObjectId | None, str | None]:
+    """Resolve a state by name across all countries, flagging ambiguity.
+
+    Args:
+        by_country: Per-country state name -> id maps.
+        target: Lowercased state name to look up.
+        state_name: Original (non-lowercased) state name, for error messages.
+
+    Returns:
+        tuple[ObjectId | None, str | None]: `(state_id, error message or None)`.
+    """
+    hits = []
+    for _cid, states in by_country.items():
+        if target in states:
+            hits.append(states[target])
+    if not hits:
+        return None, f"state name not found '{state_name}'"
+    if len(hits) > 1:
+        return None, f"state name ambiguous without country '{state_name}'"
+    return hits[0], None
+
+
 def resolve_state_name(
     state_name: str, *, country_id: ObjectId | None = None
 ) -> tuple[ObjectId | None, str | None]:
@@ -359,17 +513,7 @@ def resolve_state_name(
     target = (state_name or "").lower()
 
     if country_id:
-        key = str(country_id if isinstance(country_id, ObjectId) else ObjectId(str(country_id)))
-        sid = (by_country.get(key) or {}).get(target)
-        return (sid, None) if sid else (None, f"state not found ‘{state_name}’ in country ‘{key}’")
+        return _resolve_state_in_country(by_country, target, country_id, state_name)
 
     # no country provided → possible ambiguities
-    hits = []
-    for _cid, states in by_country.items():
-        if target in states:
-            hits.append(states[target])
-    if not hits:
-        return None, f"state name not found '{state_name}'"
-    if len(hits) > 1:
-        return None, f"state name ambiguous without country '{state_name}'"
-    return hits[0], None
+    return _resolve_state_without_country(by_country, target, state_name)

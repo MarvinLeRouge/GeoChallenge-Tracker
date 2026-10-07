@@ -26,6 +26,53 @@ router = APIRouter(
 )
 
 
+def _merge_http_stats(global_http_stats: dict[int, int], batch_http_stats: dict[int, int]) -> None:
+    """Merge one batch's HTTP status counts into the running global counters.
+
+    Args:
+        global_http_stats: Running totals, mutated in place.
+        batch_http_stats: This batch's counts.
+    """
+    for code, count in batch_http_stats.items():
+        global_http_stats[code] = global_http_stats.get(code, 0) + count
+
+
+async def _resolve_batch_updates(
+    mapper: ReferentialMapper, docs_buffer: list[dict[str, Any]], geo_results: list
+) -> tuple[list[UpdateOne], int]:
+    """Resolve geocoded country/state for each doc and build its update op.
+
+    Args:
+        mapper: Referential mapper (resolves/creates country+state).
+        docs_buffer: The batch's cache docs.
+        geo_results: Per-doc `(country_name, state_name)` or None, aligned with docs_buffer.
+
+    Returns:
+        tuple[list[UpdateOne], int]: `(bulk_ops, failed_count)`.
+    """
+    bulk_ops: list[UpdateOne] = []
+    failed = 0
+    for doc, geo in zip(docs_buffer, geo_results):
+        if geo is None:
+            failed += 1
+            continue
+
+        country_name, state_name = geo
+        country_id, state_id = await mapper.ensure_country_and_state(country_name, state_name)
+
+        if country_id is None:
+            failed += 1
+            continue
+
+        update_fields: dict[str, Any] = {"country_id": country_id}
+        if state_id is not None:
+            update_fields["state_id"] = state_id
+
+        bulk_ops.append(UpdateOne({"_id": doc["_id"]}, {"$set": update_fields}))
+
+    return bulk_ops, failed
+
+
 @router.post(
     "/backfill",
     summary="Backfill missing country/state via reverse geocoding (admin)",
@@ -114,8 +161,7 @@ async def backfill_geocoding(
         scanned += len(docs_buffer)
 
         # Merge batch HTTP stats into global counters
-        for code, count in batch_http_stats.items():
-            global_http_stats[code] = global_http_stats.get(code, 0) + count
+        _merge_http_stats(global_http_stats, batch_http_stats)
 
         batch_duration = round(time.monotonic() - batch_start, 2)
         log.info(
@@ -126,24 +172,8 @@ async def backfill_geocoding(
             batch_http_stats,
         )
 
-        bulk_ops: list[UpdateOne] = []
-        for doc, geo in zip(docs_buffer, geo_results):
-            if geo is None:
-                failed += 1
-                continue
-
-            country_name, state_name = geo
-            country_id, state_id = await mapper.ensure_country_and_state(country_name, state_name)
-
-            if country_id is None:
-                failed += 1
-                continue
-
-            update_fields: dict[str, Any] = {"country_id": country_id}
-            if state_id is not None:
-                update_fields["state_id"] = state_id
-
-            bulk_ops.append(UpdateOne({"_id": doc["_id"]}, {"$set": update_fields}))
+        bulk_ops, batch_failed = await _resolve_batch_updates(mapper, docs_buffer, geo_results)
+        failed += batch_failed
 
         if bulk_ops:
             await coll.bulk_write(bulk_ops, ordered=False)

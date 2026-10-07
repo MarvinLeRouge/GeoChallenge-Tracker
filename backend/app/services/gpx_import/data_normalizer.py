@@ -210,23 +210,21 @@ class DataNormalizer:
         return cleaned if cleaned else None
 
     @staticmethod
-    def extract_cache_metadata(raw_data: dict[str, Any]) -> dict[str, Any]:
-        """Extract and normalize cache metadata.
+    def _extract_identity_fields(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract GC code, title, description, and URL fields.
 
         Args:
             raw_data: Raw cache data.
 
         Returns:
-            dict: Normalized metadata.
+            dict: Partial metadata (only keys that were resolved).
         """
         metadata: dict[str, Any] = {}
 
-        # GC code (required)
         gc_code = DataNormalizer.normalize_gc_code(raw_data.get("gc_code"))
         if gc_code:
             metadata["GC"] = gc_code
 
-        # Title
         if raw_data.get("title"):
             metadata["title"] = str(raw_data["title"]).strip()
 
@@ -237,11 +235,23 @@ class DataNormalizer:
         if description:
             metadata["description_html"] = description
 
-        # URL
         if raw_data.get("url"):
             metadata["url"] = str(raw_data["url"]).strip()
 
-        # Coordinates
+        return metadata
+
+    @staticmethod
+    def _extract_location_fields(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract coordinates (and GeoJSON location) plus country/state names.
+
+        Args:
+            raw_data: Raw cache data.
+
+        Returns:
+            dict: Partial metadata (only keys that were resolved).
+        """
+        metadata: dict[str, Any] = {}
+
         lat, lon = DataNormalizer.normalize_coordinates(
             raw_data.get("latitude"), raw_data.get("longitude")
         )
@@ -251,7 +261,26 @@ class DataNormalizer:
             # GeoJSON for geographic index
             metadata["loc"] = {"type": "Point", "coordinates": [lon, lat]}
 
-        # Difficulty and terrain
+        # Country / state (string names — resolved to ObjectIds by map_cache_referentials)
+        if raw_data.get("country"):
+            metadata["country"] = str(raw_data["country"]).strip()
+        if raw_data.get("state"):
+            metadata["state"] = str(raw_data["state"]).strip()
+
+        return metadata
+
+    @staticmethod
+    def _extract_rating_fields(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract difficulty, terrain, and placement date fields.
+
+        Args:
+            raw_data: Raw cache data.
+
+        Returns:
+            dict: Partial metadata (only keys that were resolved).
+        """
+        metadata: dict[str, Any] = {}
+
         difficulty = DataNormalizer.normalize_difficulty_terrain(raw_data.get("difficulty"))
         if difficulty is not None:
             metadata["difficulty"] = difficulty
@@ -260,16 +289,27 @@ class DataNormalizer:
         if terrain is not None:
             metadata["terrain"] = terrain
 
-        # Placement date
         placed_date = DataNormalizer.parse_datetime_iso8601(raw_data.get("placed_date"))
         if placed_date:
             metadata["placed_at"] = placed_date
 
-        # Owner
+        return metadata
+
+    @staticmethod
+    def _extract_ownership_and_status_fields(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract owner, favorites count, and status fields.
+
+        Args:
+            raw_data: Raw cache data.
+
+        Returns:
+            dict: Partial metadata (only keys that were resolved).
+        """
+        metadata: dict[str, Any] = {}
+
         if raw_data.get("owner"):
             metadata["owner"] = str(raw_data["owner"]).strip()
 
-        # Favorites
         try:
             favorites = int(raw_data.get("favorites", 0))
             if favorites >= 0:
@@ -277,21 +317,42 @@ class DataNormalizer:
         except (ValueError, TypeError):
             pass
 
-        # Status
         status = raw_data.get("status", "active").lower()
         if status in ["active", "disabled", "archived"]:
             metadata["status"] = status
 
-        # Country / state (string names — resolved to ObjectIds by map_cache_referentials)
-        if raw_data.get("country"):
-            metadata["country"] = str(raw_data["country"]).strip()
-        if raw_data.get("state"):
-            metadata["state"] = str(raw_data["state"]).strip()
+        return metadata
 
-        # Attributes (if present)
+    @staticmethod
+    def _extract_attributes_field(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract the attributes list, if present and well-formed.
+
+        Args:
+            raw_data: Raw cache data.
+
+        Returns:
+            dict: Partial metadata (only `attributes` if resolved).
+        """
         if "attributes" in raw_data and isinstance(raw_data["attributes"], list):
-            metadata["attributes"] = raw_data["attributes"]
+            return {"attributes": raw_data["attributes"]}
+        return {}
 
+    @staticmethod
+    def extract_cache_metadata(raw_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract and normalize cache metadata.
+
+        Args:
+            raw_data: Raw cache data.
+
+        Returns:
+            dict: Normalized metadata.
+        """
+        metadata: dict[str, Any] = {}
+        metadata.update(DataNormalizer._extract_identity_fields(raw_data))
+        metadata.update(DataNormalizer._extract_location_fields(raw_data))
+        metadata.update(DataNormalizer._extract_rating_fields(raw_data))
+        metadata.update(DataNormalizer._extract_ownership_and_status_fields(raw_data))
+        metadata.update(DataNormalizer._extract_attributes_field(raw_data))
         return metadata
 
     @staticmethod

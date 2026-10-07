@@ -129,6 +129,63 @@ def _same_options(
     return (_collation_to_dict(collation) or None) == (ex_collation or None)
 
 
+async def _drop_existing_index_tolerant(coll: Any, existing: dict[str, Any]) -> None:
+    """Drop an existing index, tolerating a concurrent drop by another worker.
+
+    Description:
+        Re-lists indexes to minimize the race window, then ignores
+        IndexNotFound (code 27) if the drop races with another worker.
+
+    Args:
+        coll (Any): The collection.
+        existing (dict): The existing index spec (must have a `name`).
+
+    Raises:
+        OperationFailure: Any failure other than IndexNotFound.
+    """
+    try:
+        server_names = {ix.get("name") async for ix in coll.list_indexes()}
+        name_to_drop = cast(str, existing["name"])
+        if name_to_drop in server_names:
+            await coll.drop_index(name_to_drop)
+    except OperationFailure as exc:
+        if getattr(exc, "code", None) != 27:  # IndexNotFound
+            raise
+
+
+def _build_index_options(
+    name: str | None,
+    unique: bool | None,
+    partial: dict[str, Any] | None,
+    collation: Collation | None,
+    expire_after_seconds: int | None,
+) -> dict[str, Any]:
+    """Build the `create_indexes` options dict from the optional index settings.
+
+    Args:
+        name (str | None): Explicit index name.
+        unique (bool | None): Uniqueness constraint.
+        partial (dict | None): `partialFilterExpression`.
+        collation (Collation | None): Collation.
+        expire_after_seconds (int | None): TTL in seconds.
+
+    Returns:
+        dict: Options to pass to `IndexModel`.
+    """
+    opts: dict[str, Any] = {}
+    if name:
+        opts["name"] = name
+    if unique is not None:
+        opts["unique"] = unique
+    if partial:
+        opts["partialFilterExpression"] = partial
+    if collation is not None:
+        opts["collation"] = collation
+    if expire_after_seconds is not None:
+        opts["expireAfterSeconds"] = expire_after_seconds
+    return opts
+
+
 async def ensure_index(
     coll_name: str,
     keys: KeySpec,
@@ -169,28 +226,9 @@ async def ensure_index(
     ):
         return
     if existing:
-        # Tolerate concurrent execution (multiple workers):
-        #  - re-list to minimize the race window
-        #  - ignore IndexNotFound (code 27)
-        try:
-            server_names = {ix.get("name") async for ix in coll.list_indexes()}
-            name_to_drop = cast(str, existing["name"])
-            if name_to_drop in server_names:
-                await coll.drop_index(name_to_drop)
-        except OperationFailure as exc:
-            if getattr(exc, "code", None) != 27:  # IndexNotFound
-                raise
-    opts: dict[str, Any] = {}
-    if name:
-        opts["name"] = name
-    if unique is not None:
-        opts["unique"] = unique
-    if partial:
-        opts["partialFilterExpression"] = partial
-    if collation is not None:
-        opts["collation"] = collation
-    if expire_after_seconds is not None:
-        opts["expireAfterSeconds"] = expire_after_seconds
+        await _drop_existing_index_tolerant(coll, existing)
+
+    opts = _build_index_options(name, unique, partial, collation, expire_after_seconds)
     await coll.create_indexes([IndexModel(keys, **opts)])
 
 

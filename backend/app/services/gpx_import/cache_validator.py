@@ -249,6 +249,57 @@ class CacheValidator:
         if cache_data["status"] not in valid_statuses:
             cache_data["status"] = "active"  # default value
 
+    def _validate_found_date(self, validated: dict[str, Any]) -> None:
+        """Validate the found_date field.
+
+        Args:
+            validated: Found cache data being validated (mutated in place).
+
+        Raises:
+            ValueError: If found_date is missing or invalid.
+        """
+        import datetime as dt
+
+        if not validated.get("found_date"):
+            raise ValueError("Missing required found_date")
+
+        if not isinstance(validated["found_date"], dt.datetime):
+            raise ValueError("found_date must be a datetime object")
+
+        # Reject future dates
+        if validated["found_date"] > dt.datetime.utcnow():
+            raise ValueError("found_date cannot be in the future")
+
+        # Reject dates before 2000
+        if validated["found_date"].year < 2000:
+            if self.strict_mode:
+                raise ValueError("found_date seems too old (before 2000)")
+
+    def _validate_found_notes(self, validated: dict[str, Any]) -> None:
+        """Validate the optional notes field.
+
+        Args:
+            validated: Found cache data being validated (mutated in place).
+
+        Raises:
+            ValueError: If notes are too long in strict mode.
+        """
+        if "notes" not in validated:
+            return
+
+        notes = validated["notes"]
+        if notes is None:
+            return
+
+        if not isinstance(notes, str):
+            validated["notes"] = str(notes)
+
+        # Enforce maximum length
+        if len(validated["notes"]) > 4000:
+            if self.strict_mode:
+                raise ValueError("Notes too long (max 4000 characters)")
+            validated["notes"] = validated["notes"][:4000]
+
     def validate_found_data(self, found_data: dict[str, Any]) -> dict[str, Any]:
         """Validate found cache data.
 
@@ -263,36 +314,8 @@ class CacheValidator:
         """
         validated = found_data.copy()
 
-        # Required: found date
-        if not validated.get("found_date"):
-            raise ValueError("Missing required found_date")
-
-        import datetime as dt
-
-        if not isinstance(validated["found_date"], dt.datetime):
-            raise ValueError("found_date must be a datetime object")
-
-        # Reject future dates
-        if validated["found_date"] > dt.datetime.utcnow():
-            raise ValueError("found_date cannot be in the future")
-
-        # Reject dates before 2000
-        if validated["found_date"].year < 2000:
-            if self.strict_mode:
-                raise ValueError("found_date seems too old (before 2000)")
-
-        # Validate notes (optional)
-        if "notes" in validated:
-            notes = validated["notes"]
-            if notes is not None:
-                if not isinstance(notes, str):
-                    validated["notes"] = str(notes)
-
-                # Enforce maximum length
-                if len(validated["notes"]) > 4000:
-                    if self.strict_mode:
-                        raise ValueError("Notes too long (max 4000 characters)")
-                    validated["notes"] = validated["notes"][:4000]
+        self._validate_found_date(validated)
+        self._validate_found_notes(validated)
 
         return validated
 

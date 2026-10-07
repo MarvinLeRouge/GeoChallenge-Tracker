@@ -32,63 +32,122 @@ async def _attr_name(caid: int) -> str:
     return doc.get("name") or doc.get("name_reverse") or doc.get("code") or f"attr:{caid}"
 
 
+async def _render_and_node(expr: Mapping[str, Any]) -> str:
+    """Render an `and` node as "A AND B AND ..."."""
+    nodes = expr.get("nodes", [])
+    parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
+    return " AND ".join(parts)
+
+
+async def _render_or_node(expr: Mapping[str, Any]) -> str:
+    """Render an `or` node as "(A OR B OR ...)"."""
+    nodes = expr.get("nodes", [])
+    parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
+    return "(" + " OR ".join(parts) + ")"
+
+
+async def _render_not_node(expr: Mapping[str, Any]) -> str:
+    """Render a `not` node as "NOT (...)"."""
+    return "NOT (" + await _render_expression_human(expr.get("node")) + ")"
+
+
+async def _render_type_in_node(expr: Mapping[str, Any]) -> str:
+    """Render a `type_in` node as "type in [names]"."""
+    ids = await asyncio.gather(
+        *(_name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", []))
+    )
+    return f"type in [{', '.join(ids)}]"
+
+
+async def _render_size_in_node(expr: Mapping[str, Any]) -> str:
+    """Render a `size_in` node as "size in [names]"."""
+    ids = await asyncio.gather(
+        *(_name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", []))
+    )
+    return f"size in [{', '.join(ids)}]"
+
+
+async def _render_country_is_node(expr: Mapping[str, Any]) -> str:
+    """Render a `country_is` node as "country is <name>"."""
+    cid = expr.get("country_id")
+    name = await _name_for("countries", ObjectId(str(cid))) if cid else "?"
+    return f"country is {name}"
+
+
+async def _render_state_in_node(expr: Mapping[str, Any]) -> str:
+    """Render a `state_in` node as "state in [names]"."""
+    ids = await asyncio.gather(
+        *(_name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", []))
+    )
+    return f"state in [{', '.join(ids)}]"
+
+
+async def _render_difficulty_between_node(expr: Mapping[str, Any]) -> str:
+    """Render a `difficulty_between` node as "difficulty min–max"."""
+    a = expr.get("min")
+    b = expr.get("max")
+    return f"difficulty {a}–{b}"
+
+
+async def _render_terrain_between_node(expr: Mapping[str, Any]) -> str:
+    """Render a `terrain_between` node as "terrain min–max"."""
+    a = expr.get("min")
+    b = expr.get("max")
+    return f"terrain {a}–{b}"
+
+
+async def _render_placed_year_node(expr: Mapping[str, Any]) -> str:
+    """Render a `placed_year` node."""
+    return f"placed in {expr.get('year')}"
+
+
+async def _render_placed_before_node(expr: Mapping[str, Any]) -> str:
+    """Render a `placed_before` node."""
+    return f"placed before {expr.get('date')}"
+
+
+async def _render_placed_after_node(expr: Mapping[str, Any]) -> str:
+    """Render a `placed_after` node."""
+    return f"placed after {expr.get('date')}"
+
+
+async def _render_attributes_node(expr: Mapping[str, Any]) -> str:
+    """Render an `attributes` node as "attributes(label=yes/no, ...)"."""
+    parts = []
+    for a in expr.get("attributes", []):
+        label = _attr_name(a.get("cache_attribute_id"))
+        parts.append(f"{label}={'yes' if a.get('is_positive', True) else 'no'}")
+    return "attributes(" + ", ".join(parts) + ")"
+
+
+# Dispatch table for `_render_expression_human`, keyed by node `kind`.
+_EXPRESSION_RENDERERS: dict[str, Any] = {
+    "and": _render_and_node,
+    "or": _render_or_node,
+    "not": _render_not_node,
+    "type_in": _render_type_in_node,
+    "size_in": _render_size_in_node,
+    "country_is": _render_country_is_node,
+    "state_in": _render_state_in_node,
+    "difficulty_between": _render_difficulty_between_node,
+    "terrain_between": _render_terrain_between_node,
+    "placed_year": _render_placed_year_node,
+    "placed_before": _render_placed_before_node,
+    "placed_after": _render_placed_after_node,
+    "attributes": _render_attributes_node,
+}
+
+
 async def _render_expression_human(expr: Mapping[str, Any] | None) -> str:
+    """Render a canonical task expression as a human-readable string (debug helper)."""
     if not isinstance(expr, Mapping):
         return json.dumps(expr, default=str, indent=2)
 
     kind = expr.get("kind")
-    if kind == "and":
-        nodes = expr.get("nodes", [])
-        parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
-        return " AND ".join(parts)
-    if kind == "or":
-        nodes = expr.get("nodes", [])
-        parts = await asyncio.gather(*(_render_expression_human(n) for n in nodes))
-        return "(" + " OR ".join(parts) + ")"
-    if kind == "not":
-        return "NOT (" + await _render_expression_human(expr.get("node")) + ")"
-
-    if kind == "type_in":
-        ids = await asyncio.gather(
-            *(_name_for("cache_types", ObjectId(str(i))) for i in expr.get("type_ids", []))
-        )
-        return f"type in [{', '.join(ids)}]"
-    if kind == "size_in":
-        ids = await asyncio.gather(
-            *(_name_for("cache_sizes", ObjectId(str(i))) for i in expr.get("size_ids", []))
-        )
-        return f"size in [{', '.join(ids)}]"
-    if kind == "country_is":
-        cid = expr.get("country_id")
-        name = await _name_for("countries", ObjectId(str(cid))) if cid else "?"
-        return f"country is {name}"
-    if kind == "state_in":
-        ids = await asyncio.gather(
-            *(_name_for("states", ObjectId(str(i))) for i in expr.get("state_ids", []))
-        )
-        return f"state in [{', '.join(ids)}]"
-    if kind == "difficulty_between":
-        a = expr.get("min")
-        b = expr.get("max")
-        return f"difficulty {a}–{b}"
-    if kind == "terrain_between":
-        a = expr.get("min")
-        b = expr.get("max")
-        return f"terrain {a}–{b}"
-    if kind == "placed_year":
-        return f"placed in {expr.get('year')}"
-    if kind == "placed_before":
-        return f"placed before {expr.get('date')}"
-    if kind == "placed_after":
-        return f"placed after {expr.get('date')}"
-    if kind == "attributes":
-        parts = []
-        for a in expr.get("attributes", []):
-            label = _attr_name(a.get("cache_attribute_id"))
-            parts.append(f"{label}={'yes' if a.get('is_positive', True) else 'no'}")
-        return "attributes(" + ", ".join(parts) + ")"
-
-    return json.dumps(expr, default=str, indent=2)
+    renderer = _EXPRESSION_RENDERERS.get(kind) if isinstance(kind, str) else None
+    if renderer is None:
+        return json.dumps(expr, default=str, indent=2)
+    return await renderer(expr)
 
 
 @pytest.fixture(scope="module")
@@ -141,7 +200,8 @@ def uc_ctx(admin_user_id):
     rprint(f"[teardown] Cleaned user_challenge {uc_doc['_id']} and challenge {ch_doc['_id']}")
 
 
-def _sample_referentials():
+def _fetch_referential_samples():
+    """Fetch one sample of each referential needed by the task-expression fixtures."""
     ct_tradi = get_collection("cache_types").find_one(
         {"code": "traditional"}, {"_id": 1, "name": 1, "code": 1}
     )
@@ -159,21 +219,40 @@ def _sample_referentials():
         else []
     )
     sizes = list(get_collection("cache_sizes").find({}, {"_id": 1, "name": 1}).limit(2))
+    print("sizes", sizes)
+    return {
+        "ct_tradi": ct_tradi,
+        "attr_picnic": attr_picnic,
+        "france": france,
+        "states_fr": states_fr,
+        "sizes": sizes,
+    }
 
+
+def _validate_referential_samples(samples):
+    """Raise an AssertionError listing any required referential sample that's missing."""
     missing = []
-    if not ct_tradi:
+    if not samples["ct_tradi"]:
         missing.append("cache_types.code=traditional")
-    if not attr_picnic:
+    if not samples["attr_picnic"]:
         missing.append("cache_attributes.code=picnic")
-    if not france:
+    if not samples["france"]:
         missing.append("countries.name=France")
-    if len(states_fr) < 1:
+    if len(samples["states_fr"]) < 1:
         missing.append("states(country=France)")
-    if len(sizes) < 1:
+    if len(samples["sizes"]) < 1:
         missing.append("cache_sizes")
     if missing:
         raise AssertionError("Missing referentials: " + ", ".join(missing))
 
+
+def _build_referential_payload(samples):
+    """Build the fixture payload (ids + human-readable labels) from fetched samples."""
+    ct_tradi = samples["ct_tradi"]
+    attr_picnic = samples["attr_picnic"]
+    france = samples["france"]
+    states_fr = samples["states_fr"]
+    sizes = samples["sizes"]
     return {
         "type_ids": [ct_tradi["_id"]],
         "size_ids": [s["_id"] for s in sizes],
@@ -191,6 +270,13 @@ def _sample_referentials():
             ],
         },
     }
+
+
+def _sample_referentials():
+    """Sample and validate the referentials needed by task-expression fixtures."""
+    samples = _fetch_referential_samples()
+    _validate_referential_samples(samples)
+    return _build_referential_payload(samples)
 
 
 def _baseline_tasks(refs):

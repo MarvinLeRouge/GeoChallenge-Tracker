@@ -195,6 +195,44 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Move all config files to repo root
 - *(query-builder)* Split leaf compiler into per-kind helpers with dispatch table
 - *(progress)* Split evaluate_progress into single-purpose helpers
+- *(query-builder)* Split remaining complex leaf/aggregate helpers
+- *(maintenance)* Split orphan-cleanup and backup helpers out of route handlers
+- *(gpx-import)* Split pipeline steps and per-item logic into helpers
+- *(task-expression-validator)* Split per-kind and per-item validators
+- *(progress)* Split aggregate-kind and ETA-estimation helpers
+- *(test-utils)* Split db duplication script into per-step helpers
+- *(test-scripts)* Split expression renderer and referential sampler
+- *(caches)* Split filter-query building and gpx-upload pipeline helpers
+- *(referentials-cache)* Split collection indexing and state resolution
+- *(elevation-opentopo)* Split chunk-splitting and per-chunk fetch helpers
+- *(target-evaluator)* Split pipeline-stage and dt-cell helpers
+- *(cache-validators)* Split comprehensive validation into single-purpose checks
+- *(matrix-verification)* Split filter resolution and tours computation
+- *(gpx-parser)* Split format detection and cache-data extraction
+- *(test-maintenance)* Extract mock-db setup and backup-request helpers
+- *(calendar-verification)* Split filter resolution and tours computation
+- *(zone-assigner)* Split the 3-pass zone resolution into per-pass helpers
+- *(user-stats)* Split user resolution and per-stat computation
+- *(auth)* Split login into credential/auth/rehash/verification helpers
+- *(data-normalizer)* Split field-group extraction helpers
+- *(test-targets-smoke)* Extract evaluation-context fetch and per-item assertions
+- *(user-challenge-validator)* Split per-field patch validators
+- *(seed-zones)* Split parent-shape resolution out of the seeding loop
+- *(challenge-ast)* Split expression normalization, dedupe rule detection
+- *(backfill-country-codes)* Split alias-lookup and per-entry upsert helpers
+- *(type-helpers)* Split type resolution strategies
+- *(file-handler)* Split zip-entry skip/stream/process helpers
+- *(verify-fr-non-regression)* Split zone comparison into per-concern helpers
+- *(seed-indexes)* Split index-drop and options-building helpers
+- *(html-sanitizer)* Split per-tag serialization helpers
+- *(caches-geocoding)* Split http-stats merge and batch-update resolution
+- *(test-matrix-verification)* Extract mock-db builder and combo lookup
+- *(test-data-normalizer)* Consolidate field assertions into an expected-values loop
+- *(gpx-cache-validator)* Split found-data date and notes validation
+- *(gpx-referential-mapper)* Split country/state, type/size and attribute mapping
+- *(zone-service)* Split match/group building and zone-item fetching
+- *(location-parser)* Split dd fallback and hemisphere-based lat/lon ordering
+- *(seed-data)* Split force-reseed and per-document upsert logic
 
 ### 📚 Documentation
 

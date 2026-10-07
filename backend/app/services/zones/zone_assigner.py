@@ -74,6 +74,140 @@ async def _get_index(country_code: str, level: int) -> SpatialIndex | None:
     return index
 
 
+def _group_caches_by_country(caches_data: list[dict[str, Any]]) -> dict[str, list[int]]:
+    """Group cache indices by country code, skipping caches without coordinates.
+
+    Args:
+        caches_data: Cache dicts.
+
+    Returns:
+        dict: `{country_code: [cache_index, ...]}`.
+    """
+    country_groups: dict[str, list[int]] = {}
+    for i, cache in enumerate(caches_data):
+        if cache.get("lat") is None or cache.get("lon") is None:
+            continue
+        country_code = "FR"  # extend when multi-country support is added
+        country_groups.setdefault(country_code, []).append(i)
+    return country_groups
+
+
+def _shapely_exact_pass(
+    caches_data: list[dict[str, Any]],
+    indices: list[int],
+    country_code: str,
+    idx1: SpatialIndex,
+    idx2: SpatialIndex,
+) -> list[int]:
+    """Pass 1: resolve zones via Shapely exact containment.
+
+    Description:
+        Enriches each matched cache in place with its `zones`. Caches with no
+        containing polygon are returned for the next pass.
+
+    Args:
+        caches_data: Cache dicts, mutated in place.
+        indices: Indices (into `caches_data`) to process.
+        country_code: Country code.
+        idx1: Level-1 spatial index.
+        idx2: Level-2 spatial index.
+
+    Returns:
+        list[int]: Indices still unmatched after this pass.
+    """
+    unmatched_indices: list[int] = []
+    for i in indices:
+        cache = caches_data[i]
+        try:
+            zones = resolve_zones_for_point(
+                cache["lat"], cache["lon"], country_code, idx1, idx2, exact_only=True
+            )
+            if zones["level1"] is None or zones["level2"] is None:
+                unmatched_indices.append(i)
+            else:
+                cache["zones"] = zones
+        except Exception as exc:
+            log.warning(
+                "Shapely error for cache %s (%.5f, %.5f): %s",
+                cache.get("GC", "?"),
+                cache["lat"],
+                cache["lon"],
+                exc,
+            )
+            unmatched_indices.append(i)
+    return unmatched_indices
+
+
+async def _nominatim_pass(
+    caches_data: list[dict[str, Any]], unmatched_indices: list[int], country_code: str
+) -> list[int]:
+    """Pass 2: resolve zones via batched Nominatim reverse geocoding.
+
+    Description:
+        Enriches each resolved cache in place with its `zones`. Caches that are
+        foreign (outside the target country) are dropped (not retried). The rest
+        are returned for the next pass.
+
+    Args:
+        caches_data: Cache dicts, mutated in place.
+        unmatched_indices: Indices left unmatched by the Shapely pass.
+        country_code: Country code.
+
+    Returns:
+        list[int]: Indices still unmatched after this pass.
+    """
+    points = [(caches_data[i]["lat"], caches_data[i]["lon"]) for i in unmatched_indices]
+    nominatim_results = await resolve_zones_batch(points, country_code)
+
+    still_unmatched: list[int] = []
+    nominatim_zone: dict[str, str | None | bool]
+    for i, nominatim_zone in zip(unmatched_indices, nominatim_results):
+        is_foreign = bool(nominatim_zone.pop("_foreign", False))
+        clean: dict[str, str | None] = {
+            "country": str(nominatim_zone["country"]) if nominatim_zone["country"] else None,
+            "level1": str(nominatim_zone["level1"]) if nominatim_zone["level1"] else None,
+            "level2": str(nominatim_zone["level2"]) if nominatim_zone["level2"] else None,
+        }
+        if clean["level2"] is not None:
+            caches_data[i]["zones"] = clean
+        elif not is_foreign:
+            still_unmatched.append(i)
+    return still_unmatched
+
+
+def _nearest_polygon_fallback_pass(
+    caches_data: list[dict[str, Any]],
+    still_unmatched: list[int],
+    country_code: str,
+    idx1: SpatialIndex,
+    idx2: SpatialIndex,
+) -> None:
+    """Pass 3: resolve remaining caches via nearest-polygon fallback.
+
+    Args:
+        caches_data: Cache dicts, mutated in place.
+        still_unmatched: Indices left unmatched by the Nominatim pass.
+        country_code: Country code.
+        idx1: Level-1 spatial index.
+        idx2: Level-2 spatial index.
+    """
+    for i in still_unmatched:
+        cache = caches_data[i]
+        try:
+            zones = resolve_zones_for_point(
+                cache["lat"], cache["lon"], country_code, idx1, idx2, exact_only=False
+            )
+            cache["zones"] = zones
+        except Exception as exc:
+            log.warning(
+                "Nearest-polygon fallback failed for cache %s (%.5f, %.5f): %s",
+                cache.get("GC", "?"),
+                cache["lat"],
+                cache["lon"],
+                exc,
+            )
+
+
 async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
     """Enriches a list of cache dicts with their administrative zones (3-pass).
 
@@ -90,12 +224,7 @@ async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
     Args:
         caches_data (list[dict]): Cache dicts enriched in place with a `zones` field.
     """
-    country_groups: dict[str, list[int]] = {}
-    for i, cache in enumerate(caches_data):
-        if cache.get("lat") is None or cache.get("lon") is None:
-            continue
-        country_code = "FR"  # extend when multi-country support is added
-        country_groups.setdefault(country_code, []).append(i)
+    country_groups = _group_caches_by_country(caches_data)
 
     for country_code, indices in country_groups.items():
         idx1 = await _get_index(country_code, 1)
@@ -106,27 +235,7 @@ async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
             continue
 
         # --- Pass 1: Shapely exact containment ---
-        unmatched_indices: list[int] = []
-        for i in indices:
-            cache = caches_data[i]
-            try:
-                zones = resolve_zones_for_point(
-                    cache["lat"], cache["lon"], country_code, idx1, idx2, exact_only=True
-                )
-                if zones["level1"] is None or zones["level2"] is None:
-                    unmatched_indices.append(i)
-                else:
-                    cache["zones"] = zones
-            except Exception as exc:
-                log.warning(
-                    "Shapely error for cache %s (%.5f, %.5f): %s",
-                    cache.get("GC", "?"),
-                    cache["lat"],
-                    cache["lon"],
-                    exc,
-                )
-                unmatched_indices.append(i)
-
+        unmatched_indices = _shapely_exact_pass(caches_data, indices, country_code, idx1, idx2)
         if not unmatched_indices:
             continue
 
@@ -138,23 +247,7 @@ async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
         )
 
         # --- Pass 2: Nominatim reverse geocoding ---
-        points = [(caches_data[i]["lat"], caches_data[i]["lon"]) for i in unmatched_indices]
-        nominatim_results = await resolve_zones_batch(points, country_code)
-
-        still_unmatched: list[int] = []
-        nominatim_zone: dict[str, str | None | bool]
-        for i, nominatim_zone in zip(unmatched_indices, nominatim_results):
-            is_foreign = bool(nominatim_zone.pop("_foreign", False))
-            clean: dict[str, str | None] = {
-                "country": str(nominatim_zone["country"]) if nominatim_zone["country"] else None,
-                "level1": str(nominatim_zone["level1"]) if nominatim_zone["level1"] else None,
-                "level2": str(nominatim_zone["level2"]) if nominatim_zone["level2"] else None,
-            }
-            if clean["level2"] is not None:
-                caches_data[i]["zones"] = clean
-            elif not is_foreign:
-                still_unmatched.append(i)
-
+        still_unmatched = await _nominatim_pass(caches_data, unmatched_indices, country_code)
         if not still_unmatched:
             continue
 
@@ -164,18 +257,4 @@ async def assign_zones_to_caches(caches_data: list[dict[str, Any]]) -> None:
         )
 
         # --- Pass 3: Nearest polygon fallback ---
-        for i in still_unmatched:
-            cache = caches_data[i]
-            try:
-                zones = resolve_zones_for_point(
-                    cache["lat"], cache["lon"], country_code, idx1, idx2, exact_only=False
-                )
-                cache["zones"] = zones
-            except Exception as exc:
-                log.warning(
-                    "Nearest-polygon fallback failed for cache %s (%.5f, %.5f): %s",
-                    cache.get("GC", "?"),
-                    cache["lat"],
-                    cache["lon"],
-                    exc,
-                )
+        _nearest_polygon_fallback_pass(caches_data, still_unmatched, country_code, idx1, idx2)

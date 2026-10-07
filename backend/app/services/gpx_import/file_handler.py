@@ -167,6 +167,111 @@ class FileHandler:
 
         return file_path
 
+    @staticmethod
+    def _should_skip_zip_entry(zip_info: zipfile.ZipInfo) -> bool:
+        """Decide whether to skip a ZIP entry (not a non-oversized .gpx file).
+
+        Args:
+            zip_info: ZIP entry metadata.
+
+        Returns:
+            bool: True if this entry should be skipped.
+        """
+        if zip_info.is_dir():
+            return True
+        if not zip_info.filename.lower().endswith(".gpx"):
+            return True
+        if zip_info.file_size > 50 * 1024 * 1024:  # 50MB max
+            return True
+        return False
+
+    @staticmethod
+    def _stream_extract_gpx_entry(
+        zip_file: zipfile.ZipFile, zip_info: zipfile.ZipInfo, total_extracted_size: int
+    ) -> tuple[bytes, int]:
+        """Stream-read one GPX entry, enforcing the cumulative extraction size cap.
+
+        Description:
+            Streams in chunks and enforces the cumulative cap as it goes, rather than
+            trusting `zip_info.file_size` (part of the attacker-controlled central
+            directory) before reading.
+
+        Args:
+            zip_file: The open ZIP archive.
+            zip_info: The entry to read.
+            total_extracted_size: Cumulative bytes extracted so far (across entries).
+
+        Returns:
+            tuple[bytes, int]: `(gpx_data, new_total_extracted_size)`.
+
+        Raises:
+            HTTPException: 400 if the cumulative cap is exceeded.
+        """
+        gpx_data = bytearray()
+        with zip_file.open(zip_info) as gpx_file:
+            while chunk := gpx_file.read(_EXTRACT_CHUNK_SIZE):
+                total_extracted_size += len(chunk)
+                if total_extracted_size > MAX_TOTAL_EXTRACTED_SIZE:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "ZIP archive exceeds the maximum cumulative "
+                            f"extracted size ({MAX_TOTAL_EXTRACTED_SIZE // (1024 * 1024)} MB)"
+                        ),
+                    )
+                gpx_data.extend(chunk)
+        return bytes(gpx_data), total_extracted_size
+
+    def _process_zip_entry(
+        self,
+        zip_file: zipfile.ZipFile,
+        zip_info: zipfile.ZipInfo,
+        total_extracted_size: int,
+        extracted_paths: list[Path],
+    ) -> int:
+        """Extract one GPX entry (if applicable), writing it and recording its path.
+
+        Description:
+            Skips non-GPX/oversized/directory entries. On a cumulative-cap overflow,
+            cleans up already-extracted files and re-raises. Other errors are logged
+            and the entry is skipped.
+
+        Args:
+            zip_file: The open ZIP archive.
+            zip_info: The entry to process.
+            total_extracted_size: Cumulative bytes extracted so far.
+            extracted_paths: Paths extracted so far, mutated in place.
+
+        Returns:
+            int: Updated `total_extracted_size`.
+        """
+        if self._should_skip_zip_entry(zip_info):
+            return total_extracted_size
+
+        try:
+            # Stream in chunks and enforce the cumulative cap as we go,
+            # rather than trusting zip_info.file_size (part of the
+            # attacker-controlled central directory) before reading.
+            gpx_data, total_extracted_size = self._stream_extract_gpx_entry(
+                zip_file, zip_info, total_extracted_size
+            )
+
+            # Save the GPX file
+            gpx_filename = Path(zip_info.filename).name
+            gpx_path = self.write_gpx_file(gpx_data, gpx_filename)
+            extracted_paths.append(gpx_path)
+
+        except HTTPException:
+            # Cumulative cap exceeded: clean up what was already
+            # extracted and abort the whole archive, don't just skip.
+            self.cleanup_files(extracted_paths)
+            raise
+        except Exception as e:
+            # Skip corrupt files but continue processing
+            print(f"Warning: Failed to extract {zip_info.filename}: {str(e)}")
+
+        return total_extracted_size
+
     def extract_zip_files(self, data: bytes) -> list[Path]:
         """Extract GPX files from a ZIP archive.
 
@@ -191,51 +296,9 @@ class FileHandler:
                     )
 
                 for zip_info in zip_file.infolist():
-                    # Skip directories
-                    if zip_info.is_dir():
-                        continue
-
-                    # Filter to GPX files only
-                    if not zip_info.filename.lower().endswith(".gpx"):
-                        continue
-
-                    # Limit individual file size
-                    if zip_info.file_size > 50 * 1024 * 1024:  # 50MB max
-                        continue
-
-                    # Safe extraction
-                    try:
-                        # Stream in chunks and enforce the cumulative cap as we go,
-                        # rather than trusting zip_info.file_size (part of the
-                        # attacker-controlled central directory) before reading.
-                        gpx_data = bytearray()
-                        with zip_file.open(zip_info) as gpx_file:
-                            while chunk := gpx_file.read(_EXTRACT_CHUNK_SIZE):
-                                total_extracted_size += len(chunk)
-                                if total_extracted_size > MAX_TOTAL_EXTRACTED_SIZE:
-                                    raise HTTPException(
-                                        status_code=400,
-                                        detail=(
-                                            "ZIP archive exceeds the maximum cumulative "
-                                            f"extracted size ({MAX_TOTAL_EXTRACTED_SIZE // (1024 * 1024)} MB)"
-                                        ),
-                                    )
-                                gpx_data.extend(chunk)
-
-                        # Save the GPX file
-                        gpx_filename = Path(zip_info.filename).name
-                        gpx_path = self.write_gpx_file(bytes(gpx_data), gpx_filename)
-                        extracted_paths.append(gpx_path)
-
-                    except HTTPException:
-                        # Cumulative cap exceeded: clean up what was already
-                        # extracted and abort the whole archive, don't just skip.
-                        self.cleanup_files(extracted_paths)
-                        raise
-                    except Exception as e:
-                        # Skip corrupt files but continue processing
-                        print(f"Warning: Failed to extract {zip_info.filename}: {str(e)}")
-                        continue
+                    total_extracted_size = self._process_zip_entry(
+                        zip_file, zip_info, total_extracted_size, extracted_paths
+                    )
 
         except HTTPException:
             raise

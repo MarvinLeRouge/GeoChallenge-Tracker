@@ -115,6 +115,147 @@ async def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str
     return int(rows[0]["current_count"]) if rows else 0
 
 
+def _build_base_match_pipeline(
+    user_id: ObjectId, match_caches: dict[str, Any]
+) -> list[Mapping[str, Any]]:
+    """Build the common found_caches -> caches lookup/match pipeline prefix.
+
+    Args:
+        user_id (ObjectId): User.
+        match_caches (dict): AND conditions on `caches`.
+
+    Returns:
+        list[Mapping]: Pipeline stages, ending with the AND match (if any).
+    """
+    pipeline: list[Mapping[str, Any]] = [
+        {"$match": {"user_id": user_id}},
+        {
+            "$lookup": {
+                "from": "caches",
+                "localField": "cache_id",
+                "foreignField": "_id",
+                "as": "cache",
+            }
+        },
+        {"$unwind": "$cache"},
+    ]
+    conds: list[Mapping[str, Any]] = []
+    for field, cond in match_caches.items():
+        if isinstance(cond, list):
+            for c in cond:
+                conds.append({f"cache.{field}": c})
+        else:
+            conds.append({f"cache.{field}": cond})
+    if conds:
+        pipeline.append({"$match": {"$and": conds}})
+    return pipeline
+
+
+async def _aggregate_distinct_countries(fc: Any, pipeline: list[Mapping[str, Any]]) -> int:
+    """Count distinct `cache.country_id` values matched by `pipeline`.
+
+    Args:
+        fc (Any): `found_caches` collection.
+        pipeline (list[Mapping]): Base match pipeline.
+
+    Returns:
+        int: Distinct country count.
+    """
+    full_pipeline = pipeline + [
+        {"$group": {"_id": "$cache.country_id"}},
+        {"$count": "total"},
+    ]
+    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
+    return int(rows[0]["total"]) if rows else 0
+
+
+async def _aggregate_dt_matrix(
+    fc: Any, pipeline: list[Mapping[str, Any]], spec: dict[str, Any]
+) -> int:
+    """Count the number of distinct D/T cells covered, up to `spec`'s max bounds.
+
+    Args:
+        fc (Any): `found_caches` collection.
+        pipeline (list[Mapping]): Base match pipeline.
+        spec (dict): Aggregate spec with `max_difficulty`/`max_terrain`.
+
+    Returns:
+        int: Number of covered D/T matrix cells.
+    """
+    max_d = float(spec.get("max_difficulty", 5.0))
+    max_t = float(spec.get("max_terrain", 5.0))
+    d_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_d - 1.0) / 0.5) + 1)]
+    t_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_t - 1.0) / 0.5) + 1)]
+
+    full_pipeline = pipeline + [
+        {
+            "$group": {
+                "_id": {
+                    "d": "$cache.difficulty",
+                    "t": "$cache.terrain",
+                }
+            }
+        },
+    ]
+    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
+    found_cells: set[tuple[float, float]] = set()
+    for r in rows:
+        d = r["_id"].get("d")
+        t = r["_id"].get("t")
+        if d is not None and t is not None:
+            found_cells.add((round(float(d), 1), round(float(t), 1)))
+    return sum(1 for d in d_values for t in t_values if (d, t) in found_cells)
+
+
+def _build_score_expression(kind: str) -> Mapping[str, Any] | None:
+    """Build the Mongo `$project` score expression for a simple sum-aggregate kind.
+
+    Args:
+        kind (str): `difficulty` | `terrain` | `diff_plus_terr` | `altitude`.
+
+    Returns:
+        Mapping | None: The score expression, or None for an unknown kind.
+    """
+    if kind == "difficulty":
+        return {"$ifNull": ["$cache.difficulty", 0]}
+    if kind == "terrain":
+        return {"$ifNull": ["$cache.terrain", 0]}
+    if kind == "diff_plus_terr":
+        return {
+            "$add": [
+                {"$ifNull": ["$cache.difficulty", 0]},
+                {"$ifNull": ["$cache.terrain", 0]},
+            ]
+        }
+    if kind == "altitude":
+        return {"$ifNull": ["$cache.elevation", 0]}
+    return None
+
+
+async def _aggregate_score_sum(
+    fc: Any, pipeline: list[Mapping[str, Any]], score_expr: Mapping[str, Any]
+) -> int:
+    """Sum a per-document score expression over the matched found caches.
+
+    Args:
+        fc (Any): `found_caches` collection.
+        pipeline (list[Mapping]): Base match pipeline.
+        score_expr (Mapping): `$project` expression computing the per-doc score.
+
+    Returns:
+        int: Summed total.
+    """
+    full_pipeline = pipeline + [
+        {"$project": {"score": score_expr}},
+        {"$group": {"_id": None, "total": {"$sum": "$score"}}},
+    ]
+    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    rows = await cursor.to_list(length=None)
+    return int(rows[0]["total"]) if rows else 0
+
+
 async def _aggregate_total(
     user_id: ObjectId, match_caches: dict[str, Any], spec: dict[str, Any]
 ) -> int:
@@ -136,89 +277,21 @@ async def _aggregate_total(
         int: Aggregated total (0 if `kind` is unknown).
     """
     fc = await get_collection("found_caches")
-    pipeline: list[Mapping[str, Any]] = [
-        {"$match": {"user_id": user_id}},
-        {
-            "$lookup": {
-                "from": "caches",
-                "localField": "cache_id",
-                "foreignField": "_id",
-                "as": "cache",
-            }
-        },
-        {"$unwind": "$cache"},
-    ]
-    # Apply match on cache.*
-    conds: list[Mapping[str, Any]] = []
-    for field, cond in match_caches.items():
-        if isinstance(cond, list):
-            for c in cond:
-                conds.append({f"cache.{field}": c})
-        else:
-            conds.append({f"cache.{field}": cond})
-    if conds:
-        pipeline.append({"$match": {"$and": conds}})
+    pipeline = _build_base_match_pipeline(user_id, match_caches)
 
     k = spec["kind"]
 
     if k == "distinct_countries":
-        pipeline += [
-            {"$group": {"_id": "$cache.country_id"}},
-            {"$count": "total"},
-        ]
-        cursor = fc.aggregate(pipeline, allowDiskUse=False)
-        rows = await cursor.to_list(length=None)
-        return int(rows[0]["total"]) if rows else 0
+        return await _aggregate_distinct_countries(fc, pipeline)
 
     if k == "dt_matrix":
-        max_d = float(spec.get("max_difficulty", 5.0))
-        max_t = float(spec.get("max_terrain", 5.0))
-        d_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_d - 1.0) / 0.5) + 1)]
-        t_values = [round(1.0 + i * 0.5, 1) for i in range(round((max_t - 1.0) / 0.5) + 1)]
-        pipeline += [
-            {
-                "$group": {
-                    "_id": {
-                        "d": "$cache.difficulty",
-                        "t": "$cache.terrain",
-                    }
-                }
-            },
-        ]
-        cursor = fc.aggregate(pipeline, allowDiskUse=False)
-        rows = await cursor.to_list(length=None)
-        found_cells: set[tuple[float, float]] = set()
-        for r in rows:
-            d = r["_id"].get("d")
-            t = r["_id"].get("t")
-            if d is not None and t is not None:
-                found_cells.add((round(float(d), 1), round(float(t), 1)))
-        covered = sum(1 for d in d_values for t in t_values if (d, t) in found_cells)
-        return covered
+        return await _aggregate_dt_matrix(fc, pipeline, spec)
 
-    if k == "difficulty":
-        score_expr = {"$ifNull": ["$cache.difficulty", 0]}
-    elif k == "terrain":
-        score_expr = {"$ifNull": ["$cache.terrain", 0]}
-    elif k == "diff_plus_terr":
-        score_expr = {
-            "$add": [
-                {"$ifNull": ["$cache.difficulty", 0]},
-                {"$ifNull": ["$cache.terrain", 0]},
-            ]
-        }
-    elif k == "altitude":
-        score_expr = {"$ifNull": ["$cache.elevation", 0]}
-    else:
+    score_expr = _build_score_expression(k)
+    if score_expr is None:
         return 0
 
-    pipeline += [
-        {"$project": {"score": score_expr}},
-        {"$group": {"_id": None, "total": {"$sum": "$score"}}},
-    ]
-    cursor = fc.aggregate(pipeline, allowDiskUse=False)
-    rows = await cursor.to_list(length=None)
-    return int(rows[0]["total"]) if rows else 0
+    return await _aggregate_score_sum(fc, pipeline, score_expr)
 
 
 async def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: int) -> date | None:
@@ -902,6 +975,120 @@ async def evaluate_progress(user_id: ObjectId, uc_id: ObjectId, force=False) -> 
     return doc
 
 
+async def _load_task_progress_dates(uc_id: ObjectId) -> dict[ObjectId, dict[str, Any]]:
+    """Load per-task start/completion dates and min_count for ETA computation.
+
+    Args:
+        uc_id (ObjectId): UserChallenge.
+
+    Returns:
+        dict: `{task_id: {"start": ..., "done": ..., "min_count": ...}}`.
+    """
+    tasks_coll = await get_collection("user_challenge_tasks")
+    cursor = tasks_coll.find(
+        {"user_challenge_id": uc_id},
+        {"_id": 1, "start_found_at": 1, "completed_at": 1, "constraints": 1},
+    )
+    tdocs = await cursor.to_list(length=None)
+    return {
+        d["_id"]: {
+            "start": d.get("start_found_at"),
+            "done": d.get("completed_at"),
+            "min_count": int((d.get("constraints") or {}).get("min_count") or 0),
+        }
+        for d in tdocs
+    }
+
+
+def _estimate_task_completion(
+    current_count: int, min_c: int, info: dict[str, Any], now_dt: datetime
+) -> datetime | None:
+    """Estimate a task's completion date from its progress so far.
+
+    Description:
+        Fixed to the recorded completion date if already done; otherwise
+        extrapolated from the find rate since the first find, if in progress.
+
+    Args:
+        current_count (int): Current matching found-cache count.
+        min_c (int): Task's `min_count` constraint.
+        info (dict): `{"start": ..., "done": ...}` from `_load_task_progress_dates`.
+        now_dt (datetime): Reference "now" for extrapolation.
+
+    Returns:
+        datetime | None: Estimated completion date, or None if not estimable.
+    """
+    start = info.get("start")
+    done = info.get("done")
+
+    if done:
+        # completed -> ETA is fixed
+        # found_date is a 'date'; normalize to 'datetime' for the response
+        return datetime(done.year, done.month, done.day)  # 00:00 local/UTC per now()
+
+    if start and current_count >= 1 and min_c > 0:
+        # in progress -> extrapolation
+        # speed = (cur - 1) / days elapsed since the first find
+        elapsed_days = max((now_dt.date() - start.date()).days, 1)
+        speed = float(current_count - 1) / float(elapsed_days)
+        remaining = max(0, min_c - current_count)
+        if speed > 0.0 and remaining > 0:
+            eta_days = int(math.ceil(remaining / speed))
+            eta_date = now_dt.date() + timedelta(days=eta_days)
+            return datetime(eta_date.year, eta_date.month, eta_date.day)
+        # otherwise eta = None
+
+    return None
+
+
+async def _enrich_latest_with_eta(latest: dict[str, Any], uc_id: ObjectId) -> None:
+    """Enrich `latest` in place with a per-task and a global estimated completion date.
+
+    Args:
+        latest (dict): The latest snapshot, mutated in place.
+        uc_id (ObjectId): UserChallenge.
+    """
+    # map (task_id -> {start_found_at, completed_at, current min_count})
+    dates_by_tid = await _load_task_progress_dates(uc_id)
+
+    # compute per-task ETA from the 'latest' snapshot relative to today
+    now_dt = now()
+    eta_values: list[datetime] = []
+    for it in latest.get("tasks") or []:
+        tid = it.get("task_id")
+        current_count = int(it.get("current_count") or 0)
+        # min_count: snapshot value takes precedence, fallback to task doc
+        min_c = int(it.get("min_count") or dates_by_tid.get(tid, {}).get("min_count") or 0)
+        info = dates_by_tid.get(tid) or {}
+
+        eta = _estimate_task_completion(current_count, min_c, info, now_dt)
+
+        # inject per-task ETA into the 'latest' object (for DTO)
+        it["estimated_completion_at"] = eta
+
+        if eta:
+            eta_values.append(eta)
+
+    # global ETA = max of non-None ETAs
+    latest.setdefault("aggregate", {})
+    latest["estimated_completion_at"] = max(eta_values) if eta_values else None
+
+
+def _summarize_progress_snapshot(d: dict[str, Any]) -> dict[str, Any]:
+    """Summarize a history snapshot to its `checked_at` + `aggregate` fields.
+
+    Args:
+        d (dict): Full progress snapshot document.
+
+    Returns:
+        dict: `{"checked_at": ..., "aggregate": ...}`.
+    """
+    return {
+        "checked_at": d["checked_at"],
+        "aggregate": d["aggregate"],
+    }
+
+
 async def get_latest_and_history(
     user_id: ObjectId,
     uc_id: ObjectId,
@@ -936,71 +1123,11 @@ async def get_latest_and_history(
 
     # --- enrich 'latest' with per-task ETA + global ETA ---
     if latest:
-        # map (task_id -> {start_found_at, completed_at, current min_count})
-        tasks_coll = await get_collection("user_challenge_tasks")
-        cursor = tasks_coll.find(
-            {"user_challenge_id": uc_id},
-            {"_id": 1, "start_found_at": 1, "completed_at": 1, "constraints": 1},
-        )
-        tdocs = await cursor.to_list(length=None)
-
-        dates_by_tid: dict[ObjectId, dict[str, Any]] = {
-            d["_id"]: {
-                "start": d.get("start_found_at"),
-                "done": d.get("completed_at"),
-                "min_count": int((d.get("constraints") or {}).get("min_count") or 0),
-            }
-            for d in tdocs
-        }
-
-        # compute per-task ETA from the 'latest' snapshot relative to today
-        now_dt = now()
-        eta_values: list[datetime] = []
-        for it in latest.get("tasks") or []:
-            tid = it.get("task_id")
-            current_count = int(it.get("current_count") or 0)
-            # min_count: snapshot value takes precedence, fallback to task doc
-            min_c = int(it.get("min_count") or dates_by_tid.get(tid, {}).get("min_count") or 0)
-            info = dates_by_tid.get(tid) or {}
-            start = info.get("start")
-            done = info.get("done")
-
-            eta = None
-            if done:
-                # completed -> ETA is fixed
-                # found_date is a 'date'; normalize to 'datetime' for the response
-                eta = datetime(done.year, done.month, done.day)  # 00:00 local/UTC per now()
-            elif start and current_count >= 1 and min_c > 0:
-                # in progress -> extrapolation
-                # speed = (cur - 1) / days elapsed since the first find
-                elapsed_days = max((now_dt.date() - start.date()).days, 1)
-                speed = float(current_count - 1) / float(elapsed_days)
-                remaining = max(0, min_c - current_count)
-                if speed > 0.0 and remaining > 0:
-                    eta_days = int(math.ceil(remaining / speed))
-                    eta_date = now_dt.date() + timedelta(days=eta_days)
-                    eta = datetime(eta_date.year, eta_date.month, eta_date.day)
-                # otherwise eta = None
-
-            # inject per-task ETA into the 'latest' object (for DTO)
-            it["estimated_completion_at"] = eta
-
-            if eta:
-                eta_values.append(eta)
-
-        # global ETA = max of non-None ETAs
-        latest.setdefault("aggregate", {})
-        latest["estimated_completion_at"] = max(eta_values) if eta_values else None
-
-    def _summarize(d: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "checked_at": d["checked_at"],
-            "aggregate": d["aggregate"],
-        }
+        await _enrich_latest_with_eta(latest, uc_id)
 
     res = {
         "latest": latest,
-        "history": [_summarize(h) for h in history],
+        "history": [_summarize_progress_snapshot(h) for h in history],
     }
     if latest and "_id" in latest:
         latest["id"] = str(latest["_id"])

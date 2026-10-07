@@ -28,6 +28,112 @@ class UserChallengeValidator:
         self.db = db
         self.status_calculator = StatusCalculator()
 
+    def _validate_status_field(
+        self, current_uc: dict[str, Any], patch_data: dict[str, Any], validated_data: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        """Validate and apply the `status` field of a patch, if present.
+
+        Args:
+            current_uc: The current UserChallenge document.
+            patch_data: Patch data.
+            validated_data: Output dict, mutated in place on success.
+
+        Returns:
+            tuple[bool, str | None]: `(is_valid, error_message)`.
+        """
+        if "status" not in patch_data:
+            return True, None
+
+        new_status = patch_data["status"]
+        is_valid, error_msg = self.status_calculator.validate_status_transition(
+            current_uc.get("status"),
+            new_status,
+            current_uc.get("computed_status"),
+        )
+        if not is_valid:
+            return False, error_msg
+
+        validated_data["status"] = new_status
+        return True, None
+
+    @staticmethod
+    def _validate_notes_field(
+        patch_data: dict[str, Any], validated_data: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        """Validate and apply the `notes` field of a patch, if present.
+
+        Args:
+            patch_data: Patch data.
+            validated_data: Output dict, mutated in place on success.
+
+        Returns:
+            tuple[bool, str | None]: `(is_valid, error_message)`.
+        """
+        if "notes" not in patch_data:
+            return True, None
+
+        notes = patch_data["notes"]
+        if notes is None:
+            validated_data["notes"] = None
+            return True, None
+
+        if not isinstance(notes, str):
+            return False, "Notes must be a string"
+        if len(notes) > 2000:
+            return False, "Notes too long (max 2000 characters)"
+        validated_data["notes"] = notes.strip() if notes.strip() else None
+        return True, None
+
+    @staticmethod
+    def _validate_manual_override_field(
+        patch_data: dict[str, Any], validated_data: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        """Validate and apply the `manual_override` field of a patch, if present.
+
+        Args:
+            patch_data: Patch data.
+            validated_data: Output dict, mutated in place on success.
+
+        Returns:
+            tuple[bool, str | None]: `(is_valid, error_message)`.
+        """
+        if "manual_override" not in patch_data:
+            return True, None
+
+        override_value = patch_data["manual_override"]
+        if not isinstance(override_value, bool):
+            return False, "manual_override must be a boolean"
+        validated_data["manual_override"] = override_value
+        return True, None
+
+    @staticmethod
+    def _validate_override_reason_field(
+        patch_data: dict[str, Any], validated_data: dict[str, Any]
+    ) -> tuple[bool, str | None]:
+        """Validate and apply the `override_reason` field of a patch, if present.
+
+        Args:
+            patch_data: Patch data.
+            validated_data: Output dict, mutated in place on success.
+
+        Returns:
+            tuple[bool, str | None]: `(is_valid, error_message)`.
+        """
+        if "override_reason" not in patch_data:
+            return True, None
+
+        reason = patch_data["override_reason"]
+        if reason is None:
+            validated_data["override_reason"] = None
+            return True, None
+
+        if not isinstance(reason, str):
+            return False, "override_reason must be a string"
+        if len(reason) > 500:
+            return False, "Override reason too long (max 500 characters)"
+        validated_data["override_reason"] = reason.strip() if reason.strip() else None
+        return True, None
+
     async def validate_patch_operation(
         self,
         user_id: ObjectId,
@@ -55,51 +161,23 @@ class UserChallengeValidator:
         if invalid_fields:
             return False, f"Invalid fields: {', '.join(invalid_fields)}", {}
 
-        validated_data = {}
+        validated_data: dict[str, Any] = {}
 
-        # Validate status if provided
-        if "status" in patch_data:
-            new_status = patch_data["status"]
-            is_valid, error_msg = self.status_calculator.validate_status_transition(
-                current_uc.get("status"),
-                new_status,
-                current_uc.get("computed_status"),
-            )
-            if not is_valid:
-                return False, error_msg, {}
+        is_valid, error_msg = self._validate_status_field(current_uc, patch_data, validated_data)
+        if not is_valid:
+            return False, error_msg, {}
 
-            validated_data["status"] = new_status
+        is_valid, error_msg = self._validate_notes_field(patch_data, validated_data)
+        if not is_valid:
+            return False, error_msg, {}
 
-        # Validate notes if provided
-        if "notes" in patch_data:
-            notes = patch_data["notes"]
-            if notes is not None:
-                if not isinstance(notes, str):
-                    return False, "Notes must be a string", {}
-                if len(notes) > 2000:
-                    return False, "Notes too long (max 2000 characters)", {}
-                validated_data["notes"] = notes.strip() if notes.strip() else None
-            else:
-                validated_data["notes"] = None
+        is_valid, error_msg = self._validate_manual_override_field(patch_data, validated_data)
+        if not is_valid:
+            return False, error_msg, {}
 
-        # Validate override flag if provided
-        if "manual_override" in patch_data:
-            override_value = patch_data["manual_override"]
-            if not isinstance(override_value, bool):
-                return False, "manual_override must be a boolean", {}
-            validated_data["manual_override"] = override_value
-
-        # Validate override reason if provided
-        if "override_reason" in patch_data:
-            reason = patch_data["override_reason"]
-            if reason is not None:
-                if not isinstance(reason, str):
-                    return False, "override_reason must be a string", {}
-                if len(reason) > 500:
-                    return False, "Override reason too long (max 500 characters)", {}
-                validated_data["override_reason"] = reason.strip() if reason.strip() else None
-            else:
-                validated_data["override_reason"] = None
+        is_valid, error_msg = self._validate_override_reason_field(patch_data, validated_data)
+        if not is_valid:
+            return False, error_msg, {}
 
         return True, None, validated_data
 

@@ -70,6 +70,68 @@ async def backup_countries_collection() -> str:
     return backup_name
 
 
+def _build_name_alias_lookup(existing_docs: list[dict]) -> dict[str, dict]:
+    """Build a normalized-name -> doc lookup, including declared aliases.
+
+    Args:
+        existing_docs: Existing `countries` documents (projected `_id`, `name`, `created_at`).
+
+    Returns:
+        dict: `{normalized_name: doc}`, including alias name entries.
+    """
+    existing_by_norm_name = {
+        ReferentialMapper.normalize_name(doc["name"]): doc for doc in existing_docs
+    }
+    for db_name, iso_name in NAME_ALIASES.items():
+        existing = existing_by_norm_name.get(ReferentialMapper.normalize_name(db_name))
+        if existing:
+            existing_by_norm_name[ReferentialMapper.normalize_name(iso_name)] = existing
+    return existing_by_norm_name
+
+
+async def _update_existing_country(col, existing: dict, entry: dict, dry_run: bool) -> None:
+    """Update an existing country doc with the seed's code/name_fr, unless dry-running.
+
+    Args:
+        col: `countries` collection.
+        existing: The matched existing document.
+        entry: Seed entry (`code`, `name_fr`).
+        dry_run: If True, skip the write.
+    """
+    if dry_run:
+        return
+    update_fields = {
+        "code": entry["code"],
+        "name_fr": entry["name_fr"],
+        "updated_at": now(),
+    }
+    if existing.get("created_at") is None:
+        update_fields["created_at"] = now()
+    await col.update_one({"_id": existing["_id"]}, {"$set": update_fields})
+
+
+async def _insert_new_country(col, entry: dict, dry_run: bool) -> None:
+    """Insert a new country doc from the seed entry, unless dry-running.
+
+    Args:
+        col: `countries` collection.
+        entry: Seed entry (`name`, `name_fr`, `code`).
+        dry_run: If True, skip the write.
+    """
+    if dry_run:
+        return
+    creation_time = now()
+    await col.insert_one(
+        {
+            "name": entry["name"],
+            "name_fr": entry["name_fr"],
+            "code": entry["code"],
+            "created_at": creation_time,
+            "updated_at": creation_time,
+        }
+    )
+
+
 async def main(dry_run: bool) -> None:
     """Backfills ISO code and French name on the `countries` collection.
 
@@ -86,13 +148,7 @@ async def main(dry_run: bool) -> None:
 
     col = await get_collection("countries")
     existing_docs = await col.find({}, {"_id": 1, "name": 1, "created_at": 1}).to_list(length=None)
-    existing_by_norm_name = {
-        ReferentialMapper.normalize_name(doc["name"]): doc for doc in existing_docs
-    }
-    for db_name, iso_name in NAME_ALIASES.items():
-        existing = existing_by_norm_name.get(ReferentialMapper.normalize_name(db_name))
-        if existing:
-            existing_by_norm_name[ReferentialMapper.normalize_name(iso_name)] = existing
+    existing_by_norm_name = _build_name_alias_lookup(existing_docs)
 
     matched = 0
     inserted = 0
@@ -101,28 +157,10 @@ async def main(dry_run: bool) -> None:
         existing = existing_by_norm_name.get(norm_name)
 
         if existing:
-            if not dry_run:
-                update_fields = {
-                    "code": entry["code"],
-                    "name_fr": entry["name_fr"],
-                    "updated_at": now(),
-                }
-                if existing.get("created_at") is None:
-                    update_fields["created_at"] = now()
-                await col.update_one({"_id": existing["_id"]}, {"$set": update_fields})
+            await _update_existing_country(col, existing, entry, dry_run)
             matched += 1
         else:
-            if not dry_run:
-                creation_time = now()
-                await col.insert_one(
-                    {
-                        "name": entry["name"],
-                        "name_fr": entry["name_fr"],
-                        "code": entry["code"],
-                        "created_at": creation_time,
-                        "updated_at": creation_time,
-                    }
-                )
+            await _insert_new_country(col, entry, dry_run)
             inserted += 1
 
     action = "Would update" if dry_run else "Updated"

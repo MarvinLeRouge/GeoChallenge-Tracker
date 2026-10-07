@@ -120,6 +120,55 @@ def _resolve_hemisphere_sign(value: float, hem: str | None, is_latitude: bool) -
     return abs(value)
 
 
+def _parse_simple_dd_fallback(txt: str) -> tuple[float, float]:
+    """Parses simple "dd, dd" fallback formats (e.g. "50.1, 5.2").
+
+    Args:
+        txt: Normalized coordinate string.
+
+    Returns:
+        tuple[float, float]: (longitude, latitude).
+
+    Raises:
+        ValueError: If parsing fails or coordinates are out of range.
+    """
+    m = re.findall(r"[-+]?\d+(?:\.\d+)?", txt)
+    if len(m) < 2:
+        raise ValueError("unable to parse position")
+
+    lat = float(m[0])
+    lon = float(m[1])
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("coordinates out of range")
+    return (lon, lat)
+
+
+def _try_resolve_lat_lon_by_hemisphere(
+    v1: float, hem1: str | None, v2: float, hem2: str | None
+) -> tuple[float, float] | None:
+    """Resolves lat/lon order from distinct hemisphere indicators, if present.
+
+    Args:
+        v1: First component's signed value.
+        hem1: First component's hemisphere (N/S/E/W) or None.
+        v2: Second component's signed value.
+        hem2: Second component's hemisphere (N/S/E/W) or None.
+
+    Returns:
+        tuple[float, float] | None: (latitude, longitude) if the hemispheres
+        conclusively determine the order, None otherwise.
+    """
+    if hem1 in ("N", "S") and hem2 in ("E", "W"):
+        lat = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=True)
+        lon = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=False)
+        return (lat, lon)
+    if hem1 in ("E", "W") and hem2 in ("N", "S"):
+        lon = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=False)
+        lat = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=True)
+        return (lat, lon)
+    return None
+
+
 def parse_location_to_lon_lat(position: str) -> tuple[float, float]:
     """Parse a free-form position string to (lon, lat).
 
@@ -140,29 +189,16 @@ def parse_location_to_lon_lat(position: str) -> tuple[float, float]:
     # Extract two components
     matches = list(_LOCATION_COMP.finditer(txt))
     if len(matches) < 2:
-        # Fallback: simple "dd, dd" formats (e.g. "50.1, 5.2")
-        m = re.findall(r"[-+]?\d+(?:\.\d+)?", txt)
-        if len(m) >= 2:
-            lat = float(m[0])
-            lon = float(m[1])
-            if not (-90 <= lat <= 90 and -180 <= lon <= 180):
-                raise ValueError("coordinates out of range")
-            return (lon, lat)
-        raise ValueError("unable to parse position")
+        return _parse_simple_dd_fallback(txt)
 
     # Convert the first two matches
     v1, hem1, _ = _parse_location_component(matches[0])
     v2, hem2, _ = _parse_location_component(matches[1])
 
-    # Determine which is lat vs lon
     # When both hemispheres are present and distinct, rely on them
-    if hem1 in ("N", "S") and hem2 in ("E", "W"):
-        lat = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=True)
-        lon = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=False)
-        return (lon, lat)
-    if hem1 in ("E", "W") and hem2 in ("N", "S"):
-        lon = _resolve_hemisphere_sign(abs(v1), hem1, is_latitude=False)
-        lat = _resolve_hemisphere_sign(abs(v2), hem2, is_latitude=True)
+    by_hemisphere = _try_resolve_lat_lon_by_hemisphere(v1, hem1, v2, hem2)
+    if by_hemisphere is not None:
+        lat, lon = by_hemisphere
         return (lon, lat)
 
     # Otherwise, assume (lat, lon) order
