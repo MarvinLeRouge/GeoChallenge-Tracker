@@ -223,6 +223,7 @@ To regenerate locally, run `npm run changelog`.
 - *(verify-fr-non-regression)* Split zone comparison into per-concern helpers
 - *(seed-indexes)* Split index-drop and options-building helpers
 - *(html-sanitizer)* Split per-tag serialization helpers
+- *(caches-geocoding)* Split http-stats merge and batch-update resolution
 
 ### 📚 Documentation
 
