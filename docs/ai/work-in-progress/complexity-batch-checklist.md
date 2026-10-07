@@ -40,7 +40,7 @@ Order: by cumulative cyclomatic complexity per file (descending), one commit per
 - [x] (11) app/services/gpx_import/cache_validator.py - validate_found_data(11->1). Extracted _validate_found_date and _validate_found_notes helpers.
 - [x] (11) app/services/gpx_import/referential_mapper.py - map_cache_referentials(11->1). Extracted _map_country_and_state, _map_type_and_size, _map_attribute(s).
 - [x] (11) app/services/zones/zone_service.py - get_zones_with_counts(11->5). Extracted _build_zone_match_and_group, _aggregate_zone_counts, _build_country_zone_items, _build_level_zone_items.
-- [ ] (11) app/services/location_parser.py - parse_location_to_lon_lat(11)
+- [x] (11) app/services/location_parser.py - parse_location_to_lon_lat(11->5). Extracted _parse_simple_dd_fallback and _try_resolve_lat_lon_by_hemisphere, preserving the original's validation-skip on the hemisphere-resolved branches.
 - [ ] (11) app/db/seed_data.py - seed_collection(11)
 
 Note: tests/_test_user_challenge_tasks_verbose.py and _suite.py are near-duplicate

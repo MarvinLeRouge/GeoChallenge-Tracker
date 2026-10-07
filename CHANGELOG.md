@@ -229,6 +229,7 @@ To regenerate locally, run `npm run changelog`.
 - *(gpx-cache-validator)* Split found-data date and notes validation
 - *(gpx-referential-mapper)* Split country/state, type/size and attribute mapping
 - *(zone-service)* Split match/group building and zone-item fetching
+- *(location-parser)* Split dd fallback and hemisphere-based lat/lon ordering
 
 ### 📚 Documentation
 
