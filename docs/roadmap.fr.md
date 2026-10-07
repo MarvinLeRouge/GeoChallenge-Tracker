@@ -476,6 +476,27 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 
 ---
 
+### 8.8 Vulnérabilités des dépendances npm frontend (`npm audit`) ❌ 🟠 `L`
+
+**Découvert (2026-10-07) :** en corrigeant un problème `pip-audit` backend sans rapport (PR #181), la modification du fichier partagé `.github/workflows/ci.yml` a déclenché le job CI `frontend-security` (ce fichier est surveillé à la fois par les filtres de chemin `backend` et `frontend`), qui ne s'était pas réellement exécuté sur un commit récent de `main`. Il a échoué avec **22 vulnérabilités connues (6 modérées, 14 élevées, 2 critiques)**. Confirmé via un worktree propre (`npm ci && npm audit --audit-level=critical` directement sur `main`) que c'est 100% préexistant sur `main`, sans rapport avec la PR #181 - la modification de son workflow CI a été annulée pour la garder backend-only et la débloquer, ce fix étant reporté.
+
+**Constats (`npm audit`, 2026-10-07) :**
+- **Critique :** `tinypool` (transitif via `@vitest/mocker`/`@vitest/coverage-v8` de `vitest` 2.1.0-4.1.10) - gadget de pollution de prototype menant à une RCE ([GHSA-5gmw-xhrv-c9v3](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3), [GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)). Le fix nécessite `vitest@5.0.3` - **changement cassant**.
+- **Élevée :** chaîne `braces`/`chokidar`/`tailwindcss` - DoS par épuisement de pile ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Le fix nécessite `tailwindcss@4.3.3` - **changement cassant** (montée de version majeure, format de config différent entre Tailwind v3 et v4).
+- **Élevée :** chaîne `nanoid`/`flowbite-vue` - dépassement d'entier / boucle infinie ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) et autres). Le fix n'est disponible que via une **régression de version** vers `flowbite-vue@0.0.7` (actuellement figé à `0.2.3`) - nécessite d'abord un audit des usages réels de l'API, une telle régression risque fort de supprimer des fonctionnalités utilisées ; pas un `--force` à l'aveugle.
+- **Élevée :** `axios` (1.0.0-1.19.0) - pollution de prototype, ReDoS, injection d'en-têtes, contournement SSRF (11 avis, voir le log brut). Fix disponible **sans rupture** via `npm audit fix`.
+- **Élevée :** `@vue/server-renderer`/`vue` (3.2.13-3.5.41) - XSS via l'absence de CR dans la liste noire des noms d'attributs ([GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)). Fix disponible **sans rupture** via `npm audit fix`.
+- **Élevée :** `source-map-js`, `js-yaml` - DoS par blocage de la boucle d'événements / usage CPU incontrôlé. Fix disponible **sans rupture**.
+- **Modérée (6) :** `@humanfs/node`, `@vitest/mocker` (voir tinypool ci-dessus), `baseline-browser-mapping`, `dompurify` (XSS via la suppression du hook `IN_PLACE` - à prioriser malgré la sévérité "modérée" puisque ce projet utilise DOMPurify pour la sanitization), `postcss-selector-parser`. La plupart réparables **sans rupture** via `npm audit fix`.
+- Point annexe trouvé en creusant : `flowbite-vue@0.2.3` log déjà un avertissement `EBADENGINE` en CI (`required: node >=22.12.0`, la CI tourne sous Node 20) - toute montée de version de ce paquet devra aussi traiter/revisiter la version Node de la CI.
+
+**À construire :**
+- Scinder en deux passes : (1) `npm audit fix` pour les fixes sans rupture (axios, vue/server-renderer, source-map-js, js-yaml, dompurify, la plupart des modérées) - risque faible, à livrer en premier ; (2) une revue dédiée pour chaque fix cassant (`vitest` 2→5, `tailwindcss` 3→4, `flowbite-vue` 0.2.3→0.0.7) - vérifier l'usage réel de l'API dans `frontend/src/` avant de monter/descendre de version, le fix de `flowbite-vue` étant une régression qui supprime probablement des fonctionnalités en cours d'utilisation.
+- Relancer `npm audit --audit-level=critical` (le seuil bloquant en CI) après chaque passe pour confirmer.
+- Décider de la version Node pour les jobs CI frontend en touchant à `flowbite-vue` (actuellement Node 20, le paquet demande >=22.12).
+
+---
+
 ## Épic 9 : Données géographiques & zones administratives
 
 ### 9.1 Framework de normalisation multi-pays pour les zones administratives 🔧 🟡 `XL`
@@ -546,32 +567,33 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 | 15 | Tests frontend (Vitest + Playwright) (🔧 Vitest fait, Playwright pas en CI) | 7.7 | L |
 | 16 | Healthchecks Docker Compose (🔧 prod fait, dev partiel) | 8.2 | M |
 | 17 | ~~CI/CD : Tests avant merge~~ ✅ fait | 8.3 | M |
+| 18 | Vulnérabilités des dépendances npm frontend (`npm audit`, 2 critiques) | 8.8 | L |
 
 ### 🟡 Normale, backlog moyen terme
 
 | # | Fonctionnalité | Épic | Taille |
 |---|----------------|------|--------|
-| 18 | Sync UserChallenges (finaliser) | 1.2 | M |
-| 19 | Batch PATCH challenges (valider) | 1.3 | S |
-| 20 | Support streaming GPX | 2.4 | M |
-| 21 | Évaluation auto après import | 3.3 | M |
-| 22 | Clustering carte (🔧 client fait, MapDemo + clustering serveur restants) | 4.1 | M |
-| 23 | Carte des targets | 4.3 | S |
-| 24 | ~~Health check SMTP réel~~ ✅ fait | 5.4 | S |
-| 25 | Statistiques avancées | 6.2 | L |
-| 26 | Recherche full-text caches (🔧 recherche fonctionnelle, scoring pertinence restant) | 6.3 | S |
-| 27 | Tests d'intégration challenges | 7.3 | M |
-| 28 | ~~Security headers HTTP~~ ✅ fait | 8.5 | S |
-| 29 | Automatisation build_date CI | 8.6 | S |
-| 30 | ~~Framework de normalisation multi-pays (zones admin)~~ 🔧 code mergé, upload VPS en attente | 9.1 | XL |
+| 19 | Sync UserChallenges (finaliser) | 1.2 | M |
+| 20 | Batch PATCH challenges (valider) | 1.3 | S |
+| 21 | Support streaming GPX | 2.4 | M |
+| 22 | Évaluation auto après import | 3.3 | M |
+| 23 | Clustering carte (🔧 client fait, MapDemo + clustering serveur restants) | 4.1 | M |
+| 24 | Carte des targets | 4.3 | S |
+| 25 | ~~Health check SMTP réel~~ ✅ fait | 5.4 | S |
+| 26 | Statistiques avancées | 6.2 | L |
+| 27 | Recherche full-text caches (🔧 recherche fonctionnelle, scoring pertinence restant) | 6.3 | S |
+| 28 | Tests d'intégration challenges | 7.3 | M |
+| 29 | ~~Security headers HTTP~~ ✅ fait | 8.5 | S |
+| 30 | Automatisation build_date CI | 8.6 | S |
+| 31 | ~~Framework de normalisation multi-pays (zones admin)~~ 🔧 code mergé, upload VPS en attente | 9.1 | XL |
 
 ### 🟢 Nice-to-have, long terme
 
 | # | Fonctionnalité | Épic | Taille |
 |---|----------------|------|--------|
-| 31 | ~~Logout avec invalidation serveur~~ ✅ fait | 1.4 | M |
-| 32 | Suggestions de challenges | 3.4 | L |
-| 33 | Heatmap des trouvailles | 4.2 | M |
-| 34 | Notifications in-app | 5.3 | L |
-| 35 | Métriques Prometheus | 7.6 | S |
-| 36 | Logs centralisés production | 8.7 | L |
+| 32 | ~~Logout avec invalidation serveur~~ ✅ fait | 1.4 | M |
+| 33 | Suggestions de challenges | 3.4 | L |
+| 34 | Heatmap des trouvailles | 4.2 | M |
+| 35 | Notifications in-app | 5.3 | L |
+| 36 | Métriques Prometheus | 7.6 | S |
+| 37 | Logs centralisés production | 8.7 | L |

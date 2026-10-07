@@ -476,6 +476,27 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 ---
 
+### 8.8 Frontend npm dependency vulnerabilities (`npm audit`) ❌ 🟠 `L`
+
+**Discovered (2026-10-07):** while fixing an unrelated backend `pip-audit` issue (PR #181), editing the shared `.github/workflows/ci.yml` triggered the `frontend-security` CI job (that file is watched by both the `backend` and `frontend` path filters), which had not actually run on a recent `main` commit. It failed with **22 known vulnerabilities (6 moderate, 14 high, 2 critical)**. Confirmed via a clean worktree (`npm ci && npm audit --audit-level=critical` against `main` directly) that this is 100% pre-existing on `main`, unrelated to PR #181 - that PR's CI workflow edit was reverted to keep it backend-only and unblock it, deferring this fix.
+
+**Findings (`npm audit`, 2026-10-07):**
+- **Critical:** `tinypool` (transitive via `vitest` 2.1.0-4.1.10's `@vitest/mocker`/`@vitest/coverage-v8`) - prototype pollution gadget leading to RCE ([GHSA-5gmw-xhrv-c9v3](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3), [GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)). Fix requires `vitest@5.0.3` - **breaking change**.
+- **High:** `braces`/`chokidar`/`tailwindcss` chain - stack-exhaustion DoS ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Fix requires `tailwindcss@4.3.3` - **breaking change** (major version, config format changed between Tailwind v3 and v4).
+- **High:** `nanoid`/`flowbite-vue` chain - integer overflow / infinite loop ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) and others). Fix available only via a **downgrade** to `flowbite-vue@0.0.7` (currently pinned at `0.2.3`) - needs a feature-usage audit first, a downgrade this large likely drops APIs in use, this is not a safe blind `--force`.
+- **High:** `axios` (1.0.0-1.19.0) - prototype pollution, ReDoS, header injection, SSRF bypass (11 advisories, see raw log). Fix available **non-breaking** via `npm audit fix`.
+- **High:** `@vue/server-renderer`/`vue` (3.2.13-3.5.41) - XSS via missing CR in attribute-name blacklist ([GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)). Fix available **non-breaking** via `npm audit fix`.
+- **High:** `source-map-js`, `js-yaml` - DoS via event-loop blocking / uncontrolled CPU use. Fix available **non-breaking**.
+- **Moderate (6):** `@humanfs/node`, `@vitest/mocker` (see tinypool above), `baseline-browser-mapping`, `dompurify` (XSS via `IN_PLACE` hook removal - worth prioritizing despite "moderate" rating since this project uses DOMPurify for sanitization), `postcss-selector-parser`. Most fixable **non-breaking** via `npm audit fix`.
+- Side note found while investigating: `flowbite-vue@0.2.3` already logs an `EBADENGINE` warning in CI (`required: node >=22.12.0`, CI runs Node 20) - any version bump work on this package should also resolve/revisit the CI Node version.
+
+**To build:**
+- Split into two passes: (1) `npm audit fix` for the non-breaking fixes (axios, vue/server-renderer, source-map-js, js-yaml, dompurify, most moderates) - low risk, should land first; (2) a dedicated review for each breaking fix (`vitest` 2→5, `tailwindcss` 3→4, `flowbite-vue` 0.2.3→0.0.7) - check actual API usage in `frontend/src/` before bumping/downgrading, since `flowbite-vue`'s fix is a downgrade that likely removes features currently in use.
+- Re-run `npm audit --audit-level=critical` (the CI gate) after each pass to confirm.
+- Decide on the Node version for CI frontend jobs while touching `flowbite-vue` (currently Node 20, package wants >=22.12).
+
+---
+
 ## Epic 9: Geographic data & administrative zones
 
 ### 9.1 Multi-country normalization framework for administrative zones 🔧 🟡 `XL`
@@ -545,32 +566,33 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 | 15 | Frontend tests (Vitest + Playwright) (🔧 Vitest done, Playwright not in CI) | 7.7 | L |
 | 16 | Docker Compose healthchecks (🔧 prod done, dev partial) | 8.2 | M |
 | 17 | ~~CI/CD: tests before merge~~ ✅ done | 8.3 | M |
+| 18 | Frontend npm dependency vulnerabilities (`npm audit`, 2 critical) | 8.8 | L |
 
 ### 🟡 Normal, mid-term backlog
 
 | # | Feature | Epic | Size |
 |---|---------|------|------|
-| 18 | Sync UserChallenges (finalize) | 1.2 | M |
-| 19 | Batch PATCH challenges (validate) | 1.3 | S |
-| 20 | GPX streaming support | 2.4 | M |
-| 21 | Auto evaluation after import | 3.3 | M |
-| 22 | Map clustering (🔧 client done, MapDemo + server clustering remaining) | 4.1 | M |
-| 23 | Targets map | 4.3 | S |
-| 24 | ~~Real SMTP health check~~ ✅ done | 5.4 | S |
-| 25 | Advanced statistics | 6.2 | L |
-| 26 | Full-text cache search (🔧 search functional, relevance scoring remaining) | 6.3 | S |
-| 27 | Challenge integration tests | 7.3 | M |
-| 28 | ~~HTTP security headers~~ ✅ done | 8.5 | S |
-| 29 | Automate build_date in CI | 8.6 | S |
-| 30 | ~~Multi-country normalization framework (admin zones)~~ 🔧 code merged, VPS upload pending | 9.1 | XL |
+| 19 | Sync UserChallenges (finalize) | 1.2 | M |
+| 20 | Batch PATCH challenges (validate) | 1.3 | S |
+| 21 | GPX streaming support | 2.4 | M |
+| 22 | Auto evaluation after import | 3.3 | M |
+| 23 | Map clustering (🔧 client done, MapDemo + server clustering remaining) | 4.1 | M |
+| 24 | Targets map | 4.3 | S |
+| 25 | ~~Real SMTP health check~~ ✅ done | 5.4 | S |
+| 26 | Advanced statistics | 6.2 | L |
+| 27 | Full-text cache search (🔧 search functional, relevance scoring remaining) | 6.3 | S |
+| 28 | Challenge integration tests | 7.3 | M |
+| 29 | ~~HTTP security headers~~ ✅ done | 8.5 | S |
+| 30 | Automate build_date in CI | 8.6 | S |
+| 31 | ~~Multi-country normalization framework (admin zones)~~ 🔧 code merged, VPS upload pending | 9.1 | XL |
 
 ### 🟢 Nice-to-have, long-term
 
 | # | Feature | Epic | Size |
 |---|---------|------|------|
-| 31 | ~~Logout with server-side invalidation~~ ✅ done | 1.4 | M |
-| 32 | Challenge suggestions | 3.4 | L |
-| 33 | Finds heatmap | 4.2 | M |
-| 34 | In-app notifications | 5.3 | L |
-| 35 | Prometheus metrics | 7.6 | S |
-| 36 | Centralized production logs | 8.7 | L |
+| 32 | ~~Logout with server-side invalidation~~ ✅ done | 1.4 | M |
+| 33 | Challenge suggestions | 3.4 | L |
+| 34 | Finds heatmap | 4.2 | M |
+| 35 | In-app notifications | 5.3 | L |
+| 36 | Prometheus metrics | 7.6 | S |
+| 37 | Centralized production logs | 8.7 | L |
