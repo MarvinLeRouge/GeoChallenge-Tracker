@@ -230,6 +230,7 @@ To regenerate locally, run `npm run changelog`.
 - *(gpx-referential-mapper)* Split country/state, type/size and attribute mapping
 - *(zone-service)* Split match/group building and zone-item fetching
 - *(location-parser)* Split dd fallback and hemisphere-based lat/lon ordering
+- *(seed-data)* Split force-reseed and per-document upsert logic
 
 ### 📚 Documentation
 

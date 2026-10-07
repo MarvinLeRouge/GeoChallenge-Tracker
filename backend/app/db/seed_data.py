@@ -42,6 +42,59 @@ async def test_connection():
         sys.exit(1)
 
 
+async def _force_reseed_collection(collection_obj, collection_name: str, seed_data: list) -> None:
+    """Clears a collection then inserts all seed data (force=True path).
+
+    Args:
+        collection_obj: MongoDB collection object.
+        collection_name (str): Target MongoDB collection name.
+        seed_data (list): Documents to insert.
+
+    Returns:
+        None
+    """
+    await collection_obj.delete_many({})
+    log.info("Collection ‘%s’ cleared (force=True).", collection_name)
+    await collection_obj.insert_many(seed_data)
+    log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
+
+
+async def _upsert_seed_doc(
+    collection_obj, seed_doc: dict, unique_field: str, file_path: str
+) -> tuple[bool, bool]:
+    """Upserts a single seed document against its existing counterpart, if any.
+
+    Args:
+        collection_obj: MongoDB collection object.
+        seed_doc (dict): Seed document to upsert.
+        unique_field (str): Field used as the upsert key.
+        file_path (str): Source seed file path, used for warning messages.
+
+    Returns:
+        tuple[bool, bool]: (was_updated, was_inserted).
+    """
+    unique_value = seed_doc.get(unique_field)
+
+    if unique_value is None:
+        log.warning("Document in %s is missing ‘%s’. Skipping upsert.", file_path, unique_field)
+        return False, False
+
+    existing_doc = await collection_obj.find_one({unique_field: unique_value})
+
+    if not existing_doc:
+        await collection_obj.insert_one(seed_doc)
+        return False, True
+
+    existing_for_comparison = {k: v for k, v in existing_doc.items() if k != "_id"}
+    seed_for_comparison = {k: v for k, v in seed_doc.items() if k != "_id"}
+
+    if existing_for_comparison != seed_for_comparison:
+        await collection_obj.update_one({unique_field: unique_value}, {"$set": seed_doc})
+        return True, False
+
+    return False, False
+
+
 async def seed_collection(
     file_path: str,
     collection_name: str,
@@ -78,10 +131,7 @@ async def seed_collection(
         seed_data = json.load(f)
 
     if force:
-        await collection_obj.delete_many({})
-        log.info("Collection ‘%s’ cleared (force=True).", collection_name)
-        await collection_obj.insert_many(seed_data)
-        log.info("%d documents inserted into ‘%s’.", len(seed_data), collection_name)
+        await _force_reseed_collection(collection_obj, collection_name, seed_data)
         return
 
     if count == 0:
@@ -94,24 +144,11 @@ async def seed_collection(
     inserted_count = 0
 
     for seed_doc in seed_data:
-        unique_value = seed_doc.get(unique_field)
-
-        if unique_value is None:
-            log.warning("Document in %s is missing ‘%s’. Skipping upsert.", file_path, unique_field)
-            continue
-
-        existing_doc = await collection_obj.find_one({unique_field: unique_value})
-
-        if existing_doc:
-            existing_for_comparison = {k: v for k, v in existing_doc.items() if k != "_id"}
-            seed_for_comparison = {k: v for k, v in seed_doc.items() if k != "_id"}
-
-            if existing_for_comparison != seed_for_comparison:
-                await collection_obj.update_one({unique_field: unique_value}, {"$set": seed_doc})
-                updated_count += 1
-        else:
-            await collection_obj.insert_one(seed_doc)
-            inserted_count += 1
+        was_updated, was_inserted = await _upsert_seed_doc(
+            collection_obj, seed_doc, unique_field, file_path
+        )
+        updated_count += was_updated
+        inserted_count += was_inserted
 
     log.info(
         "%d documents updated, %d documents inserted into ‘%s’.",
