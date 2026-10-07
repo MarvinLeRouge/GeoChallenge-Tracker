@@ -215,6 +215,7 @@ To regenerate locally, run `npm run changelog`.
 - *(data-normalizer)* Split field-group extraction helpers
 - *(test-targets-smoke)* Extract evaluation-context fetch and per-item assertions
 - *(user-challenge-validator)* Split per-field patch validators
+- *(seed-zones)* Split parent-shape resolution out of the seeding loop
 
 ### 📚 Documentation
 
