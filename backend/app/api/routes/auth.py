@@ -195,6 +195,43 @@ async def register(
     }
 
 
+def _extract_form_credentials(form: Any) -> tuple[str, str]:
+    """Extract (identifier, password) from a parsed form payload.
+
+    Args:
+        form: Parsed form data (from `request.form()`).
+
+    Returns:
+        tuple[str, str]: `(ident, password)`, possibly empty if missing.
+    """
+    # Safe extraction with type checking
+    raw_ident = form.get("username") or form.get("identifier") or ""
+    raw_password = form.get("password") or ""
+
+    # Ensure we have strings, not UploadFile objects
+    ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
+    password = raw_password if isinstance(raw_password, str) else ""
+    return ident, password
+
+
+async def _extract_json_credentials(request: Request) -> tuple[str, str]:
+    """Extract (identifier, password) from a JSON login request body.
+
+    Args:
+        request (Request): The current request.
+
+    Returns:
+        tuple[str, str]: `(ident, password)`, possibly empty if missing.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    ident = (body.get("identifier") or body.get("username") or body.get("email") or "").strip()
+    password = body.get("password") or ""
+    return ident, password
+
+
 async def _extract_login_credentials(request: Request) -> tuple[str, str]:
     """Extract (identifier, password) from a form or JSON login request.
 
@@ -211,22 +248,9 @@ async def _extract_login_credentials(request: Request) -> tuple[str, str]:
 
     if "application/x-www-form-urlencoded" in ctype or "multipart/form-data" in ctype:
         form = await request.form()
-        # Safe extraction with type checking
-        raw_ident = form.get("username") or form.get("identifier") or ""
-        raw_password = form.get("password") or ""
+        return _extract_form_credentials(form)
 
-        # Ensure we have strings, not UploadFile objects
-        ident = raw_ident.strip() if isinstance(raw_ident, str) else ""
-        password = raw_password if isinstance(raw_password, str) else ""
-        return ident, password
-
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    ident = (body.get("identifier") or body.get("username") or body.get("email") or "").strip()
-    password = body.get("password") or ""
-    return ident, password
+    return await _extract_json_credentials(request)
 
 
 async def _authenticate_user(

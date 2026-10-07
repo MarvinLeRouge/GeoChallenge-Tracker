@@ -233,6 +233,11 @@ To regenerate locally, run `npm run changelog`.
 - *(zone-service)* Split match/group building and zone-item fetching
 - *(location-parser)* Split dd fallback and hemisphere-based lat/lon ordering
 - *(seed-data)* Split force-reseed and per-document upsert logic
+- *(maintenance)* Split backup-collection restore loop and response building
+- *(referentials-cache)* Split per-field document indexing helpers
+- *(caches)* Split cache-filter query building into per-criterion helpers
+- *(auth)* Split login credential extraction by content-type
+- *(test-maintenance-full-backup-create)* Consolidate response-body assertions into a loop
 
 ### 📚 Documentation
 
