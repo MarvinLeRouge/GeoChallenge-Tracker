@@ -226,6 +226,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches-geocoding)* Split http-stats merge and batch-update resolution
 - *(test-matrix-verification)* Extract mock-db builder and combo lookup
 - *(test-data-normalizer)* Consolidate field assertions into an expected-values loop
+- *(gpx-cache-validator)* Split found-data date and notes validation
 
 ### 📚 Documentation
 
