@@ -221,6 +221,7 @@ To regenerate locally, run `npm run changelog`.
 - *(type-helpers)* Split type resolution strategies
 - *(file-handler)* Split zip-entry skip/stream/process helpers
 - *(verify-fr-non-regression)* Split zone comparison into per-concern helpers
+- *(seed-indexes)* Split index-drop and options-building helpers
 
 ### 📚 Documentation
 
