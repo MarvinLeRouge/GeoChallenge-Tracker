@@ -8,6 +8,44 @@ from app.services.matrix_verification import MatrixVerificationService
 from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
 
 
+def _build_partial_matrix_mock_db(mock_found_caches):
+    """Build a mock DB whose found_caches.aggregate() yields `mock_found_caches`.
+
+    Used by test_verify_user_matrix_partial.
+    """
+
+    class MockAsyncCursor:
+        async def to_list(self, length=None):
+            return mock_found_caches
+
+    class MockCollection:
+        async def find_one(self, query):
+            return None  # No cache type/size filters
+
+        def aggregate(self, pipeline):
+            return MockAsyncCursor()
+
+    class MockDB:
+        def __init__(self):
+            self.found_caches = MockCollection()
+            self.cache_types = MockCollection()
+            self.cache_sizes = MockCollection()
+
+    return MockDB()
+
+
+def _find_combo_details(details, difficulty, terrain):
+    """Find one combo's details dict by (difficulty, terrain), or None."""
+    return next(
+        (
+            combo
+            for combo in details
+            if combo["difficulty"] == difficulty and combo["terrain"] == terrain
+        ),
+        None,
+    )
+
+
 class TestMatrixVerificationService:
     """Test matrix D/T verification service."""
 
@@ -92,25 +130,7 @@ class TestMatrixVerificationService:
             {"cache_info": {"difficulty": 2.5, "terrain": 3.0}},  # D2.5/T3
         ]
 
-        # Create a proper mock cursor
-        class MockAsyncCursor:
-            async def to_list(self, length=None):
-                return mock_found_caches
-
-        class MockCollection:
-            async def find_one(self, query):
-                return None  # No cache type/size filters
-
-            def aggregate(self, pipeline):
-                return MockAsyncCursor()
-
-        class MockDB:
-            def __init__(self):
-                self.found_caches = MockCollection()
-                self.cache_types = MockCollection()
-                self.cache_sizes = MockCollection()
-
-        service = MatrixVerificationService(MockDB())
+        service = MatrixVerificationService(_build_partial_matrix_mock_db(mock_found_caches))
         filters = MatrixFilters()
 
         result = await service.verify_user_matrix(str(ObjectId()), filters)
@@ -126,14 +146,7 @@ class TestMatrixVerificationService:
         assert len(result.completed_combinations_details) == 3
 
         # Check for the duplicate count
-        d1_t1_details = next(
-            (
-                combo
-                for combo in result.completed_combinations_details
-                if combo["difficulty"] == 1.0 and combo["terrain"] == 1.0
-            ),
-            None,
-        )
+        d1_t1_details = _find_combo_details(result.completed_combinations_details, 1.0, 1.0)
         assert d1_t1_details is not None
         assert d1_t1_details["count"] == 2  # Duplicate count
 

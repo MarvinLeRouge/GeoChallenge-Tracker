@@ -224,6 +224,7 @@ To regenerate locally, run `npm run changelog`.
 - *(seed-indexes)* Split index-drop and options-building helpers
 - *(html-sanitizer)* Split per-tag serialization helpers
 - *(caches-geocoding)* Split http-stats merge and batch-update resolution
+- *(test-matrix-verification)* Extract mock-db builder and combo lookup
 
 ### 📚 Documentation
 
