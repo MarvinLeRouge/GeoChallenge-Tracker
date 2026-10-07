@@ -242,6 +242,7 @@ To regenerate locally, run `npm run changelog`.
 - *(progress)* Split into pure helpers, DB aggregates, and core logic
 - *(caches)* Split routes by concern into sibling modules
 - *(profile)* Split MyProfile.vue into location and sync cards
+- *(test-endpoints-caches)* Split integration tests by route concern
 
 ### 📚 Documentation
 
