@@ -243,6 +243,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Split routes by concern into sibling modules
 - *(profile)* Split MyProfile.vue into location and sync cards
 - *(test-endpoints-caches)* Split integration tests by route concern
+- *(app-shell)* Split AppShell.vue into drawer and nav components
 
 ### 📚 Documentation
 
