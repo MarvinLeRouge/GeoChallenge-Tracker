@@ -227,6 +227,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-matrix-verification)* Extract mock-db builder and combo lookup
 - *(test-data-normalizer)* Consolidate field assertions into an expected-values loop
 - *(gpx-cache-validator)* Split found-data date and notes validation
+- *(gpx-referential-mapper)* Split country/state, type/size and attribute mapping
 
 ### 📚 Documentation
 

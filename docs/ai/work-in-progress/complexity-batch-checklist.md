@@ -38,7 +38,7 @@ Order: by cumulative cyclomatic complexity per file (descending), one commit per
 - [x] (12) tests/unit/test_matrix_verification.py - test_verify_user_matrix_partial(12->9). Extracted the inline Mock*/MockDB classes into a module-level helper (unique to this test, other tests in the file have their own similar inline mocks, left untouched/out of scope).
 - [x] (12) tests/unit/test_data_normalizer.py - test_full_extraction(12->3). Converted 11 individual asserts to an expected-values dict + loop.
 - [x] (11) app/services/gpx_import/cache_validator.py - validate_found_data(11->1). Extracted _validate_found_date and _validate_found_notes helpers.
-- [ ] (11) app/services/gpx_import/referential_mapper.py - map_cache_referentials(11)
+- [x] (11) app/services/gpx_import/referential_mapper.py - map_cache_referentials(11->1). Extracted _map_country_and_state, _map_type_and_size, _map_attribute(s).
 - [ ] (11) app/services/zones/zone_service.py - get_zones_with_counts(11)
 - [ ] (11) app/services/location_parser.py - parse_location_to_lon_lat(11)
 - [ ] (11) app/db/seed_data.py - seed_collection(11)

@@ -248,6 +248,76 @@ class ReferentialMapper:
 
         return self._attributes_cache.get(gc_id)
 
+    async def _map_country_and_state(
+        self, cache_data: dict[str, Any], mapped_data: dict[str, Any]
+    ) -> None:
+        """Resolve and attach country_id/state_id onto mapped_data.
+
+        Args:
+            cache_data: Source cache data.
+            mapped_data: Destination dict to enrich (mutated in place).
+        """
+        country_id, state_id = await self.ensure_country_and_state(
+            cache_data.get("country"), cache_data.get("state")
+        )
+
+        if country_id:
+            mapped_data["country_id"] = country_id
+        if state_id:
+            mapped_data["state_id"] = state_id
+
+    def _map_type_and_size(self, cache_data: dict[str, Any], mapped_data: dict[str, Any]) -> None:
+        """Resolve and attach type_id/size_id onto mapped_data.
+
+        Args:
+            cache_data: Source cache data.
+            mapped_data: Destination dict to enrich (mutated in place).
+        """
+        type_id = self.get_type_by_name(cache_data.get("type"))
+        if type_id:
+            mapped_data["type_id"] = type_id
+
+        size_id = self.get_size_by_name(cache_data.get("size"))
+        if size_id:
+            mapped_data["size_id"] = size_id
+
+    def _map_attribute(self, attr: Any) -> dict[str, Any] | None:
+        """Resolve a single raw attribute entry to its mapped form.
+
+        Args:
+            attr: Raw attribute entry from cache_data["attributes"].
+
+        Returns:
+            dict | None: Mapped attribute, or None if unresolvable.
+        """
+        if not (isinstance(attr, dict) and "id" in attr):
+            return None
+
+        attr_id = self.get_attribute_by_gc_id(attr["id"])
+        if not attr_id:
+            return None
+
+        return {
+            "attribute_doc_id": attr_id,
+            "is_positive": attr.get("is_positive", True),
+        }
+
+    def _map_attributes(self, cache_data: dict[str, Any], mapped_data: dict[str, Any]) -> None:
+        """Resolve and attach mapped attributes onto mapped_data, if present.
+
+        Args:
+            cache_data: Source cache data.
+            mapped_data: Destination dict to enrich (mutated in place).
+        """
+        if not ("attributes" in cache_data and isinstance(cache_data["attributes"], list)):
+            return
+
+        mapped_data["attributes"] = [
+            mapped_attr
+            for attr in cache_data["attributes"]
+            if (mapped_attr := self._map_attribute(attr)) is not None
+        ]
+
     async def map_cache_referentials(self, cache_data: dict[str, Any]) -> dict[str, Any]:
         """Map all referentials for a cache.
 
@@ -259,39 +329,8 @@ class ReferentialMapper:
         """
         mapped_data = cache_data.copy()
 
-        # Map country and state
-        country_id, state_id = await self.ensure_country_and_state(
-            cache_data.get("country"), cache_data.get("state")
-        )
-
-        if country_id:
-            mapped_data["country_id"] = country_id
-        if state_id:
-            mapped_data["state_id"] = state_id
-
-        # Map cache type
-        type_id = self.get_type_by_name(cache_data.get("type"))
-        if type_id:
-            mapped_data["type_id"] = type_id
-
-        # Map cache size
-        size_id = self.get_size_by_name(cache_data.get("size"))
-        if size_id:
-            mapped_data["size_id"] = size_id
-
-        # Map attributes (if present)
-        if "attributes" in cache_data and isinstance(cache_data["attributes"], list):
-            mapped_attributes = []
-            for attr in cache_data["attributes"]:
-                if isinstance(attr, dict) and "id" in attr:
-                    attr_id = self.get_attribute_by_gc_id(attr["id"])
-                    if attr_id:
-                        mapped_attr = {
-                            "attribute_doc_id": attr_id,
-                            "is_positive": attr.get("is_positive", True),
-                        }
-                        mapped_attributes.append(mapped_attr)
-
-            mapped_data["attributes"] = mapped_attributes
+        await self._map_country_and_state(cache_data, mapped_data)
+        self._map_type_and_size(cache_data, mapped_data)
+        self._map_attributes(cache_data, mapped_data)
 
         return mapped_data
