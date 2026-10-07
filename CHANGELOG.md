@@ -233,6 +233,7 @@ To regenerate locally, run `npm run changelog`.
 - *(zone-service)* Split match/group building and zone-item fetching
 - *(location-parser)* Split dd fallback and hemisphere-based lat/lon ordering
 - *(seed-data)* Split force-reseed and per-document upsert logic
+- *(maintenance)* Split backup-collection restore loop and response building
 
 ### 📚 Documentation
 

@@ -803,6 +803,65 @@ async def _restore_backup_collection(
     return None, dropped
 
 
+async def _restore_all_backup_collections(
+    db: Any, backup_data: dict[str, Any], dry_run: bool, drop_existing: bool
+) -> tuple[dict[str, int], list[str]]:
+    """Restore every collection in a backup payload, collecting counts and drops.
+
+    Args:
+        db (Any): Database handle.
+        backup_data (dict): Parsed backup payload (`{"collections": {...}}`).
+        dry_run (bool): Simulate only, don't write.
+        drop_existing (bool): Drop each collection's existing data first.
+
+    Returns:
+        tuple[dict[str, int], list[str]]: (restored counts per collection, dropped collection names).
+    """
+    restored: dict[str, int] = {}
+    dropped: list[str] = []
+
+    for collection_name, docs in backup_data.get("collections", {}).items():
+        restored_count, was_dropped = await _restore_backup_collection(
+            db, collection_name, docs, dry_run, drop_existing
+        )
+        if was_dropped:
+            dropped.append(collection_name)
+        if restored_count is not None:
+            restored[collection_name] = restored_count
+
+    return restored, dropped
+
+
+def _build_restore_response(
+    restored: dict[str, int], dropped: list[str], dry_run: bool, backup_data: dict[str, Any]
+) -> dict[str, Any]:
+    """Assemble the JSON response for a full backup restore.
+
+    Args:
+        restored (dict): Restored counts per collection.
+        dropped (list): Dropped collection names.
+        dry_run (bool): Whether the restore was a simulation.
+        backup_data (dict): Parsed backup payload (for its timestamp).
+
+    Returns:
+        dict: Response payload.
+    """
+    response: dict[str, Any] = {
+        "restored": restored,
+        "total_restored": sum(restored.values()),
+        "dry_run": dry_run,
+        "backup_timestamp": backup_data.get("timestamp"),
+        "message": "Simulation only - no data inserted"
+        if dry_run
+        else "Full backup restored successfully",
+    }
+
+    if dropped:
+        response["dropped_collections"] = dropped
+
+    return response
+
+
 # DONE: [BACKLOG] Route /maintenance/db_full_restore/{filename} (POST) verified
 @router.post("/db_full_restore/{filename}")
 async def full_backup_restore(
@@ -847,34 +906,13 @@ async def full_backup_restore(
             return confirmation_response
 
     backup_data = _load_backup_payload(backup_file)
-
-    restored: dict[str, int] = {}
-    dropped: list[str] = []
     db = get_db()
 
-    for collection_name, docs in backup_data.get("collections", {}).items():
-        restored_count, was_dropped = await _restore_backup_collection(
-            db, collection_name, docs, dry_run, drop_existing
-        )
-        if was_dropped:
-            dropped.append(collection_name)
-        if restored_count is not None:
-            restored[collection_name] = restored_count
+    restored, dropped = await _restore_all_backup_collections(
+        db, backup_data, dry_run, drop_existing
+    )
 
-    response = {
-        "restored": restored,
-        "total_restored": sum(restored.values()),
-        "dry_run": dry_run,
-        "backup_timestamp": backup_data.get("timestamp"),
-        "message": "Simulation only - no data inserted"
-        if dry_run
-        else "Full backup restored successfully",
-    }
-
-    if dropped:
-        response["dropped_collections"] = dropped
-
-    return response
+    return _build_restore_response(restored, dropped, dry_run, backup_data)
 
 
 def _describe_cleanup_backup_file(backup_file: Path) -> dict[str, Any] | None:
