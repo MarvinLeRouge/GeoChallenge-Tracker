@@ -3,10 +3,10 @@
 import datetime as dt
 from unittest.mock import AsyncMock, patch
 
+import jwt
 import pytest
 from bson import ObjectId
 from fastapi import HTTPException
-from jose import jwt
 
 from app.core.security import (
     create_access_token,
@@ -234,7 +234,7 @@ class TestJWTTokenDecoding:
         token = create_access_token(data=data)
 
         # Try to decode with wrong secret key
-        with pytest.raises(jwt.JWTError):
+        with pytest.raises(jwt.PyJWTError):
             jwt.decode(token, "wrong_secret_key", algorithms=[settings.jwt_algorithm])
 
     def test_decode_token_invalid_algorithm(self):
@@ -244,7 +244,7 @@ class TestJWTTokenDecoding:
         token = create_access_token(data=data)
 
         # Try to decode with wrong algorithm
-        with pytest.raises(jwt.JWTError):
+        with pytest.raises(jwt.PyJWTError):
             jwt.decode(
                 token,
                 settings.jwt_secret_key,
@@ -263,7 +263,7 @@ class TestJWTTokenDecoding:
         tampered_token = f"{parts[0]}.{tampered_payload}.{parts[2]}"
 
         # Attempting to decode should raise JWTError
-        with pytest.raises(jwt.JWTError):
+        with pytest.raises(jwt.PyJWTError):
             jwt.decode(tampered_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 

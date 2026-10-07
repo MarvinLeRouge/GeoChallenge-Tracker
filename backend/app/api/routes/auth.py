@@ -9,6 +9,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import Annotated
 
+import jwt
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -21,7 +22,7 @@ from fastapi import (
     Response,
     status,
 )
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, Field
 from pymongo.collation import Collation

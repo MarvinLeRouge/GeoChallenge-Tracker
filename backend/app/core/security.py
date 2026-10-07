@@ -7,11 +7,12 @@ import re
 import secrets
 from typing import Annotated
 
+import jwt
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jwt import PyJWTError as JWTError
 from passlib.context import CryptContext
 
 from app.core.bson_utils import PyObjectId
