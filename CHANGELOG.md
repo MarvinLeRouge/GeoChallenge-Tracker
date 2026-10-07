@@ -238,6 +238,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Split cache-filter query building into per-criterion helpers
 - *(auth)* Split login credential extraction by content-type
 - *(test-maintenance-full-backup-create)* Consolidate response-body assertions into a loop
+- *(test-progress)* Split into one file per tested function
 
 ### 📚 Documentation
 
