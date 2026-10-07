@@ -219,6 +219,7 @@ To regenerate locally, run `npm run changelog`.
 - *(challenge-ast)* Split expression normalization, dedupe rule detection
 - *(backfill-country-codes)* Split alias-lookup and per-entry upsert helpers
 - *(type-helpers)* Split type resolution strategies
+- *(file-handler)* Split zip-entry skip/stream/process helpers
 
 ### 📚 Documentation
 
