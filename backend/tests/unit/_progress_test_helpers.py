@@ -102,19 +102,19 @@ def _patch_evaluate_deps(
         patch("app.services.progress.get_collection", side_effect=_get_coll),
         patch("app.services.progress.compile_and_only", return_value=compile_result),
         patch(
-            "app.services.progress._count_found_caches_matching",
+            "app.services.progress_aggregates._count_found_caches_matching",
             new=AsyncMock(return_value=current_count),
         ),
         patch(
-            "app.services.progress._aggregate_total",
+            "app.services.progress_aggregates._aggregate_total",
             new=AsyncMock(return_value=aggregate_total or 0),
         ),
         patch(
-            "app.services.progress._first_found_date",
+            "app.services.progress_aggregates._first_found_date",
             new=AsyncMock(return_value=first_found_date),
         ),
         patch(
-            "app.services.progress._nth_found_date",
+            "app.services.progress_aggregates._nth_found_date",
             new=AsyncMock(return_value=nth_found_date),
         ),
     ]

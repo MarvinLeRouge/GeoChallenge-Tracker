@@ -269,19 +269,19 @@ class TestEvaluateProgress:
         patches = _patch_evaluate_deps(tasks=[t1, t2])
         patches_with_count = patches[:-5] + [
             patch(
-                "app.services.progress._count_found_caches_matching",
+                "app.services.progress_aggregates._count_found_caches_matching",
                 side_effect=_mock_count,
             ),
             patch(
-                "app.services.progress._aggregate_total",
+                "app.services.progress_aggregates._aggregate_total",
                 new=AsyncMock(return_value=0),
             ),
             patch(
-                "app.services.progress._first_found_date",
+                "app.services.progress_aggregates._first_found_date",
                 new=AsyncMock(return_value=None),
             ),
             patch(
-                "app.services.progress._nth_found_date",
+                "app.services.progress_aggregates._nth_found_date",
                 new=AsyncMock(return_value=None),
             ),
         ]

@@ -4,7 +4,7 @@ Branch: refactor/module-size-batch
 Threshold: 400 non-blank lines. Order: by line count descending, one commit per original file (split into siblings, behavior/public API preserved). maintenance.py moved to the end: splitting it requires updating patch.object targets across ~10 test files (module-level mock patching), higher risk than the rest of the batch.
 
 - [x] (884) backend/tests/unit/test_progress.py - split into _progress_test_helpers.py (shared, 141 lines) + test_progress_ensure_uc_owned.py (27) + test_progress_evaluate.py (314) + test_progress_latest_and_history.py (240) + test_progress_evaluate_new.py (63) + test_progress_tasks_and_attrs.py (51) + test_progress_aggregates.py (168). All patches use string targets ("app.services.progress.X"), not module-object patching, so no patch-target fixes needed. 57/57 tests preserved.
-- [ ] (653) backend/app/services/progress.py
+- [x] (653) backend/app/services/progress.py - split into progress.py (347 SLOC) + progress_snapshot_helpers.py (202 SLOC, pure builders, not mocked) + progress_aggregates.py (132 SLOC, DB-touching aggregate/count/date helpers, individually mocked by tests). progress.py calls the aggregates module via `progress_aggregates.X(...)` (module-qualified, not `from X import Y`) to keep patch("app.services.progress_aggregates.X") effective. Updated patch targets + local imports in test_progress_aggregates.py, test_progress_evaluate.py, _progress_test_helpers.py accordingly.
 - [ ] (639) backend/app/api/routes/caches.py
 - [ ] (620) frontend/src/pages/profile/MyProfile.vue
 - [ ] (547) backend/tests/integration/test_endpoints_caches.py
