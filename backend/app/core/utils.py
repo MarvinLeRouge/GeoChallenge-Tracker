@@ -10,7 +10,7 @@ def now():
     Description:
         Returns the current UTC instant as a naive datetime (no tzinfo attached).
         Historically returned `datetime.now()` (naive *local* time), which is silently
-        mistreated as UTC by both `python-jose` (JWT `exp`/`iat` encoding) and Motor/PyMongo
+        mistreated as UTC by both `PyJWT` (JWT `exp`/`iat` encoding) and Motor/PyMongo
         (naive datetimes are stored as-is, without conversion) - correct only by coincidence
         when the process happens to run on a host whose local timezone is UTC. Kept naive
         (rather than switching to `utcnow()`'s aware datetime) so every existing call site,
