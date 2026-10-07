@@ -220,6 +220,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backfill-country-codes)* Split alias-lookup and per-entry upsert helpers
 - *(type-helpers)* Split type resolution strategies
 - *(file-handler)* Split zip-entry skip/stream/process helpers
+- *(verify-fr-non-regression)* Split zone comparison into per-concern helpers
 
 ### 📚 Documentation
 
