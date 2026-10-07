@@ -92,11 +92,15 @@ class TestFullBackupCreate:
 
         response, data, backup_files = await _create_full_backup_and_inspect(mock_db, tmp_path)
 
+        expected_body = {
+            "message": "Full backup created successfully",
+            "total_collections": 1,
+            "total_documents": 1,
+        }
         assert response.status_code == 200
         body = response.json()
-        assert body["message"] == "Full backup created successfully"
-        assert body["total_collections"] == 1
-        assert body["total_documents"] == 1
+        for key, expected_value in expected_body.items():
+            assert body[key] == expected_value
 
         assert len(backup_files) == 1
         assert data["database"] == "geochallenge_test"
