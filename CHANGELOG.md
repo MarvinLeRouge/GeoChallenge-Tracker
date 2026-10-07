@@ -218,6 +218,7 @@ To regenerate locally, run `npm run changelog`.
 - *(seed-zones)* Split parent-shape resolution out of the seeding loop
 - *(challenge-ast)* Split expression normalization, dedupe rule detection
 - *(backfill-country-codes)* Split alias-lookup and per-entry upsert helpers
+- *(type-helpers)* Split type resolution strategies
 
 ### 📚 Documentation
 
