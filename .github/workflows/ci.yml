@@ -151,16 +151,7 @@ jobs:
       - name: pip-audit (dependency vulnerability scan)
         working-directory: backend
         run: |
-          # PYSEC-2026-1325 (ecdsa): Minerva timing attack, no upstream fix. Not exploitable
-          # here since this project only signs JWTs with HS256, never an ECDSA-based algorithm.
-          # Re-verified on every run: if an ECDSA algorithm or direct ecdsa usage shows up in
-          # app/, the exception is dropped and pip-audit blocks on it like any other finding.
-          if grep -rqE "ES256|ES384|ES512|ecdsa\.(SigningKey|VerifyingKey|SECP256k1|NIST256p)" app/; then
-            echo "::error::ECDSA-related JWT algorithm or direct ecdsa usage detected in app/ - the ecdsa vulnerability exception (PYSEC-2026-1325) no longer applies."
-            pip-audit -r requirements.txt -r requirements-dev.txt
-          else
-            pip-audit -r requirements.txt -r requirements-dev.txt --ignore-vuln PYSEC-2026-1325
-          fi
+          pip-audit -r requirements.txt -r requirements-dev.txt
 
   frontend-lint:
     name: "Frontend: lint"

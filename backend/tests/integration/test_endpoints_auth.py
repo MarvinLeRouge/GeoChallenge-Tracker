@@ -13,9 +13,9 @@ Ces tests vérifient :
 
 import datetime as dt
 
+import jwt
 import pytest
 from bson import ObjectId
-from jose import jwt
 
 from app.api.routes.auth import hash_verification_code
 from app.core.security import create_refresh_token, hash_password
