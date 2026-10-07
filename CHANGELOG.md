@@ -235,6 +235,7 @@ To regenerate locally, run `npm run changelog`.
 - *(seed-data)* Split force-reseed and per-document upsert logic
 - *(maintenance)* Split backup-collection restore loop and response building
 - *(referentials-cache)* Split per-field document indexing helpers
+- *(caches)* Split cache-filter query building into per-criterion helpers
 
 ### 📚 Documentation
 

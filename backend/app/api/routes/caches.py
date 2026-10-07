@@ -358,6 +358,136 @@ async def upload_gpx(
     return result
 
 
+def _apply_simple_equality_filters(q: dict[str, Any], payload: CacheFilterIn) -> None:
+    """Apply the text search and simple id-equality filters onto q, mutating it in place.
+
+    Args:
+        q: Mongo query being built, mutated.
+        payload (CacheFilterIn): Filtering criteria.
+    """
+    if payload.q:
+        q["$text"] = {"$search": payload.q}
+    if payload.type_id:
+        q["type_id"] = payload.type_id
+    if payload.size_id:
+        q["size_id"] = payload.size_id
+    if payload.country_id:
+        q["country_id"] = payload.country_id
+    if payload.state_id:
+        q["state_id"] = payload.state_id
+
+
+def _build_min_max_range(min_value: Any, max_value: Any) -> dict[str, Any]:
+    """Build a Mongo $gte/$lte range filter from optional min/max bounds.
+
+    Args:
+        min_value: Lower bound (inclusive), or None.
+        max_value: Upper bound (inclusive), or None.
+
+    Returns:
+        dict: Range filter, empty if both bounds are None.
+    """
+    rng: dict[str, Any] = {}
+    if min_value is not None:
+        rng["$gte"] = min_value
+    if max_value is not None:
+        rng["$lte"] = max_value
+    return rng
+
+
+def _apply_difficulty_terrain_filters(q: dict[str, Any], payload: CacheFilterIn) -> None:
+    """Apply the difficulty and terrain range filters onto q, mutating it in place.
+
+    Args:
+        q: Mongo query being built, mutated.
+        payload (CacheFilterIn): Filtering criteria.
+    """
+    if payload.difficulty:
+        rng = _build_min_max_range(payload.difficulty.min, payload.difficulty.max)
+        if rng:
+            q["difficulty"] = rng
+    if payload.terrain:
+        rng = _build_min_max_range(payload.terrain.min, payload.terrain.max)
+        if rng:
+            q["terrain"] = rng
+
+
+def _apply_placed_date_filter(q: dict[str, Any], payload: CacheFilterIn) -> None:
+    """Apply the placed_at date range filter onto q, mutating it in place.
+
+    Args:
+        q: Mongo query being built, mutated.
+        payload (CacheFilterIn): Filtering criteria.
+    """
+    if payload.placed_after or payload.placed_before:
+        rng_dt: dict[str, Any] = {}
+        if payload.placed_after:
+            rng_dt["$gte"] = payload.placed_after
+        if payload.placed_before:
+            rng_dt["$lte"] = payload.placed_before
+        q["placed_at"] = rng_dt
+
+
+def _build_attribute_elem_match(attribute_ids: list[Any], is_positive: bool) -> dict[str, Any]:
+    """Build an $elemMatch clause for a positive or negative attribute filter.
+
+    Args:
+        attribute_ids: Attribute document ids to match.
+        is_positive: Whether to match the positive or negative occurrence.
+
+    Returns:
+        dict: `$elemMatch` clause on the `attributes` field.
+    """
+    return {
+        "attributes": {
+            "$elemMatch": {
+                "attribute_doc_id": {"$in": attribute_ids},
+                "is_positive": is_positive,
+            }
+        }
+    }
+
+
+def _apply_attribute_filters(q: dict[str, Any], payload: CacheFilterIn) -> None:
+    """Apply the positive and negative attribute filters onto q, mutating it in place.
+
+    Args:
+        q: Mongo query being built, mutated.
+        payload (CacheFilterIn): Filtering criteria.
+    """
+    if payload.attr_pos:
+        q.setdefault("$and", []).append(_build_attribute_elem_match(payload.attr_pos, True))
+    if payload.attr_neg:
+        q.setdefault("$and", []).append(_build_attribute_elem_match(payload.attr_neg, False))
+
+
+def _build_bbox_geo_filter(bb: Any) -> dict[str, Any]:
+    """Build a $geoWithin polygon filter from a bounding box.
+
+    Args:
+        bb: Bounding box with min_lon/min_lat/max_lon/max_lat.
+
+    Returns:
+        dict: `$geoWithin` polygon filter.
+    """
+    return {
+        "$geoWithin": {
+            "$geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [bb.min_lon, bb.min_lat],
+                        [bb.max_lon, bb.min_lat],
+                        [bb.max_lon, bb.max_lat],
+                        [bb.min_lon, bb.max_lat],
+                        [bb.min_lon, bb.min_lat],
+                    ]
+                ],
+            }
+        }
+    }
+
+
 def _build_cache_filter_query(payload: CacheFilterIn) -> dict[str, Any]:
     """Build the Mongo filter query from the cache-filter payload.
 
@@ -369,79 +499,12 @@ def _build_cache_filter_query(payload: CacheFilterIn) -> dict[str, Any]:
     """
     q: dict[str, Any] = {}
 
-    if payload.q:
-        q["$text"] = {"$search": payload.q}
-    if payload.type_id:
-        q["type_id"] = payload.type_id
-    if payload.size_id:
-        q["size_id"] = payload.size_id
-    if payload.country_id:
-        q["country_id"] = payload.country_id
-    if payload.state_id:
-        q["state_id"] = payload.state_id
-    if payload.difficulty:
-        rng = {}
-        if payload.difficulty.min is not None:
-            rng["$gte"] = payload.difficulty.min
-        if payload.difficulty.max is not None:
-            rng["$lte"] = payload.difficulty.max
-        if rng:
-            q["difficulty"] = rng
-    if payload.terrain:
-        rng = {}
-        if payload.terrain.min is not None:
-            rng["$gte"] = payload.terrain.min
-        if payload.terrain.max is not None:
-            rng["$lte"] = payload.terrain.max
-        if rng:
-            q["terrain"] = rng
-    if payload.placed_after or payload.placed_before:
-        rng_dt = {}
-        if payload.placed_after:
-            rng_dt["$gte"] = payload.placed_after
-        if payload.placed_before:
-            rng_dt["$lte"] = payload.placed_before
-        q["placed_at"] = rng_dt
-    if payload.attr_pos:
-        q.setdefault("$and", []).append(
-            {
-                "attributes": {
-                    "$elemMatch": {
-                        "attribute_doc_id": {"$in": payload.attr_pos},
-                        "is_positive": True,
-                    }
-                }
-            }
-        )
-    if payload.attr_neg:
-        q.setdefault("$and", []).append(
-            {
-                "attributes": {
-                    "$elemMatch": {
-                        "attribute_doc_id": {"$in": payload.attr_neg},
-                        "is_positive": False,
-                    }
-                }
-            }
-        )
+    _apply_simple_equality_filters(q, payload)
+    _apply_difficulty_terrain_filters(q, payload)
+    _apply_placed_date_filter(q, payload)
+    _apply_attribute_filters(q, payload)
     if payload.bbox:
-        bb = payload.bbox
-        q["loc"] = {
-            "$geoWithin": {
-                "$geometry": {
-                    "type": "Polygon",
-                    "coordinates": [
-                        [
-                            [bb.min_lon, bb.min_lat],
-                            [bb.max_lon, bb.min_lat],
-                            [bb.max_lon, bb.max_lat],
-                            [bb.min_lon, bb.max_lat],
-                            [bb.min_lon, bb.min_lat],
-                        ]
-                    ],
-                }
-            }
-        }
+        q["loc"] = _build_bbox_geo_filter(payload.bbox)
 
     return q
 
