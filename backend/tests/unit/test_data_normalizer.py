@@ -233,17 +233,22 @@ class TestExtractCacheMetadata:
 
     def test_full_extraction(self):
         result = N.extract_cache_metadata(self._full_raw())
-        assert result["GC"] == "GC12345"
-        assert result["title"] == "Test Cache"
-        assert result["lat"] == pytest.approx(48.8566)
-        assert result["lon"] == pytest.approx(2.3522)
-        assert result["difficulty"] == 2.5
-        assert result["terrain"] == 3.0
-        assert result["owner"] == "TestUser"
-        assert result["favorites"] == 10
-        assert result["status"] == "active"
-        assert result["attributes"] == [1, 2, 3]
-        assert result["loc"] == {"type": "Point", "coordinates": [2.3522, 48.8566]}
+
+        expected = {
+            "GC": "GC12345",
+            "title": "Test Cache",
+            "lat": pytest.approx(48.8566),
+            "lon": pytest.approx(2.3522),
+            "difficulty": 2.5,
+            "terrain": 3.0,
+            "owner": "TestUser",
+            "favorites": 10,
+            "status": "active",
+            "attributes": [1, 2, 3],
+            "loc": {"type": "Point", "coordinates": [2.3522, 48.8566]},
+        }
+        for key, expected_value in expected.items():
+            assert result[key] == expected_value
 
     def test_invalid_gc_code_omitted(self):
         raw = self._full_raw()
