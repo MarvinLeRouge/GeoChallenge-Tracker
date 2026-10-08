@@ -247,6 +247,7 @@ To regenerate locally, run `npm run changelog`.
 - *(target-service)* Split evaluation and listing helpers into siblings
 - *(test-target-service)* Split into per-concern test files
 - *(test-target-evaluator)* Split into per-concern test files
+- *(test-gpx-parsers)* Split into one test file per parser class
 
 ### 📚 Documentation
 
