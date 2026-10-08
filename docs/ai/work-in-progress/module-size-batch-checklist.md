@@ -11,7 +11,7 @@ Threshold: 400 non-blank lines. Order: by line count descending, one commit per 
 - [x] (524) frontend/src/app/AppShell.vue - split into AppShell.vue (63 lines, header/FAB/router-view/toaster) + AppShellMenuDrawer.vue (91 lines, dialog/overlay/panel shell, open/close via defineExpose) + AppShellMenuNav.vue (386 lines, accordion nav content, emits logout). Verified via vue-tsc/eslint/prettier, 407 frontend unit tests, and a live browser check (user confirmed drawer open/close, accordion sections, theme toggle, and logout all work).
 - [ ] (492) backend/tests/unit/test_target_service.py
 - [ ] (457) frontend/tests/unit/zones-explorer.spec.ts
-- [ ] (456) backend/app/services/targets/target_service.py
+- [x] (456) backend/app/services/targets/target_service.py - split into target_service.py (327 SLOC, class TargetService with all original public+private methods kept as thin delegations) + target_service_evaluation.py (92 SLOC) + target_service_listing.py (158 SLOC). No method is mocked by name in tests (DB-level mocking only), but several private methods ARE called directly by tests (service._method(...)), so they stay as instance methods delegating to the extracted module-level functions rather than being removed.
 - [ ] (452) backend/tests/unit/test_target_evaluator.py
 - [ ] (438) backend/tests/unit/test_gpx_parsers.py
 - [ ] (436) backend/tests/_test_user_challenge_tasks_suite.py
