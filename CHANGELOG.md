@@ -249,6 +249,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-target-evaluator)* Split into per-concern test files
 - *(test-gpx-parsers)* Split into one test file per parser class
 - *(test-query-builder)* Split into per-function test files
+- *(test-gpx-import-service-main)* Split into per-concern test files
 
 ### 📚 Documentation
 
