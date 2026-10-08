@@ -53,8 +53,12 @@ export default defineConfig({
         "frontend/src/pages/caches/ImportGpx.vue",
         // Large profile form — complex validation/geocoding interactions not unit-testable
         "frontend/src/pages/profile/MyProfile.vue",
+        "frontend/src/components/profile/ProfileLocationCard.vue",
+        "frontend/src/components/profile/ProfileFoundCachesSync.vue",
         // Global app shell — router/auth/transition orchestration not unit-testable
         "frontend/src/app/AppShell.vue",
+        "frontend/src/app/AppShellMenuDrawer.vue",
+        "frontend/src/app/AppShellMenuNav.vue",
       ],
     },
   },

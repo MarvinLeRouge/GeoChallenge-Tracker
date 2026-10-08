@@ -67,15 +67,13 @@ class TargetService:
             PermissionError: If the UC does not exist or is not owned by the user.
         """
         # Validate ownership
-        await evaluation_helpers.validate_user_challenge_ownership(self.db, user_id, uc_id)
+        await self._validate_user_challenge_ownership(user_id, uc_id)
 
         log.info("[targets] evaluate UC=%s user=%s force=%s", uc_id, user_id, force)
 
         # Short-circuit if not forcing and enough targets already exist
         if not force:
-            existing_count = await evaluation_helpers.count_existing_targets(
-                self.db, user_id, uc_id
-            )
+            existing_count = await self._count_existing_targets(user_id, uc_id)
             threshold = min(hard_limit_total, limit_per_task * 5)
             if existing_count >= threshold:
                 log.info("[targets] skipped UC=%s — %d existing targets", uc_id, existing_count)
@@ -111,9 +109,7 @@ class TargetService:
         log.info("[targets] UC=%s — %d candidate(s) found", uc_id, len(candidates))
 
         # Score and persist
-        result = await evaluation_helpers.score_and_persist_targets(
-            self.db,
-            self.scorer,
+        result = await self._score_and_persist_targets(
             candidates=candidates,
             user_id=user_id,
             uc_id=uc_id,
@@ -152,8 +148,7 @@ class TargetService:
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
         """
-        return await listing_helpers.list_targets_with_pagination(
-            self.db,
+        return await self._list_targets_with_pagination(
             filters={"user_id": user_id, "user_challenge_id": uc_id},
             page=page,
             page_size=page_size,
@@ -186,8 +181,7 @@ class TargetService:
         Returns:
             dict: {items, nb_items, page, page_size, nb_pages}.
         """
-        return await listing_helpers.list_targets_nearby(
-            self.db,
+        return await self._list_targets_nearby(
             base_filters={"user_id": user_id, "user_challenge_id": uc_id},
             lat=lat,
             lon=lon,
@@ -218,8 +212,7 @@ class TargetService:
             dict: {items, nb_items, page, page_size, nb_pages}.
         """
         # Build filters with join on user_challenges
-        return await listing_helpers.list_targets_for_user_with_status_filter(
-            self.db,
+        return await self._list_targets_for_user_with_status_filter(
             user_id=user_id,
             status_filter=status_filter,
             page=page,
@@ -262,8 +255,7 @@ class TargetService:
                 )
             lat, lon = user_location
 
-        return await listing_helpers.list_targets_nearby_for_user_with_status_filter(
-            self.db,
+        return await self._list_targets_nearby_for_user_with_status_filter(
             user_id=user_id,
             lat=lat,
             lon=lon,
