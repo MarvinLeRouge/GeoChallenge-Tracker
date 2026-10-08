@@ -73,209 +73,15 @@
 
     <!-- Résultats Matrix -->
     <div v-if="matrixResult && !loading" class="space-y-4">
-      <!-- Statistiques -->
-      <div
-        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
-      >
-        <h2 class="font-semibold mb-3">Résumé</h2>
-        <div
-          v-if="matrixResult.matrix_tours && matrixResult.matrix_tours > 0"
-          class="grid grid-cols-1 md:grid-cols-4 gap-4"
-        >
-          <div class="bg-green-50 p-3 rounded-lg dark:bg-green-950">
-            <div class="flex items-center gap-2">
-              <CheckCircleIcon
-                class="h-6 w-6 text-green-600 shrink-0 dark:text-green-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-green-800 dark:text-green-300"
-                >
-                  {{ matrixResult.completed_combinations_count }}
-                </div>
-                <div class="text-sm text-green-700 dark:text-green-400">
-                  Combinaisons complétées
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-blue-50 p-3 rounded-lg dark:bg-blue-950">
-            <div class="flex items-center gap-2">
-              <Squares2X2Icon
-                class="h-6 w-6 text-blue-600 shrink-0 dark:text-blue-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-blue-800 dark:text-blue-300"
-                >
-                  {{
-                    (
-                      (matrixResult.completed_combinations_count /
-                        MATRIX_DT_TOTAL_COMBINATIONS) *
-                      100
-                    ).toFixed(1)
-                  }}%
-                </div>
-                <div class="text-sm text-blue-600 dark:text-blue-400">
-                  Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }}
-                  combinaisons)
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-indigo-50 p-3 rounded-lg dark:bg-indigo-950">
-            <div class="flex items-center gap-2">
-              <TrophyIcon
-                class="h-6 w-6 text-indigo-600 shrink-0 dark:text-indigo-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-indigo-800 dark:text-indigo-300"
-                >
-                  {{ matrixResult.matrix_tours }}
-                </div>
-                <div class="text-sm text-indigo-600 dark:text-indigo-400">
-                  {{
-                    matrixResult.matrix_tours > 1
-                      ? "Tours de matrice"
-                      : "Tour de matrice"
-                  }}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-purple-50 p-3 rounded-lg dark:bg-purple-950">
-            <div class="flex items-center gap-2">
-              <ArrowPathIcon
-                class="h-6 w-6 text-purple-600 shrink-0 dark:text-purple-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-purple-800 dark:text-purple-300"
-                >
-                  {{
-                    (matrixResult.next_round_completion_rate * 100).toFixed(1)
-                  }}%
-                </div>
-                <div class="text-sm text-purple-600 dark:text-purple-400">
-                  Next round : {{ matrixResult.next_round_completed_count }}/{{
-                    MATRIX_DT_TOTAL_COMBINATIONS
-                  }}
-                  combinaisons
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="bg-green-50 p-3 rounded-lg dark:bg-green-950">
-            <div class="flex items-center gap-2">
-              <CheckCircleIcon
-                class="h-6 w-6 text-green-600 shrink-0 dark:text-green-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-green-800 dark:text-green-300"
-                >
-                  {{ matrixResult.completed_combinations_count }}
-                </div>
-                <div class="text-sm text-green-700 dark:text-green-400">
-                  Combinaisons complétées
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="bg-blue-50 p-3 rounded-lg dark:bg-blue-950">
-            <div class="flex items-center gap-2">
-              <Squares2X2Icon
-                class="h-6 w-6 text-blue-600 shrink-0 dark:text-blue-400"
-                aria-hidden="true"
-              />
-              <div>
-                <div
-                  class="text-2xl font-bold text-blue-800 dark:text-blue-300"
-                >
-                  {{
-                    (
-                      (matrixResult.completed_combinations_count /
-                        MATRIX_DT_TOTAL_COMBINATIONS) *
-                      100
-                    ).toFixed(1)
-                  }}%
-                </div>
-                <div class="text-sm text-blue-600 dark:text-blue-400">
-                  Completion (sur {{ MATRIX_DT_TOTAL_COMBINATIONS }}
-                  combinaisons)
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <MatrixSummaryStats :matrix-result="matrixResult" />
 
-      <!-- Matrix Grid -->
-      <div
-        class="rounded-lg border bg-white p-4 shadow-sm overflow-x-auto dark:bg-gray-800 dark:border-gray-700"
-      >
-        <h2 class="font-semibold mb-3">Matrice Difficulté/Terrain</h2>
-        <div class="min-w-max">
-          <table class="w-full border-collapse">
-            <thead>
-              <tr>
-                <th
-                  class="border p-2 bg-gray-50 text-sm dark:bg-gray-700 dark:border-gray-600"
-                >
-                  D\T
-                </th>
-                <th
-                  v-for="terrain in terrainValues"
-                  :key="terrain"
-                  class="border p-2 bg-gray-50 text-sm dark:bg-gray-700 dark:border-gray-600"
-                >
-                  {{ terrain }}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="difficulty in difficultyValues" :key="difficulty">
-                <td
-                  class="border p-2 bg-gray-50 font-medium text-sm dark:bg-gray-700 dark:border-gray-600"
-                >
-                  {{ difficulty }}
-                </td>
-                <td
-                  v-for="terrain in terrainValues"
-                  :key="`${difficulty}-${terrain}`"
-                  class="border p-2 text-center text-sm dark:border-gray-600"
-                  :class="getCellClass(difficulty, terrain)"
-                >
-                  {{ getMatrixValue(difficulty, terrain) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-          <span
-            class="inline-block w-4 h-4 bg-green-100 border mr-1 dark:bg-green-900 dark:border-gray-600"
-          />Complété (≥1)
-          <span
-            class="inline-block w-4 h-4 bg-red-100 border mr-1 ml-3 dark:bg-red-900 dark:border-gray-600"
-          />Non complété (0)
-          <span
-            v-if="matrixResult?.matrix_tours && matrixResult.matrix_tours > 0"
-          >
-            <span
-              class="inline-block w-4 h-4 bg-indigo-100 border mr-1 ml-3 dark:bg-indigo-900 dark:border-gray-600"
-            />Next round
-          </span>
-        </div>
-      </div>
+      <MatrixGrid
+        :terrain-values="terrainValues"
+        :difficulty-values="difficultyValues"
+        :matrix-result="matrixResult"
+        :get-cell-class="getCellClass"
+        :get-matrix-value="getMatrixValue"
+      />
 
       <!-- Combinaisons manquantes pour le prochain tour -->
       <div
@@ -305,15 +111,10 @@ import { ref, onMounted, computed } from "vue";
 import api from "@/api/http";
 import type { MatrixResult, CacheType, CacheSize } from "@/types/challenges";
 import { useMatrixData } from "@/composables/useMatrixData";
-import { MATRIX_DT_TOTAL_COMBINATIONS } from "@/constants/matrix";
 import { toast } from "vue-sonner";
 import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
-import {
-  CheckCircleIcon,
-  Squares2X2Icon,
-  TrophyIcon,
-  ArrowPathIcon,
-} from "@heroicons/vue/24/outline";
+import MatrixSummaryStats from "@/components/userChallenges/MatrixSummaryStats.vue";
+import MatrixGrid from "@/components/userChallenges/MatrixGrid.vue";
 
 const loading = ref(false);
 const error = ref("");

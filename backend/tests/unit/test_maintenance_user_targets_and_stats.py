@@ -12,7 +12,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.api.dto.user_stats import UserStatsOut
-from app.api.routes import maintenance as maintenance_module
+from app.api.routes.maintenance import targets_stats as maintenance_module
 from app.core.security import get_current_user
 from app.domain.models.user import User
 

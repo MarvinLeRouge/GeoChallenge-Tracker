@@ -11,7 +11,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.routes import caches as caches_module
+from app.api.routes import caches_geo_search as caches_module
 from app.core.security import get_current_user
 from app.domain.models.user import User
 

@@ -16,7 +16,8 @@ from bson import ObjectId
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.routes import maintenance as maintenance_module
+from app.api.routes.maintenance import gpx_upload as maintenance_module
+from app.api.routes.maintenance import targets_stats as targets_stats_module
 from app.core.security import get_current_user
 from app.domain.models.user import User
 
@@ -95,8 +96,8 @@ class TestMaintenanceSyncFoundCachesSizeLimit:
         target_user_id = str(ObjectId())
 
         with (
-            patch.object(maintenance_module, "get_settings", return_value=_small_settings()),
-            patch.object(maintenance_module, "sync_found_caches") as mock_sync,
+            patch.object(targets_stats_module, "get_settings", return_value=_small_settings()),
+            patch.object(targets_stats_module, "sync_found_caches") as mock_sync,
         ):
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"
@@ -115,9 +116,9 @@ class TestMaintenanceSyncFoundCachesSizeLimit:
         target_user_id = str(ObjectId())
 
         with (
-            patch.object(maintenance_module, "get_settings", return_value=_small_settings()),
+            patch.object(targets_stats_module, "get_settings", return_value=_small_settings()),
             patch.object(
-                maintenance_module,
+                targets_stats_module,
                 "sync_found_caches",
                 new=AsyncMock(return_value={"nb_provided": 1, "nb_added": 1, "nb_deleted": 0}),
             ) as mock_sync,

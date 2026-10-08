@@ -12,6 +12,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.utils import utcnow
 
+from . import target_service_evaluation as evaluation_helpers
+from . import target_service_listing as listing_helpers
 from .geo_utils import get_user_location
 from .target_evaluator import TargetEvaluator
 from .target_scorer import TargetScorer
@@ -380,24 +382,15 @@ class TargetService:
             "deleted": result.deleted_count,
         }
 
-    # --- Private methods ---
+    # --- Private methods (thin delegations to target_service_{evaluation,listing}) ---
 
     async def _validate_user_challenge_ownership(self, user_id: ObjectId, uc_id: ObjectId):
         """Validate that the UC belongs to the user."""
-        coll_uc = self.db.user_challenges
-        uc = await coll_uc.find_one({"_id": uc_id, "user_id": user_id}, {"_id": 1})
-        if not uc:
-            raise PermissionError("UserChallenge not found or not owned by user")
+        return await evaluation_helpers.validate_user_challenge_ownership(self.db, user_id, uc_id)
 
     async def _count_existing_targets(self, user_id: ObjectId, uc_id: ObjectId) -> int:
         """Count existing targets."""
-        coll_targets = self.db.targets
-        return await coll_targets.count_documents(
-            {
-                "user_id": user_id,
-                "user_challenge_id": uc_id,
-            }
-        )
+        return await evaluation_helpers.count_existing_targets(self.db, user_id, uc_id)
 
     async def _score_and_persist_targets(
         self,
@@ -410,81 +403,17 @@ class TargetService:
         evaluated_at: datetime,
     ) -> dict[str, Any]:
         """Score and persist targets."""
-        coll_targets = self.db.targets
-        now = utcnow()
-        inserted = 0
-        updated = 0
-
-        # Count the total number of incomplete tasks
-        total_incomplete_tasks = sum(
-            1 for task in tasks if progress_map.get(task["_id"], {}).get("percent", 0) < 100
+        return await evaluation_helpers.score_and_persist_targets(
+            self.db,
+            self.scorer,
+            candidates=candidates,
+            user_id=user_id,
+            uc_id=uc_id,
+            tasks=tasks,
+            progress_map=progress_map,
+            geo_ctx=geo_ctx,
+            evaluated_at=evaluated_at,
         )
-
-        for cache_id, candidate in candidates.items():
-            cache_data = candidate["cache"]
-            matched_tasks = candidate["matched_tasks"]
-
-            # Calculate scores
-            distance_m = cache_data.get("distance_m")
-            radius_km = geo_ctx.get("radius_km") if geo_ctx else None
-
-            scores = self.scorer.calculate_composite_score(
-                matched_tasks=matched_tasks,
-                total_incomplete_tasks=total_incomplete_tasks,
-                distance_m=distance_m,
-                radius_km=radius_km,
-            )
-
-            # Choose the primary task
-            primary_task_id = self.scorer.choose_primary_task_by_ratio(matched_tasks)
-
-            # Document to insert/update
-            doc = {
-                "cache_id": cache_id,
-                "cache_GC": cache_data.get("GC"),
-                "cache_title": cache_data.get("title"),
-                "cache_owner": cache_data.get("owner"),
-                "cache_difficulty": cache_data.get("difficulty"),
-                "cache_terrain": cache_data.get("terrain"),
-                "cache_type_code": cache_data.get("type_code"),
-                "loc": cache_data.get("loc"),
-                "primary_task_id": primary_task_id,
-                "matched_tasks_count": len(matched_tasks),
-                "score": scores["composite"],
-                "score_details": {
-                    "urgency": scores["urgency"],
-                    "coverage": scores["coverage"],
-                    "geographic": scores["geographic"],
-                },
-                "evaluated_at": evaluated_at,
-                "updated_at": now,
-            }
-
-            # Add geo info if available
-            if distance_m is not None:
-                doc["distance_m"] = distance_m
-
-            # Upsert
-            result = await coll_targets.update_one(
-                {"user_id": user_id, "user_challenge_id": uc_id, "cache_id": cache_id},
-                {"$set": doc, "$setOnInsert": {"created_at": now}},
-                upsert=True,
-            )
-
-            if result.upserted_id:
-                inserted += 1
-            elif result.modified_count > 0:
-                updated += 1
-
-        # Count the final total
-        total = await self._count_existing_targets(user_id, uc_id)
-
-        return {
-            "ok": True,
-            "inserted": inserted,
-            "updated": updated,
-            "total": total,
-        }
 
     async def _list_targets_with_pagination(
         self,
@@ -494,35 +423,9 @@ class TargetService:
         sort: str,
     ) -> dict[str, Any]:
         """Generic pagination utility for targets."""
-        coll_targets = self.db.targets
-
-        # Count total
-        total_count = await coll_targets.count_documents(filters)
-
-        # Pagination
-        skip = (page - 1) * page_size
-        nb_pages = (total_count + page_size - 1) // page_size
-
-        # Build sort spec
-        sort_spec = []
-        for sort_key in sort.split(","):
-            sort_key = sort_key.strip()
-            if sort_key.startswith("-"):
-                sort_spec.append((sort_key[1:], -1))
-            else:
-                sort_spec.append((sort_key, 1))
-
-        # Retrieve items
-        cursor = coll_targets.find(filters).sort(sort_spec).skip(skip).limit(page_size)
-        items = await cursor.to_list(length=None)
-
-        return {
-            "items": items,
-            "nb_items": total_count,
-            "page": page,
-            "page_size": page_size,
-            "nb_pages": nb_pages,
-        }
+        return await listing_helpers.list_targets_with_pagination(
+            self.db, filters=filters, page=page, page_size=page_size, sort=sort
+        )
 
     async def _list_targets_nearby(
         self,
@@ -534,64 +437,17 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List targets within a geographic radius using $geoNear.
-
-        Uses the 2dsphere index on the ``loc`` field to filter and compute
-        live distance from the provided coordinates.
-        """
-        coll_targets = self.db.targets
-
-        geo_stage: dict[str, Any] = {
-            "$geoNear": {
-                "near": {"type": "Point", "coordinates": [lon, lat]},
-                "distanceField": "distance_m",
-                "maxDistance": radius_km * 1000,
-                "spherical": True,
-                "query": base_filters,
-            }
-        }
-
-        # Build sort document for the aggregation pipeline
-        if sort == "distance":
-            sort_doc: dict[str, Any] = {"distance_m": 1}
-        else:
-            sort_doc = {}
-            for key in sort.split(","):
-                key = key.strip()
-                if key.startswith("-"):
-                    sort_doc[key[1:]] = -1
-                else:
-                    sort_doc[key] = 1
-
-        skip = (page - 1) * page_size
-
-        # Count matching documents
-        count_result = await coll_targets.aggregate([geo_stage, {"$count": "total"}]).to_list(
-            length=1
+        """List targets within a geographic radius using $geoNear."""
+        return await listing_helpers.list_targets_nearby(
+            self.db,
+            base_filters=base_filters,
+            lat=lat,
+            lon=lon,
+            radius_km=radius_km,
+            page=page,
+            page_size=page_size,
+            sort=sort,
         )
-        total_count: int = count_result[0]["total"] if count_result else 0
-        nb_pages = (total_count + page_size - 1) // page_size if total_count else 0
-
-        # Fetch page
-        pipeline: list[dict[str, Any]] = [
-            geo_stage,
-            {"$sort": sort_doc},
-            {"$skip": skip},
-            {"$limit": page_size},
-        ]
-        items = await coll_targets.aggregate(pipeline).to_list(length=None)
-
-        log.debug(
-            "[targets] nearby lat=%s lon=%s r=%skm — %d result(s)", lat, lon, radius_km, total_count
-        )
-
-        return {
-            "items": items,
-            "nb_items": total_count,
-            "page": page,
-            "page_size": page_size,
-            "nb_pages": nb_pages,
-        }
 
     async def _list_targets_for_user_with_status_filter(
         self,
@@ -601,36 +457,11 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List targets with an optional UC status filter.
-
-        When ``status_filter`` is provided, resolves the matching
-        UserChallenge ids first, then filters targets accordingly.
-        """
-        base_filters: dict[str, Any] = {"user_id": user_id}
-
-        if status_filter:
-            coll_uc = self.db.user_challenges
-            uc_docs = await coll_uc.find(
-                {"user_id": user_id, "status": status_filter},
-                {"_id": 1},
-            ).to_list(length=None)
-            uc_ids = [doc["_id"] for doc in uc_docs]
-
-            log.debug("[targets] status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids))
-
-            if not uc_ids:
-                return {
-                    "items": [],
-                    "nb_items": 0,
-                    "page": page,
-                    "page_size": page_size,
-                    "nb_pages": 0,
-                }
-
-            base_filters["user_challenge_id"] = {"$in": uc_ids}
-
-        return await self._list_targets_with_pagination(
-            filters=base_filters,
+        """List targets with an optional UC status filter."""
+        return await listing_helpers.list_targets_for_user_with_status_filter(
+            self.db,
+            user_id=user_id,
+            status_filter=status_filter,
             page=page,
             page_size=page_size,
             sort=sort,
@@ -647,41 +478,14 @@ class TargetService:
         page_size: int,
         sort: str,
     ) -> dict[str, Any]:
-        """List nearby targets with an optional UC status filter.
-
-        Resolves matching UC ids when a status filter is provided,
-        then delegates to ``_list_targets_nearby``.
-        """
-        base_filters: dict[str, Any] = {"user_id": user_id}
-
-        if status_filter:
-            coll_uc = self.db.user_challenges
-            uc_docs = await coll_uc.find(
-                {"user_id": user_id, "status": status_filter},
-                {"_id": 1},
-            ).to_list(length=None)
-            uc_ids = [doc["_id"] for doc in uc_docs]
-
-            log.debug(
-                "[targets] nearby status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids)
-            )
-
-            if not uc_ids:
-                return {
-                    "items": [],
-                    "nb_items": 0,
-                    "page": page,
-                    "page_size": page_size,
-                    "nb_pages": 0,
-                }
-
-            base_filters["user_challenge_id"] = {"$in": uc_ids}
-
-        return await self._list_targets_nearby(
-            base_filters=base_filters,
+        """List nearby targets with an optional UC status filter."""
+        return await listing_helpers.list_targets_nearby_for_user_with_status_filter(
+            self.db,
+            user_id=user_id,
             lat=lat,
             lon=lon,
             radius_km=radius_km,
+            status_filter=status_filter,
             page=page,
             page_size=page_size,
             sort=sort,

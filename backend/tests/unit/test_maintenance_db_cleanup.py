@@ -23,7 +23,7 @@ from bson import ObjectId
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.routes import maintenance as maintenance_module
+from app.api.routes.maintenance import cleanup as maintenance_module
 from app.core.security import get_current_user
 from app.core.utils import utcnow
 from app.domain.models.user import User

@@ -65,7 +65,7 @@ class TestMaintenanceTestEmail:
     async def test_sends_test_email(self, auth_client, seeded_admin):
         """Test that the endpoint sends an email and returns stats."""
         with patch(
-            "app.api.routes.maintenance.send_test_email", new_callable=AsyncMock
+            "app.api.routes.maintenance.test_email.send_test_email", new_callable=AsyncMock
         ) as mock_send:
             mock_send.return_value = None
             response = await auth_client.post("/maintenance/test-email?to_email=test@example.com")

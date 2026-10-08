@@ -163,6 +163,8 @@ To regenerate locally, run `npm run changelog`.
 - *(codecov)* Enable carryforward for backend and frontend flags
 - *(deps)* Bump pymongo and replace python-jose with PyJWT
 - *(ci)* Keep the ecdsa pip-audit guard out of this PR's scope
+- *(ci)* Allow the tracked tinypool critical finding in frontend security scan
+- *(targets)* Route public target_service methods through private delegations
 
 ### 💼 Other
 
@@ -238,6 +240,21 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Split cache-filter query building into per-criterion helpers
 - *(auth)* Split login credential extraction by content-type
 - *(test-maintenance-full-backup-create)* Consolidate response-body assertions into a loop
+- *(test-progress)* Split into one file per tested function
+- *(progress)* Split into pure helpers, DB aggregates, and core logic
+- *(caches)* Split routes by concern into sibling modules
+- *(profile)* Split MyProfile.vue into location and sync cards
+- *(test-endpoints-caches)* Split integration tests by route concern
+- *(app-shell)* Split AppShell.vue into drawer and nav components
+- *(target-service)* Split evaluation and listing helpers into siblings
+- *(test-target-service)* Split into per-concern test files
+- *(test-target-evaluator)* Split into per-concern test files
+- *(test-gpx-parsers)* Split into one test file per parser class
+- *(test-query-builder)* Split into per-function test files
+- *(test-gpx-import-service-main)* Split into per-concern test files
+- *(test-zones-explorer)* Split into one spec file per view
+- *(matrix)* Split into summary stats and grid components
+- *(maintenance)* Split into a package by route concern
 
 ### 📚 Documentation
 
@@ -390,3 +407,4 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Watch codecov.yml in backend and frontend path filters
 - Homogenize job naming and labels across backend/frontend stages
 - Add local post-commit hook for changelog generation
+- *(tests)* Remove dead manual debug scripts for user challenge tasks
