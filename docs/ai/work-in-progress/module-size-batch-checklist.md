@@ -12,7 +12,7 @@ Threshold: 400 non-blank lines. Order: by line count descending, one commit per 
 - [x] (492) backend/tests/unit/test_target_service.py - split into _target_service_test_helpers.py (shared, 39 SLOC) + test_target_service_evaluate.py (189 SLOC) + test_target_service_listing.py (279 SLOC). 34/34 tests preserved.
 - [ ] (457) frontend/tests/unit/zones-explorer.spec.ts
 - [x] (456) backend/app/services/targets/target_service.py - split into target_service.py (327 SLOC, class TargetService with all original public+private methods kept as thin delegations) + target_service_evaluation.py (92 SLOC) + target_service_listing.py (158 SLOC). No method is mocked by name in tests (DB-level mocking only), but several private methods ARE called directly by tests (service._method(...)), so they stay as instance methods delegating to the extracted module-level functions rather than being removed.
-- [ ] (452) backend/tests/unit/test_target_evaluator.py
+- [x] (452) backend/tests/unit/test_target_evaluator.py - split into _target_evaluator_test_helpers.py (shared, 14 SLOC) + test_target_evaluator_data_fetch.py (68 SLOC) + test_target_evaluator_pipeline.py (187 SLOC) + test_target_evaluator_candidates.py (203 SLOC). 26/26 tests preserved.
 - [ ] (438) backend/tests/unit/test_gpx_parsers.py
 - [ ] (436) backend/tests/_test_user_challenge_tasks_suite.py
 - [ ] (434) backend/tests/unit/test_query_builder.py

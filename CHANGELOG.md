@@ -246,6 +246,7 @@ To regenerate locally, run `npm run changelog`.
 - *(app-shell)* Split AppShell.vue into drawer and nav components
 - *(target-service)* Split evaluation and listing helpers into siblings
 - *(test-target-service)* Split into per-concern test files
+- *(test-target-evaluator)* Split into per-concern test files
 
 ### 📚 Documentation
 
