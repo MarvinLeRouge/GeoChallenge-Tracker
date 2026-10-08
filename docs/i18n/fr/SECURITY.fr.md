@@ -1,4 +1,4 @@
-🇫🇷 Version française | [🇬🇧 English version](SECURITY.md)
+🇫🇷 Version française | [🇬🇧 English version](../../../SECURITY.md)
 
 ---
 

@@ -1,4 +1,4 @@
-[🇫🇷 Version française](CODE_OF_CONDUCT.fr.md) | 🇬🇧 English version
+[🇫🇷 Version française](docs/i18n/fr/CODE_OF_CONDUCT.fr.md) | 🇬🇧 English version
 
 ---
 

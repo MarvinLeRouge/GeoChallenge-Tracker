@@ -319,6 +319,7 @@ To regenerate locally, run `npm run changelog`.
 - *(zones-explorer)* Add step 5 unified drill-down implementation plan
 - *(readme)* Sync test counts, add flagged coverage badges and fix license link
 - *(roadmap)* Document frontend npm audit vulnerabilities as item 8.8
+- *(root)* Move French community-health docs into docs/i18n/fr
 
 ### 🧪 Testing
 
