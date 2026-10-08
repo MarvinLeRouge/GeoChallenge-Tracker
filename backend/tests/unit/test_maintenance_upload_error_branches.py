@@ -12,7 +12,8 @@ from bson import ObjectId
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from app.api.routes import maintenance as maintenance_module
+from app.api.routes.maintenance import gpx_upload as maintenance_module
+from app.api.routes.maintenance import targets_stats as targets_stats_module
 from app.core.security import get_current_user
 from app.domain.models.user import User
 
@@ -50,7 +51,7 @@ class TestUploadGpxErrorBranch:
 class TestSyncFoundCachesInvalidUserId:
     @pytest.mark.asyncio
     async def test_invalid_user_id_returns_422(self):
-        with patch.object(maintenance_module, "sync_found_caches", new=AsyncMock()) as mock_sync:
+        with patch.object(targets_stats_module, "sync_found_caches", new=AsyncMock()) as mock_sync:
             app = _make_app()
             async with AsyncClient(
                 transport=ASGITransport(app=app), base_url="http://test"

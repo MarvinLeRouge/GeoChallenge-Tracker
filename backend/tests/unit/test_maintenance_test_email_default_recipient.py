@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import require_admin
-from app.api.routes import maintenance as maintenance_module
+from app.api.routes.maintenance import test_email as maintenance_module
 from app.domain.models.user import User
 
 
