@@ -251,6 +251,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-query-builder)* Split into per-function test files
 - *(test-gpx-import-service-main)* Split into per-concern test files
 - *(test-zones-explorer)* Split into one spec file per view
+- *(matrix)* Split into summary stats and grid components
 
 ### 📚 Documentation
 
