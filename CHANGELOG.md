@@ -163,6 +163,7 @@ To regenerate locally, run `npm run changelog`.
 - *(codecov)* Enable carryforward for backend and frontend flags
 - *(deps)* Bump pymongo and replace python-jose with PyJWT
 - *(ci)* Keep the ecdsa pip-audit guard out of this PR's scope
+- *(ci)* Allow the tracked tinypool critical finding in frontend security scan
 
 ### 💼 Other
 
