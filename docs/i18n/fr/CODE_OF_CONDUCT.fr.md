@@ -1,4 +1,4 @@
-🇫🇷 Version française | [🇬🇧 English version](CODE_OF_CONDUCT.md)
+🇫🇷 Version française | [🇬🇧 English version](../../../CODE_OF_CONDUCT.md)
 
 ---
 

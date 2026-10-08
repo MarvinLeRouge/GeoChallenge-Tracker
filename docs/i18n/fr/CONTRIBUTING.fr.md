@@ -1,4 +1,4 @@
-🇫🇷 Version française | [🇬🇧 English version](CONTRIBUTING.md)
+🇫🇷 Version française | [🇬🇧 English version](../../../CONTRIBUTING.md)
 
 ---
 
@@ -140,4 +140,4 @@ Toute interaction dans le cadre du projet, y compris sur tout canal de communica
 
 ## Licence
 
-En contribuant, vous acceptez que vos contributions soient publiées sous la [licence MIT](LICENSE).
+En contribuant, vous acceptez que vos contributions soient publiées sous la [licence MIT](../../../LICENSE).

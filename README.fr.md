@@ -421,7 +421,7 @@ La production était déjà configurée pour envoyer via Brevo plutôt que le `m
 
 ## 🤝 Contribution
 
-Les contributions sont les bienvenues ! Voir [CONTRIBUTING.fr.md](CONTRIBUTING.fr.md) pour l'installation locale, la convention de nommage des branches, la convention de commit et le style de code.
+Les contributions sont les bienvenues ! Voir [CONTRIBUTING.fr.md](docs/i18n/fr/CONTRIBUTING.fr.md) pour l'installation locale, la convention de nommage des branches, la convention de commit et le style de code.
 
 ---
 

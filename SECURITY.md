@@ -1,4 +1,4 @@
-[🇫🇷 Version française](SECURITY.fr.md) | 🇬🇧 English version
+[🇫🇷 Version française](docs/i18n/fr/SECURITY.fr.md) | 🇬🇧 English version
 
 ---
 
