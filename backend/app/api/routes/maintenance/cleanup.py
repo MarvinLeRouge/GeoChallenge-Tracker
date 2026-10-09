@@ -17,7 +17,7 @@ from app.core.backup_config import CLEANUP_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
-from . import router
+from ._router import router
 from ._shared import (
     CONFIRMATION_KEY_TTL,
     PENDING_CLEANUP_DIR,

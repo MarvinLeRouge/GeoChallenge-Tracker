@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
 
-from . import router
+from ._router import router
 
 
 # DONE: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) verified
