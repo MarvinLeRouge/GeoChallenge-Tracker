@@ -13,7 +13,7 @@ from app.core.utils import utcnow
 from app.db.mongodb import get_collection, get_db
 from app.services.gpx_import.referential_mapper import ReferentialMapper
 
-from . import router
+from ._router import router
 
 
 @router.delete(

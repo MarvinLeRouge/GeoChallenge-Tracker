@@ -11,7 +11,7 @@ from app.core.email import send_test_email
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
 
-from . import router
+from ._router import router
 
 
 @router.post(

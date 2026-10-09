@@ -255,6 +255,7 @@ To regenerate locally, run `npm run changelog`.
 - *(test-zones-explorer)* Split into one spec file per view
 - *(matrix)* Split into summary stats and grid components
 - *(maintenance)* Split into a package by route concern
+- *(maintenance)* Decouple shared router
 
 ### 📚 Documentation
 

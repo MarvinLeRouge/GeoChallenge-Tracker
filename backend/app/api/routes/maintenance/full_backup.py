@@ -18,7 +18,7 @@ from app.core.backup_config import FULL_BACKUP_DIR
 from app.core.utils import utcnow
 from app.db.mongodb import get_db
 
-from . import router
+from ._router import router
 from ._shared import (
     CONFIRMATION_KEY_TTL,
     PENDING_RESTORE_DIR,

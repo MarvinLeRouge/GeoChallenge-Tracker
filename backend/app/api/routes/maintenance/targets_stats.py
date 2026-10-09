@@ -17,7 +17,7 @@ from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
 from app.services.targets_service import evaluate_all_for_user
 from app.services.user_stats import get_user_stats
 
-from . import router
+from ._router import router
 
 
 @router.post(

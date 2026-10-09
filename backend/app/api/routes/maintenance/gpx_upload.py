@@ -12,7 +12,7 @@ from app.core.middleware import read_upload_file_with_limit
 from app.core.settings import get_settings
 from app.services.gpx_importer_service import import_gpx_payload
 
-from . import router
+from ._router import router
 
 
 # TODO: [BACKLOG] Route /maintenance/import-gpx (POST) to verify
