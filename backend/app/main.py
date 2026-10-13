@@ -11,7 +11,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import routers
+from app.api.router_registry import routers
 from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware

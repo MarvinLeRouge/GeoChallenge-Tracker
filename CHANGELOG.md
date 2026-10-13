@@ -165,6 +165,7 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Keep the ecdsa pip-audit guard out of this PR's scope
 - *(ci)* Allow the tracked tinypool critical finding in frontend security scan
 - *(targets)* Route public target_service methods through private delegations
+- *(api)* Break the routes/maintenance package self-import cycle
 
 ### 💼 Other
 
