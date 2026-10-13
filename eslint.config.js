@@ -50,6 +50,9 @@ export default [
         sourceType: "module",
         extraFileExtensions: [".vue"],
       },
+      // eslint-plugin-vue's flat/recommended preset no longer injects browser
+      // globals as of v10 (it used to, which is how this worked before).
+      globals: { ...globals.browser },
     },
     rules: {
       "vue/multi-word-component-names": "off",

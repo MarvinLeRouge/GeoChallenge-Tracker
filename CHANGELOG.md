@@ -169,6 +169,7 @@ To regenerate locally, run `npm run changelog`.
 - *(docker)* Switch backend image to multi-stage build to drop linux-libc-dev
 - *(deps)* Upgrade vitest to 5 to resolve the tinypool critical CVE
 - *(deps)* Resolve non-breaking high/moderate npm audit findings
+- *(deps)* Upgrade eslint-plugin-vue to 10 to resolve postcss-selector-parser CVE
 
 ### 💼 Other
 
