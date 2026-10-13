@@ -26,10 +26,11 @@ ENV VITE_TILE_URL=${VITE_TILE_URL}
 # >>> Vite environment (build-time) <<<
 RUN npm run build
 
-# ---- Prod (Nginx) ----
-FROM nginx:alpine AS prod
+# ---- Prod (Nginx, non-root) ----
+FROM nginxinc/nginx-unprivileged:alpine AS prod
 WORKDIR /usr/share/nginx/html
 COPY --from=build /app/frontend/dist ./
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY frontend/nginx-security-headers.conf /etc/nginx/conf.d/nginx-security-headers.conf
-EXPOSE 80
+USER nginx
+EXPOSE 8080
