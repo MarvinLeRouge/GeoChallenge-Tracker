@@ -31,6 +31,9 @@ export default defineConfig({
       exclude: [
         "frontend/src/main.ts",
         "frontend/src/**/*.d.ts",
+        // Documentation, not code — vitest 5's v8 provider tries to parse
+        // everything matched by coverage.include, including non-JS assets
+        "frontend/src/**/*.md",
         // Pure type definitions — no executable logic
         "frontend/src/types/**",
         // Constants — no logic
