@@ -168,6 +168,7 @@ To regenerate locally, run `npm run changelog`.
 - *(api)* Break the routes/maintenance package self-import cycle
 - *(docker)* Switch backend image to multi-stage build to drop linux-libc-dev
 - *(deps)* Upgrade vitest to 5 to resolve the tinypool critical CVE
+- *(deps)* Resolve non-breaking high/moderate npm audit findings
 
 ### 💼 Other
 
