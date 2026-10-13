@@ -174,6 +174,7 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Upgrade tailwindcss to v4, resolving the last npm audit finding
 - *(docker)* Run the frontend nginx prod container as non-root
 - *(docker)* Run the frontend dev and build stages as non-root too
+- *(docker)* Remove unused system pip/setuptools/wheel from the backend image
 
 ### 💼 Other
 
