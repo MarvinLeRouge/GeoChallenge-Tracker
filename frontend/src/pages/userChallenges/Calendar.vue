@@ -12,7 +12,7 @@
 
     <!-- Filtres -->
     <div
-      class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
     >
       <h2 class="font-semibold mb-3">Filtres</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -23,7 +23,7 @@
           >
           <select
             v-model="selectedCacheType"
-            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchCalendar"
           >
             <option value="">Tous les types</option>
@@ -44,7 +44,7 @@
           >
           <select
             v-model="selectedCacheSize"
-            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchCalendar"
           >
             <option value="">Toutes les tailles</option>
@@ -75,7 +75,7 @@
     <div v-if="calendarResult && !loading" class="space-y-4">
       <!-- Statistiques -->
       <div
-        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+        class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
       >
         <h2 class="font-semibold mb-3">Résumé</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -138,7 +138,7 @@
 
       <!-- Calendrier visuel -->
       <div
-        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+        class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
       >
         <h2 class="font-semibold mb-3">Calendrier annuel</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -156,7 +156,7 @@
                 v-for="day in getDaysInMonth(month)"
                 :key="`${month}-${day}`"
                 type="button"
-                class="w-6 h-6 flex items-center justify-center rounded text-xs cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
+                class="w-6 h-6 flex items-center justify-center rounded-sm text-xs cursor-pointer focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500"
                 :class="[
                   getDayClass(month, day),
                   isSelectedDay(month, day)
@@ -174,7 +174,7 @@
             <!-- Détail du jour sélectionné -->
             <div
               v-if="selectedDay && selectedDay.month === month"
-              class="mt-1 text-xs text-gray-700 bg-gray-200 rounded px-2 py-1 dark:text-gray-300 dark:bg-gray-900"
+              class="mt-1 text-xs text-gray-700 bg-gray-200 rounded-sm px-2 py-1 dark:text-gray-300 dark:bg-gray-900"
             >
               {{ getDayTitle(selectedDay.month, selectedDay.day) }}
             </div>
@@ -194,15 +194,15 @@
         <!-- Légende -->
         <div class="mt-4 flex flex-wrap gap-4 text-xs">
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-green-200 rounded dark:bg-green-900" />
+            <div class="w-4 h-4 bg-green-200 rounded-sm dark:bg-green-900" />
             <span>Jour complété</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-red-200 rounded dark:bg-red-900" />
+            <div class="w-4 h-4 bg-red-200 rounded-sm dark:bg-red-900" />
             <span>Jour manquant</span>
           </div>
           <div class="flex items-center gap-1">
-            <div class="w-4 h-4 bg-gray-100 rounded dark:bg-gray-700" />
+            <div class="w-4 h-4 bg-gray-100 rounded-sm dark:bg-gray-700" />
             <span>Jour sans cache</span>
           </div>
         </div>
@@ -210,7 +210,7 @@
 
       <!-- Statistiques détaillées par mois -->
       <div
-        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+        class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
       >
         <h2 class="font-semibold mb-3">Détails par mois</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

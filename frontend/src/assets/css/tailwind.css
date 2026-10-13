@@ -1,3 +1,38 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@plugin 'flowbite/plugin';
+
+@source '../../../../node_modules/flowbite/**/*.{js,ts}';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --color-gold-50: #fffae5;
+  --color-gold-100: #fff3cc;
+  --color-gold-200: #ffe699;
+  --color-gold-300: #ffd966;
+  --color-gold-400: #ffcc33;
+  --color-gold-500: #ffd700;
+  --color-gold-600: #e6c200;
+  --color-gold-700: #b39700;
+  --color-gold-800: #806b00;
+  --color-gold-900: #4d4000;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}

@@ -3,7 +3,7 @@
     <button
       data-testid="dropdown-toggle"
       type="button"
-      class="border border-gray-200 rounded px-2 py-1 text-xs text-gray-700 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+      class="border border-gray-200 rounded-sm px-2 py-1 text-xs text-gray-700 bg-white dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
       @click="open = !open"
     >
       {{ label }}

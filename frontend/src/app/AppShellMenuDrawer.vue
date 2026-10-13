@@ -13,7 +13,7 @@
     <!-- Panneau -->
     <section
       ref="panelRef"
-      class="absolute inset-0 bg-white flex flex-col outline-none dark:bg-gray-900"
+      class="absolute inset-0 bg-white flex flex-col outline-hidden dark:bg-gray-900"
       tabindex="-1"
     >
       <!-- Header du drawer -->
@@ -22,7 +22,7 @@
       >
         <h2 class="text-sm font-semibold">Menu</h2>
         <button
-          class="h-9 w-9 -mr-1 flex items-center justify-center rounded hover:bg-gray-100 active:scale-95 dark:hover:bg-gray-800"
+          class="h-9 w-9 -mr-1 flex items-center justify-center rounded-sm hover:bg-gray-100 active:scale-95 dark:hover:bg-gray-800"
           aria-label="Fermer le menu"
           @click="close"
         >

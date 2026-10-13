@@ -171,6 +171,7 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Resolve non-breaking high/moderate npm audit findings
 - *(deps)* Upgrade eslint-plugin-vue to 10 to resolve postcss-selector-parser CVE
 - *(deps)* Remove unused flowbite-vue to resolve the nanoid high CVE
+- *(deps)* Upgrade tailwindcss to v4, resolving the last npm audit finding
 
 ### 💼 Other
 

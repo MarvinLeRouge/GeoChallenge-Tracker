@@ -1,5 +1,5 @@
 <template>
-  <section class="max-w-screen-md mx-auto space-y-6">
+  <section class="max-w-(--breakpoint-md) mx-auto space-y-6">
     <header class="space-y-1">
       <h1 class="text-xl font-semibold">Importer un fichier GPX/ZIP</h1>
       <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -54,7 +54,7 @@
         <label class="text-sm font-medium">Type de source GPX</label>
         <select
           v-model="sourceType"
-          class="w-full border rounded px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+          class="w-full border rounded-sm px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="auto">Détection automatique</option>
           <option value="cgeo">c:geo (export GPX)</option>
@@ -69,7 +69,7 @@
       <!-- Actions -->
       <div class="flex items-center gap-3">
         <button
-          class="border rounded px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
+          class="border rounded-sm px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
           :disabled="!file || loading"
           type="submit"
         >
@@ -91,7 +91,7 @@
       <h2 class="text-lg font-semibold">Résumé d’import</h2>
 
       <div class="grid gap-4 sm:grid-cols-2">
-        <div class="rounded border p-3 dark:border-gray-700">
+        <div class="rounded-sm border p-3 dark:border-gray-700">
           <h3 class="text-sm font-medium mb-2">Statistiques</h3>
           <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
             <template v-for="(val, key) in result.summary" :key="key">
@@ -105,7 +105,7 @@
 
         <div
           v-if="result.challenges_stats"
-          class="rounded border p-3 dark:border-gray-700"
+          class="rounded-sm border p-3 dark:border-gray-700"
         >
           <h3 class="text-sm font-medium mb-2">Challenges détectés</h3>
           <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
@@ -123,7 +123,7 @@
     <!-- Résultats sync -->
     <div v-if="result?.sync_stats" class="space-y-2">
       <h2 class="text-lg font-semibold">Synchronisation de vos challenges</h2>
-      <div class="rounded border p-3 dark:border-gray-700">
+      <div class="rounded-sm border p-3 dark:border-gray-700">
         <dl class="text-sm grid grid-cols-2 gap-x-3 gap-y-1">
           <template v-for="(val, key) in result.sync_stats" :key="key">
             <dt class="text-gray-500 capitalize dark:text-gray-400">

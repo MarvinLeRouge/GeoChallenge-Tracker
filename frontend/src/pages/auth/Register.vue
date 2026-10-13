@@ -7,7 +7,7 @@
       <input
         v-model.trim="username"
         type="text"
-        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+        class="border rounded-sm w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="username"
         required
       />
@@ -18,7 +18,7 @@
       <input
         v-model.trim="email"
         type="email"
-        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+        class="border rounded-sm w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="email"
         required
       />
@@ -29,7 +29,7 @@
       <input
         v-model="password"
         type="password"
-        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+        class="border rounded-sm w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="new-password"
         required
       />
@@ -43,7 +43,7 @@
       <input
         v-model="confirm"
         type="password"
-        class="border rounded w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+        class="border rounded-sm w-full p-2 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         autocomplete="new-password"
         required
       />
@@ -56,7 +56,7 @@
     </div>
 
     <button
-      class="border rounded px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
+      class="border rounded-sm px-3 py-2 dark:border-gray-700 dark:hover:bg-gray-800"
       :disabled="loading || !canSubmit"
     >
       {{ loading ? "Création…" : "Créer mon compte" }}

@@ -15,7 +15,7 @@
       class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab"
     >
       <div
-        class="rounded-lg bg-white/95 border p-2 shadow dark:bg-gray-900/95 dark:border-gray-700"
+        class="rounded-lg bg-white/95 border p-2 shadow-sm dark:bg-gray-900/95 dark:border-gray-700"
       >
         <!-- Evaluating state -->
         <div
@@ -54,7 +54,7 @@
                 @click="toggleNearbyMode"
               >
                 <span
-                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+                  class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform"
                   :class="nearbyMode ? 'translate-x-4' : 'translate-x-1'"
                 />
               </button>
@@ -66,7 +66,7 @@
             <!-- Reticle button -->
             <button
               type="button"
-              class="border rounded p-1.5 dark:border-gray-700"
+              class="border rounded-sm p-1.5 dark:border-gray-700"
               :class="
                 picking
                   ? 'bg-indigo-100 border-indigo-400 dark:bg-indigo-950 dark:border-indigo-700'
@@ -103,7 +103,7 @@
               type="number"
               min="1"
               step="5"
-              class="border rounded px-2 py-1 w-16 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+              class="border rounded-sm px-2 py-1 w-16 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               @change="onRadiusChange"
             />
             <span class="text-sm text-gray-600 dark:text-gray-400">km</span>

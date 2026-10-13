@@ -6,7 +6,7 @@ FROM node:22-alpine AS dev
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY vite.config.ts tsconfig.json tsconfig.node.json tailwind.config.ts postcss.config.cjs ./
+COPY vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
 COPY frontend/ ./frontend/
 EXPOSE 5173
 CMD ["npm","run","dev","--","--host"]
@@ -16,7 +16,7 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY vite.config.ts tsconfig.json tsconfig.node.json tailwind.config.ts postcss.config.cjs ./
+COPY vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
 COPY frontend/ ./frontend/
 # >>> Vite environment (build-time) <<<
 ARG VITE_API_URL

@@ -5,10 +5,10 @@
     {{ user?.username ?? "" }}
   </span>
 
-  <section class="max-w-screen-lg mx-auto space-y-12">
+  <section class="max-w-(--breakpoint-lg) mx-auto space-y-12">
     <!-- HERO -->
     <header
-      class="relative overflow-hidden rounded-2xl bg-gradient-to-b from-indigo-50 to-white ring-1 ring-indigo-100 p-6 md:p-10 text-center dark:from-indigo-950 dark:to-gray-900 dark:ring-indigo-900"
+      class="relative overflow-hidden rounded-2xl bg-linear-to-b from-indigo-50 to-white ring-1 ring-indigo-100 p-6 md:p-10 text-center dark:from-indigo-950 dark:to-gray-900 dark:ring-indigo-900"
     >
       <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">
         GeoChallenge Tracker
@@ -28,14 +28,14 @@
         <RouterLink
           v-if="!isAuthenticated"
           to="/register"
-          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur dark:border-gray-700 dark:hover:bg-gray-800/60"
+          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur-sm dark:border-gray-700 dark:hover:bg-gray-800/60"
         >
           Créer un compte
         </RouterLink>
         <RouterLink
           v-if="!isAuthenticated"
           to="/login"
-          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur dark:border-gray-700 dark:hover:bg-gray-800/60"
+          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur-sm dark:border-gray-700 dark:hover:bg-gray-800/60"
         >
           Se connecter
         </RouterLink>
@@ -43,14 +43,14 @@
         <RouterLink
           v-if="isAuthenticated"
           to="/caches/import-gpx"
-          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur dark:border-gray-700 dark:hover:bg-gray-800/60"
+          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur-sm dark:border-gray-700 dark:hover:bg-gray-800/60"
         >
           Importer un GPX
         </RouterLink>
         <RouterLink
           v-if="isAuthenticated"
           to="/my/challenges"
-          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur dark:border-gray-700 dark:hover:bg-gray-800/60"
+          class="inline-flex items-center rounded-lg border px-4 py-2 font-medium hover:bg-white/60 backdrop-blur-sm dark:border-gray-700 dark:hover:bg-gray-800/60"
         >
           Mes challenges
         </RouterLink>
@@ -71,7 +71,7 @@
       <ol class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- 1 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <UserPlusIcon
@@ -89,7 +89,7 @@
 
         <!-- 2 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <DocumentArrowUpIcon
@@ -107,7 +107,7 @@
 
         <!-- 3 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <SparklesIcon
@@ -127,7 +127,7 @@
 
         <!-- 4 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <CheckCircleIcon
@@ -145,7 +145,7 @@
 
         <!-- 5 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <AdjustmentsHorizontalIcon
@@ -164,7 +164,7 @@
 
         <!-- 6 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700"
         >
           <div class="flex items-start gap-3">
             <ArrowTrendingUpIcon
@@ -184,7 +184,7 @@
 
         <!-- 7 -->
         <li
-          class="group rounded-xl border p-4 hover:shadow-sm transition dark:border-gray-700 lg:col-span-3"
+          class="group rounded-xl border p-4 hover:shadow-xs transition dark:border-gray-700 lg:col-span-3"
         >
           <div class="flex items-start gap-3">
             <MapIcon
@@ -207,7 +207,7 @@
 
     <!-- TEASER / CTA -->
     <section
-      class="text-center rounded-2xl border p-6 md:p-8 bg-gradient-to-b from-white to-indigo-50 dark:border-gray-700 dark:from-gray-900 dark:to-indigo-950"
+      class="text-center rounded-2xl border p-6 md:p-8 bg-linear-to-b from-white to-indigo-50 dark:border-gray-700 dark:from-gray-900 dark:to-indigo-950"
     >
       <h3 class="text-2xl font-bold">Prêt ? Partez !</h3>
       <p class="text-gray-600 mt-2 dark:text-gray-400">

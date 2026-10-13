@@ -476,13 +476,13 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 
 ---
 
-### 8.8 Vulnérabilités des dépendances npm frontend (`npm audit`) ❌ 🟠 `L`
+### 8.8 Vulnérabilités des dépendances npm frontend (`npm audit`) ✅ 🟠 `L`
 
 **Découvert (2026-10-07) :** en corrigeant un problème `pip-audit` backend sans rapport (PR #181), la modification du fichier partagé `.github/workflows/ci.yml` a déclenché le job CI `frontend-security` (ce fichier est surveillé à la fois par les filtres de chemin `backend` et `frontend`), qui ne s'était pas réellement exécuté sur un commit récent de `main`. Il a échoué avec **22 vulnérabilités connues (6 modérées, 14 élevées, 2 critiques)**. Confirmé via un worktree propre (`npm ci && npm audit --audit-level=critical` directement sur `main`) que c'est 100% préexistant sur `main`, sans rapport avec la PR #181 - la modification de son workflow CI a été annulée pour la garder backend-only et la débloquer, ce fix étant reporté.
 
 **Constats (`npm audit`, 2026-10-07) :**
 - ✅ **Critique (corrigé le 2026-10-13) :** `tinypool` (transitif via `@vitest/mocker`/`@vitest/coverage-v8` de `vitest` 2.1.0-4.1.10) - gadget de pollution de prototype menant à une RCE ([GHSA-5gmw-xhrv-c9v3](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3), [GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)). Corrigé en montant `vitest`/`@vitest/coverage-v8` en `5.0.4`. Cette montée majeure exige Node `^22.12.0` minimum, donc les jobs CI frontend et `frontend/Dockerfile` sont aussi passés de Node 20 à 22 ; l'exception CI ciblée pour ce finding dans `frontend-security` a été retirée (retour à un simple `npm audit --audit-level=critical`). Aucune régression test/lint/typecheck/build ; un ajout nécessaire dans `vitest.config.ts` (`frontend/src/**/*.md` dans `coverage.exclude` - le provider v8 de vitest 5 tente de parser tous les fichiers matchés par `coverage.include`, y compris les fichiers non-code comme le README des composables).
-- **Élevée :** chaîne `braces`/`chokidar`/`tailwindcss` - DoS par épuisement de pile ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Le fix nécessite `tailwindcss@4.3.3` - **changement cassant** (montée de version majeure, format de config différent entre Tailwind v3 et v4).
+- ✅ **Élevée (corrigé le 2026-10-13) :** chaîne `braces`/`chokidar`/`tailwindcss` - DoS par épuisement de pile ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Corrigé en montant `tailwindcss` en `4.3.3`, via le codemod officiel `@tailwindcss/upgrade` (migration de `tailwind.config.ts` vers des directives CSS `@theme`/`@plugin`/`@source`/`@custom-variant` dans `frontend/src/assets/css/tailwind.css`, passage de `postcss.config.cjs` à `@tailwindcss/postcss`, renommage d'une vingtaine de classes utilitaires dépréciées dans les templates). `npm audit` annonce désormais **0 vulnérabilité**. Deux problèmes de staleness connexes trouvés et corrigés au passage : `frontend/Dockerfile` copiait encore le `tailwind.config.ts` désormais supprimé (cassait le build de l'image dev), et le service `frontend` du Docker Compose dev a un volume anonyme `node_modules` qui n'est pas recréé par un simple `--build` - a fallu `--force-recreate -V` pour récupérer le nouvel arbre de dépendances.
 - ✅ **Élevée (corrigé le 2026-10-13) :** chaîne `nanoid`/`flowbite-vue` - dépassement d'entier / boucle infinie ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) et autres). La régression de version prévue vers `flowbite-vue@0.0.7` s'est révélée inutile : un audit des usages réels a montré que `flowbite-vue` n'est jamais importé nulle part dans `frontend/src/` ni `frontend/tests/` - seul `flowbite` (le paquet core non-Vue) est utilisé, via le plugin Tailwind. `flowbite-vue` a été supprimé entièrement plutôt que régressé, éliminant la chaîne `nanoid` vulnérable sans aucun risque fonctionnel.
 - ✅ **Élevée (corrigé le 2026-10-13) :** `axios` (1.0.0-1.19.0) - pollution de prototype, ReDoS, injection d'en-têtes, contournement SSRF (11 avis, voir le log brut). Corrigé via `npm audit fix`.
 - ✅ **Élevée (corrigé le 2026-10-13) :** `@vue/server-renderer`/`vue` (3.2.13-3.5.41) - XSS via l'absence de CR dans la liste noire des noms d'attributs ([GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)). Corrigé via `npm audit fix`.
@@ -495,7 +495,7 @@ MongoDB étant externe (Atlas) dans les deux environnements, pas de service `mon
 - ✅ Passe 1 faite (2026-10-13) : `npm audit fix` pour tous les fixes sans rupture (axios, vue/server-renderer, source-map-js, js-yaml, brace-expansion, browserslist, la plupart des modérées). 407/407 tests frontend, lint, typecheck et build tous au vert ensuite.
 - ✅ `eslint-plugin-vue` 9→10 fait (2026-10-13), voir ci-dessus.
 - ✅ `flowbite-vue` supprimé (2026-10-13, inutilisé), voir ci-dessus.
-- Passe 2 (restante) : `tailwindcss` 3→4 - le format de config a beaucoup changé entre v3 et v4, nécessite une revue dédiée de `tailwind.config.ts` et de la config PostCSS avant de monter.
+- ✅ `tailwindcss` 3→4 fait (2026-10-13), voir ci-dessus. **L'item 8.8 est désormais entièrement résolu - `npm audit` annonce 0 vulnérabilité.**
 - Relancer `npm audit --audit-level=critical` (le seuil bloquant en CI) après chaque passe pour confirmer.
 
 ---
@@ -570,7 +570,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 | 15 | Tests frontend (Vitest + Playwright) (🔧 Vitest fait, Playwright pas en CI) | 7.7 | L |
 | 16 | Healthchecks Docker Compose (🔧 prod fait, dev partiel) | 8.2 | M |
 | 17 | ~~CI/CD : Tests avant merge~~ ✅ fait | 8.3 | M |
-| 18 | Vulnérabilités des dépendances npm frontend (`npm audit`, 2 critiques) | 8.8 | L |
+| 18 | ~~Vulnérabilités des dépendances npm frontend (`npm audit`, 2 critiques)~~ ✅ fait | 8.8 | L |
 
 ### 🟡 Normale, backlog moyen terme
 

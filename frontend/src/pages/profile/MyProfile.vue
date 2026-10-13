@@ -59,7 +59,7 @@
               Nom d'utilisateur
             </label>
             <p
-              class="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded dark:text-gray-100 dark:bg-gray-900"
+              class="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-sm dark:text-gray-100 dark:bg-gray-900"
             >
               {{ profile.username }}
             </p>
@@ -71,7 +71,7 @@
               Adresse e-mail
             </label>
             <p
-              class="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded dark:text-gray-100 dark:bg-gray-900"
+              class="text-sm text-gray-900 bg-gray-50 px-3 py-2 rounded-sm dark:text-gray-100 dark:bg-gray-900"
             >
               {{ profile.email }}
             </p>
@@ -90,7 +90,7 @@
 
         <button
           type="button"
-          class="w-full flex items-center justify-between px-3 py-3 rounded border border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
+          class="w-full flex items-center justify-between px-3 py-3 rounded-sm border border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-700"
           role="switch"
           :aria-checked="theme.isDark"
           @click="theme.toggle()"
