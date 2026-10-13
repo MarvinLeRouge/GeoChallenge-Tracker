@@ -173,6 +173,7 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Remove unused flowbite-vue to resolve the nanoid high CVE
 - *(deps)* Upgrade tailwindcss to v4, resolving the last npm audit finding
 - *(docker)* Run the frontend nginx prod container as non-root
+- *(docker)* Run the frontend dev and build stages as non-root too
 
 ### 💼 Other
 

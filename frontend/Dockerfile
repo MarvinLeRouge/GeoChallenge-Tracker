@@ -4,20 +4,24 @@
 # ---- Dev (Vite + HMR) ----
 FROM node:22-alpine AS dev
 WORKDIR /app
-COPY package*.json ./
+RUN chown node:node /app
+COPY --chown=node:node package*.json ./
+USER node
 RUN npm ci
-COPY vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
-COPY frontend/ ./frontend/
+COPY --chown=node:node vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
+COPY --chown=node:node frontend/ ./frontend/
 EXPOSE 5173
 CMD ["npm","run","dev","--","--host"]
 
 # ---- Build ----
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package*.json ./
+RUN chown node:node /app
+COPY --chown=node:node package*.json ./
+USER node
 RUN npm ci
-COPY vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
-COPY frontend/ ./frontend/
+COPY --chown=node:node vite.config.ts tsconfig.json tsconfig.node.json postcss.config.cjs ./
+COPY --chown=node:node frontend/ ./frontend/
 # >>> Vite environment (build-time) <<<
 ARG VITE_API_URL
 ARG VITE_TILE_URL
