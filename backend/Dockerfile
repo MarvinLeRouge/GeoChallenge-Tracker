@@ -39,6 +39,12 @@ RUN apt-get update && apt-get dist-upgrade -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# The app runs entirely from /opt/venv (see PATH above); the base image's own
+# system-level pip/setuptools/wheel are never imported at runtime. Removing
+# them drops two CVEs (wheel itself, and jaraco.context vendored inside
+# setuptools) with no functional impact.
+RUN /usr/local/bin/python3 -m pip uninstall -y pip setuptools wheel
+
 WORKDIR /app
 
 COPY --from=builder /opt/venv /opt/venv
