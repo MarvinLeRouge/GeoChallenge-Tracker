@@ -483,7 +483,7 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 **Findings (`npm audit`, 2026-10-07):**
 - ✅ **Critical (fixed 2026-10-13):** `tinypool` (transitive via `vitest` 2.1.0-4.1.10's `@vitest/mocker`/`@vitest/coverage-v8`) - prototype pollution gadget leading to RCE ([GHSA-5gmw-xhrv-c9v3](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3), [GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)). Fixed by bumping `vitest`/`@vitest/coverage-v8` to `5.0.4`. That major bump requires Node `^22.12.0` at minimum, so the frontend CI jobs and `frontend/Dockerfile` were also bumped from Node 20 to 22; the scoped `frontend-security` CI exception for this finding was removed (back to a plain `npm audit --audit-level=critical`). No test/lint/typecheck/build regression; one `vitest.config.ts` coverage-exclude addition needed (`frontend/src/**/*.md` - vitest 5's v8 provider tries to parse every file matched by `coverage.include`, including non-code assets like the composables README).
 - **High:** `braces`/`chokidar`/`tailwindcss` chain - stack-exhaustion DoS ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Fix requires `tailwindcss@4.3.3` - **breaking change** (major version, config format changed between Tailwind v3 and v4).
-- **High:** `nanoid`/`flowbite-vue` chain - integer overflow / infinite loop ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) and others). Fix available only via a **downgrade** to `flowbite-vue@0.0.7` (currently pinned at `0.2.3`) - needs a feature-usage audit first, a downgrade this large likely drops APIs in use, this is not a safe blind `--force`.
+- ✅ **High (fixed 2026-10-13):** `nanoid`/`flowbite-vue` chain - integer overflow / infinite loop ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) and others). The planned downgrade to `flowbite-vue@0.0.7` turned out to be unnecessary: a feature-usage audit found `flowbite-vue` is never actually imported anywhere in `frontend/src/` or `frontend/tests/` - only `flowbite` (the non-Vue core package) is used, via the Tailwind plugin. Removed `flowbite-vue` entirely instead of downgrading it, eliminating the vulnerable `nanoid` chain with zero feature risk.
 - ✅ **High (fixed 2026-10-13):** `axios` (1.0.0-1.19.0) - prototype pollution, ReDoS, header injection, SSRF bypass (11 advisories, see raw log). Fixed via `npm audit fix`.
 - ✅ **High (fixed 2026-10-13):** `@vue/server-renderer`/`vue` (3.2.13-3.5.41) - XSS via missing CR in attribute-name blacklist ([GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)). Fixed via `npm audit fix`.
 - ✅ **High (fixed 2026-10-13):** `source-map-js`, `js-yaml`, `brace-expansion`, `browserslist` - DoS via event-loop blocking / uncontrolled CPU use / stack exhaustion. Fixed via `npm audit fix`.
@@ -493,7 +493,9 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 **To build:**
 - ✅ Pass 1 done (2026-10-13): `npm audit fix` for all non-breaking fixes (axios, vue/server-renderer, source-map-js, js-yaml, brace-expansion, browserslist, most moderates). 407/407 frontend tests, lint, typecheck, and build all green afterward.
-- Pass 2 (remaining): a dedicated review for each breaking fix (`tailwindcss` 3→4, `flowbite-vue` 0.2.3→0.0.7, `eslint-plugin-vue` 9→10) - check actual API usage in `frontend/src/` before bumping/downgrading, since `flowbite-vue`'s fix is a downgrade that likely removes features currently in use.
+- ✅ `eslint-plugin-vue` 9→10 done (2026-10-13), see above.
+- ✅ `flowbite-vue` removed (2026-10-13, unused), see above.
+- Pass 2 (remaining): `tailwindcss` 3→4 - config format changed significantly between v3 and v4, needs a dedicated review of `tailwind.config.ts` and the PostCSS setup before bumping.
 - Re-run `npm audit --audit-level=critical` (the CI gate) after each pass to confirm.
 
 ---

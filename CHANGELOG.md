@@ -170,6 +170,7 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Upgrade vitest to 5 to resolve the tinypool critical CVE
 - *(deps)* Resolve non-breaking high/moderate npm audit findings
 - *(deps)* Upgrade eslint-plugin-vue to 10 to resolve postcss-selector-parser CVE
+- *(deps)* Remove unused flowbite-vue to resolve the nanoid high CVE
 
 ### 💼 Other
 

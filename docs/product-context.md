@@ -18,7 +18,7 @@ Web.
 
 ## Stack
 
-Existing codebase, not greenfield: Vue 3 + TypeScript + Vite, Tailwind CSS 3 (with the Flowbite plugin and `flowbite-vue` components), Pinia for state, `vue-router`, Leaflet (+ `leaflet-draw`, `leaflet.markercluster`) for maps, Heroicons and Lucide for icons, `vue-sonner` for toasts. Backend is FastAPI + MongoDB, consumed over REST via axios.
+Existing codebase, not greenfield: Vue 3 + TypeScript + Vite, Tailwind CSS 3 (with the Flowbite plugin), Pinia for state, `vue-router`, Leaflet (+ `leaflet-draw`, `leaflet.markercluster`) for maps, Heroicons and Lucide for icons, `vue-sonner` for toasts. Backend is FastAPI + MongoDB, consumed over REST via axios.
 
 ## Users
 
