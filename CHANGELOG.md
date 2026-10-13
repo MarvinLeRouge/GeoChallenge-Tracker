@@ -166,6 +166,7 @@ To regenerate locally, run `npm run changelog`.
 - *(ci)* Allow the tracked tinypool critical finding in frontend security scan
 - *(targets)* Route public target_service methods through private delegations
 - *(api)* Break the routes/maintenance package self-import cycle
+- *(docker)* Switch backend image to multi-stage build to drop linux-libc-dev
 
 ### 💼 Other
 
