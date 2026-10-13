@@ -1,41 +1,6 @@
 # backend/app/api/routes/__init__.py
-# Point d’entrée : regroupe tous les routeurs de l’API pour inclusion dans FastAPI.
-
-# caches_search/caches_geo_search/caches_lookup decorate the same shared
-# `caches_router` object (imported from .caches); they must be imported here,
-# even though unused, for their @router.* decorators to run and register
-# their routes.
-from . import caches_geo_search, caches_lookup, caches_search  # noqa: F401
-from .admin_geo import router as admin_geo_router
-from .auth import router as auth_router
-from .caches import router as caches_router
-from .caches_elevation import router as caches_elevation_router
-from .caches_geocoding import router as caches_geocoding_router
-from .challenges import router as challenges_router
-from .maintenance import router as maintenance_router
-from .meta import router as health_router
-from .my_challenge_progress import router as my_challenge_progress_router
-from .my_challenge_targets import router as my_challenge_targets_router
-from .my_challenge_tasks import router as my_challenge_tasks_router
-from .my_challenges import router as my_challenges_router
-from .my_profile import router as my_profile_router
-from .referentials import router as referentials_router
-from .zones import router as zones_router
-
-routers = [
-    health_router,
-    referentials_router,
-    auth_router,
-    admin_geo_router,
-    caches_router,
-    caches_elevation_router,
-    caches_geocoding_router,
-    challenges_router,
-    my_challenges_router,
-    my_challenge_tasks_router,
-    my_challenge_progress_router,
-    my_challenge_targets_router,
-    my_profile_router,
-    maintenance_router,
-    zones_router,
-]
+# Route package: one module per API resource. The side-effect imports needed
+# to register sibling-decorated routes (caches_search/caches_geo_search/
+# caches_lookup on .caches's router) and the assembled `routers` list live in
+# app.api.router_registry, not here, so this package's own __init__ never
+# imports its own children - see that module for why.
