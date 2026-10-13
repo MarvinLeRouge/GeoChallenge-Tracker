@@ -12,7 +12,7 @@
 
     <!-- Filtres -->
     <div
-      class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+      class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
     >
       <h2 class="font-semibold mb-3">Filtres</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -23,7 +23,7 @@
           >
           <select
             v-model="selectedCacheType"
-            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchMatrix"
           >
             <option value="">Tous les types</option>
@@ -44,7 +44,7 @@
           >
           <select
             v-model="selectedCacheSize"
-            class="w-full border rounded px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             @change="fetchMatrix"
           >
             <option value="">Toutes les tailles</option>
@@ -86,7 +86,7 @@
       <!-- Combinaisons manquantes pour le prochain tour -->
       <div
         v-if="nextRoundTargets.length > 0"
-        class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+        class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
       >
         <h2 class="font-semibold mb-3">
           Combinaisons manquantes pour le tour

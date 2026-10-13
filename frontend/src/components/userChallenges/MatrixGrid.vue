@@ -1,7 +1,7 @@
 <template>
   <!-- Matrix Grid -->
   <div
-    class="rounded-lg border bg-white p-4 shadow-sm overflow-x-auto dark:bg-gray-800 dark:border-gray-700"
+    class="rounded-lg border bg-white p-4 shadow-xs overflow-x-auto dark:bg-gray-800 dark:border-gray-700"
   >
     <h2 class="font-semibold mb-3">Matrice Difficulté/Terrain</h2>
     <div class="min-w-max">

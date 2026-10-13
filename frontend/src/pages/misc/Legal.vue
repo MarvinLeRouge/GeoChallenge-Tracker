@@ -10,7 +10,7 @@
     </p>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Éditeur
@@ -26,7 +26,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Hébergement
@@ -38,7 +38,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Base de données & données personnelles
@@ -58,7 +58,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Utilisation des cookies
@@ -71,7 +71,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Responsabilité
@@ -86,7 +86,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Propriété intellectuelle
@@ -100,7 +100,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Contact
@@ -126,7 +126,7 @@
     </section>
 
     <section
-      class="bg-white p-4 rounded-lg shadow-sm dark:bg-gray-800 dark:border dark:border-gray-700"
+      class="bg-white p-4 rounded-lg shadow-xs dark:bg-gray-800 dark:border dark:border-gray-700"
     >
       <h2 class="text-lg font-medium mb-2 text-gray-900 dark:text-gray-100">
         Protection des données (RGPD)

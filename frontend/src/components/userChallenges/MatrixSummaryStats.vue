@@ -1,7 +1,7 @@
 <template>
   <!-- Statistiques -->
   <div
-    class="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800 dark:border-gray-700"
+    class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
   >
     <h2 class="font-semibold mb-3">Résumé</h2>
     <div

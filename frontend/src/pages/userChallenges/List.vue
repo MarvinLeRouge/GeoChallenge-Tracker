@@ -55,7 +55,7 @@
       <!-- Pagination -->
       <div class="flex justify-between items-center mt-4">
         <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
+          class="px-3 py-2 rounded-sm border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="!canPrev"
           @click="prevPage"
         >
@@ -63,7 +63,7 @@
         </button>
         <span class="text-sm">Page {{ store.page }} / {{ store.nbPages }}</span>
         <button
-          class="px-3 py-2 rounded border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
+          class="px-3 py-2 rounded-sm border bg-white disabled:opacity-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
           :disabled="!canNext"
           @click="nextPage"
         >

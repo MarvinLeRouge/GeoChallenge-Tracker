@@ -34,7 +34,6 @@ jobs:
               - 'eslint.config.js'
               - 'tsconfig.json'
               - 'tsconfig.node.json'
-              - 'tailwind.config.ts'
               - 'postcss.config.cjs'
               - 'vitest.config.ts'
               - 'vitest.shims.d.ts'

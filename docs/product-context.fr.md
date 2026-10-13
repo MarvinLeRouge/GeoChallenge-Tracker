@@ -18,7 +18,7 @@ Web.
 
 ## Stack technique
 
-Codebase existante, pas un projet greenfield : Vue 3 + TypeScript + Vite, Tailwind CSS 3 (avec le plugin Flowbite et les composants `flowbite-vue`), Pinia pour l'état, `vue-router`, Leaflet (+ `leaflet-draw`, `leaflet.markercluster`) pour les cartes, Heroicons et Lucide pour les icônes, `vue-sonner` pour les notifications. Le backend est FastAPI + MongoDB, consommé en REST via axios.
+Codebase existante, pas un projet greenfield : Vue 3 + TypeScript + Vite, Tailwind CSS 3 (avec le plugin Flowbite), Pinia pour l'état, `vue-router`, Leaflet (+ `leaflet-draw`, `leaflet.markercluster`) pour les cartes, Heroicons et Lucide pour les icônes, `vue-sonner` pour les notifications. Le backend est FastAPI + MongoDB, consommé en REST via axios.
 
 ## Utilisateurs
 

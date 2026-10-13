@@ -14,12 +14,12 @@
       class="absolute left-2 right-2 bottom-2 z-40 flex flex-col gap-2 with-fab"
     >
       <div
-        class="rounded-lg bg-white/95 border p-2 shadow dark:bg-gray-900/95 dark:border-gray-700"
+        class="rounded-lg bg-white/95 border p-2 shadow-sm dark:bg-gray-900/95 dark:border-gray-700"
       >
         <div class="flex items-center gap-2">
           <button
             type="button"
-            class="border rounded px-3 py-3 dark:border-gray-700 dark:hover:bg-gray-800"
+            class="border rounded-sm px-3 py-3 dark:border-gray-700 dark:hover:bg-gray-800"
             aria-label="Choisir sur la carte"
             title="Choisir sur la carte"
             @click="startPick"
@@ -49,12 +49,12 @@
             type="number"
             min="0.1"
             step="0.1"
-            class="border rounded px-2 py-1 w-20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            class="border rounded-sm px-2 py-1 w-20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
           />
           <span>km</span>
           <button
             type="button"
-            class="relative border rounded px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition dark:border-gray-700 dark:hover:bg-gray-800"
+            class="relative border rounded-sm px-3 py-3 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition dark:border-gray-700 dark:hover:bg-gray-800"
             :disabled="isDisabled"
             :title="searchTitle"
             :aria-label="searchTitle"

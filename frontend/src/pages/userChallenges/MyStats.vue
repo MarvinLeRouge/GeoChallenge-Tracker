@@ -191,7 +191,7 @@
               </div>
               <div class="mt-1 relative">
                 <div
-                  class="overflow-hidden h-2 text-xs flex rounded bg-gray-200 dark:bg-gray-700"
+                  class="overflow-hidden h-2 text-xs flex rounded-sm bg-gray-200 dark:bg-gray-700"
                 >
                   <div
                     :style="{ width: `${completionRate}%` }"

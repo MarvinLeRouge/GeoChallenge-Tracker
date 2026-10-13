@@ -476,14 +476,14 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 ---
 
-### 8.8 Frontend npm dependency vulnerabilities (`npm audit`) ❌ 🟠 `L`
+### 8.8 Frontend npm dependency vulnerabilities (`npm audit`) ✅ 🟠 `L`
 
 **Discovered (2026-10-07):** while fixing an unrelated backend `pip-audit` issue (PR #181), editing the shared `.github/workflows/ci.yml` triggered the `frontend-security` CI job (that file is watched by both the `backend` and `frontend` path filters), which had not actually run on a recent `main` commit. It failed with **22 known vulnerabilities (6 moderate, 14 high, 2 critical)**. Confirmed via a clean worktree (`npm ci && npm audit --audit-level=critical` against `main` directly) that this is 100% pre-existing on `main`, unrelated to PR #181 - that PR's CI workflow edit was reverted to keep it backend-only and unblock it, deferring this fix.
 
 **Findings (`npm audit`, 2026-10-07):**
 - ✅ **Critical (fixed 2026-10-13):** `tinypool` (transitive via `vitest` 2.1.0-4.1.10's `@vitest/mocker`/`@vitest/coverage-v8`) - prototype pollution gadget leading to RCE ([GHSA-5gmw-xhrv-c9v3](https://github.com/advisories/GHSA-5gmw-xhrv-c9v3), [GHSA-85c8-ppgw-ccpr](https://github.com/advisories/GHSA-85c8-ppgw-ccpr)). Fixed by bumping `vitest`/`@vitest/coverage-v8` to `5.0.4`. That major bump requires Node `^22.12.0` at minimum, so the frontend CI jobs and `frontend/Dockerfile` were also bumped from Node 20 to 22; the scoped `frontend-security` CI exception for this finding was removed (back to a plain `npm audit --audit-level=critical`). No test/lint/typecheck/build regression; one `vitest.config.ts` coverage-exclude addition needed (`frontend/src/**/*.md` - vitest 5's v8 provider tries to parse every file matched by `coverage.include`, including non-code assets like the composables README).
-- **High:** `braces`/`chokidar`/`tailwindcss` chain - stack-exhaustion DoS ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Fix requires `tailwindcss@4.3.3` - **breaking change** (major version, config format changed between Tailwind v3 and v4).
-- **High:** `nanoid`/`flowbite-vue` chain - integer overflow / infinite loop ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) and others). Fix available only via a **downgrade** to `flowbite-vue@0.0.7` (currently pinned at `0.2.3`) - needs a feature-usage audit first, a downgrade this large likely drops APIs in use, this is not a safe blind `--force`.
+- ✅ **High (fixed 2026-10-13):** `braces`/`chokidar`/`tailwindcss` chain - stack-exhaustion DoS ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)). Fixed by bumping `tailwindcss` to `4.3.3`, using the official `@tailwindcss/upgrade` codemod (migrated `tailwind.config.ts` into CSS-based `@theme`/`@plugin`/`@source`/`@custom-variant` directives in `frontend/src/assets/css/tailwind.css`, switched `postcss.config.cjs` to `@tailwindcss/postcss`, renamed ~20 deprecated utility classes across templates). `npm audit` now reports **0 vulnerabilities**. Caught and fixed two related staleness issues along the way: `frontend/Dockerfile` still `COPY`-ed the now-deleted `tailwind.config.ts` (broke the dev image build), and the dev Docker Compose `frontend` service has an anonymous `node_modules` volume that isn't recreated by a plain `--build` - needed `--force-recreate -V` to pick up the new dependency tree.
+- ✅ **High (fixed 2026-10-13):** `nanoid`/`flowbite-vue` chain - integer overflow / infinite loop ([GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv) and others). The planned downgrade to `flowbite-vue@0.0.7` turned out to be unnecessary: a feature-usage audit found `flowbite-vue` is never actually imported anywhere in `frontend/src/` or `frontend/tests/` - only `flowbite` (the non-Vue core package) is used, via the Tailwind plugin. Removed `flowbite-vue` entirely instead of downgrading it, eliminating the vulnerable `nanoid` chain with zero feature risk.
 - ✅ **High (fixed 2026-10-13):** `axios` (1.0.0-1.19.0) - prototype pollution, ReDoS, header injection, SSRF bypass (11 advisories, see raw log). Fixed via `npm audit fix`.
 - ✅ **High (fixed 2026-10-13):** `@vue/server-renderer`/`vue` (3.2.13-3.5.41) - XSS via missing CR in attribute-name blacklist ([GHSA-g2v6-rqmx-r4w6](https://github.com/advisories/GHSA-g2v6-rqmx-r4w6)). Fixed via `npm audit fix`.
 - ✅ **High (fixed 2026-10-13):** `source-map-js`, `js-yaml`, `brace-expansion`, `browserslist` - DoS via event-loop blocking / uncontrolled CPU use / stack exhaustion. Fixed via `npm audit fix`.
@@ -493,7 +493,9 @@ MongoDB being external (Atlas) in both environments, no local `mongo` service to
 
 **To build:**
 - ✅ Pass 1 done (2026-10-13): `npm audit fix` for all non-breaking fixes (axios, vue/server-renderer, source-map-js, js-yaml, brace-expansion, browserslist, most moderates). 407/407 frontend tests, lint, typecheck, and build all green afterward.
-- Pass 2 (remaining): a dedicated review for each breaking fix (`tailwindcss` 3→4, `flowbite-vue` 0.2.3→0.0.7, `eslint-plugin-vue` 9→10) - check actual API usage in `frontend/src/` before bumping/downgrading, since `flowbite-vue`'s fix is a downgrade that likely removes features currently in use.
+- ✅ `eslint-plugin-vue` 9→10 done (2026-10-13), see above.
+- ✅ `flowbite-vue` removed (2026-10-13, unused), see above.
+- ✅ `tailwindcss` 3→4 done (2026-10-13), see above. **Item 8.8 is now fully resolved - `npm audit` reports 0 vulnerabilities.**
 - Re-run `npm audit --audit-level=critical` (the CI gate) after each pass to confirm.
 
 ---
@@ -567,7 +569,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 | 15 | Frontend tests (Vitest + Playwright) (🔧 Vitest done, Playwright not in CI) | 7.7 | L |
 | 16 | Docker Compose healthchecks (🔧 prod done, dev partial) | 8.2 | M |
 | 17 | ~~CI/CD: tests before merge~~ ✅ done | 8.3 | M |
-| 18 | Frontend npm dependency vulnerabilities (`npm audit`, 2 critical) | 8.8 | L |
+| 18 | ~~Frontend npm dependency vulnerabilities (`npm audit`, 2 critical)~~ ✅ done | 8.8 | L |
 
 ### 🟡 Normal, mid-term backlog
 

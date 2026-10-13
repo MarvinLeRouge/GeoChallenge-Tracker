@@ -1,7 +1,7 @@
 <!-- src/components/userChallenges/UserChallengeCard.vue -->
 <template>
   <div
-    class="rounded-lg border shadow-sm p-3 transition dark:border-gray-700"
+    class="rounded-lg border shadow-xs p-3 transition dark:border-gray-700"
     :class="zebra ? 'bg-gray-50 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'"
   >
     <h3 class="font-semibold flex flex-wrap items-baseline gap-2">
@@ -83,7 +83,7 @@
         class="flex items-center gap-2"
       >
         <div
-          class="flex-1 bg-gray-200 rounded h-2 overflow-hidden dark:bg-gray-700"
+          class="flex-1 bg-gray-200 rounded-sm h-2 overflow-hidden dark:bg-gray-700"
         >
           <div
             class="h-full"

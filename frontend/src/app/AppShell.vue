@@ -8,7 +8,7 @@
     >
       <RouterLink
         to="/"
-        class="flex items-center gap-2 -m-2 px-3 py-2 rounded focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:focus-visible:outline-gray-600"
+        class="flex items-center gap-2 -m-2 px-3 py-2 rounded-sm focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:focus-visible:outline-gray-600"
         aria-label="Accueil"
       >
         <img :src="logoUrl" alt="GeoChallenge Tracker" class="h-11 w-auto" />

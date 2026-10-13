@@ -3,7 +3,7 @@
     <!-- Thème clair / sombre -->
     <button
       type="button"
-      class="w-full flex items-center justify-between px-3 py-3 rounded border border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+      class="w-full flex items-center justify-between px-3 py-3 rounded-sm border border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
       role="switch"
       :aria-checked="theme.isDark"
       @click="theme.toggle()"
@@ -34,7 +34,7 @@
       <ul class="space-y-1">
         <li>
           <RouterLink
-            class="block px-3 py-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+            class="block px-3 py-3 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
             to="/login"
           >
             Connexion
@@ -42,7 +42,7 @@
         </li>
         <li>
           <RouterLink
-            class="block px-3 py-3 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+            class="block px-3 py-3 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
             to="/register"
           >
             Inscription
@@ -55,7 +55,7 @@
     <template v-else>
       <div>
         <button
-          class="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="w-full flex items-center justify-between px-2 py-2 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
           :aria-expanded="openSections.account"
           @click="toggle('account')"
         >
@@ -69,7 +69,7 @@
         <ul v-show="openSections.account" class="space-y-1">
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/profile/location"
             >
               <MapPinIcon
@@ -81,7 +81,7 @@
           </li>
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/my/stats"
             >
               <ChartBarIcon
@@ -93,7 +93,7 @@
           </li>
           <li>
             <button
-              class="w-full text-left flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="w-full text-left flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               @click="doLogout"
             >
               <ArrowLeftOnRectangleIcon
@@ -109,7 +109,7 @@
       <!-- Caches -->
       <div>
         <button
-          class="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="w-full flex items-center justify-between px-2 py-2 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
           :aria-expanded="openSections.account"
           @click="toggle('caches')"
         >
@@ -124,7 +124,7 @@
           <li>
             <RouterLink
               to="/caches/import-gpx"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <DocumentArrowUpIcon
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -135,7 +135,7 @@
           </li>
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/caches/by-filter"
             >
               <AdjustmentsHorizontalIcon
@@ -147,7 +147,7 @@
           </li>
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/caches/within-bbox"
             >
               <RectangleGroupIcon
@@ -159,7 +159,7 @@
           </li>
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/caches/within-radius"
             >
               <RssIcon
@@ -171,7 +171,7 @@
           </li>
           <li>
             <RouterLink
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
               to="/caches/zones-explorer"
             >
               <GlobeEuropeAfricaIcon
@@ -187,7 +187,7 @@
       <!-- Challenges -->
       <div>
         <button
-          class="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="w-full flex items-center justify-between px-2 py-2 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
           :aria-expanded="openSections.account"
           @click="toggle('challenges')"
         >
@@ -202,7 +202,7 @@
           <li>
             <RouterLink
               to="/my/challenges"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <Mountain
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -214,7 +214,7 @@
           <li>
             <RouterLink
               to="/my/challenges/basics/matrix"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <Target
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -226,7 +226,7 @@
           <li>
             <RouterLink
               to="/my/challenges/basics/calendar"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <DocumentTextIcon
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -242,7 +242,7 @@
       <div>
         <RouterLink
           to="/my/targets"
-          class="w-full flex items-center px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="w-full flex items-center px-2 py-2 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
         >
           <span
             class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400"
@@ -256,7 +256,7 @@
       <!-- Aide / FAQ -->
       <div>
         <button
-          class="w-full flex items-center justify-between px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+          class="w-full flex items-center justify-between px-2 py-2 rounded-sm hover:bg-gray-100 dark:hover:bg-gray-800"
           :aria-expanded="openSections.account"
           @click="toggle('help')"
         >
@@ -271,7 +271,7 @@
           <li>
             <RouterLink
               to="/help/user"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <UserCircleIcon
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -283,7 +283,7 @@
           <li>
             <RouterLink
               to="/help/caches"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <MapPinIcon
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -295,7 +295,7 @@
           <li>
             <RouterLink
               to="/help/challenges"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <Trophy
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
@@ -307,7 +307,7 @@
           <li>
             <RouterLink
               to="/help/targets"
-              class="flex items-center gap-2 px-3 py-3 rounded hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
+              class="flex items-center gap-2 px-3 py-3 rounded-sm hover:bg-gray-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300 dark:hover:bg-gray-800 dark:focus-visible:outline-gray-600"
             >
               <Target
                 class="w-5 h-5 shrink-0 text-gray-700 dark:text-gray-300"
