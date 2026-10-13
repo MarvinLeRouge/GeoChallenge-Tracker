@@ -87,7 +87,7 @@ services:
       # Explicit low priority: this is the catch-all router (Host() only, no
       # PathPrefix) and must never outrank the more specific /api and /tiles routers.
       - "traefik.http.routers.gctracker-frontend.priority=1"
-      - "traefik.http.services.gctracker-frontend.loadbalancer.server.port=80"
+      - "traefik.http.services.gctracker-frontend.loadbalancer.server.port=8080"
     networks:
       - traefik-public
 
