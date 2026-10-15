@@ -4,7 +4,7 @@
 
 # 🧭 GeoChallenge Tracker
 
-> *Suivi de challenges de géocaching full-stack — API REST FastAPI + MongoDB, frontend Vue.js 3, import GPX, cartes interactives.*
+> *Suivi de challenges de géocaching full-stack : API REST FastAPI et MongoDB avec requêtes géospatiales, pipeline d'import GPX/ZIP, moteur de règles évaluant les conditions de challenge, et frontend Vue.js avec cartes interactives.*
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-009688?logo=fastapi&logoColor=white)
