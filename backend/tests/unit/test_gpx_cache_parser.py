@@ -215,7 +215,7 @@ class TestGPXCacheParserUtilityMethods:
 
         mock_tree = MagicMock()
         mock_tree.xpath.return_value = "not-a-list"
-        with patch("app.services.parsers.GPXCacheParser.etree") as mock_etree:
+        with patch("app.services.parsers.base_gpx_parser.etree") as mock_etree:
             mock_etree.parse.return_value = mock_tree
             with pytest.raises(ValueError, match="XPath"):
                 parser.parse()

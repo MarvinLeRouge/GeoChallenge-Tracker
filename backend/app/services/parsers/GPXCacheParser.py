@@ -5,12 +5,10 @@ import html
 from pathlib import Path
 from typing import Any
 
-from lxml import etree
-
-from app.services.parsers.HTMLSanitizer import HTMLSanitizer
+from app.services.parsers.base_gpx_parser import BaseGPXParser
 
 
-class GPXCacheParser:
+class GPXCacheParser(BaseGPXParser):
     """GPX geocache parser.
 
     Description:
@@ -45,88 +43,30 @@ class GPXCacheParser:
             "groundspeak": "http://www.groundspeak.com/cache/1/0/1",
             "gsak": "http://www.gsak.net/xmlv1/6",
         }
-        self.caches: list[dict] = []
-        self.sanitizer = HTMLSanitizer()
+        super().__init__()
 
-    def parse(self) -> list[dict]:
-        """Parse the GPX file and populate `self.caches`.
-
-        Description:
-            - Iterates over `//gpx:wpt` waypoints and looks for the `groundspeak:cache` sub-element.\n
-            - For each final cache (`_is_final_waypoint`), extracts useful fields
-              (GC, title, coords, type, size, owner, D/T, country/state, sanitized HTML
-              description, GSAK favorites, notes, dates, attributes via `_parse_attributes`).\n
-            - Appends each dict to `self.caches`.
-
-        Args:
-            None
-
-        Returns:
-            list[dict]: List of structured caches ready for import.
-        """
-        tree = etree.parse(str(self.gpx_file))
-        nodes: Any = tree.xpath("//gpx:wpt", namespaces=self.namespaces)
-        if not isinstance(nodes, list):
-            raise ValueError("XPath did not return nodes")
-
-        for wpt in nodes:
-            cache_elem = wpt.find("groundspeak:cache", namespaces=self.namespaces)
-            if cache_elem is None:
-                continue
-
-            is_final = self._is_final_waypoint(cache_elem)
-            if is_final:
-                cache = {
-                    "GC": self.find_text_deep(wpt, "gpx:name"),
-                    "title": self.find_text_deep(wpt, "gpx:desc"),
-                    "latitude": float(wpt.attrib["lat"]),
-                    "longitude": float(wpt.attrib["lon"]),
-                    "cache_type": self.find_text_deep(wpt, "groundspeak:type"),
-                    "cache_size": self.find_text_deep(wpt, "groundspeak:container"),
-                    "owner": self.find_text_deep(wpt, "groundspeak:owner"),
-                    "difficulty": self.find_text_deep(wpt, "groundspeak:difficulty"),
-                    "terrain": self.find_text_deep(wpt, "groundspeak:terrain"),
-                    "country": self.find_text_deep(wpt, "groundspeak:country"),
-                    "state": self.find_text_deep(wpt, "groundspeak:state"),
-                    "description_html": self.sanitizer.clean_description_html(
-                        self.find_text_deep(wpt, "groundspeak:long_description")
-                    ),
-                    "favorites": int(self.find_text_deep(wpt, "gsak:FavPoints") or 0),
-                    "notes": self.find_text_deep(wpt, "gsak:GcNote"),
-                    "placed_date": self.find_text_deep(wpt, "gpx:time"),
-                    "found_date": self.find_text_deep(wpt, "gsak:UserFound"),
-                    "attributes": self._parse_attributes(cache_elem),
-                }
-                self.caches.append(cache)
-
-        return self.caches
-
-    def _parse_attributes(self, cache_elem) -> list[dict]:
-        """Extract the attribute list from `<groundspeak:attributes>`.
+    def _extract_cache_data(self, wpt: Any, cache_elem: Any) -> dict:
+        """Build the cache dict for one final waypoint.
 
         Description:
-            Iterates over `groundspeak:attribute` nodes and returns
-            `{id: int, is_positive: bool, name: str}` objects.
+            Base fields (see `BaseGPXParser._build_base_cache_fields`) plus the
+            fields specific to this parser: coordinates (required, raises if
+            missing), GSAK favorites, notes, and found date.
 
         Args:
-            cache_elem: Parent `<groundspeak:cache>` XML element.
+            wpt: The waypoint XML element.
+            cache_elem: The groundspeak cache XML element.
 
         Returns:
-            list[dict]: Normalized attributes (id / inc / label).
+            dict: Cache fields ready for import.
         """
-        attrs = []
-        for attr in cache_elem.xpath(
-            "groundspeak:attributes/groundspeak:attribute", namespaces=self.namespaces
-        ):
-            attrs.append(
-                {
-                    "id": int(attr.get("id")),
-                    "is_positive": attr.get("inc") == "1",
-                    "name": attr.text.strip() if attr.text else "",
-                }
-            )
-
-        return attrs
+        cache = self._build_base_cache_fields(wpt, cache_elem)
+        cache["latitude"] = float(wpt.attrib["lat"])
+        cache["longitude"] = float(wpt.attrib["lon"])
+        cache["favorites"] = int(self.find_text_deep(wpt, "gsak:FavPoints") or 0)
+        cache["notes"] = self.find_text_deep(wpt, "gsak:GcNote")
+        cache["found_date"] = self.find_text_deep(wpt, "gsak:UserFound")
+        return cache
 
     def _has_corrected_coordinates(self, wpt_elem) -> bool:
         """Indicate whether the cache has corrected coordinates (placeholder).
@@ -177,21 +117,6 @@ class GPXCacheParser:
         """
         return wpt_elem.find("gsak:userfound", namespaces=self.namespaces) is not None
 
-    def _is_final_waypoint(self, cache_elem) -> bool:
-        """Filter final waypoints (placeholder).
-
-        Description:
-            Extension point to extract only certain waypoints (e.g. finals).
-            Current implementation always returns True.
-
-        Args:
-            cache_elem: `<groundspeak:cache>` XML element.
-
-        Returns:
-            bool: True if the waypoint should be kept.
-        """
-        return True
-
     def _text(self, element, default: str = "") -> str:
         """Read the text of an element (stripped), with a default value.
 
@@ -218,31 +143,3 @@ class GPXCacheParser:
             str: Unescaped HTML (or empty string).
         """
         return html.unescape(element.text.strip()) if element is not None and element.text else ""
-
-    def get_caches(self) -> list[dict]:
-        """Retrieve the list of already-extracted caches.
-
-        Args:
-            None
-
-        Returns:
-            list[dict]: Current value of `self.caches`.
-        """
-        return self.caches
-
-    def find_text_deep(self, element, tag: str) -> str:
-        """Find text via relative XPath (`.//{tag}`).
-
-        Description:
-            Executes `element.xpath(f".//{tag}", namespaces=self.namespaces)` and returns
-            the first text found (stripped) or an empty string.
-
-        Args:
-            element: Starting element for the search.
-            tag (str): Prefix-qualified XPath tag (e.g. `gpx:name`).
-
-        Returns:
-            str: Text found, or empty string.
-        """
-        found = element.xpath(f".//{tag}", namespaces=self.namespaces)
-        return found[0].text.strip() if found and len(found) and found[0].text else ""

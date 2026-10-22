@@ -266,6 +266,7 @@ To regenerate locally, run `npm run changelog`.
 - *(matrix)* Split into summary stats and grid components
 - *(maintenance)* Split into a package by route concern
 - *(maintenance)* Decouple shared router
+- *(backend)* Extract BaseGPXParser to remove GPX parser duplication
 
 ### 📚 Documentation
 
