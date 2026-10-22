@@ -11,54 +11,13 @@
     </div>
 
     <!-- Filtres -->
-    <div
-      class="rounded-lg border bg-white p-4 shadow-xs dark:bg-gray-800 dark:border-gray-700"
-    >
-      <h2 class="font-semibold mb-3">Filtres</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label
-            class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300"
-            >Type de cache</label
-          >
-          <select
-            v-model="selectedCacheType"
-            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-            @change="fetchCalendar"
-          >
-            <option value="">Tous les types</option>
-            <option
-              v-for="type in sortedCacheTypes"
-              :key="type._id"
-              :value="type.code"
-            >
-              {{ type.name }} ({{ type.code }})
-            </option>
-          </select>
-        </div>
-
-        <div>
-          <label
-            class="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300"
-            >Taille de cache</label
-          >
-          <select
-            v-model="selectedCacheSize"
-            class="w-full border rounded-sm px-3 py-2 bg-white dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-            @change="fetchCalendar"
-          >
-            <option value="">Toutes les tailles</option>
-            <option
-              v-for="size in sortedCacheSizes"
-              :key="size._id"
-              :value="size.code"
-            >
-              {{ size.name }} ({{ size.code }})
-            </option>
-          </select>
-        </div>
-      </div>
-    </div>
+    <CacheTypeSizeFilters
+      v-model:selected-cache-type="selectedCacheType"
+      v-model:selected-cache-size="selectedCacheSize"
+      :sorted-cache-types="sortedCacheTypes"
+      :sorted-cache-sizes="sortedCacheSizes"
+      @change="fetchCalendar"
+    />
 
     <!-- Loading/Error -->
     <div v-if="loading" class="py-8">
@@ -257,41 +216,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import api from "@/api/http";
-import type { CalendarResult, CacheType, CacheSize } from "@/types/challenges";
+import type { CalendarResult } from "@/types/challenges";
 import { useCalendarData } from "@/composables/useCalendarData";
+import { useCacheTypeSizeFilters } from "@/composables/useCacheTypeSizeFilters";
 import { toast } from "vue-sonner";
 import { CheckCircleIcon, CalendarIcon } from "@heroicons/vue/24/outline";
 import LoadingIndicator from "@/components/ui/LoadingIndicator.vue";
+import CacheTypeSizeFilters from "@/components/userChallenges/CacheTypeSizeFilters.vue";
 
 const loading = ref(false);
 const error = ref("");
 const calendarResult = ref<CalendarResult | null>(null);
-const cacheTypes = ref<CacheType[]>([]);
-const cacheSizes = ref<CacheSize[]>([]);
-const selectedCacheType = ref("");
-const selectedCacheSize = ref("");
 const selectedDay = ref<{ month: number; day: number } | null>(null);
+
+// Use the shared composable for cache type/size filters
+const {
+  selectedCacheType,
+  selectedCacheSize,
+  sortedCacheTypes,
+  sortedCacheSizes,
+  fetchCacheTypes,
+  fetchCacheSizes,
+} = useCacheTypeSizeFilters(error);
 
 // Use the new composable for calendar data processing
 const { calendarData, monthNames, getDaysInMonth } =
   useCalendarData(calendarResult);
-
-// Tri alphabétique des types de cache
-const sortedCacheTypes = computed(() => {
-  return [...cacheTypes.value].sort((a, b) => a.name.localeCompare(b.name));
-});
-
-// Tri des tailles par ordre logique
-const sortedCacheSizes = computed(() => {
-  const sizeOrder = ["Micro", "Small", "Regular", "Large", "Other"];
-  return [...cacheSizes.value].sort((a, b) => {
-    const aIndex = sizeOrder.indexOf(a.name);
-    const bIndex = sizeOrder.indexOf(b.name);
-    return aIndex - bIndex;
-  });
-});
 
 function getDayClass(month: number, day: number): string {
   const calendarDay = calendarData.value.months[month - 1]?.days[day - 1];
@@ -338,28 +290,6 @@ function getMissingDaysCount(month: number): number {
 function getCompletedDaysInMonth(month: number): number {
   const calendarMonth = calendarData.value.months[month - 1];
   return calendarMonth ? calendarMonth.completedCount : 0;
-}
-
-async function fetchCacheTypes() {
-  try {
-    const response = await api.get("/cache_types");
-    cacheTypes.value = response.data;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    error.value = `Erreur chargement types: ${msg}`;
-    toast.error("Erreur chargement types", { description: msg });
-  }
-}
-
-async function fetchCacheSizes() {
-  try {
-    const response = await api.get("/cache_sizes");
-    cacheSizes.value = response.data;
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    error.value = `Erreur chargement tailles: ${msg}`;
-    toast.error("Erreur chargement tailles", { description: msg });
-  }
 }
 
 async function fetchCalendar() {
