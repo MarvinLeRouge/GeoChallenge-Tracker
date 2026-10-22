@@ -279,6 +279,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract shared challenge/cache join pipeline in user_challenge_query.py
 - *(backend)* Factor UserChallengeBaseOut to remove field duplication in DTOs
 - *(backend)* Extract _execute_bulk_write helper in cache_persister.py
+- *(frontend)* Extract shared cache type/size filters from Calendar.vue and Matrix.vue
 
 ### 📚 Documentation
 
