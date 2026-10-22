@@ -269,6 +269,7 @@ To regenerate locally, run `npm run changelog`.
 - *(maintenance)* Decouple shared router
 - *(backend)* Extract BaseGPXParser to remove GPX parser duplication
 - *(backend)* Extract BaseVerificationService to remove calendar/matrix verification duplication
+- *(backend)* Remove duplication across targets/progress aggregation pipelines
 
 ### 📚 Documentation
 

@@ -13,6 +13,7 @@ from typing import Any
 from bson import ObjectId
 
 from app.core.utils import now
+from app.services.mongo_pipeline_helpers import build_cache_and_conditions
 
 
 def _build_base_match_pipeline(
@@ -39,13 +40,7 @@ def _build_base_match_pipeline(
         },
         {"$unwind": "$cache"},
     ]
-    conds: list[Mapping[str, Any]] = []
-    for field, cond in match_caches.items():
-        if isinstance(cond, list):
-            for c in cond:
-                conds.append({f"cache.{field}": c})
-        else:
-            conds.append({f"cache.{field}": cond})
+    conds = build_cache_and_conditions(match_caches)
     if conds:
         pipeline.append({"$match": {"$and": conds}})
     return pipeline

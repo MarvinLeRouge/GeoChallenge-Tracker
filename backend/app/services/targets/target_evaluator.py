@@ -8,6 +8,7 @@ from typing import Any
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.services.mongo_pipeline_helpers import build_cache_and_conditions, extract_rounded_dt_cells
 from app.services.query_builder import compile_and_only
 
 from .geo_utils import build_geo_pipeline_stage
@@ -326,14 +327,8 @@ class TargetEvaluator:
             {"$unwind": "$cache"},
         ]
 
-        # Apply match_filters on cache.* fields (same pattern as progress service)
-        conds: list[dict[str, Any]] = []
-        for field, cond in match_filters.items():
-            if isinstance(cond, list):
-                for c in cond:
-                    conds.append({f"cache.{field}": c})
-            else:
-                conds.append({f"cache.{field}": cond})
+        # Apply match_filters on cache.* fields (shared with the progress service)
+        conds = build_cache_and_conditions(match_filters)
         if conds:
             pipeline.append({"$match": {"$and": conds}})
 
@@ -357,16 +352,8 @@ class TargetEvaluator:
         d_values = {round(1.0 + i * 0.5, 1) for i in range(round((max_d - 1.0) / 0.5) + 1)}
         t_values = {round(1.0 + i * 0.5, 1) for i in range(round((max_t - 1.0) / 0.5) + 1)}
 
-        covered: set[tuple[float, float]] = set()
-        for r in rows:
-            d = r["_id"].get("d")
-            t = r["_id"].get("t")
-            if d is not None and t is not None:
-                dr = round(float(d), 1)
-                tr = round(float(t), 1)
-                if dr in d_values and tr in t_values:
-                    covered.add((dr, tr))
-        return covered
+        cells = extract_rounded_dt_cells(rows)
+        return {(d, t) for d, t in cells if d in d_values and t in t_values}
 
     async def _get_covered_dt_cells(
         self,

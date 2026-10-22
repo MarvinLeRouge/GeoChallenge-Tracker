@@ -119,6 +119,61 @@ async def list_targets_nearby(
     }
 
 
+async def _resolve_user_target_filters(
+    db: AsyncIOMotorDatabase,
+    user_id: ObjectId,
+    status_filter: str | None,
+    page: int,
+    page_size: int,
+    log_suffix: str,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Build base target filters for a user, resolving status_filter to UC ids.
+
+    Args:
+        db: Database handle.
+        user_id: Target user.
+        status_filter: Optional UserChallenge status filter.
+        page: Requested page (echoed back in the early-empty-result shape).
+        page_size: Requested page size (echoed back likewise).
+        log_suffix: Appended to the debug log message to distinguish callers
+            (e.g. "" for the plain listing, "nearby " for the geo one).
+
+    Returns:
+        tuple: `(base_filters, empty_result)`. When `status_filter` resolves
+            to no matching UserChallenge, `empty_result` is a ready-to-return
+            empty page and `base_filters` should be ignored by the caller.
+    """
+    base_filters: dict[str, Any] = {"user_id": user_id}
+
+    if status_filter:
+        coll_uc = db.user_challenges
+        uc_docs = await coll_uc.find(
+            {"user_id": user_id, "status": status_filter},
+            {"_id": 1},
+        ).to_list(length=None)
+        uc_ids = [doc["_id"] for doc in uc_docs]
+
+        log.debug(
+            "[targets] %sstatus_filter=%s — %d UC(s) matched",
+            log_suffix,
+            status_filter,
+            len(uc_ids),
+        )
+
+        if not uc_ids:
+            return base_filters, {
+                "items": [],
+                "nb_items": 0,
+                "page": page,
+                "page_size": page_size,
+                "nb_pages": 0,
+            }
+
+        base_filters["user_challenge_id"] = {"$in": uc_ids}
+
+    return base_filters, None
+
+
 async def list_targets_for_user_with_status_filter(
     db: AsyncIOMotorDatabase,
     user_id: ObjectId,
@@ -132,28 +187,11 @@ async def list_targets_for_user_with_status_filter(
     When ``status_filter`` is provided, resolves the matching
     UserChallenge ids first, then filters targets accordingly.
     """
-    base_filters: dict[str, Any] = {"user_id": user_id}
-
-    if status_filter:
-        coll_uc = db.user_challenges
-        uc_docs = await coll_uc.find(
-            {"user_id": user_id, "status": status_filter},
-            {"_id": 1},
-        ).to_list(length=None)
-        uc_ids = [doc["_id"] for doc in uc_docs]
-
-        log.debug("[targets] status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids))
-
-        if not uc_ids:
-            return {
-                "items": [],
-                "nb_items": 0,
-                "page": page,
-                "page_size": page_size,
-                "nb_pages": 0,
-            }
-
-        base_filters["user_challenge_id"] = {"$in": uc_ids}
+    base_filters, empty_result = await _resolve_user_target_filters(
+        db, user_id, status_filter, page, page_size, log_suffix=""
+    )
+    if empty_result is not None:
+        return empty_result
 
     return await list_targets_with_pagination(
         db,
@@ -180,30 +218,11 @@ async def list_targets_nearby_for_user_with_status_filter(
     Resolves matching UC ids when a status filter is provided,
     then delegates to ``list_targets_nearby``.
     """
-    base_filters: dict[str, Any] = {"user_id": user_id}
-
-    if status_filter:
-        coll_uc = db.user_challenges
-        uc_docs = await coll_uc.find(
-            {"user_id": user_id, "status": status_filter},
-            {"_id": 1},
-        ).to_list(length=None)
-        uc_ids = [doc["_id"] for doc in uc_docs]
-
-        log.debug(
-            "[targets] nearby status_filter=%s — %d UC(s) matched", status_filter, len(uc_ids)
-        )
-
-        if not uc_ids:
-            return {
-                "items": [],
-                "nb_items": 0,
-                "page": page,
-                "page_size": page_size,
-                "nb_pages": 0,
-            }
-
-        base_filters["user_challenge_id"] = {"$in": uc_ids}
+    base_filters, empty_result = await _resolve_user_target_filters(
+        db, user_id, status_filter, page, page_size, log_suffix="nearby "
+    )
+    if empty_result is not None:
+        return empty_result
 
     return await list_targets_nearby(
         db,
