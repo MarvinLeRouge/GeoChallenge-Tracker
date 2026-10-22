@@ -15,6 +15,39 @@ from .caches import router
 from .caches_search import _compact_lookups_and_project, _doc, _oid
 
 
+def _apply_type_size_filters(q: dict[str, Any], type_id: str | None, size_id: str | None) -> None:
+    """Add optional type_id/size_id equality filters to a query dict, in place.
+
+    Args:
+        q: Query dict to mutate.
+        type_id: Optional cache type identifier (ObjectId string).
+        size_id: Optional cache size identifier (ObjectId string).
+
+    Returns:
+        None
+    """
+    if type_id:
+        q["type_id"] = _oid(type_id)
+    if size_id:
+        q["size_id"] = _oid(size_id)
+
+
+def _clamp_pagination(page: int, page_size: int) -> tuple[int, int, int]:
+    """Clamp page/page_size to sane bounds and compute the skip offset.
+
+    Args:
+        page: Requested page number.
+        page_size: Requested page size.
+
+    Returns:
+        tuple[int, int, int]: `(page, page_size, skip)`.
+    """
+    page_size = min(max(1, page_size), 200)
+    page = max(1, page)
+    skip = (page - 1) * page_size
+    return page, page_size, skip
+
+
 # DONE: [BACKLOG] Route /caches/within-bbox (GET) verified
 @router.get(
     "/within-bbox",
@@ -83,10 +116,7 @@ async def within_bbox(
             }
         }
     }
-    if type_id:
-        q["type_id"] = _oid(type_id)
-    if size_id:
-        q["size_id"] = _oid(size_id)
+    _apply_type_size_filters(q, type_id, size_id)
 
     sort_map = {
         "-placed_at": [("placed_at", DESCENDING)],
@@ -96,9 +126,7 @@ async def within_bbox(
     }
     order = sort_map[sort]
 
-    page_size = min(max(1, page_size), 200)
-    page = max(1, page)
-    skip = (page - 1) * page_size
+    page, page_size, skip = _clamp_pagination(page, page_size)
 
     if compact:
         pipeline = [
@@ -177,14 +205,9 @@ async def within_radius(
     coll = await get_collection("caches")
     geo = {"type": "Point", "coordinates": [lon, lat]}
     q: dict[str, Any] = {}
-    if type_id:
-        q["type_id"] = _oid(type_id)
-    if size_id:
-        q["size_id"] = _oid(size_id)
+    _apply_type_size_filters(q, type_id, size_id)
 
-    page_size = min(max(1, page_size), 200)
-    page = max(1, page)
-    skip = (page - 1) * page_size
+    page, page_size, skip = _clamp_pagination(page, page_size)
 
     pipeline: list[dict[str, Any]] = [
         {
