@@ -3,145 +3,13 @@
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from bson import ObjectId
-from bson.errors import InvalidId
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from app.api.dto.calendar_verification import MatrixFilters, MatrixResult
+from app.services.base_verification_service import BaseVerificationService
 from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
 
 
-class MatrixVerificationService:
+class MatrixVerificationService(BaseVerificationService):
     """Service to verify user's matrix D/T completion based on found caches."""
-
-    def __init__(self, db: AsyncIOMotorDatabase):
-        self.db = db
-
-    async def _resolve_cache_type_id(
-        self, cache_type_name: str | None
-    ) -> tuple[ObjectId | None, bool]:
-        """Resolve a cache type name/code/ObjectId string to its ObjectId.
-
-        Args:
-            cache_type_name: Cache type ObjectId string, name, or code (optional).
-
-        Returns:
-            tuple[ObjectId | None, bool]: `(resolved_id, not_found)`. `not_found` is
-                True when a filter was requested but couldn't be resolved to an
-                existing type.
-        """
-        if not cache_type_name:
-            return None, False
-
-        try:
-            potential_id = ObjectId(cache_type_name)
-            cache_type = await self.db.cache_types.find_one({"_id": potential_id})
-            if cache_type:
-                return potential_id, False
-            return None, True
-        except InvalidId:
-            cache_type = await self.db.cache_types.find_one(
-                {
-                    "$or": [
-                        {"name": {"$regex": f"^{cache_type_name}$", "$options": "i"}},
-                        {"code": {"$regex": f"^{cache_type_name}$", "$options": "i"}},
-                    ]
-                }
-            )
-            if cache_type:
-                return cache_type["_id"], False
-            return None, True
-
-    async def _resolve_cache_size_id(
-        self, cache_size_name: str | None
-    ) -> tuple[ObjectId | None, bool]:
-        """Resolve a cache size name/code/alias/ObjectId string to its ObjectId.
-
-        Args:
-            cache_size_name: Cache size ObjectId string, name, code, or alias (optional).
-
-        Returns:
-            tuple[ObjectId | None, bool]: `(resolved_id, not_found)`. `not_found` is
-                True when a filter was requested but couldn't be resolved to an
-                existing size.
-        """
-        if not cache_size_name:
-            return None, False
-
-        try:
-            potential_id = ObjectId(cache_size_name)
-            cache_size = await self.db.cache_sizes.find_one({"_id": potential_id})
-            if cache_size:
-                return potential_id, False
-            return None, True
-        except InvalidId:
-            cache_size = await self.db.cache_sizes.find_one(
-                {
-                    "$or": [
-                        {"name": {"$regex": f"^{cache_size_name}$", "$options": "i"}},
-                        {"code": {"$regex": f"^{cache_size_name}$", "$options": "i"}},
-                        {
-                            "aliases": {
-                                "$regex": f"^{cache_size_name}$",
-                                "$options": "i",
-                            }
-                        },
-                    ]
-                }
-            )
-            if cache_size:
-                return cache_size["_id"], False
-            return None, True
-
-    @staticmethod
-    def _build_found_caches_pipeline(
-        user_id: str, cache_type_id: ObjectId | None, cache_size_id: ObjectId | None
-    ) -> list[dict[str, Any]]:
-        """Build the aggregation pipeline fetching a user's found caches, with filters.
-
-        Args:
-            user_id: The user ID to check.
-            cache_type_id: Resolved cache type filter (optional).
-            cache_size_id: Resolved cache size filter (optional).
-
-        Returns:
-            list[dict]: Aggregation pipeline on `found_caches`.
-        """
-        query = {"user_id": ObjectId(user_id)}
-
-        cache_filter: dict[str, Any] = {}
-        if cache_type_id:
-            cache_filter["type_id"] = cache_type_id
-        if cache_size_id:
-            cache_filter["size_id"] = cache_size_id
-
-        pipeline: list[dict[str, Any]] = [
-            {"$match": query},
-            {
-                "$lookup": {
-                    "from": "caches",
-                    "localField": "cache_id",
-                    "foreignField": "_id",
-                    "as": "cache_info",
-                }
-            },
-            {"$unwind": "$cache_info"},
-        ]
-
-        if cache_filter:
-            pipeline.append({"$match": {f"cache_info.{k}": v for k, v in cache_filter.items()}})
-
-        pipeline.append(
-            {
-                "$project": {
-                    "cache_info.difficulty": 1,
-                    "cache_info.terrain": 1,
-                    "cache_info.type_id": 1,
-                    "cache_info.size_id": 1,
-                }
-            }
-        )
-        return pipeline
 
     @staticmethod
     def _extract_dt_combinations(
@@ -244,7 +112,17 @@ class MatrixVerificationService:
         if size_not_found:
             return self._empty_matrix_result(filters)
 
-        pipeline = self._build_found_caches_pipeline(user_id, cache_type_id, cache_size_id)
+        pipeline = self._build_found_caches_pipeline(
+            user_id,
+            cache_type_id,
+            cache_size_id,
+            {
+                "cache_info.difficulty": 1,
+                "cache_info.terrain": 1,
+                "cache_info.type_id": 1,
+                "cache_info.size_id": 1,
+            },
+        )
         found_caches = await self.db.found_caches.aggregate(
             cast(Sequence[Mapping[str, Any]], pipeline)
         ).to_list(length=None)
@@ -326,13 +204,7 @@ class MatrixVerificationService:
             {"difficulty": combo[0], "terrain": combo[1]} for combo in all_combinations
         ]
 
-        # Group all combinations as missing by difficulty
-        missing_combinations_by_difficulty: dict[str, list[dict[str, float]]] = {}
-        for combo in missing_combinations:
-            difficulty_str = str(combo["difficulty"])
-            if difficulty_str not in missing_combinations_by_difficulty:
-                missing_combinations_by_difficulty[difficulty_str] = []
-            missing_combinations_by_difficulty[difficulty_str].append({"terrain": combo["terrain"]})
+        missing_combinations_by_difficulty = self._group_missing_by_difficulty(missing_combinations)
 
         return MatrixResult(
             completed_combinations_count=0,
