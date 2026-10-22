@@ -270,6 +270,15 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract BaseGPXParser to remove GPX parser duplication
 - *(backend)* Extract BaseVerificationService to remove calendar/matrix verification duplication
 - *(backend)* Remove duplication across targets/progress aggregation pipelines
+- *(backend)* Extract shared cache-with-type-size lookup in caches_lookup.py
+- *(backend)* Extract _resolve_lat_lon helper in my_challenge_targets.py
+- *(backend)* Extract _read_backup_metadata helper in maintenance/backups.py
+- *(backend)* Extract type/size filter and pagination helpers in caches_geo_search.py
+- *(backend)* Extract extract_gc_codes_from_upload shared by targets_stats.py and my_profile.py
+- *(backend)* Extract shared referential name normalization from size/type helpers
+- *(backend)* Extract shared challenge/cache join pipeline in user_challenge_query.py
+- *(backend)* Factor UserChallengeBaseOut to remove field duplication in DTOs
+- *(backend)* Extract _execute_bulk_write helper in cache_persister.py
 
 ### 📚 Documentation
 

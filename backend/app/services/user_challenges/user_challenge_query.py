@@ -28,6 +28,54 @@ class UserChallengeQuery:
         self.db = db
         self.status_calculator = StatusCalculator()
 
+    @staticmethod
+    def _build_challenge_cache_join_stages() -> list[dict[str, Any]]:
+        """Build the shared challenge/cache lookup+unwind pipeline stages.
+
+        Returns:
+            list[dict]: `$lookup`/`$unwind` stages joining `challenges` then `caches`.
+        """
+        return [
+            {
+                "$lookup": {
+                    "from": "challenges",
+                    "localField": "challenge_id",
+                    "foreignField": "_id",
+                    "as": "challenge",
+                }
+            },
+            {"$unwind": "$challenge"},
+            {
+                "$lookup": {
+                    "from": "caches",
+                    "localField": "challenge.cache_id",
+                    "foreignField": "_id",
+                    "as": "cache",
+                }
+            },
+            {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
+        ]
+
+    @staticmethod
+    def _build_cache_cond_projection() -> dict[str, Any]:
+        """Build the shared `$cond` projection for the joined `cache` field.
+
+        Returns:
+            dict: Projection expression (None if no cache, else id/GC/difficulty/terrain).
+        """
+        return {
+            "$cond": {
+                "if": {"$eq": ["$cache", None]},
+                "then": None,
+                "else": {
+                    "id": "$cache._id",
+                    "GC": "$cache.GC",
+                    "difficulty": "$cache.difficulty",
+                    "terrain": "$cache.terrain",
+                },
+            }
+        }
+
     async def list_user_challenges(
         self,
         user_id: ObjectId,
@@ -101,26 +149,7 @@ class UserChallengeQuery:
         pipeline: list[dict[str, Any]] = [
             # Match the specific UC
             {"$match": {"_id": uc_id, "user_id": user_id}},
-            # Join with challenge
-            {
-                "$lookup": {
-                    "from": "challenges",
-                    "localField": "challenge_id",
-                    "foreignField": "_id",
-                    "as": "challenge",
-                }
-            },
-            {"$unwind": "$challenge"},
-            # Join with cache
-            {
-                "$lookup": {
-                    "from": "caches",
-                    "localField": "challenge.cache_id",
-                    "foreignField": "_id",
-                    "as": "cache",
-                }
-            },
-            {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
+            *self._build_challenge_cache_join_stages(),
             # Full projection
             {
                 "$project": {
@@ -139,18 +168,7 @@ class UserChallengeQuery:
                         "name": "$challenge.name",
                         "description": "$challenge.description",
                     },
-                    "cache": {
-                        "$cond": {
-                            "if": {"$eq": ["$cache", None]},
-                            "then": None,
-                            "else": {
-                                "id": "$cache._id",
-                                "GC": "$cache.GC",
-                                "difficulty": "$cache.difficulty",
-                                "terrain": "$cache.terrain",
-                            },
-                        }
-                    },
+                    "cache": self._build_cache_cond_projection(),
                 }
             },
         ]
@@ -192,28 +210,9 @@ class UserChallengeQuery:
             pipeline.extend(status_stages)
 
         # Joins with challenge and cache
+        pipeline.extend(self._build_challenge_cache_join_stages())
         pipeline.extend(
             [
-                # Join with challenge
-                {
-                    "$lookup": {
-                        "from": "challenges",
-                        "localField": "challenge_id",
-                        "foreignField": "_id",
-                        "as": "challenge",
-                    }
-                },
-                {"$unwind": "$challenge"},
-                # Join with cache
-                {
-                    "$lookup": {
-                        "from": "caches",
-                        "localField": "challenge.cache_id",
-                        "foreignField": "_id",
-                        "as": "cache",
-                    }
-                },
-                {"$unwind": {"path": "$cache", "preserveNullAndEmptyArrays": True}},
                 # List projection
                 {
                     "$project": {
@@ -226,18 +225,7 @@ class UserChallengeQuery:
                             "id": "$challenge._id",
                             "name": "$challenge.name",
                         },
-                        "cache": {
-                            "$cond": {
-                                "if": {"$eq": ["$cache", None]},
-                                "then": None,
-                                "else": {
-                                    "id": "$cache._id",
-                                    "GC": "$cache.GC",
-                                    "difficulty": "$cache.difficulty",
-                                    "terrain": "$cache.terrain",
-                                },
-                            }
-                        },
+                        "cache": self._build_cache_cond_projection(),
                     }
                 },
                 # Default sort by updated_at descending

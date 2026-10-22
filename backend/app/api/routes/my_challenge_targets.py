@@ -64,6 +64,37 @@ def _current_user_id(current_user: dict) -> ObjectId:
     return _as_objid(uid)
 
 
+async def _resolve_lat_lon(
+    user_id: ObjectId, lat: float | None, lon: float | None
+) -> tuple[float, float]:
+    """Resolve lat/lon, falling back to the user's saved location if either is missing.
+
+    Args:
+        user_id (ObjectId): Current user.
+        lat (float | None): Latitude, if provided.
+        lon (float | None): Longitude, if provided.
+
+    Returns:
+        tuple[float, float]: Resolved (lat, lon).
+
+    Raises:
+        HTTPException: 422 if lat/lon are missing and no location is saved.
+    """
+    if lat is not None and lon is not None:
+        return lat, lon
+
+    db = get_db()
+    user_profile_service = UserProfileService(db)
+    location_data = await user_profile_service.get_user_location(user_id)
+    if not location_data:
+        raise HTTPException(
+            status_code=422,
+            detail="No user location found; provide lat/lon or save your location first.",
+        )
+    resolved_lon, resolved_lat = location_data["coordinates"][0], location_data["coordinates"][1]
+    return float(resolved_lat), float(resolved_lon)
+
+
 # ---------------------------
 # Evaluate / refresh (per UserChallenge)
 # ---------------------------
@@ -126,17 +157,7 @@ async def evaluate_targets(
 
     geo_ctx = None
     if include_geo_filter:
-        # if lat/lon not provided, try to retrieve from user profile
-        if lat is None or lon is None:
-            db = get_db()
-            user_profile_service = UserProfileService(db)
-            location_data = await user_profile_service.get_user_location(user_id)
-            if not location_data:
-                raise HTTPException(
-                    status_code=422,
-                    detail="No user location found; provide lat/lon or save your location first.",
-                )
-            lon, lat = location_data["coordinates"][0], location_data["coordinates"][1]
+        lat, lon = await _resolve_lat_lon(user_id, lat, lon)
         if radius_km is None:
             raise HTTPException(
                 status_code=422,
@@ -243,29 +264,13 @@ async def list_targets_uc_nearby(
         TargetListResponse: Items and pagination.
     """
     uc_oid = _as_objid(uc_id)
-
-    final_lat: float
-    final_lon: float
-
-    if lat is None or lon is None:
-        db = get_db()
-        user_profile_service = UserProfileService(db)
-        location_data = await user_profile_service.get_user_location(user_id)
-        if not location_data:
-            raise HTTPException(
-                status_code=422,
-                detail="No user location found; provide lat/lon or save your location first.",
-            )
-        final_lon, final_lat = location_data["coordinates"][0], location_data["coordinates"][1]
-    else:
-        final_lat = lat
-        final_lon = lon
+    lat, lon = await _resolve_lat_lon(user_id, lat, lon)
 
     return await list_targets_nearby_for_user_challenge(
         user_id=user_id,
         uc_id=uc_oid,
-        lat=final_lat,
-        lon=final_lon,
+        lat=lat,
+        lon=lon,
         radius_km=radius_km,
         page=int(page),
         page_size=int(page_size),
@@ -361,27 +366,12 @@ async def list_targets_all_nearby(
     Returns:
         TargetListResponse: Items and pagination.
     """
-    final_lat: float
-    final_lon: float
-
-    if lat is None or lon is None:
-        db = get_db()
-        user_profile_service = UserProfileService(db)
-        location_data = await user_profile_service.get_user_location(user_id)
-        if not location_data:
-            raise HTTPException(
-                status_code=422,
-                detail="No user location found; provide lat/lon or save your location first.",
-            )
-        final_lon, final_lat = location_data["coordinates"][0], location_data["coordinates"][1]
-    else:
-        final_lat = lat
-        final_lon = lon
+    lat, lon = await _resolve_lat_lon(user_id, lat, lon)
 
     return await list_targets_nearby_for_user(
         user_id=user_id,
-        lat=final_lat,
-        lon=final_lon,
+        lat=lat,
+        lon=lon,
         radius_km=radius_km,
         status_filter=(status_filter or None),
         page=int(page),

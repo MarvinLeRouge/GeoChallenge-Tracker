@@ -13,6 +13,7 @@ from httpx import ASGITransport, AsyncClient
 from app.api.routes import my_profile as my_profile_module
 from app.core.security import get_current_user
 from app.domain.models.user import User
+from app.services import found_caches_sync as found_caches_sync_module
 
 
 def _make_app():
@@ -112,7 +113,7 @@ class TestSyncMyFoundCachesDecodeError:
         bad_content.decode.side_effect = Exception("cannot decode")
 
         with patch.object(
-            my_profile_module,
+            found_caches_sync_module,
             "read_upload_file_with_limit",
             new=AsyncMock(return_value=bad_content),
         ):

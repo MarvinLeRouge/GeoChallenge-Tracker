@@ -8,12 +8,11 @@ from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, s
 from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut, UserPreferencesIn
 from app.api.dto.user_stats import UserStatsOut
-from app.core.middleware import read_upload_file_with_limit
 from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_db
 from app.domain.models.user import UserOut
-from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
+from app.services.found_caches_sync import extract_gc_codes_from_upload, sync_found_caches
 from app.services.user_profile_service import UserProfileService
 from app.services.user_stats import get_user_stats
 
@@ -125,14 +124,7 @@ async def sync_my_found_caches(
         dict: {nb_provided, nb_deleted, nb_added, nb_unknown_gc, unknown_gc_codes}.
     """
     settings = get_settings()
-    content = await read_upload_file_with_limit(file, settings.max_upload_bytes)
-
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except Exception as err:
-        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
-
-    gc_codes = extract_gc_codes(text)
+    gc_codes = await extract_gc_codes_from_upload(file, settings.max_upload_bytes)
     db = get_db()
     return await sync_found_caches(db=db, user_id=user_id, gc_codes=gc_codes)
 
