@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import HTTPException, Path
 
 from app.db.mongodb import get_collection
@@ -11,31 +13,19 @@ from .caches import router
 from .caches_search import _doc, _oid
 
 
-# DONE: [BACKLOG] Route /caches/{gc} (GET) verified
-@router.get(
-    "/{gc}",
-    summary="Get a cache by GC code",
-    description="Returns a single cache by its GC code.",
-)
-async def get_by_gc(
-    gc: str = Path(..., description="Unique GC code of the cache."),
-):
-    """Read a cache (GC code).
-
-    Description:
-        Retrieves the cache identified by its GC code. Returns 404 if not found.
+async def _fetch_cache_with_type_size(match_stage: dict[str, Any]) -> dict[str, Any] | None:
+    """Fetch one cache, joined with its type/size labels and codes.
 
     Args:
-        gc (str): GC code of the cache.
+        match_stage: The `$match` stage selecting the cache (by GC code or `_id`).
 
     Returns:
-        dict: Serialized cache document.
+        dict | None: The matched cache document, or None if not found.
     """
-
     coll = await get_collection("caches")
     cur = await coll.aggregate(
         [
-            {"$match": {"GC": gc}},
+            {"$match": match_stage},
             {
                 "$lookup": {
                     "from": "cache_types",
@@ -67,7 +57,31 @@ async def get_by_gc(
             {"$limit": 1},
         ]
     ).to_list(length=None)
-    doc = next(iter(cur), None)
+    return next(iter(cur), None)
+
+
+# DONE: [BACKLOG] Route /caches/{gc} (GET) verified
+@router.get(
+    "/{gc}",
+    summary="Get a cache by GC code",
+    description="Returns a single cache by its GC code.",
+)
+async def get_by_gc(
+    gc: str = Path(..., description="Unique GC code of the cache."),
+):
+    """Read a cache (GC code).
+
+    Description:
+        Retrieves the cache identified by its GC code. Returns 404 if not found.
+
+    Args:
+        gc (str): GC code of the cache.
+
+    Returns:
+        dict: Serialized cache document.
+    """
+
+    doc = await _fetch_cache_with_type_size({"GC": gc})
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
     return _doc(doc)
@@ -94,43 +108,8 @@ async def get_by_id(
     Returns:
         dict: Serialized cache document.
     """
-    coll = await get_collection("caches")
     oid = _oid(id)
-    cur = await coll.aggregate(
-        [
-            {"$match": {"_id": oid}},
-            {
-                "$lookup": {
-                    "from": "cache_types",
-                    "localField": "type_id",
-                    "foreignField": "_id",
-                    "as": "_type",
-                }
-            },
-            {
-                "$lookup": {
-                    "from": "cache_sizes",
-                    "localField": "size_id",
-                    "foreignField": "_id",
-                    "as": "_size",
-                }
-            },
-            {
-                "$addFields": {
-                    "type": {
-                        "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
-                        "code": {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
-                    },
-                    "size": {
-                        "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
-                        "code": {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
-                    },
-                }
-            },
-            {"$limit": 1},
-        ]
-    ).to_list(length=None)
-    doc = next(iter(cur), None)
+    doc = await _fetch_cache_with_type_size({"_id": oid})
     if not doc:
         raise HTTPException(status_code=404, detail="Cache not found")
     return _doc(doc)
