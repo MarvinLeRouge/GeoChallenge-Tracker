@@ -70,24 +70,7 @@ class CachePersister:
             operations.append(UpdateOne(filter_query, update_doc, upsert=True))
 
         # Execute operations in bulk
-        try:
-            result = await coll_caches.bulk_write(operations, ordered=False)
-            return {
-                "inserted": result.upserted_count,
-                "updated": result.modified_count,
-                "errors": 0,
-            }
-        except BulkWriteError as e:
-            # Handle partial errors
-            inserted = e.details.get("nUpserted", 0)
-            updated = e.details.get("nModified", 0)
-            errors = len(e.details.get("writeErrors", []))
-
-            return {
-                "inserted": inserted,
-                "updated": updated,
-                "errors": errors,
-            }
+        return await self._execute_bulk_write(coll_caches, operations)
 
     async def persist_found_caches(
         self, found_caches_data: list[dict[str, Any]], user_id: ObjectId
@@ -141,8 +124,21 @@ class CachePersister:
             operations.append(UpdateOne(filter_query, update_doc, upsert=True))
 
         # Execute operations in bulk
+        return await self._execute_bulk_write(coll_found, operations)
+
+    @staticmethod
+    async def _execute_bulk_write(coll: Any, operations: list[UpdateOne]) -> dict[str, int]:
+        """Execute upsert operations in bulk, tolerating partial write errors.
+
+        Args:
+            coll: Target collection.
+            operations: Prepared `UpdateOne` upsert operations.
+
+        Returns:
+            dict: {inserted, updated, errors}.
+        """
         try:
-            result = await coll_found.bulk_write(operations, ordered=False)
+            result = await coll.bulk_write(operations, ordered=False)
             return {
                 "inserted": result.upserted_count,
                 "updated": result.modified_count,
