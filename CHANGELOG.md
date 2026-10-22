@@ -271,6 +271,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract BaseVerificationService to remove calendar/matrix verification duplication
 - *(backend)* Remove duplication across targets/progress aggregation pipelines
 - *(backend)* Extract shared cache-with-type-size lookup in caches_lookup.py
+- *(backend)* Extract _resolve_lat_lon helper in my_challenge_targets.py
 
 ### 📚 Documentation
 
