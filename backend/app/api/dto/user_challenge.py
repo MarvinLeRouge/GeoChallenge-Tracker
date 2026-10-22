@@ -39,8 +39,8 @@ class ChallengeMini(BaseModel):
     name: str
 
 
-class UserChallengeListItemOut(BaseModel):
-    """UserChallenge list item.
+class UserChallengeBaseOut(BaseModel):
+    """Fields shared by every UserChallenge response shape (list item and detail).
 
     Attributes:
         id (PyObjectId): UserChallenge id.
@@ -49,8 +49,6 @@ class UserChallengeListItemOut(BaseModel):
         effective_status (str): Effective status.
         progress (dict | None): Simplified snapshot.
         updated_at (datetime | None): Last update.
-        challenge (ChallengeMini): Challenge reference.
-        cache (CacheDetail): Linked cache reference.
     """
 
     id: PyObjectId
@@ -59,6 +57,16 @@ class UserChallengeListItemOut(BaseModel):
     effective_status: str
     progress: dict[str, Any] | None = None
     updated_at: datetime | None = None
+
+
+class UserChallengeListItemOut(UserChallengeBaseOut):
+    """UserChallenge list item.
+
+    Attributes:
+        challenge (ChallengeMini): Challenge reference.
+        cache (CacheDetail): Linked cache reference.
+    """
+
     challenge: ChallengeMini
     cache: CacheDetail
 
@@ -109,16 +117,10 @@ class ChallengeDetail(BaseModel):
     description: str | None = None
 
 
-class DetailResponse(BaseModel):
+class DetailResponse(UserChallengeBaseOut):
     """UserChallenge detail response.
 
     Attributes:
-        id (PyObjectId): UserChallenge id.
-        status (str): Declared status.
-        computed_status (str | None): Computed status.
-        effective_status (str): Effective status.
-        progress (dict | None): Simplified snapshot.
-        updated_at (datetime | None): Last update.
         created_at (datetime | None): Creation date.
         manual_override (bool | None): Active override.
         override_reason (str | None): Override reason.
@@ -128,12 +130,6 @@ class DetailResponse(BaseModel):
         cache (CacheDetail): Cache detail.
     """
 
-    id: PyObjectId
-    status: str
-    computed_status: str | None = None
-    effective_status: str
-    progress: dict[str, Any] | None = None
-    updated_at: datetime | None = None
     created_at: datetime | None = None
     manual_override: bool | None = None
     override_reason: str | None = None

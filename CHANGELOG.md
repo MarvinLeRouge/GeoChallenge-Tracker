@@ -277,6 +277,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract extract_gc_codes_from_upload shared by targets_stats.py and my_profile.py
 - *(backend)* Extract shared referential name normalization from size/type helpers
 - *(backend)* Extract shared challenge/cache join pipeline in user_challenge_query.py
+- *(backend)* Factor UserChallengeBaseOut to remove field duplication in DTOs
 
 ### 📚 Documentation
 
