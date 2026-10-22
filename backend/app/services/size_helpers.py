@@ -6,20 +6,7 @@ Separated from processing logic to improve testability and maintainability.
 
 from bson import ObjectId
 
-
-def _normalize_name(name: str | None) -> str:
-    """Normalize a label for referential matching.
-
-    Description:
-        Strips and applies `casefold()` for case-insensitive comparisons (e.g. "micro" vs "Micro").
-
-    Args:
-        name (str | None): Source label.
-
-    Returns:
-        str: Normalized label (possibly an empty string).
-    """
-    return (name or "").strip().casefold()
+from app.services.referential_name_matching import normalize_referential_name as _normalize_name
 
 
 def get_size_by_name(
