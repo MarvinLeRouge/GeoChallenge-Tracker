@@ -8,12 +8,35 @@ from datetime import date
 from typing import Any
 
 from bson import ObjectId
+from fastapi import HTTPException, UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.middleware import read_upload_file_with_limit
 from app.core.utils import utcnow
 
 # Regex GC codes — case-insensitive, word boundary to avoid partial matches
 _GC_PATTERN = re.compile(r"\bGC[A-Z0-9]+\b", re.IGNORECASE)
+
+
+async def extract_gc_codes_from_upload(file: UploadFile, max_upload_bytes: int) -> list[str]:
+    """Read an uploaded text file (size-limited) and extract its GC codes.
+
+    Args:
+        file: Uploaded plain-text file.
+        max_upload_bytes: Maximum allowed cumulative size, in bytes.
+
+    Returns:
+        list[str]: Deduplicated GC codes (see `extract_gc_codes`).
+
+    Raises:
+        HTTPException: 400 if the content can't be decoded as text.
+    """
+    content = await read_upload_file_with_limit(file, max_upload_bytes)
+    try:
+        text = content.decode("utf-8", errors="replace")
+    except Exception as err:
+        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
+    return extract_gc_codes(text)
 
 
 def extract_gc_codes(text: str) -> list[str]:

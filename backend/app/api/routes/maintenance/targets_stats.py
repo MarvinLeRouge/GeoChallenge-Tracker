@@ -10,10 +10,9 @@ from fastapi import File, HTTPException, UploadFile, status
 from fastapi import Path as ApiPath
 
 from app.api.dto.user_stats import UserStatsOut
-from app.core.middleware import read_upload_file_with_limit
 from app.core.settings import get_settings
 from app.db.mongodb import get_db
-from app.services.found_caches_sync import extract_gc_codes, sync_found_caches
+from app.services.found_caches_sync import extract_gc_codes_from_upload, sync_found_caches
 from app.services.targets_service import evaluate_all_for_user
 from app.services.user_stats import get_user_stats
 
@@ -80,14 +79,7 @@ async def maintenance_sync_found_caches(
         raise HTTPException(status_code=422, detail="Invalid user_id.") from err
 
     settings = get_settings()
-    content = await read_upload_file_with_limit(file, settings.max_upload_bytes)
-
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except Exception as err:
-        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
-
-    gc_codes = extract_gc_codes(text)
+    gc_codes = await extract_gc_codes_from_upload(file, settings.max_upload_bytes)
     db = get_db()
     return await sync_found_caches(db=db, user_id=uid, gc_codes=gc_codes)
 

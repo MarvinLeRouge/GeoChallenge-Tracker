@@ -274,6 +274,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract _resolve_lat_lon helper in my_challenge_targets.py
 - *(backend)* Extract _read_backup_metadata helper in maintenance/backups.py
 - *(backend)* Extract type/size filter and pagination helpers in caches_geo_search.py
+- *(backend)* Extract extract_gc_codes_from_upload shared by targets_stats.py and my_profile.py
 
 ### 📚 Documentation
 
