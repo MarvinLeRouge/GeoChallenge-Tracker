@@ -17,6 +17,7 @@ from bson import ObjectId
 from pymongo import ASCENDING
 
 from app.db.mongodb import get_collection
+from app.services.mongo_pipeline_helpers import extract_rounded_dt_cells
 from app.services.progress_snapshot_helpers import (
     _build_base_match_pipeline,
     _build_score_expression,
@@ -38,30 +39,7 @@ async def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str
         int: Number of matching found caches.
     """
     fc = await get_collection("found_caches")
-    pipeline: list[Mapping[str, Any]] = [
-        {"$match": {"user_id": user_id}},
-        {
-            "$lookup": {
-                "from": "caches",
-                "localField": "cache_id",
-                "foreignField": "_id",
-                "as": "cache",
-            }
-        },
-        {"$unwind": "$cache"},
-    ]
-
-    # Apply match on cache.*
-    conds: list[Mapping[str, Any]] = []
-    for field, cond in match_caches.items():
-        if isinstance(cond, list):
-            # multiple conditions for the same field => all must hold
-            for c in cond:
-                conds.append({f"cache.{field}": c})
-        else:
-            conds.append({f"cache.{field}": cond})
-    if conds:
-        pipeline.append({"$match": {"$and": conds}})
+    pipeline = _build_base_match_pipeline(user_id, match_caches)
     pipeline.append({"$count": "current_count"})
     cursor = fc.aggregate(pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
@@ -117,12 +95,7 @@ async def _aggregate_dt_matrix(
     ]
     cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
-    found_cells: set[tuple[float, float]] = set()
-    for r in rows:
-        d = r["_id"].get("d")
-        t = r["_id"].get("t")
-        if d is not None and t is not None:
-            found_cells.add((round(float(d), 1), round(float(t), 1)))
+    found_cells = extract_rounded_dt_cells(rows)
     return sum(1 for d in d_values for t in t_values if (d, t) in found_cells)
 
 
@@ -190,27 +163,7 @@ async def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: in
     if n <= 0:
         return None
     fc = await get_collection("found_caches")
-    pipeline: list[Mapping[str, Any]] = [
-        {"$match": {"user_id": user_id}},
-        {
-            "$lookup": {
-                "from": "caches",
-                "localField": "cache_id",
-                "foreignField": "_id",
-                "as": "cache",
-            }
-        },
-        {"$unwind": "$cache"},
-    ]
-    and_conds: list[Mapping[str, Any]] = []
-    for field, cond in match_caches.items():
-        if isinstance(cond, list):
-            for c in cond:
-                and_conds.append({f"cache.{field}": c})
-        else:
-            and_conds.append({f"cache.{field}": cond})
-    if and_conds:
-        pipeline.append({"$match": {"$and": and_conds}})
+    pipeline = _build_base_match_pipeline(user_id, match_caches)
     pipeline += [
         {"$sort": {"found_date": ASCENDING}},
         {"$skip": max(0, n - 1)},
