@@ -17,6 +17,24 @@ from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BAC
 from ._router import router
 
 
+def _read_backup_metadata(backup_file: Path) -> dict[str, Any] | None:
+    """Read the JSON metadata embedded in a backup zip.
+
+    Args:
+        backup_file (Path): Path to the backup `.zip` file.
+
+    Returns:
+        dict | None: Parsed metadata, or None if the archive has no JSON entry.
+    """
+    with ZipFile(backup_file, "r") as zf:
+        # the internal JSON is named f"{base_name}.json"
+        # if the name is unknown, take the first .json entry
+        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
+        if not json_name:
+            return None
+        return json.loads(zf.read(json_name).decode("utf-8"))
+
+
 # DONE: [BACKLOG] Route /maintenance/db_cleanup/backups (GET) verified
 @router.get("/db_cleanup/backups")
 async def cleanup_list_backups():
@@ -25,21 +43,17 @@ async def cleanup_list_backups():
 
     for backup_file in sorted(CLEANUP_BACKUP_DIR.glob("*_cleanup.zip"), reverse=True):
         try:
-            with ZipFile(backup_file, "r") as zf:
-                # the internal JSON is named f"{base_name}.json"
-                # if the name is unknown, take the first .json entry
-                json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-                if json_name:
-                    data = json.loads(zf.read(json_name).decode("utf-8"))
-                    backups.append(
-                        {
-                            "filename": backup_file.name,
-                            "timestamp": data.get("timestamp", "unknown"),
-                            "total_deleted": data.get("total_deleted", 0),
-                            "collections": list(data.get("deleted_by_collection", {}).keys()),
-                            "size_kb": round(backup_file.stat().st_size / 1024, 2),
-                        }
-                    )
+            data = _read_backup_metadata(backup_file)
+            if data:
+                backups.append(
+                    {
+                        "filename": backup_file.name,
+                        "timestamp": data.get("timestamp", "unknown"),
+                        "total_deleted": data.get("total_deleted", 0),
+                        "collections": list(data.get("deleted_by_collection", {}).keys()),
+                        "size_kb": round(backup_file.stat().st_size / 1024, 2),
+                    }
+                )
         except Exception as e:
             # On read error, report it but do not crash
             backups.append({"filename": backup_file.name, "error": str(e)})
@@ -85,13 +99,9 @@ def _describe_cleanup_backup_file(backup_file: Path) -> dict[str, Any] | None:
     Returns:
         dict | None: Summary entry, or None if the archive has no JSON metadata.
     """
-    with ZipFile(backup_file, "r") as zf:
-        # the internal JSON is named f"{base_name}.json"
-        # if the name is unknown, take the first .json entry
-        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-        if not json_name:
-            return None
-        data = json.loads(zf.read(json_name).decode("utf-8"))
+    data = _read_backup_metadata(backup_file)
+    if data is None:
+        return None
     return {
         "filename": backup_file.name,
         "timestamp": data.get("timestamp", "unknown"),
@@ -128,17 +138,12 @@ def _describe_full_backup_file(backup_file: Path) -> dict[str, Any]:
     Returns:
         dict: Summary entry, or an error entry if the archive has no JSON metadata.
     """
-    with ZipFile(backup_file, "r") as zf:
-        # the internal JSON is named f"{base_name}.json"
-        # if the name is unknown, take the first .json entry
-        json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
-        if not json_name:
-            # If no JSON file is found in the ZIP
-            return {
-                "filename": backup_file.name,
-                "error": "No JSON metadata file found in archive",
-            }
-        data = json.loads(zf.read(json_name).decode("utf-8"))
+    data = _read_backup_metadata(backup_file)
+    if data is None:
+        return {
+            "filename": backup_file.name,
+            "error": "No JSON metadata file found in archive",
+        }
     return {
         "filename": backup_file.name,
         "timestamp": data.get("timestamp", "unknown"),
