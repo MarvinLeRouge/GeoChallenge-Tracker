@@ -518,8 +518,8 @@ conservés, non supprimés).
 **Contexte :** Le seeding des zones administratives (`administrative_zones`) ne couvre aujourd'hui que la France, via un pipeline dédié (`scripts/seed_zones.py` + `config/geo_sources.yml`) qui consomme des fichiers source INSEE bruts (propriété `code` = numéro de région/département nu, sans préfixe pays). L'exploration de nouveaux pays (Allemagne, Espagne, Royaume-Uni) montre que les sources externes envisagées (`geoBoundaries`, `geonames`) ne sont pas uniformes d'un pays à l'autre :
 
 - **Allemagne :** `geoBoundaries` fournit un champ `shapeISO` directement exploitable (`DE-BW`, etc.)
-- **Espagne :** `shapeISO` est cassé dans `geoBoundaries` (valeur `"ESP"` identique sur les 19 régions) — nécessite une jointure par nom avec les codes `geonames`
-- **Royaume-Uni :** le niveau ADM1 de `geoBoundaries` ne compte que 4 entités (nations), trop grossier pour servir de niveau "région" — le niveau ADM2 (~185 comtés/unitary authorities) est plus pertinent
+- **Espagne :** `shapeISO` est cassé dans `geoBoundaries` (valeur `"ESP"` identique sur les 19 régions), ce qui nécessite une jointure par nom avec les codes `geonames`
+- **Royaume-Uni :** le niveau ADM1 de `geoBoundaries` ne compte que 4 entités (nations), trop grossier pour servir de niveau "région". Le niveau ADM2 (~185 comtés/unitary authorities) est plus pertinent
 - **France :** fichiers source INSEE déjà récupérés entre-temps, structure propre à l'INSEE, à intégrer ou non dans ce nouveau pipeline (voir périmètre ci-dessous)
 
 Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_admin_service.py::upload_zone_level`) est fixé par `~/projets/geo_json/CONTRACT.md` (`code` préfixé pays, `feature_code` brut, `nom`, `parent_code`, `bbox`).
@@ -528,7 +528,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - Un wrapper de normalisation unique, indépendant de tout pays, qui gère le calcul du `bbox` (Shapely), le préfixage du `code`, la résolution géométrique du `parent_code`, et l'écriture au format `CONTRACT.md`
 - Un profil déclaratif par pays (chemins de fichiers source, alias de noms pour les jointures, etc.) qui sélectionne un *handler*
 - Des handlers réutilisables entre pays plutôt qu'un handler par pays : `geoboundaries_direct` (DE), `geonames_join` (ES), `admin2_as_region` (GB), et potentiellement `insee_source` (FR) si la migration est décidée
-- Interface commune des handlers : retourner des tuples `(feature_code, nom, géométrie, parent_feature_code)` par niveau — le wrapper se charge du reste, de façon identique quel que soit le handler
+- Interface commune des handlers : retourner des tuples `(feature_code, nom, géométrie, parent_feature_code)` par niveau ; le wrapper se charge du reste, de façon identique quel que soit le handler
 
 **Éléments à couvrir lors de la préparation (avant implémentation) :**
 - Gestion des différentes sources (`geoBoundaries`, `geonames`, INSEE)
@@ -536,7 +536,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - Gestion de la synchronisation des fichiers normalisés avec les dossiers externes côté serveur (déploiement)
 - Décision de périmètre : migrer la France vers ce framework (handler `insee_source`) ou la laisser indéfiniment sur `seed_zones.py`
 
-**Point de vigilance identifié pendant la conception :** `geo_admin_service.py::upload_zone_level` (ligne 139) lit actuellement `feature_code` depuis `props["code"]` au lieu de `props["feature_code"]`, ce qui produirait des codes zone doublement préfixés (`FR-FR-84`) pour tout fichier réellement conforme à `CONTRACT.md`. Masqué par le fixture de test actuel (`_feature()` dans `test_geo_admin_service.py`, qui met la même valeur dans `code` et `feature_code`). Non traité ici (bugs suivis hors dépôt), mais bloquant pour cette fonctionnalité — à corriger avant tout upload réel de fichiers normalisés.
+**Point de vigilance identifié pendant la conception :** `geo_admin_service.py::upload_zone_level` (ligne 139) lit actuellement `feature_code` depuis `props["code"]` au lieu de `props["feature_code"]`, ce qui produirait des codes zone doublement préfixés (`FR-FR-84`) pour tout fichier réellement conforme à `CONTRACT.md`. Masqué par le fixture de test actuel (`_feature()` dans `test_geo_admin_service.py`, qui met la même valeur dans `code` et `feature_code`). Non traité ici (bugs suivis hors dépôt), mais bloquant pour cette fonctionnalité : à corriger avant tout upload réel de fichiers normalisés.
 
 **Dépendances :** `CONTRACT.md` (`~/projets/geo_json/`), scripts `download_geoboundaries.py` / `download_geonames.py` (`~/projets/geo_data/`).
 

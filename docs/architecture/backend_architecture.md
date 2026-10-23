@@ -67,9 +67,9 @@ The `services/zones/` subsystem assigns and exposes administrative zones for the
 | `zone_service.py` | MongoDB aggregations for the `/api/zones` endpoints |
 
 **Assignment pipeline (3 passes):**
-1. **Shapely STRtree** — exact, in-memory, fast point-in-polygon
-2. **Nominatim** — reverse geocoding for points outside any polygon (simplified coastlines, borders)
-3. **Nearest polygon** — final fallback within 0.1° (~10 km), skipped if Nominatim identifies a foreign point
+1. **Shapely STRtree**: exact, in-memory, fast point-in-polygon
+2. **Nominatim**: reverse geocoding for points outside any polygon (simplified coastlines, borders)
+3. **Nearest polygon**: final fallback within 0.1° (~10 km), skipped if Nominatim identifies a foreign point
 
 **MongoDB collection `administrative_zones`:**
 
@@ -96,7 +96,7 @@ Each document represents a zone (region or department):
 | `ZoneTypeStatItem` | `type_code`, `type_name`, `count` | Counter for a given type |
 | `ZoneTypeStatsResponse` | `code`, `name`, `type_counts` | Breakdown by type for a zone |
 
-**`cache_types` collection — `sort_order` field:**
+**`cache_types` collection, `sort_order` field:**
 
 Each document has a `sort_order` field (integer 1-13) that defines the canonical GC.com display order: traditional → mystery → letterbox → multi → wig → earth → virtual → webcam → locationless → event-regular → event-cito → event-mega → event-giga. `zone_service.get_zone_type_stats` sorts by this field.
 

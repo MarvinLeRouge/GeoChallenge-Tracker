@@ -62,7 +62,7 @@ frontend/src/
 
 ## Fonctionnalités spécifiques
 
-### Carte choroplèthe — Trouvées par zones (`ZonesMap.vue`)
+### Carte choroplèthe : trouvées par zones (`ZonesMap.vue`)
 
 **Route** : `/caches/zones`
 
@@ -80,14 +80,14 @@ La page `pages/caches/ZonesMap.vue` affiche une carte Leaflet interactive color�
 - `fetchZoneTypeStats(code, level?)` → `GET /api/zones/{code}/type-stats[?level=N]`
 - Le paramètre `level` est essentiel pour désambiguïser les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
 
-### Carte répartition par type — Types trouvés par zones (`ZoneTypeStatsMap.vue`)
+### Carte répartition par type : types trouvés par zones (`ZoneTypeStatsMap.vue`)
 
 **Route** : `/caches/zone-types`
 
-La page `pages/caches/ZoneTypeStatsMap.vue` affiche la même carte choroplèthe que `ZonesMap.vue` (couleur par densité de caches totales), mais le clic sur une zone ouvre un popover listant le nombre de caches trouvées pour chacun des 13 types — y compris les types à zéro.
+La page `pages/caches/ZoneTypeStatsMap.vue` affiche la même carte choroplèthe que `ZonesMap.vue` (couleur par densité de caches totales), mais le clic sur une zone ouvre un popover listant le nombre de caches trouvées pour chacun des 13 types, y compris les types à zéro.
 
 **Comportement :**
-- Toolbar région/département identique à `ZonesMap.vue` — pas de filtre par type (le breakdown affiche toujours tous les types)
+- Toolbar région/département identique à `ZonesMap.vue`, mais sans filtre par type (le breakdown affiche toujours tous les types)
 - Clic sur une zone → appel `fetchZoneTypeStats(code, level)` → popover avec tableau `[Nom du type | Compteur]`
 - Lignes à zéro : fond `bg-red-50`, italique, préfixe `XCircleIcon`
 - Compteurs formatés avec `toLocaleString("fr-FR")` (séparateur espace milliers)

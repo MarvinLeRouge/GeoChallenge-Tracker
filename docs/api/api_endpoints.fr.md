@@ -95,7 +95,7 @@
 - **Description** : Retourne les zones administratives avec le nombre de caches trouvées par l'utilisateur connecté. Seules les zones où l'utilisateur a au moins une cache trouvée sont retournées.
 - **Paramètres de requête** :
   - `country` *(obligatoire)* : code ISO pays, ex. `FR`
-  - `level` *(obligatoire)* : niveau administratif — `1` (régions) ou `2` (départements)
+  - `level` *(obligatoire)* : niveau administratif, soit `1` (régions), soit `2` (départements)
   - `type` *(optionnel)* : filtre sur un type de cache, ex. `traditional`
 - **Réponse** :
   ```json
@@ -114,7 +114,7 @@
 - **Paramètres de chemin** :
   - `code` : code de zone, ex. `FR-38`
 - **Paramètres de requête** :
-  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
+  - `level` *(optionnel)* : `1` ou `2`. Désambiguïse les codes partagés entre niveaux (ex. FR-93 = PACA région *et* Seine-Saint-Denis département)
   - `type` *(optionnel)* : filtre sur un type de cache
 - **Réponse** :
   ```json
@@ -135,7 +135,7 @@
 - **Paramètres de chemin** :
   - `code` : code de zone, ex. `FR-84`
 - **Paramètres de requête** :
-  - `level` *(optionnel)* : `1` ou `2` — désambiguïse les codes partagés entre niveaux
+  - `level` *(optionnel)* : `1` ou `2`. Désambiguïse les codes partagés entre niveaux
 - **Réponse** :
   ```json
   {
