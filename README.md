@@ -13,7 +13,6 @@
 [![CI](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions)
 [![Backend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=backend&label=backend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
 [![Frontend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=frontend&label=frontend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
-![Tests](https://img.shields.io/badge/Tests-1879%20passing-brightgreen)
 [![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds=3600)](LICENSE)
 
 ## Concept
@@ -74,8 +73,9 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 - **JWT** - JSON Web Token authentication
 - **Pydantic** - Data validation and configuration management
 - **Python-Multipart** - Multipart form data handling for uploads
-- **PassLib** - Secure password hashing
-- **Bcrypt** - Password hashing algorithm
+- **Passlib** - Password hashing abstraction (argon2id for new hashes)
+- **argon2-cffi** - Argon2id implementation used for password hashing
+- **bcrypt** - Kept only to verify legacy hashes, re-hashed to argon2id on login
 
 ### Frontend
 - **Vue.js 3** - JavaScript framework for user interfaces
@@ -94,13 +94,17 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 ### DevOps & Deployment
 - **Docker** - Containerization platform
 - **Docker Compose** - Tool to define and run multi-container applications
-- **Nginx** - Web server used as reverse proxy
+- **Traefik** - Reverse proxy with path-based routing, in dev and prod (TLS via Let's Encrypt in prod)
+- **Nginx** - Serves the production frontend build and the map tile cache
 - **MongoDB Atlas** - Cloud MongoDB service (externally hosted)
 
 ### Testing
 - **Pytest** - Testing framework for Python (backend)
 - **pytest-cov** - Coverage reporting for pytest
+- **Vitest** - Unit testing framework (frontend)
+- **Playwright** - End-to-end tests (specs written, not yet run in CI)
 - **Codecov** - Coverage tracking and reporting
+- **pip-audit / npm audit** - Dependency vulnerability scans in CI
 
 ---
 
@@ -119,8 +123,8 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 - Geographic search (within bounding box or radius around a point)
 - Visualization of caches on interactive map
 - Retrieval of caches by GC code or by identifier
-- **Choropleth map** — found caches per administrative zone (regions → departments drill-down)
-- **Per-type breakdown map** — choropleth map where clicking a zone shows found-cache counts broken down by all 13 cache types (including zeros), in a fixed canonical order
+- **Choropleth map**: found caches per administrative zone (regions → departments drill-down)
+- **Per-type breakdown map**: choropleth map where clicking a zone shows found-cache counts broken down by all 13 cache types (including zeros), in a fixed canonical order
 
 ### Challenge System
 - Automatic synchronization of user challenges
@@ -232,7 +236,7 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 ### Cache elevation (`/caches_elevation`)
 - `POST /caches_elevation/caches/elevation/backfill` - Backfill missing elevation (admin)
 
-### Maintenance (`/maintenance`) — admin only
+### Maintenance (`/maintenance`, admin only)
 - `GET /maintenance/db_cleanup` - Analyze database for orphans
 - `DELETE /maintenance/db_cleanup` - Execute orphan cleanup
 - `GET /maintenance/db_cleanup/backups` - List cleanup backup files
@@ -253,7 +257,9 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 ### 📁 Prerequisites
 - Docker & Docker Compose installed
 - Node.js (for frontend development)
-- A `.env` file or `MONGO_URI` environment variable available
+- A running Traefik instance attached to the external `traefik-public` Docker network, with a `web` entrypoint on port 80 (see [ADR-0004](docs/adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md))
+- `127.0.0.1 gc-tracker.marvinlerouge.local` in `/etc/hosts`
+- A `.env` file at the project root, created from `.env.example`
 
 ### ▶️ Development mode launch
 
@@ -261,35 +267,32 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 # Build and launch services
 docker compose up --build
 
-# Frontend is accessible at http://localhost:5173
-# Backend is accessible at http://localhost:8000
+# Frontend: http://gc-tracker.marvinlerouge.local
+# API: http://gc-tracker.marvinlerouge.local/api (Swagger UI at /api/docs)
+# Maildev (dev emails): http://localhost:1080
 ```
 
 ### 🔧 Configuration
 
-Create a `.env` file at the project root with the following variables:
+Copy `.env.example` to `.env` at the project root and fill in every value: the backend refuses to start if a required variable is missing (database, JWT, admin account, SMTP, elevation provider, upload limits). The values you must replace with your own are:
 
 ```env
-# Backend
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET_KEY=your_secret_key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-JWT_REFRESH_TOKEN_EXPIRE_MINUTES=43200
-
-# Frontend (in frontend/.env)
-VITE_API_URL=http://localhost:8000/api
+MONGODB_USER=your_mongodb_username
+MONGODB_PASSWORD=your_mongodb_password
+MONGODB_URI_TPL=mongodb+srv://[[MONGODB_USER]]:[[MONGODB_PASSWORD]]@cluster0.yourcluster.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_DB=your_database_name
+JWT_SECRET_KEY=your_jwt_secret_key
 ```
 
 ### 🧪 Running tests
 
 ```bash
-# Backend tests (1472 tests)
+# Backend tests
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
-# Frontend tests (407 tests)
+# Frontend tests
 npx vitest run frontend/tests/unit
 ```
 
@@ -299,26 +302,26 @@ npx vitest run frontend/tests/unit
 
 ### Build with commit date
 
-The `build.sh` script automatically updates the build date in `.env` using the last Git commit date.
+The `scripts/build.sh` script automatically updates the build date in `.env` using the last Git commit date.
 
 ```bash
-# Update BUILD_DATE and rebuild backend image
-./build.sh
+# Update BUILD_DATE in .env (run from the repository root)
+./scripts/build.sh
 
 # Then start the application
-docker-compose up
+docker compose up
 ```
 
-**Note**: The build date is displayed in the `/version` endpoint:
+**Note**: The build date is displayed in the `/api/version` endpoint:
 
 ```bash
-curl http://localhost:8000/version
+curl http://gc-tracker.marvinlerouge.local/api/version
 
 # Response:
 {
-  "version": "0.1.0",
+  "version": "x.y.z",
   "environment": "development",
-  "build_date": "2026-02-27T18:42:15+01:00"
+  "build_date": "YYYY-MM-DDTHH:MM:SS+00:00"
 }
 ```
 
