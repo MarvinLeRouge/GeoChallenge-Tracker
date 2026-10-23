@@ -13,7 +13,6 @@
 [![CI](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/MarvinLeRouge/GeoChallenge-Tracker/actions)
 [![Backend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=backend&label=backend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
 [![Frontend coverage](https://img.shields.io/codecov/c/github/MarvinLeRouge/GeoChallenge-Tracker?flag=frontend&label=frontend&logo=codecov)](https://app.codecov.io/gh/MarvinLeRouge/GeoChallenge-Tracker)
-![Tests](https://img.shields.io/badge/Tests-1879%20passing-brightgreen)
 [![License](https://img.shields.io/github/license/MarvinLeRouge/GeoChallenge-Tracker?cacheSeconds=3600)](LICENSE)
 
 ## Concept
@@ -74,8 +73,9 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 - **JWT** - Authentication par jetons web JSON
 - **Pydantic** - Validation de données et gestion des paramètres
 - **Python-Multipart** - Gestion du multipart form data pour les uploads
-- **PassLib** - Hashage sécurisé des mots de passe
-- **Bcrypt** - Algorithme de hashage pour les mots de passe
+- **Passlib** - Couche d'abstraction du hachage des mots de passe (argon2id pour les nouveaux hashes)
+- **argon2-cffi** - Implémentation d'argon2id utilisée pour le hachage des mots de passe
+- **bcrypt** - Conservé uniquement pour vérifier les anciens hashes, rehachés en argon2id à la connexion
 
 ### Frontend
 - **Vue.js 3** - Framework JavaScript pour les interfaces utilisateur
@@ -94,13 +94,17 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 ### DevOps & Déploiement
 - **Docker** - Plateforme de conteneurisation
 - **Docker Compose** - Outil pour définir et exécuter des applications multi-conteneurs
-- **Nginx** - Serveur web utilisé comme reverse proxy
+- **Traefik** - Reverse proxy avec routage par chemin, en dev et en prod (TLS via Let's Encrypt en prod)
+- **Nginx** - Sert le build de production du frontend et le cache de tuiles de la carte
 - **MongoDB Atlas** - Service cloud MongoDB (externement hébergé)
 
 ### Tests
 - **Pytest** - Framework de test pour Python (backend)
 - **pytest-cov** - Rapport de couverture pour pytest
+- **Vitest** - Framework de tests unitaires (frontend)
+- **Playwright** - Tests de bout en bout (specs écrites, pas encore exécutées en CI)
 - **Codecov** - Suivi et rapport de couverture de code
+- **pip-audit / npm audit** - Analyse des vulnérabilités des dépendances en CI
 
 ---
 
@@ -119,8 +123,8 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 - Recherche géographique (dans une bounding box ou dans un rayon autour d'un point)
 - Visualisation des caches sur carte interactive
 - Récupération de caches par code GC ou par identifiant
-- **Carte choroplèthe** — caches trouvées par zone administrative (drill-down régions → départements)
-- **Carte répartition par type** — carte choroplèthe où cliquer sur une zone affiche le nombre de caches trouvées pour chacun des 13 types (y compris les zéros), dans un ordre canonique fixe
+- **Carte choroplèthe** : caches trouvées par zone administrative (drill-down régions → départements)
+- **Carte répartition par type** : carte choroplèthe où cliquer sur une zone affiche le nombre de caches trouvées pour chacun des 13 types (y compris les zéros), dans un ordre canonique fixe
 
 ### Système de challenges
 - Synchronisation automatique des challenges utilisateurs
@@ -232,7 +236,7 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 ### Élévation des caches (`/caches_elevation`)
 - `POST /caches_elevation/caches/elevation/backfill` - Backfill de l'altitude manquante (admin)
 
-### Maintenance (`/maintenance`) — réservé admin
+### Maintenance (`/maintenance`, réservé admin)
 - `GET /maintenance/db_cleanup` - Analyse de la base de données pour orphelins
 - `DELETE /maintenance/db_cleanup` - Exécution du nettoyage des orphelins
 - `GET /maintenance/db_cleanup/backups` - Liste des sauvegardes de nettoyage
@@ -248,12 +252,14 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 
 ## 🐳 Installation & Lancement
 
-> MongoDB **doit être accessible depuis l’extérieur** (par ex : MongoDB Atlas)
+> MongoDB **doit être accessible depuis l'extérieur** (par ex : MongoDB Atlas)
 
 ### 📁 Pré-requis
 - Docker & Docker Compose installés
 - Node.js (pour développement frontend)
-- Un fichier `.env` ou une variable d'environnement `MONGO_URI` disponible
+- Une instance Traefik en cours d'exécution, rattachée au réseau Docker externe `traefik-public`, avec un entrypoint `web` sur le port 80 (voir [ADR-0004](docs/adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md))
+- `127.0.0.1 gc-tracker.marvinlerouge.local` dans `/etc/hosts`
+- Un fichier `.env` à la racine du projet, créé à partir de `.env.example`
 
 ### ▶️ Lancement en mode développement
 
@@ -261,35 +267,32 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 # Construire et lancer les services
 docker compose up --build
 
-# Le frontend est accessible à http://localhost:5173
-# Le backend est accessible à http://localhost:8000
+# Frontend : http://gc-tracker.marvinlerouge.local
+# API : http://gc-tracker.marvinlerouge.local/api (Swagger UI sur /api/docs)
+# Maildev (emails de dev) : http://localhost:1080
 ```
 
 ### 🔧 Configuration
 
-Créez un fichier `.env` à la racine du projet avec les variables suivantes :
+Copiez `.env.example` en `.env` à la racine du projet et renseignez toutes les valeurs : le backend refuse de démarrer s'il manque une variable obligatoire (base de données, JWT, compte admin, SMTP, fournisseur d'altitude, limites d'upload). Les valeurs à remplacer par les vôtres sont :
 
 ```env
-# Backend
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET_KEY=your_secret_key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-JWT_REFRESH_TOKEN_EXPIRE_MINUTES=43200
-
-# Frontend (dans frontend/.env)
-VITE_API_URL=http://localhost:8000/api
+MONGODB_USER=your_mongodb_username
+MONGODB_PASSWORD=your_mongodb_password
+MONGODB_URI_TPL=mongodb+srv://[[MONGODB_USER]]:[[MONGODB_PASSWORD]]@cluster0.yourcluster.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_DB=your_database_name
+JWT_SECRET_KEY=your_jwt_secret_key
 ```
 
 ### 🧪 Lancement des tests
 
 ```bash
-# Tests backend (1472 tests)
+# Tests backend
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
-# Tests frontend (407 tests)
+# Tests frontend
 npx vitest run frontend/tests/unit
 ```
 
@@ -299,26 +302,26 @@ npx vitest run frontend/tests/unit
 
 ### Build avec date de commit
 
-Le script `build.sh` met à jour automatiquement la date de build dans `.env` en utilisant la date du dernier commit Git.
+Le script `scripts/build.sh` met à jour automatiquement la date de build dans `.env` en utilisant la date du dernier commit Git.
 
 ```bash
-# Mettre à jour BUILD_DATE et rebuilder l'image backend
-./build.sh
+# Met à jour BUILD_DATE dans .env (à lancer depuis la racine du dépôt)
+./scripts/build.sh
 
 # Puis lancer l'application
-docker-compose up
+docker compose up
 ```
 
-**Note** : La date de build est affichée dans l'endpoint `/version` :
+**Note** : La date de build est affichée dans l'endpoint `/api/version` :
 
 ```bash
-curl http://localhost:8000/version
+curl http://gc-tracker.marvinlerouge.local/api/version
 
 # Réponse :
 {
-  "version": "0.1.0",
+  "version": "x.y.z",
   "environment": "development",
-  "build_date": "2026-02-27T18:42:15+01:00"
+  "build_date": "YYYY-MM-DDTHH:MM:SS+00:00"
 }
 ```
 

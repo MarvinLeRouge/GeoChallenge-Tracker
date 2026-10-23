@@ -346,6 +346,7 @@ To regenerate locally, run `npm run changelog`.
 - *(roadmap)* Document frontend npm audit vulnerabilities as item 8.8
 - *(root)* Move French community-health docs into docs/i18n/fr
 - Align readme tagline with repository description
+- *(readme)* Align readme with current stack, urls and tooling
 
 ### 🧪 Testing
 
