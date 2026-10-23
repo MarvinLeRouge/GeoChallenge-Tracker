@@ -347,6 +347,7 @@ To regenerate locally, run `npm run changelog`.
 - *(root)* Move French community-health docs into docs/i18n/fr
 - Align readme tagline with repository description
 - *(readme)* Align readme with current stack, urls and tooling
+- *(env)* Document maildev smtp settings for docker dev
 
 ### 🧪 Testing
 
