@@ -348,6 +348,7 @@ To regenerate locally, run `npm run changelog`.
 - Align readme tagline with repository description
 - *(readme)* Align readme with current stack, urls and tooling
 - *(env)* Document maildev smtp settings for docker dev
+- Replace em dashes in docs with plain punctuation
 
 ### 🧪 Testing
 

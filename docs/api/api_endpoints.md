@@ -95,7 +95,7 @@
 - **Description**: Returns administrative zones with the number of caches found by the current user. Only zones where the user has at least one found cache are returned.
 - **Query parameters**:
   - `country` *(required)*: ISO country code, e.g. `FR`
-  - `level` *(required)*: administrative level — `1` (regions) or `2` (departments)
+  - `level` *(required)*: administrative level, either `1` (regions) or `2` (departments)
   - `type` *(optional)*: filter on a cache type, e.g. `traditional`
 - **Response**:
   ```json
@@ -114,7 +114,7 @@
 - **Path parameters**:
   - `code`: zone code, e.g. `FR-38`
 - **Query parameters**:
-  - `level` *(optional)*: `1` or `2` — disambiguates codes shared across levels (e.g. FR-93 = PACA region *and* Seine-Saint-Denis department)
+  - `level` *(optional)*: `1` or `2`. Disambiguates codes shared across levels (e.g. FR-93 = PACA region *and* Seine-Saint-Denis department)
   - `type` *(optional)*: filter on a cache type
 - **Response**:
   ```json
@@ -135,7 +135,7 @@
 - **Path parameters**:
   - `code`: zone code, e.g. `FR-84`
 - **Query parameters**:
-  - `level` *(optional)*: `1` or `2` — disambiguates codes shared across levels
+  - `level` *(optional)*: `1` or `2`. Disambiguates codes shared across levels
 - **Response**:
   ```json
   {

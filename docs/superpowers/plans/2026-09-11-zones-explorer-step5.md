@@ -183,9 +183,9 @@ git add backend/app/api/routes/referentials.py backend/tests/unit/test_referenti
 git commit -m "feat(backend): add GET /countries referential endpoint
 
 Modified files:
-- backend/app/api/routes/referentials.py — add GET /countries
-- backend/tests/unit/test_referentials_countries.py — unit tests for the new route
-- backend/tests/integration/test_endpoints_meta_referentials.py — integration smoke test"
+- backend/app/api/routes/referentials.py: add GET /countries
+- backend/tests/unit/test_referentials_countries.py: unit tests for the new route
+- backend/tests/integration/test_endpoints_meta_referentials.py: integration smoke test"
 ```
 
 ---
@@ -393,10 +393,10 @@ git add backend/config/geo_sources.yml backend/scripts/rename_fr_geojson_files.p
 git commit -m "chore(backend): rename FR geojson files to the adm1/adm2 convention
 
 Modified files:
-- backend/config/geo_sources.yml — dest paths adm1.geojson/adm2.geojson
-- backend/scripts/rename_fr_geojson_files.py — one-shot geojson_file migration
-- backend/tests/unit/test_zone_assigner.py, backend/tests/integration/test_endpoints_zones.py — updated fixture paths
-- docs/api/api_endpoints.md, .fr.md, docs/architecture/backend_architecture.md, .fr.md, docs/architecture/frontend_architecture.md, .fr.md, docs/guides/backend_developer_guide.md, .fr.md — updated filename references"
+- backend/config/geo_sources.yml: dest paths adm1.geojson/adm2.geojson
+- backend/scripts/rename_fr_geojson_files.py: one-shot geojson_file migration
+- backend/tests/unit/test_zone_assigner.py, backend/tests/integration/test_endpoints_zones.py: updated fixture paths
+- docs/api/api_endpoints.md, .fr.md, docs/architecture/backend_architecture.md, .fr.md, docs/architecture/frontend_architecture.md, .fr.md, docs/guides/backend_developer_guide.md, .fr.md: updated filename references"
 ```
 
 - [ ] **Step 11: Manual, environment-specific follow-up (flag to the user, do not attempt yourself)**
@@ -735,11 +735,11 @@ git add backend/app/services/zones/geo_admin_service.py backend/app/api/dto/geo_
 git commit -m "feat(backend): add GET /admin/geo/missing-countries endpoint
 
 Modified files:
-- backend/app/services/zones/geo_admin_service.py — new service, get_missing_countries()
-- backend/app/api/dto/geo_admin.py — new DTOs for /admin/geo
-- backend/app/api/routes/admin_geo.py — new admin-only router
-- backend/app/api/routes/__init__.py — register admin_geo_router
-- backend/tests/unit/test_geo_admin_service.py, backend/tests/unit/test_admin_geo_routes.py — unit tests"
+- backend/app/services/zones/geo_admin_service.py: new service, get_missing_countries()
+- backend/app/api/dto/geo_admin.py: new DTOs for /admin/geo
+- backend/app/api/routes/admin_geo.py: new admin-only router
+- backend/app/api/routes/__init__.py: register admin_geo_router
+- backend/tests/unit/test_geo_admin_service.py, backend/tests/unit/test_admin_geo_routes.py: unit tests"
 ```
 
 ---
@@ -1172,10 +1172,10 @@ git add backend/app/services/zones/geo_admin_service.py backend/app/api/dto/geo_
 git commit -m "feat(backend): add POST /admin/geo/{country_code}/upload endpoint
 
 Modified files:
-- backend/app/services/zones/geo_admin_service.py — add upload_zone_level()
-- backend/app/api/dto/geo_admin.py — add GeoUploadResponse
-- backend/app/api/routes/admin_geo.py — add the upload route
-- backend/tests/unit/test_geo_admin_service.py, backend/tests/unit/test_admin_geo_routes.py — unit tests"
+- backend/app/services/zones/geo_admin_service.py: add upload_zone_level()
+- backend/app/api/dto/geo_admin.py: add GeoUploadResponse
+- backend/app/api/routes/admin_geo.py: add the upload route
+- backend/tests/unit/test_geo_admin_service.py, backend/tests/unit/test_admin_geo_routes.py: unit tests"
 ```
 
 ---
@@ -1310,9 +1310,9 @@ git add frontend/src/types/zones.ts frontend/src/composables/useZones.ts fronten
 git commit -m "feat(frontend): add Country type and fetchCountries()
 
 Modified files:
-- frontend/src/types/zones.ts — add Country interface
-- frontend/src/composables/useZones.ts — add fetchCountries()
-- frontend/tests/unit/use-zones.spec.ts — tests for fetchCountries"
+- frontend/src/types/zones.ts: add Country interface
+- frontend/src/composables/useZones.ts: add fetchCountries()
+- frontend/tests/unit/use-zones.spec.ts: tests for fetchCountries"
 ```
 
 ---
@@ -1489,8 +1489,8 @@ git add frontend/src/components/zones/TypeFilterDropdown.vue frontend/tests/unit
 git commit -m "feat(frontend): add TypeFilterDropdown checkbox multi-select
 
 Modified files:
-- frontend/src/components/zones/TypeFilterDropdown.vue — new reusable component
-- frontend/tests/unit/type-filter-dropdown.spec.ts — unit tests"
+- frontend/src/components/zones/TypeFilterDropdown.vue: new reusable component
+- frontend/tests/unit/type-filter-dropdown.spec.ts: unit tests"
 ```
 
 ---
@@ -1757,8 +1757,8 @@ git add frontend/src/pages/caches/ZonesExplorer.vue frontend/tests/unit/zones-ex
 git commit -m "feat(frontend): add ZonesExplorer World view
 
 Modified files:
-- frontend/src/pages/caches/ZonesExplorer.vue — new page, World (level 0) view
-- frontend/tests/unit/zones-explorer.spec.ts — unit tests for the World view"
+- frontend/src/pages/caches/ZonesExplorer.vue: new page, World (level 0) view
+- frontend/tests/unit/zones-explorer.spec.ts: unit tests for the World view"
 ```
 
 ---
@@ -2138,8 +2138,8 @@ git add frontend/src/pages/caches/ZonesExplorer.vue frontend/tests/unit/zones-ex
 git commit -m "feat(frontend): add ZonesExplorer Country choropleth view
 
 Modified files:
-- frontend/src/pages/caches/ZonesExplorer.vue — Country (level 1) choropleth, type filter, back navigation
-- frontend/tests/unit/zones-explorer.spec.ts — unit tests for the Country view"
+- frontend/src/pages/caches/ZonesExplorer.vue: Country (level 1) choropleth, type filter, back navigation
+- frontend/tests/unit/zones-explorer.spec.ts: unit tests for the Country view"
 ```
 
 ---
@@ -2390,8 +2390,8 @@ git add frontend/src/pages/caches/ZonesExplorer.vue frontend/tests/unit/zones-ex
 git commit -m "feat(frontend): add ZonesExplorer Region view and zone-detail popup
 
 Modified files:
-- frontend/src/pages/caches/ZonesExplorer.vue — Region (level 2) zoom drill-down, shared popup, type-filter reload
-- frontend/tests/unit/zones-explorer.spec.ts — unit tests for Region view and popup"
+- frontend/src/pages/caches/ZonesExplorer.vue: Region (level 2) zoom drill-down, shared popup, type-filter reload
+- frontend/tests/unit/zones-explorer.spec.ts: unit tests for Region view and popup"
 ```
 
 ---
@@ -2482,8 +2482,8 @@ git add frontend/src/router/index.ts frontend/src/app/AppShell.vue
 git commit -m "feat(frontend): wire ZonesExplorer into the router and nav
 
 Modified files:
-- frontend/src/router/index.ts — add /caches/zones-explorer route
-- frontend/src/app/AppShell.vue — add nav entry, restore GlobeEuropeAfricaIcon import"
+- frontend/src/router/index.ts: add /caches/zones-explorer route
+- frontend/src/app/AppShell.vue: add nav entry, restore GlobeEuropeAfricaIcon import"
 ```
 
 ---

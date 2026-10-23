@@ -67,9 +67,9 @@ Le sous-système `services/zones/` assigne et expose des zones administratives p
 | `zone_service.py` | Agrégations MongoDB pour les endpoints `/api/zones` |
 
 **Pipeline d'assignation (3 passes) :**
-1. **Shapely STRtree** — point-in-polygon exact, en mémoire, rapide
-2. **Nominatim** — reverse geocoding pour les points hors polygone (côtes simplifiées, frontières)
-3. **Polygone le plus proche** — fallback final à moins de 0,1° (~10 km), ignoré si Nominatim identifie un point étranger
+1. **Shapely STRtree** : point-in-polygon exact, en mémoire, rapide
+2. **Nominatim** : reverse geocoding pour les points hors polygone (côtes simplifiées, frontières)
+3. **Polygone le plus proche** : fallback final à moins de 0,1° (~10 km), ignoré si Nominatim identifie un point étranger
 
 **Collection MongoDB `administrative_zones` :**
 
@@ -96,7 +96,7 @@ Chaque document représente une zone (région ou département) :
 | `ZoneTypeStatItem` | `type_code`, `type_name`, `count` | Compteur pour un type donné |
 | `ZoneTypeStatsResponse` | `code`, `name`, `type_counts` | Répartition par type pour une zone |
 
-**Collection `cache_types` — champ `sort_order` :**
+**Collection `cache_types`, champ `sort_order` :**
 
 Chaque document possède un champ `sort_order` (entier 1–13) qui définit l'ordre d'affichage canonique GC.com : traditional → mystery → letterbox → multi → wig → earth → virtual → webcam → locationless → event-regular → event-cito → event-mega → event-giga. `zone_service.get_zone_type_stats` trie par ce champ.
 

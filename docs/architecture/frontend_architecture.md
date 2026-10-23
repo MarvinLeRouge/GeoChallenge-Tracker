@@ -62,7 +62,7 @@ frontend/src/
 
 ## Specific features
 
-### Choropleth map — Found by zone (`ZonesMap.vue`)
+### Choropleth map: found by zone (`ZonesMap.vue`)
 
 **Route**: `/caches/zones`
 
@@ -80,14 +80,14 @@ The `pages/caches/ZonesMap.vue` page displays an interactive Leaflet map colored
 - `fetchZoneTypeStats(code, level?)` → `GET /api/zones/{code}/type-stats[?level=N]`
 - The `level` parameter is essential to disambiguate codes shared across levels (e.g. FR-93 = PACA region *and* Seine-Saint-Denis department)
 
-### Type breakdown map — Types found by zone (`ZoneTypeStatsMap.vue`)
+### Type breakdown map: types found by zone (`ZoneTypeStatsMap.vue`)
 
 **Route**: `/caches/zone-types`
 
-The `pages/caches/ZoneTypeStatsMap.vue` page displays the same choropleth map as `ZonesMap.vue` (colored by total cache density), but clicking a zone opens a popover listing the number of found caches for each of the 13 types — including types with zero.
+The `pages/caches/ZoneTypeStatsMap.vue` page displays the same choropleth map as `ZonesMap.vue` (colored by total cache density), but clicking a zone opens a popover listing the number of found caches for each of the 13 types, including types with zero.
 
 **Behavior:**
-- Region/department toolbar identical to `ZonesMap.vue` — no type filter (the breakdown always shows every type)
+- Region/department toolbar identical to `ZonesMap.vue`, but with no type filter (the breakdown always shows every type)
 - Clicking a zone → calls `fetchZoneTypeStats(code, level)` → popover with a `[Type name | Count]` table
 - Zero-count rows: `bg-red-50` background, italic, `XCircleIcon` prefix
 - Counters formatted with `toLocaleString("fr-FR")` (thousands space separator)
