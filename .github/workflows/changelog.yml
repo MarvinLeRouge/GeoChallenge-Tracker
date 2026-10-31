@@ -34,6 +34,7 @@ jobs:
       # straight to it. Reuses the same branch across runs, updating the
       # existing open PR rather than piling up new ones.
       - name: Open pull request if changed
+        id: cpr
         uses: peter-evans/create-pull-request@v7
         with:
           add-paths: CHANGELOG.md
@@ -43,3 +44,9 @@ jobs:
           branch: chore/update-changelog
           delete-branch: true
           labels: changelog
+
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        run: gh pr merge --auto --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
