@@ -439,3 +439,4 @@ To regenerate locally, run `npm run changelog`.
 - Add local post-commit hook for changelog generation
 - *(tests)* Remove dead manual debug scripts for user challenge tasks
 - *(gitignore)* Ignore codegraph folder
+- *(changelog)* Auto-merge the catch-up CHANGELOG.md PR
