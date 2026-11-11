@@ -1,4 +1,4 @@
-black==26.5.1
+black==26.10.1
 CacheControl==0.14.4
 coverage==7.10.7
 cyclonedx-python-lib==11.11.0
