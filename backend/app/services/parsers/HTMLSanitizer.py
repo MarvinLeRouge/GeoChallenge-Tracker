@@ -3,7 +3,7 @@
 
 from urllib.parse import urlparse
 
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser
 
 
 class HTMLSanitizer:
@@ -212,7 +212,7 @@ class HTMLSanitizer:
         """
         if not html:
             return ""
-        tree = HTMLParser(html)
+        tree = LexborHTMLParser(html)
         # si on a un <body>, sérialiser ses enfants ; sinon root
         root = tree.body or tree.root
         self.remove_empty_nodes(root)

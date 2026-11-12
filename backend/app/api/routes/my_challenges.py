@@ -84,7 +84,7 @@ async def list_uc(
     user_id: CurrentUserId,
     status: str | None = Query(
         default=None,
-        enum=["pending", "accepted", "dismissed", "completed"],
+        json_schema_extra={"enum": ["pending", "accepted", "dismissed", "completed"]},
         description="Filter by UserChallenge status.",
     ),
     page: int = Query(1, ge=1, description="Page number (≥1)."),

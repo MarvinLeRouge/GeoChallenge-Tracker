@@ -443,3 +443,4 @@ To regenerate locally, run `npm run changelog`.
 - *(gitignore)* Ignore codegraph folder
 - *(changelog)* Auto-merge the catch-up CHANGELOG.md PR
 - *(security)* Replace passlib with argon2-cffi and bcrypt
+- *(backend)* Upgrade dependencies to latest
