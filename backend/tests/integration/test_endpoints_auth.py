@@ -297,10 +297,6 @@ class TestAuthEmailVerification:
 class TestAuthRefreshToken:
     """Tests des endpoints de refresh token."""
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="FIX-003: stale test, refresh token is now a cookie, not in the JSON body",
-    )
     @pytest.mark.asyncio
     async def test_refresh_token_valid(self, client, seeded_admin):
         """Test qu'un refresh token valide génère un nouvel access token."""
@@ -309,10 +305,12 @@ class TestAuthRefreshToken:
             "/auth/login", data={"username": "testadmin", "password": "Test123!"}
         )
         assert login_response.status_code == 200
-        refresh_token = login_response.json()["refresh_token"]
+        # The refresh token travels in an HttpOnly cookie, not in the JSON body
+        assert "refresh_token" not in login_response.json()
+        assert login_response.cookies.get("refresh_token")
 
-        # Utiliser le refresh token
-        response = await client.post("/auth/refresh", json={"refresh_token": refresh_token})
+        # The client's cookie jar sends it back, as a browser would
+        response = await client.post("/auth/refresh")
 
         assert response.status_code == 200
         body = response.json()

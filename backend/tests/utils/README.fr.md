@@ -107,7 +107,7 @@ ALLOW_REMOTE_TEST_DB=true uv run pytest tests/integration/ -v
 
 ### En CI/CD
 
-Le job `Backend: integration` (`.github/workflows/ci.yml`) démarre un service `mongo:7` jetable, seede les référentiels et les index (`app.db.seed_data`, `scripts/backfill_country_codes.py`) dans `geochallenge_ci_TEST`, puis lance `pytest tests/integration`. Aucune donnée de production n'est utilisée : les tests qui ont besoin du GPX d'exemple (absent du dépôt) sont ignorés (skip), et les tests cassés connus sont marqués `xfail(strict=True)` avec la tâche FIX qui les suit.
+Le job `Backend: integration` (`.github/workflows/ci.yml`) démarre un service `mongo:7` jetable, seede les référentiels et les index (`app.db.seed_data`, `scripts/backfill_country_codes.py`) dans `geochallenge_ci_TEST`, puis lance `pytest tests/integration`. Aucune donnée de production n'est utilisée : les tests qui ont besoin du GPX d'exemple (absent du dépôt) sont ignorés (skip).
 
 ---
 

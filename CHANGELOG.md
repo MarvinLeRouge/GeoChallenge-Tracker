@@ -402,6 +402,7 @@ To regenerate locally, run `npm run changelog`.
 - Add FR non-regression comparison script (metropolitan zones only)
 - *(routes)* Add coverage for maintenance, caches, auth, geocoding, elevation and targets routes
 - *(routes)* Cover all remaining routes files below 80 percent coverage
+- *(backend)* Repair stale integration tests
 
 ### ⚙️ Miscellaneous Tasks
 

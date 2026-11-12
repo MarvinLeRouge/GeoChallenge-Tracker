@@ -38,18 +38,15 @@ class TestDatabaseConnectivity:
         collections_sample = {"users", "caches", "challenges", "user_challenges"}
         assert collections_sample.issubset(collections_set), "Des collections sont manquantes"
 
-    @pytest.mark.xfail(
-        strict=True, reason="FIX-003: expects prod-copy data (states, anonymized admin email)"
-    )
     @pytest.mark.asyncio
     async def test_test_db_has_referentials(self, test_db):
-        """Test que les référentiels sont présents."""
+        """Test que les référentiels seedés sont présents."""
+        # `states` is not seeded: it is filled by GPX imports, so it can be empty.
         referential_collections = [
             "cache_types",
             "cache_sizes",
             "cache_attributes",
             "countries",
-            "states",
         ]
 
         for coll_name in referential_collections:
