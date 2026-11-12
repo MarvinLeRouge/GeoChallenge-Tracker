@@ -298,6 +298,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Factor UserChallengeBaseOut to remove field duplication in DTOs
 - *(backend)* Extract _execute_bulk_write helper in cache_persister.py
 - *(frontend)* Extract shared cache type/size filters from Calendar.vue and Matrix.vue
+- *(backend)* Remove the dead dateutil fallback from the GPX date parser
 
 ### 📚 Documentation
 
