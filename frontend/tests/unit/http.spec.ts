@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { FastAPIValidationItem } from "@/types/http";
-import { getDetail, detailToText } from "@/utils/http";
+import { getDetail, detailToText, apiErrorMessage } from "@/utils/http";
 
 describe("http utils (FastAPI detail)", () => {
   it("retourne le detail string", () => {
@@ -57,5 +57,49 @@ describe("http utils (FastAPI detail)", () => {
       { loc: ["query"] } as unknown as FastAPIValidationItem, // msg absent
     ];
     expect(detailToText(arr)).toBe("first error");
+  });
+});
+
+describe("http utils (backend error envelope)", () => {
+  it("lit error.message de l'enveloppe", () => {
+    expect(
+      getDetail({
+        success: false,
+        error: { code: "HTTP_404", message: "Cache not found" },
+      }),
+    ).toBe("Cache not found");
+  });
+
+  it("convertit error.details de validation en items loc/msg", () => {
+    const d = getDetail({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Validation failed",
+        details: [
+          {
+            field: "body -> password",
+            message: "too short",
+            type: "string_too_short",
+          },
+        ],
+      },
+    });
+    expect(d).toEqual([
+      { loc: ["body", "password"], msg: "too short", type: "string_too_short" },
+    ]);
+    expect(detailToText(d)).toBe("too short");
+  });
+
+  it("apiErrorMessage lit l'enveloppe depuis une erreur de requête", () => {
+    const e = {
+      response: { data: { success: false, error: { message: "Boom" } } },
+    };
+    expect(apiErrorMessage(e)).toBe("Boom");
+  });
+
+  it("apiErrorMessage retourne undefined sans réponse exploitable", () => {
+    expect(apiErrorMessage(new Error("network"))).toBeUndefined();
+    expect(apiErrorMessage({ response: { data: {} } })).toBeUndefined();
   });
 });

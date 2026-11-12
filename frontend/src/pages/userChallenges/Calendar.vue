@@ -216,6 +216,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { ref, onMounted } from "vue";
 import api from "@/api/http";
 import type { CalendarResult } from "@/types/challenges";
@@ -308,8 +309,7 @@ async function fetchCalendar() {
     const response = await api.get(`/my/challenges/basics/calendar?${params}`);
     calendarResult.value = response.data;
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })
-      ?.response?.data?.detail;
+    const detail = apiErrorMessage(e);
     const msg = e instanceof Error ? e.message : String(e);
     error.value = detail || msg || "Erreur lors du chargement du calendrier";
     toast.error("Erreur chargement calendrier", { description: error.value });

@@ -138,6 +138,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { ref } from "vue";
 import { toast } from "vue-sonner";
 import api from "@/api/http";
@@ -198,8 +199,7 @@ async function submit() {
     if (isAxiosError(e) && e.response) {
       // HTTP error with response
       const status = e.response.status;
-      const detail = (e.response.data as { detail?: string } | undefined)
-        ?.detail;
+      const detail = apiErrorMessage(e);
 
       if (status === 400) {
         error.value = detail || "Fichier GPX/ZIP invalide ou mal formé.";
@@ -218,8 +218,7 @@ async function submit() {
     } else {
       // Other error types
       const detail = isAxiosError(e)
-        ? (e.response?.data as { detail?: string } | undefined)?.detail ||
-          e.message
+        ? apiErrorMessage(e) || e.message
         : "Import impossible.";
       error.value = detail;
     }

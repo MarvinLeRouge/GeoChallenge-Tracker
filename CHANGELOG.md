@@ -179,6 +179,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Bump dependencies flagged by pip-audit
 - *(backend)* Return the standard error envelope on oversized uploads
 - *(backend)* Replace deprecated datetime.utcnow with a naive UTC equivalent
+- *(frontend)* Read the backend error envelope in API error messages
 
 ### 💼 Other
 

@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { ref, computed } from "vue";
 import L from "leaflet";
 import MapBase from "@/components/map/MapBase.vue";
@@ -264,8 +265,7 @@ async function search() {
       count.value = 0;
     }
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })
-      ?.response?.data?.detail;
+    const detail = apiErrorMessage(e);
     const msg = e instanceof Error ? e.message : String(e);
     toast.error("Erreur de recherche", { description: detail || msg });
   } finally {
