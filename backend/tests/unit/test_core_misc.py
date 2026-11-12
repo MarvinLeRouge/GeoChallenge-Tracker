@@ -1,5 +1,6 @@
 """Tests for core utilities: backup_config, meta, email, exception_handlers, middleware."""
 
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -440,6 +441,11 @@ class TestMaxBodySizeMiddleware:
 
         response = await middleware.dispatch(request, call_next)
         assert response.status_code == 413
+        # Same envelope as every other API error (ErrorResponse)
+        body = json.loads(response.body)
+        assert body["success"] is False
+        assert body["error"]["code"] == "HTTP_413"
+        assert "message" in body["error"]
 
     @pytest.mark.asyncio
     async def test_bypasses_excluded_path(self):

@@ -609,5 +609,6 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CHORE-001 - Replace passlib with argon2-cffi and bcrypt
 - [x] CHORE-002 - Migrate backend packaging to uv and upgrade dependencies
 - [x] CI-001 - Run backend integration tests in CI against a disposable MongoDB
-- [ ] FIX-002 - Reject oversized GPX uploads with 413 (integration test xfail)
+- [x] FIX-002 - Return the standard error envelope on oversized uploads, calibrate the upload size test
 - [ ] FIX-003 - Repair stale backend integration tests marked xfail
+- [ ] FIX-004 - Read the backend error envelope (error.message) in frontend error handling

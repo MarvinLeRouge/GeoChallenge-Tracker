@@ -610,5 +610,6 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-001 - Remplacer passlib par argon2-cffi et bcrypt
 - [x] CHORE-002 - Migrer le packaging backend vers uv et mettre à jour les dépendances
 - [x] CI-001 - Lancer les tests d'intégration backend en CI sur un MongoDB jetable
-- [ ] FIX-002 - Refuser les uploads GPX trop gros avec un 413 (test d'intégration en xfail)
+- [x] FIX-002 - Renvoyer l'enveloppe d'erreur standard sur les uploads trop gros, calibrer le test de taille d'upload
 - [ ] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail
+- [ ] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend

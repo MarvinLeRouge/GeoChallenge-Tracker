@@ -177,6 +177,7 @@ To regenerate locally, run `npm run changelog`.
 - *(docker)* Remove unused system pip/setuptools/wheel from the backend image
 - *(backend)* Bump certifi to 2026.10.19 to fix PYSEC-2026-4320
 - *(backend)* Bump dependencies flagged by pip-audit
+- *(backend)* Return the standard error envelope on oversized uploads
 
 ### 💼 Other
 
