@@ -621,7 +621,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-006 - Ne plus emballer deux fois le message d'erreur de validation GPX
 - [ ] CHORE-007 - Ajouter un hook de détection de secrets au pre-commit (standard du portfolio)
 - [x] FIX-007 - Limiter la longueur du mot de passe à l'inscription et à la connexion (argon2 hache des entrées de toute taille)
-- [ ] FIX-008 - Renvoyer 401 au lieu de 500 à la connexion quand le hash de mot de passe stocké est absent ou vide
+- [x] FIX-008 - Renvoyer 401 au lieu de 500 à la connexion quand le hash de mot de passe stocké est absent ou vide
 - [ ] CHORE-008 - Planifier la migration de motor (en fin de vie depuis le 2026-05-14) vers l'API async de PyMongo
 - [ ] CI-002 - Lancer les tests e2e Playwright en CI
 - [ ] CHORE-009 - Remplacer le `root_path` FastAPI déprécié par le root path du serveur (CMD Docker, compose, Traefik)
