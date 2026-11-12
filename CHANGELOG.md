@@ -365,6 +365,7 @@ To regenerate locally, run `npm run changelog`.
 - *(env)* Document maildev smtp settings for docker dev
 - Replace em dashes in docs with plain punctuation
 - *(roadmap)* Add CHORE-003 to Section 10 - Maintenance
+- *(roadmap)* Add the maintenance backlog found during the python homogenization
 
 ### 🎨 Styling
 
