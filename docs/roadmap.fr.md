@@ -626,7 +626,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [ ] CI-002 - Lancer les tests e2e Playwright en CI
 - [ ] CHORE-009 - Remplacer le `root_path` FastAPI déprécié par le root path du serveur (CMD Docker, compose, Traefik)
 - [ ] CHORE-010 - Traiter l'usage de `asyncio.iscoroutinefunction` par slowapi avant Python 3.16 (correctif amont ou remplacement)
-- [ ] CHORE-011 - Migrer les `Config` Pydantic en classe vers `ConfigDict` (app/domain/models/meta.py)
+- [x] CHORE-011 - Migrer les `Config` Pydantic en classe vers `ConfigDict` (app/domain/models/meta.py)
 - [ ] REFACTOR-001 - Supprimer la branche optionnelle morte `dateutil` du normaliseur de données GPX
 - [ ] REFACTOR-002 - Fusionner le lecteur d'upload en double dans caches.py
 - [ ] CI-003 - Faire déclencher la CI par la PR du bot changelog (GitHub App ou PAT au lieu de GITHUB_TOKEN)
