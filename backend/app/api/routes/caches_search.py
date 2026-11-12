@@ -7,11 +7,12 @@ import math
 from typing import Annotated, Any
 
 from bson import ObjectId
-from fastapi import Body, HTTPException, Query
+from fastapi import Body, Query
 from fastapi.encoders import jsonable_encoder
 from pymongo import ASCENDING, DESCENDING
 
 from app.api.dto.cache_query import CacheFilterIn
+from app.core.errors import AppError, ErrorCode
 from app.db.mongodb import get_collection
 
 from .caches import router
@@ -31,7 +32,9 @@ def _oid(v: str | ObjectId | None) -> ObjectId | None:
     try:
         return ObjectId(v)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid ObjectId: {v}") from e
+        raise AppError(
+            status_code=400, code=ErrorCode.INVALID_OBJECT_ID, detail=f"Invalid ObjectId: {v}"
+        ) from e
 
 
 # ------------------------- compact helpers -------------------------

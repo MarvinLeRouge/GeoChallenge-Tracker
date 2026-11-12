@@ -11,9 +11,9 @@ from datetime import datetime, timedelta
 from typing import Any, cast
 
 from bson import ObjectId
-from fastapi import HTTPException
 
 from app.core.backup_config import CLEANUP_BACKUP_DIR
+from app.core.errors import AppError, ErrorCode
 from app.core.utils import utcnow
 from app.db.mongodb import get_collection
 
@@ -405,12 +405,18 @@ def _validate_cleanup_key(key: str) -> dict[str, Any]:
     """
     cached_data = load_cleanup_pending(key)
     if cached_data is None:
-        raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
+        raise AppError(
+            status_code=404,
+            code=ErrorCode.CONFIRMATION_KEY_INVALID,
+            detail="Invalid or expired confirmation key",
+        )
 
     if utcnow() > datetime.fromisoformat(cached_data["expires_at"]):
         delete_cleanup_pending(key)
-        raise HTTPException(
-            status_code=410, detail="Confirmation key expired. Please request a new analysis."
+        raise AppError(
+            status_code=410,
+            code=ErrorCode.CONFIRMATION_KEY_EXPIRED,
+            detail="Confirmation key expired. Please request a new analysis.",
         )
     return cached_data
 

@@ -11,6 +11,7 @@ from bson import ObjectId
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 
 from app.api.deps import CurrentUserId
+from app.core.errors import AppError, ErrorCode
 from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
@@ -47,8 +48,9 @@ async def _read_upload_with_size_limit(file: UploadFile) -> bytes:
         if read_bytes > settings.max_upload_bytes:
             # Important: close the file and return 413
             await file.close()
-            raise HTTPException(
+            raise AppError(
                 status_code=413,
+                code=ErrorCode.FILE_TOO_LARGE,
                 detail=f"Fichier trop volumineux (>{settings.max_upload_mb} Mo).",
             )
         chunks.append(chunk)
@@ -94,7 +96,9 @@ async def _import_gpx_or_raise(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP: {e}") from e
+        raise AppError(
+            status_code=400, code=ErrorCode.GPX_IMPORT_INVALID, detail=f"Invalid GPX/ZIP: {e}"
+        ) from e
 
 
 async def _create_challenges_after_import() -> dict[str, Any]:

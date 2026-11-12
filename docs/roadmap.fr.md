@@ -622,4 +622,5 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 
 ## Section 11 - Localisation
 
-- [ ] FEAT-001 - Localiser en français tous les messages affichés à l'utilisateur, y compris les messages d'erreur du backend (traduits côté frontend à partir du `code` d'erreur, message du backend en repli)
+- [x] FEAT-001 - Donner à chaque erreur du backend un code d'erreur stable (`AppError` / `ErrorCode`) pour que le frontend puisse la localiser
+- [ ] FEAT-002 - Afficher en français tous les messages destinés à l'utilisateur : traduire côté frontend les erreurs du backend à partir de `error.code` (et du `type` de validation), message du backend en repli

@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 from fastapi import File, HTTPException, Query, Request, UploadFile
 
 from app.api.deps import CurrentUserId
+from app.core.errors import AppError, ErrorCode
 from app.core.middleware import read_upload_file_with_limit
 from app.core.settings import get_settings
 from app.services.gpx_importer_service import import_gpx_payload
@@ -84,6 +85,8 @@ async def upload_gpx(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid GPX/ZIP file: {e}") from e
+        raise AppError(
+            status_code=400, code=ErrorCode.GPX_IMPORT_INVALID, detail=f"Invalid GPX/ZIP file: {e}"
+        ) from e
 
     return result

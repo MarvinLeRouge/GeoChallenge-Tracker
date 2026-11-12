@@ -27,6 +27,7 @@ from app.api.dto.user_challenge_batch import (
     BatchPatchResultItem,
 )
 from app.core.bson_utils import PyObjectId
+from app.core.errors import AppError, ErrorCode
 from app.db.mongodb import get_db
 from app.services.calendar_verification import CalendarVerificationService
 from app.services.matrix_verification import MatrixVerificationService
@@ -144,8 +145,9 @@ async def patch_uc_batch(
 
     # safety guard
     if len(items) > 200:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            code=ErrorCode.BATCH_TOO_LARGE,
             detail="Batch trop volumineux (max 200 items)",
         )
 
@@ -205,7 +207,11 @@ async def get_uc(
     """
     doc = await get_user_challenge_detail(user_id, ObjectId(str(uc_id)))
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.USER_CHALLENGE_NOT_FOUND,
+            detail="UserChallenge not found",
+        )
     return doc
 
 
@@ -248,12 +254,17 @@ async def patch_uc(
         },
     )
     if not success:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
+            code=ErrorCode.USER_CHALLENGE_UPDATE_FAILED,
             detail=error or "Failed to update UserChallenge",
         )
     if not updated_uc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.USER_CHALLENGE_NOT_FOUND,
+            detail="UserChallenge not found",
+        )
     return updated_uc
 
 

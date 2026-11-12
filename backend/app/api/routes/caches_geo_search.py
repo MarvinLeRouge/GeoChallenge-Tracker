@@ -6,9 +6,10 @@ from __future__ import annotations
 import math
 from typing import Any, Literal
 
-from fastapi import HTTPException, Query
+from fastapi import Query
 from pymongo import ASCENDING, DESCENDING
 
+from app.core.errors import AppError, ErrorCode
 from app.db.mongodb import get_collection
 
 from .caches import router
@@ -230,8 +231,10 @@ async def within_radius(
         cur = coll.aggregate(pipeline)
         docs = [_doc(d) async for d in cur]
     except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"2dsphere index required on caches.loc: {e}"
+        raise AppError(
+            status_code=400,
+            code=ErrorCode.GEO_INDEX_MISSING,
+            detail=f"2dsphere index required on caches.loc: {e}",
         ) from e
     # count with same query (rough, not exact geo count but OK for paging UI)
     radius_radians = radius_km / 6378.1  # Earth radius in km

@@ -5,6 +5,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.dto.response_format import ErrorResponse
+from app.core.errors import ErrorCode
 
 
 def register_exception_handlers(app: FastAPI):
@@ -17,7 +18,7 @@ def register_exception_handlers(app: FastAPI):
             status_code=429,
             content=ErrorResponse.from_detail(
                 {
-                    "code": "RATE_LIMIT_EXCEEDED",
+                    "code": ErrorCode.RATE_LIMIT_EXCEEDED,
                     "message": f"Too many requests, please retry later ({exc.detail}).",
                 }
             ).model_dump(),
@@ -30,7 +31,10 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=exc.status_code,
             content=ErrorResponse.from_detail(
-                {"code": f"HTTP_{exc.status_code}", "message": exc.detail}
+                {
+                    "code": getattr(exc, "code", None) or f"HTTP_{exc.status_code}",
+                    "message": exc.detail,
+                }
             ).model_dump(),
         )
 
@@ -51,7 +55,11 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=422,
             content=ErrorResponse.from_detail(
-                {"code": "VALIDATION_ERROR", "message": "Validation failed", "details": errors}
+                {
+                    "code": ErrorCode.VALIDATION_ERROR,
+                    "message": "Validation failed",
+                    "details": errors,
+                }
             ).model_dump(),
         )
 
@@ -62,6 +70,6 @@ def register_exception_handlers(app: FastAPI):
         return JSONResponse(
             status_code=500,
             content=ErrorResponse.from_detail(
-                {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred"}
+                {"code": ErrorCode.INTERNAL_ERROR, "message": "An unexpected error occurred"}
             ).model_dump(),
         )

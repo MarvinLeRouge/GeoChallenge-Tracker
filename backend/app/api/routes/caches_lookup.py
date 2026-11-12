@@ -5,8 +5,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import HTTPException, Path
+from fastapi import Path
 
+from app.core.errors import AppError, ErrorCode
 from app.db.mongodb import get_collection
 
 from .caches import router
@@ -83,7 +84,7 @@ async def get_by_gc(
 
     doc = await _fetch_cache_with_type_size({"GC": gc})
     if not doc:
-        raise HTTPException(status_code=404, detail="Cache not found")
+        raise AppError(status_code=404, code=ErrorCode.CACHE_NOT_FOUND, detail="Cache not found")
     return _doc(doc)
 
 
@@ -111,5 +112,5 @@ async def get_by_id(
     oid = _oid(id)
     doc = await _fetch_cache_with_type_size({"_id": oid})
     if not doc:
-        raise HTTPException(status_code=404, detail="Cache not found")
+        raise AppError(status_code=404, code=ErrorCode.CACHE_NOT_FOUND, detail="Cache not found")
     return _doc(doc)

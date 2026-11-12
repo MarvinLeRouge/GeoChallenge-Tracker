@@ -3,11 +3,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, UploadFile, status
 
 from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut, UserPreferencesIn
 from app.api.dto.user_stats import UserStatsOut
+from app.core.errors import AppError, ErrorCode
 from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_db
@@ -62,7 +63,7 @@ async def put_my_location(
         await user_profile_service.set_user_location(user_id, payload)
         updated = True
     except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e)) from e
+        raise AppError(status_code=422, code=ErrorCode.LOCATION_INVALID, detail=str(e)) from e
     if updated:
         return {"message": "Location updated successfully"}
     return {"message": "No change (same location)"}
@@ -90,8 +91,9 @@ async def get_my_location(user_id: CurrentUserId):
     location_data = await user_profile_service.get_user_location_formatted(user_id)
 
     if location_data is None:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.LOCATION_NOT_FOUND,
             detail="No location found for this user.",
         )
 
@@ -144,7 +146,9 @@ async def get_my_stats(user_id: CurrentUserId) -> UserStatsOut:
     try:
         return await get_user_stats(user_id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND, code=ErrorCode.STATS_NOT_FOUND, detail=str(e)
+        ) from e
 
 
 # TODO: [BACKLOG] Route /my/profile (GET) to verify
@@ -198,6 +202,10 @@ async def patch_my_preferences(
     coll_users = db.users
     raw_user = await coll_users.find_one({"_id": user_id})
     if raw_user is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.USER_NOT_FOUND,
+            detail="User not found.",
+        )
 
     return raw_user

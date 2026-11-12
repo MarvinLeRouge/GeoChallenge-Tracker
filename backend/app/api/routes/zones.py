@@ -6,10 +6,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, status
 
 from app.api.deps import CurrentUserId
 from app.api.dto.zones import ZoneDetail, ZoneListResponse
+from app.core.errors import AppError, ErrorCode
 from app.services.zones.zone_service import (
     get_zone_detail,
     get_zones_with_counts,
@@ -57,8 +58,9 @@ async def list_zones(
         422: If level is 1 or 2 and country is missing.
     """
     if level != 0 and not country:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code=ErrorCode.ZONE_COUNTRY_REQUIRED,
             detail="country is required for level 1 and 2.",
         )
     items = await get_zones_with_counts(
@@ -108,8 +110,9 @@ async def get_zone(
         level=level,
     )
     if detail is None:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.ZONE_NOT_FOUND,
             detail=f"Zone '{code}' not found.",
         )
     return detail

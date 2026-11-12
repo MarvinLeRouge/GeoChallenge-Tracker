@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
-from fastapi import HTTPException
 from fastapi.responses import FileResponse
 
 from app.core.backup_config import BACKUP_ROOT_DIR, CLEANUP_BACKUP_DIR, FULL_BACKUP_DIR
+from app.core.errors import AppError, ErrorCode
 
 from ._router import router
 
@@ -69,10 +69,14 @@ async def get_backup_file(filepath: str):
 
     # Security: prevent any path traversal outside the root directory
     if not str(requested_path).startswith(str(BACKUP_ROOT_DIR)):
-        raise HTTPException(status_code=400, detail="Invalid file path")
+        raise AppError(
+            status_code=400, code=ErrorCode.BACKUP_INVALID_PATH, detail="Invalid file path"
+        )
 
     if not requested_path.exists() or not requested_path.is_file():
-        raise HTTPException(status_code=404, detail="Backup file not found")
+        raise AppError(
+            status_code=404, code=ErrorCode.BACKUP_NOT_FOUND, detail="Backup file not found"
+        )
 
     # Detect file type
     ext = requested_path.suffix.lower()

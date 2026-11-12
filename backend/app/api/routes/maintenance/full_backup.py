@@ -12,9 +12,10 @@ from typing import Any
 from zipfile import ZipFile
 
 from bson import ObjectId
-from fastapi import HTTPException, Query
+from fastapi import Query
 
 from app.core.backup_config import FULL_BACKUP_DIR
+from app.core.errors import AppError, ErrorCode
 from app.core.utils import utcnow
 from app.db.mongodb import get_db
 
@@ -117,7 +118,11 @@ def _load_backup_payload(backup_file: Path) -> dict[str, Any]:
     with ZipFile(backup_file, "r") as zf:
         json_name = next((n for n in zf.namelist() if n.endswith(".json")), None)
         if not json_name:
-            raise HTTPException(status_code=400, detail="No JSON found in backup archive")
+            raise AppError(
+                status_code=400,
+                code=ErrorCode.BACKUP_ARCHIVE_INVALID,
+                detail="No JSON found in backup archive",
+            )
         return json.loads(zf.read(json_name).decode("utf-8"))
 
 
@@ -153,15 +158,23 @@ def _resolve_destructive_confirmation(filename: str, key: str | None) -> dict[st
 
     pending = load_restore_pending(key)
     if pending is None:
-        raise HTTPException(status_code=404, detail="Invalid or expired confirmation key")
+        raise AppError(
+            status_code=404,
+            code=ErrorCode.CONFIRMATION_KEY_INVALID,
+            detail="Invalid or expired confirmation key",
+        )
     if utcnow() > datetime.fromisoformat(pending["expires_at"]):
         delete_restore_pending(key)
-        raise HTTPException(
-            status_code=410, detail="Confirmation key expired. Please request a new one."
+        raise AppError(
+            status_code=410,
+            code=ErrorCode.CONFIRMATION_KEY_EXPIRED,
+            detail="Confirmation key expired. Please request a new one.",
         )
     if pending["filename"] != filename:
-        raise HTTPException(
-            status_code=400, detail="Confirmation key does not match this backup file."
+        raise AppError(
+            status_code=400,
+            code=ErrorCode.CONFIRMATION_KEY_MISMATCH,
+            detail="Confirmation key does not match this backup file.",
         )
     delete_restore_pending(key)
     return None
@@ -294,12 +307,16 @@ async def full_backup_restore(
     """
     # Security check
     if ".." in filename or "/" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
+        raise AppError(
+            status_code=400, code=ErrorCode.BACKUP_INVALID_PATH, detail="Invalid filename"
+        )
 
     backup_file = FULL_BACKUP_DIR / filename
 
     if not backup_file.exists():
-        raise HTTPException(status_code=404, detail="Backup file not found")
+        raise AppError(
+            status_code=404, code=ErrorCode.BACKUP_NOT_FOUND, detail="Backup file not found"
+        )
 
     destructive = not dry_run and drop_existing
 

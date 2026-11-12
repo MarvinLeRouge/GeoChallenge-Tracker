@@ -3,9 +3,10 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, status
 
 from app.core.bson_utils import PyObjectId
+from app.core.errors import AppError, ErrorCode
 from app.core.security import get_current_user, get_current_user_id
 from app.domain.models.user import User
 
@@ -27,5 +28,7 @@ def require_admin(current_user: Annotated[User, Depends(get_current_user)]) -> U
         HTTPException: 403 if the user is not an admin.
     """
     if current_user.role != "admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
+        raise AppError(
+            status_code=status.HTTP_403_FORBIDDEN, code=ErrorCode.ADMIN_ONLY, detail="Admin only"
+        )
     return current_user

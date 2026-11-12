@@ -1,10 +1,11 @@
 from collections.abc import Sequence
 
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from app.api.dto.response_format import ErrorResponse
+from app.core.errors import AppError, ErrorCode
 from app.core.settings import get_settings
 
 settings = get_settings()
@@ -42,8 +43,9 @@ async def read_upload_file_with_limit(file: UploadFile, max_bytes: int) -> bytes
         read_bytes += len(chunk)
         if read_bytes > max_bytes:
             await file.close()
-            raise HTTPException(
+            raise AppError(
                 status_code=413,
+                code=ErrorCode.FILE_TOO_LARGE,
                 detail=f"File too large (>{max_bytes // (1024 * 1024)} MB).",
             )
         chunks.append(chunk)
@@ -72,7 +74,7 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
                     )
                     return JSONResponse(
                         ErrorResponse.from_detail(
-                            {"code": "HTTP_413", "message": message}
+                            {"code": ErrorCode.FILE_TOO_LARGE, "message": message}
                         ).model_dump(),
                         status_code=413,
                     )

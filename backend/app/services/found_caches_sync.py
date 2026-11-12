@@ -8,9 +8,10 @@ from datetime import date
 from typing import Any
 
 from bson import ObjectId
-from fastapi import HTTPException, UploadFile
+from fastapi import UploadFile
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.errors import AppError, ErrorCode
 from app.core.middleware import read_upload_file_with_limit
 from app.core.utils import utcnow
 
@@ -35,7 +36,11 @@ async def extract_gc_codes_from_upload(file: UploadFile, max_upload_bytes: int) 
     try:
         text = content.decode("utf-8", errors="replace")
     except Exception as err:
-        raise HTTPException(status_code=400, detail="Unable to decode file content.") from err
+        raise AppError(
+            status_code=400,
+            code=ErrorCode.FILE_DECODE_FAILED,
+            detail="Unable to decode file content.",
+        ) from err
     return extract_gc_codes(text)
 
 
