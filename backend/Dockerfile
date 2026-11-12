@@ -15,12 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /uvx /bin/
 
-COPY requirements.txt ./
-RUN uv venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-RUN uv pip install -r requirements.txt
+# Use the image's own Python, install only runtime deps from the lock into /opt/venv.
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_COMPILE_BYTECODE=1 \
+    UV_NO_CACHE=1
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 # ---------------------------------------------------
 # STAGE 2: runtime - lean final image, no build tools.
@@ -54,4 +58,5 @@ COPY . .
 RUN useradd -u 1000 -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# No --reload here: this image runs in production. Dev compose adds it via `command:`.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

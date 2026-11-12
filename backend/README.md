@@ -10,9 +10,7 @@ FastAPI REST API with MongoDB (Motor async driver), JWT authentication, and GPX 
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+uv sync
 ```
 
 Create a `.env` file in `backend/` (or set environment variables):
@@ -38,7 +36,7 @@ ENVIRONMENT=development
 Start the dev server:
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 API docs available at `http://localhost:8000/docs`.
@@ -46,7 +44,7 @@ API docs available at `http://localhost:8000/docs`.
 ## Running tests
 
 ```bash
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ## Project structure

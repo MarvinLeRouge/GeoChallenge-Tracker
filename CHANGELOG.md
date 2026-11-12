@@ -192,6 +192,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Check caches routes functionality
 - Adapt compose and CI for Traefik deployment
 - Fix build-push workflow for Traefik deployment
+- *(backend)* Migrate from pip requirements to uv
 
 ### 🚜 Refactor
 

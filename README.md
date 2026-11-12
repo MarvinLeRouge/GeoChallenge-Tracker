@@ -289,8 +289,8 @@ JWT_SECRET_KEY=your_jwt_secret_key
 ```bash
 # Backend tests
 cd backend
-pip install -r requirements.txt -r requirements-dev.txt
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv sync
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
 # Frontend tests
 npx vitest run frontend/tests/unit
