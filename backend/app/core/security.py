@@ -7,13 +7,15 @@ import re
 import secrets
 from typing import Annotated
 
+import bcrypt
 import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import InvalidHashError, VerificationError
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError as JWTError
-from passlib.context import CryptContext
 
 from app.core.bson_utils import PyObjectId
 from app.core.settings import get_settings
@@ -23,18 +25,17 @@ from app.domain.models.user import User
 
 settings = get_settings()
 
-# `argon2` is listed first, so it's the scheme used for every new hash. `bcrypt` stays
-# listed (and thus still verifiable) purely to support accounts hashed before this change -
-# `deprecated="auto"` marks it as needing an upgrade without breaking existing logins.
-pwd_context = CryptContext(schemes=["argon2", "bcrypt"], deprecated="auto")
+# argon2id (argon2-cffi defaults, identical to passlib's) for every new hash. bcrypt is
+# kept for verification only, so accounts hashed before the argon2id migration still log
+# in and get upgraded by `needs_rehash()`.
+_argon2_hasher = PasswordHasher()
+# passlib silently hashed only the first 72 bytes; bcrypt >= 5 raises instead.
+_BCRYPT_MAX_BYTES = 72
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
 
 
 def hash_password(password: str) -> str:
-    """Hashes a password using argon2id via Passlib.
-
-    Description:
-        Computes a secure hash of the password using the configured Passlib context.
+    """Hashes a password using argon2id.
 
     Args:
         password (str): Plain-text password.
@@ -42,17 +43,23 @@ def hash_password(password: str) -> str:
     Returns:
         str: Hash suitable for storage in the database.
     """
-    result = pwd_context.hash(password)
+    return _argon2_hasher.hash(password)
 
-    return result
+
+def _is_argon2_hash(hashed_password: str) -> bool:
+    return hashed_password.startswith("$argon2")
+
+
+def _is_bcrypt_hash(hashed_password: str) -> bool:
+    return hashed_password.startswith(("$2a$", "$2b$", "$2y$"))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies a password against its hash.
 
     Description:
-        Uses Passlib to compare `plain_password` against `hashed_password`.
-        Works for both current (argon2id) and legacy (bcrypt) hashes.
+        Works for both current (argon2id) and legacy (bcrypt) hashes. For bcrypt,
+        the password is truncated to 72 bytes, as it was when the hash was created.
 
     Args:
         plain_password (str): Plain-text password.
@@ -60,19 +67,30 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
     Returns:
         bool: True if they match, False otherwise.
+
+    Raises:
+        ValueError: If the hash is neither argon2 nor bcrypt, or is malformed bcrypt.
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    if _is_argon2_hash(hashed_password):
+        try:
+            return _argon2_hasher.verify(hashed_password, plain_password)
+        except (VerificationError, InvalidHashError):
+            return False
+    if _is_bcrypt_hash(hashed_password):
+        password_bytes = plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+        return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
+    raise ValueError("Password hash could not be identified")
 
 
 def needs_rehash(hashed_password: str) -> bool:
     """Checks whether a stored hash should be upgraded to the current scheme.
 
     Description:
-        True for hashes using a deprecated scheme (e.g. bcrypt) or outdated
-        parameters for the current scheme. Callers that just verified a password
-        successfully should re-hash it with `hash_password()` and persist the
-        result when this returns True, so accounts migrate to argon2id gradually
-        as their users log in, without forcing a password reset.
+        True for non-argon2 hashes (e.g. legacy bcrypt) or argon2 hashes whose
+        parameters differ from the current ones. Callers that just verified a
+        password successfully should re-hash it with `hash_password()` and persist
+        the result when this returns True, so accounts migrate to argon2id
+        gradually as their users log in, without forcing a password reset.
 
     Args:
         hashed_password (str): Hash stored in the database.
@@ -80,7 +98,9 @@ def needs_rehash(hashed_password: str) -> bool:
     Returns:
         bool: True if the hash should be replaced with a fresh one.
     """
-    return pwd_context.needs_update(hashed_password)
+    if not _is_argon2_hash(hashed_password):
+        return True
+    return _argon2_hasher.check_needs_rehash(hashed_password)
 
 
 def create_access_token(data: dict, expires_delta: dt.timedelta | None = None):

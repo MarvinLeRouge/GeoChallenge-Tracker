@@ -23,4 +23,3 @@ pytokens==0.4.1
 ruff==0.13.1
 tomli==2.4.1
 tomli_w==1.2.0
-types-passlib==1.7.7.20250602

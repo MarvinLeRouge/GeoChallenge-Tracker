@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import jwt
 import pytest
+from argon2 import PasswordHasher
 from bson import ObjectId
 from fastapi import HTTPException
 
@@ -20,6 +21,7 @@ from app.core.security import (
 )
 from app.core.settings import get_settings
 from app.core.utils import now
+from tests.unit import legacy_passlib_hashes as legacy
 
 settings = get_settings()
 
@@ -57,23 +59,39 @@ class TestPasswordHashing:
 
         assert verify_password("WrongPassword", hashed) is False
 
-    def test_verify_password_valid_against_legacy_bcrypt_hash(self):
+    def test_verify_password_valid_against_legacy_passlib_argon2_hash(self):
+        """Argon2 hashes produced by passlib must keep verifying."""
+        assert verify_password(legacy.PASSWORD, legacy.ARGON2_HASH) is True
+
+    def test_verify_password_invalid_against_legacy_passlib_argon2_hash(self):
+        assert verify_password("WrongPassword", legacy.ARGON2_HASH) is False
+
+    @pytest.mark.parametrize("legacy_hash", [legacy.BCRYPT_HASH, legacy.BCRYPT_2A_HASH])
+    def test_verify_password_valid_against_legacy_bcrypt_hash(self, legacy_hash):
         """Accounts hashed before the argon2id migration must still authenticate."""
-        from passlib.context import CryptContext
+        assert verify_password(legacy.PASSWORD, legacy_hash) is True
 
-        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
-        password = "Secure123!"
-        legacy_hash = legacy_bcrypt_context.hash(password)
-
-        assert verify_password(password, legacy_hash) is True
-
-    def test_verify_password_invalid_against_legacy_bcrypt_hash(self):
-        from passlib.context import CryptContext
-
-        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
-        legacy_hash = legacy_bcrypt_context.hash("Secure123!")
-
+    @pytest.mark.parametrize("legacy_hash", [legacy.BCRYPT_HASH, legacy.BCRYPT_2A_HASH])
+    def test_verify_password_invalid_against_legacy_bcrypt_hash(self, legacy_hash):
         assert verify_password("WrongPassword", legacy_hash) is False
+
+    def test_verify_password_long_password_against_legacy_bcrypt_hash(self):
+        """bcrypt 5 rejects >72-byte input; passlib hashed only the first 72 bytes."""
+        assert verify_password(legacy.LONG_PASSWORD, legacy.BCRYPT_LONG_HASH) is True
+        assert verify_password(legacy.LONG_PASSWORD_TRUNCATED, legacy.BCRYPT_LONG_HASH) is True
+        assert verify_password("é" * 35, legacy.BCRYPT_LONG_HASH) is False
+
+    def test_verify_password_long_password_against_argon2_hash_is_not_truncated(self):
+        hashed = hash_password(legacy.LONG_PASSWORD)
+
+        assert verify_password(legacy.LONG_PASSWORD, hashed) is True
+        assert verify_password(legacy.LONG_PASSWORD_TRUNCATED, hashed) is False
+
+    @pytest.mark.parametrize("unknown_hash", ["", "garbage", "$1$abc$def"])
+    def test_verify_password_unknown_hash_raises(self, unknown_hash):
+        """Same contract as passlib: an unidentifiable hash is an error, not a mismatch."""
+        with pytest.raises(ValueError):
+            verify_password(legacy.PASSWORD, unknown_hash)
 
 
 class TestNeedsRehash:
@@ -84,12 +102,19 @@ class TestNeedsRehash:
 
         assert needs_rehash(hashed) is False
 
-    def test_legacy_bcrypt_hash_needs_rehash(self):
-        from passlib.context import CryptContext
+    def test_legacy_passlib_argon2_hash_does_not_need_rehash(self):
+        """passlib's argon2 defaults match argon2-cffi's: no needless rehash."""
+        assert needs_rehash(legacy.ARGON2_HASH) is False
 
-        legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
-        legacy_hash = legacy_bcrypt_context.hash("Secure123!")
+    def test_argon2_hash_with_weaker_parameters_needs_rehash(self):
+        weak_hash = PasswordHasher(time_cost=1, memory_cost=8192).hash("Secure123!")
 
+        assert needs_rehash(weak_hash) is True
+
+    @pytest.mark.parametrize(
+        "legacy_hash", [legacy.BCRYPT_HASH, legacy.BCRYPT_2A_HASH, legacy.BCRYPT_LONG_HASH]
+    )
+    def test_legacy_bcrypt_hash_needs_rehash(self, legacy_hash):
         assert needs_rehash(legacy_hash) is True
 
 

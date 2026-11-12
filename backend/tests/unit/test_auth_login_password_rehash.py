@@ -11,13 +11,11 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from passlib.context import CryptContext
 
 from app.api.routes import auth as auth_module
 from app.core.rate_limit import limiter
 from app.core.security import hash_password
-
-_legacy_bcrypt_context = CryptContext(schemes=["bcrypt"])
+from tests.unit import legacy_passlib_hashes as legacy
 
 
 def _make_app(password_hash: str):
@@ -40,13 +38,12 @@ def _make_app(password_hash: str):
 class TestLoginPasswordRehash:
     @pytest.mark.asyncio
     async def test_legacy_bcrypt_hash_is_upgraded_to_argon2id(self):
-        legacy_hash = _legacy_bcrypt_context.hash("Correct123!")
-        app, mock_users = _make_app(password_hash=legacy_hash)
+        app, mock_users = _make_app(password_hash=legacy.BCRYPT_HASH)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             response = await client.post(
                 "/auth/login",
-                data={"username": "user", "password": "Correct123!"},
+                data={"username": "user", "password": legacy.PASSWORD},
             )
 
         assert response.status_code == 200
@@ -55,6 +52,19 @@ class TestLoginPasswordRehash:
         assert call.args[0] == {"_id": "507f1f77bcf86cd799439011"}
         new_hash = call.args[1]["$set"]["password_hash"]
         assert new_hash.startswith("$argon2id$")
+
+    @pytest.mark.asyncio
+    async def test_legacy_passlib_argon2_hash_is_not_rewritten(self):
+        app, mock_users = _make_app(password_hash=legacy.ARGON2_HASH)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/auth/login",
+                data={"username": "user", "password": legacy.PASSWORD},
+            )
+
+        assert response.status_code == 200
+        mock_users.update_one.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_current_argon2_hash_is_not_rewritten(self):
