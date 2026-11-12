@@ -611,5 +611,6 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CI-001 - Run backend integration tests in CI against a disposable MongoDB
 - [x] FIX-002 - Return the standard error envelope on oversized uploads, calibrate the upload size test
 - [x] CHORE-003 - Move the backend to Python 3.14
+- [x] CHORE-004 - Configure Dependabot (uv, npm, docker, github-actions)
 - [ ] FIX-003 - Repair stale backend integration tests marked xfail
 - [ ] FIX-004 - Read the backend error envelope (error.message) in frontend error handling
