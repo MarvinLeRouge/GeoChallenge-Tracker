@@ -440,3 +440,4 @@ To regenerate locally, run `npm run changelog`.
 - *(tests)* Remove dead manual debug scripts for user challenge tasks
 - *(gitignore)* Ignore codegraph folder
 - *(changelog)* Auto-merge the catch-up CHANGELOG.md PR
+- *(security)* Replace passlib with argon2-cffi and bcrypt

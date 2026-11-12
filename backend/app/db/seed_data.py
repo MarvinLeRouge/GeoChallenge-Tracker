@@ -183,7 +183,7 @@ async def seed_admin_user(force: bool = False):
     if not admin_username or not admin_email or not admin_password:
         raise ValueError("ADMIN_USERNAME/ADMIN_EMAIL/ADMIN_PASSWORD must be set in .env")
 
-    admin_password_hashed = security.pwd_context.hash(admin_password)
+    admin_password_hashed = security.hash_password(admin_password)
 
     await coll_users.update_one(
         {"username": admin_username},
