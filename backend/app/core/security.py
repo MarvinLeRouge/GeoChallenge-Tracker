@@ -74,7 +74,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     if _is_argon2_hash(hashed_password):
         try:
             return _argon2_hasher.verify(hashed_password, plain_password)
-        except (VerificationError, InvalidHashError):
+        except VerificationError, InvalidHashError:
             return False
     if _is_bcrypt_hash(hashed_password):
         password_bytes = plain_password.encode("utf-8")[:_BCRYPT_MAX_BYTES]

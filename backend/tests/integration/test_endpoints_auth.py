@@ -61,7 +61,7 @@ class TestAuthEndpoints:
     async def test_login_unverified_user(self, client, test_db):
         """Test qu'un utilisateur non vérifié ne peut pas se logger."""
         import uuid
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         unique_id = str(uuid.uuid4())[:8]
 
@@ -74,7 +74,7 @@ class TestAuthEndpoints:
                 "is_verified": False,
                 "is_active": True,
                 "role": "user",
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
 
@@ -162,7 +162,7 @@ class TestAuthEmailVerification:
     async def test_verify_email_with_valid_code(self, client, test_db):
         """Test que la vérification d'email fonctionne avec un code valide."""
         import uuid
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         unique_id = str(uuid.uuid4())[:8]
         verification_code = "ABC123XYZ"  # Code simple
@@ -179,8 +179,9 @@ class TestAuthEmailVerification:
                 "is_active": True,
                 "role": "user",
                 "verification_code": hash_verification_code(verification_code),
-                "verification_expires_at": datetime.utcnow() + timedelta(hours=24),
-                "created_at": datetime.utcnow(),
+                "verification_expires_at": datetime.now(UTC).replace(tzinfo=None)
+                + timedelta(hours=24),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
 
@@ -209,7 +210,7 @@ class TestAuthEmailVerification:
     async def test_verify_email_post_method(self, client, test_db):
         """Test que la vérification d'email fonctionne via POST."""
         import uuid
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         unique_id = str(uuid.uuid4())[:8]
         verification_code = "POST123XYZ"
@@ -224,8 +225,9 @@ class TestAuthEmailVerification:
                 "is_active": True,
                 "role": "user",
                 "verification_code": hash_verification_code(verification_code),
-                "verification_expires_at": datetime.utcnow() + timedelta(hours=24),
-                "created_at": datetime.utcnow(),
+                "verification_expires_at": datetime.now(UTC).replace(tzinfo=None)
+                + timedelta(hours=24),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
 
@@ -240,7 +242,7 @@ class TestAuthEmailVerification:
     async def test_resend_verification_email(self, client, test_db):
         """Test qu'on peut renvoyer un email de vérification."""
         import uuid
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         unique_id = str(uuid.uuid4())[:8]
 
@@ -253,7 +255,7 @@ class TestAuthEmailVerification:
                 "is_verified": False,
                 "is_active": True,
                 "role": "user",
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
 
@@ -361,7 +363,7 @@ class TestAuthRefreshToken:
     async def test_refresh_token_inactive_user(self, client, test_db):
         """Test qu'un refresh token pour un user inactif est rejeté."""
         import uuid
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         unique_id = str(uuid.uuid4())[:8]
 
@@ -374,7 +376,7 @@ class TestAuthRefreshToken:
                 "is_verified": True,
                 "is_active": False,  # Inactif
                 "role": "user",
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
 

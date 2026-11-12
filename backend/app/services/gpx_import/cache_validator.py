@@ -190,7 +190,7 @@ class CacheValidator:
                 raise ValueError("placed_at must be a datetime object")
 
             # Reject future dates
-            if placed_at > dt.datetime.utcnow():
+            if placed_at > dt.datetime.now(dt.UTC).replace(tzinfo=None):
                 raise ValueError("placed_at cannot be in the future")
 
             # Reject dates before 2000
@@ -267,7 +267,7 @@ class CacheValidator:
             raise ValueError("found_date must be a datetime object")
 
         # Reject future dates
-        if validated["found_date"] > dt.datetime.utcnow():
+        if validated["found_date"] > dt.datetime.now(dt.UTC).replace(tzinfo=None):
             raise ValueError("found_date cannot be in the future")
 
         # Reject dates before 2000

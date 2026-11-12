@@ -178,6 +178,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Bump certifi to 2026.10.19 to fix PYSEC-2026-4320
 - *(backend)* Bump dependencies flagged by pip-audit
 - *(backend)* Return the standard error envelope on oversized uploads
+- *(backend)* Replace deprecated datetime.utcnow with a naive UTC equivalent
 
 ### 💼 Other
 
@@ -352,10 +353,12 @@ To regenerate locally, run `npm run changelog`.
 - *(readme)* Align readme with current stack, urls and tooling
 - *(env)* Document maildev smtp settings for docker dev
 - Replace em dashes in docs with plain punctuation
+- *(roadmap)* Add CHORE-003 to Section 10 - Maintenance
 
 ### 🎨 Styling
 
 - *(backend)* Apply ruff 0.17 and py311 autofixes
+- *(backend)* Apply ruff 0.17 py314 formatting
 
 ### 🧪 Testing
 
@@ -451,3 +454,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Upgrade dependencies to latest
 - *(backend)* Run pip-audit without a resolver venv
 - *(backend)* Run integration tests against a disposable MongoDB
+- *(backend)* Move to Python 3.14

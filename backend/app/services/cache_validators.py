@@ -27,7 +27,7 @@ def _validate_coordinates(item: dict[str, Any]) -> dict[str, Any] | None:
         lon = float(lon)
         if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
             return {"is_valid": False, "reason": "invalid_coordinates_range"}
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return {"is_valid": False, "reason": "invalid_coordinate_values"}
 
     return None
@@ -117,7 +117,7 @@ def _validate_dt_value(value_str: Any, label: str) -> dict[str, Any] | None:
             # Check for valid 0.5 increments (e.g., 1.0, 1.5, 2.0, ..., 5.0)
             if round(value * 2) != value * 2:
                 return {"is_valid": False, "reason": f"{label}_invalid_increment: {value}"}
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         if value_str != "":  # Only error if not empty
             return {"is_valid": False, "reason": f"{label}_invalid_value: {value_str}"}
 

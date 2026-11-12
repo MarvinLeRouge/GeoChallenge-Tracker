@@ -125,7 +125,7 @@ async def seeded_admin(test_db):
     """
     Database seeded with admin user.
     """
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     admin = await test_db.users.find_one({"username": "testadmin"})
     if not admin:
@@ -138,7 +138,7 @@ async def seeded_admin(test_db):
                 "role": "admin",
                 "is_verified": True,
                 "is_active": True,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(UTC).replace(tzinfo=None),
             }
         )
     yield test_db
@@ -270,9 +270,9 @@ def test_object_id():
 
 @pytest.fixture(scope="function")
 def test_datetime():
-    from datetime import datetime
+    from datetime import UTC, datetime
 
-    return datetime.utcnow()
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 @pytest.fixture(autouse=True)

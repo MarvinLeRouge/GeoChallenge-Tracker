@@ -86,7 +86,7 @@ MONGODB_DB=geoChallenge_Tracker
 ⚠️ **Known bug**: `copy_db_structure.py` computes the project root with `Path(__file__).resolve().parents[2]`, which points to `backend/` (so `backend/.env`, currently empty) instead of the repo root used by `duplicate_db_for_tests.py` (`parents[3]`). The script then falls back to the hardcoded default credentials, which may be invalid. Expected fix: change to `parents[3]`.
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.14+
 - `motor`, `python-dotenv` (already installed)
 - Access to MongoDB Atlas
 

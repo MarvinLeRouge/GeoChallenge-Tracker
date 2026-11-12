@@ -188,7 +188,7 @@ class TestValidateDates:
 
     def test_raises_when_placed_at_in_future(self):
         v = CacheValidator()
-        future = dt.datetime.utcnow() + dt.timedelta(days=1)
+        future = dt.datetime.now(dt.UTC).replace(tzinfo=None) + dt.timedelta(days=1)
         with pytest.raises(ValueError, match="future"):
             v.validate_cache_data(_v(placed_at=future))
 
@@ -304,7 +304,9 @@ class TestValidateFoundData:
     def test_raises_when_found_date_in_future(self):
         v = CacheValidator()
         with pytest.raises(ValueError, match="future"):
-            v.validate_found_data({"found_date": dt.datetime.utcnow() + dt.timedelta(days=1)})
+            v.validate_found_data(
+                {"found_date": dt.datetime.now(dt.UTC).replace(tzinfo=None) + dt.timedelta(days=1)}
+            )
 
     def test_old_found_date_ignored_in_non_strict(self):
         v = CacheValidator()

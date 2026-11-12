@@ -11,7 +11,7 @@ Thank you for your interest in contributing. This document covers the prerequisi
 ## Prerequisites
 
 - **Docker & Docker Compose**: to run the full stack locally
-- **Python 3.11+**: for backend development without Docker
+- **Python 3.14+** (managed by uv from `backend/.python-version`): for backend development without Docker
 - **Node.js 20+**: for frontend development without Docker
 - **Git**
 

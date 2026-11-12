@@ -5,7 +5,7 @@ from pydantic import BaseModel
 T = TypeVar("T")
 
 
-class SuccessResponse(BaseModel, Generic[T]):
+class SuccessResponse(BaseModel, Generic[T]):  # noqa: UP046 - PEP 695 rewrite is an unsafe fix, left as-is
     """Standardized format for success responses."""
 
     success: bool = True

@@ -6,7 +6,7 @@
 
 > *Full-stack geocaching challenge tracker: FastAPI and MongoDB REST API with geospatial queries, GPX/ZIP import pipeline, rule engine evaluating challenge conditions, and a Vue.js frontend with interactive maps.*
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.14+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141+-009688?logo=fastapi&logoColor=white)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D?logo=vuedotjs&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)

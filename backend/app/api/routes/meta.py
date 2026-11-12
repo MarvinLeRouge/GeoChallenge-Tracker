@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
@@ -45,7 +45,7 @@ async def health() -> JSONResponse:
     # Response
     response = HealthCheck(
         status=overall_status,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(UTC).replace(tzinfo=None),
         version=settings.api_version if hasattr(settings, "api_version") else "0.1.0",
         checks=checks,
     )

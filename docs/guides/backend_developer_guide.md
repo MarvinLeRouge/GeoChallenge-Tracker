@@ -7,7 +7,7 @@
 ## Technologies
 
 - **Framework**: FastAPI
-- **Language**: Python 3.11
+- **Language**: Python 3.14
 - **Database**: MongoDB (via Motor)
 - **Validation**: Pydantic
 - **Authentication**: JWT
