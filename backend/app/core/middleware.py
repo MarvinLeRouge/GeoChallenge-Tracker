@@ -4,6 +4,7 @@ from fastapi import HTTPException, UploadFile
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from app.api.dto.response_format import ErrorResponse
 from app.core.settings import get_settings
 
 settings = get_settings()
@@ -66,10 +67,13 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
         if cl is not None:
             try:
                 if int(cl) > self.max_body_size:
+                    message = (
+                        f"Fichier trop volumineux (>{self.max_body_size // settings.one_mb} Mo)."
+                    )
                     return JSONResponse(
-                        {
-                            "detail": f"Fichier trop volumineux (>{self.max_body_size // settings.one_mb} Mo)."
-                        },
+                        ErrorResponse.from_detail(
+                            {"code": "HTTP_413", "message": message}
+                        ).model_dump(),
                         status_code=413,
                     )
             except ValueError:

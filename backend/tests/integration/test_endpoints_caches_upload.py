@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from app.core.settings import get_settings
 from tests.integration.markers import requires_sample_gpx
 
 
@@ -87,21 +88,16 @@ class TestCachesUploadGpx:
             or "gpx" in data["error"].get("message", "").lower()
         )
 
-    @pytest.mark.xfail(
-        strict=True, reason="FIX-002: oversized GPX upload is accepted (200, expected 413)"
-    )
     @pytest.mark.asyncio
     async def test_upload_gpx_file_too_big(self, auth_client, seeded_admin):
-        """Test qu'un fichier trop lourd est rejeté (limite 20 Mo)."""
-        # Créer un fichier GPX de plus de 20 Mo (21 Mo)
-        # En-tête GPX valide
+        """Test qu'un fichier au-delà de la limite configurée (MAX_UPLOAD_MB) est rejeté."""
         gpx_header = b"""<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.0" creator="Test">
 """
         gpx_footer = b"</gpx>"
 
-        # Créer un contenu de 21 Mo
-        target_size = 21 * 1024 * 1024  # 21 Mo
+        # 1 Mo au-delà de la limite configurée, quelle qu'elle soit
+        target_size = get_settings().max_upload_bytes + 1024 * 1024
         padding_size = target_size - len(gpx_header) - len(gpx_footer)
         padding = b" " * padding_size
 
