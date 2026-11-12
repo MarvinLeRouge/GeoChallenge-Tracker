@@ -8,7 +8,7 @@ import os
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from bson import ObjectId
 
@@ -34,7 +34,7 @@ class DataLogger:
         self.logs_dir.mkdir(exist_ok=True)
 
     def log_data(
-        self, calling_context: str, data: dict[str, Any], user_data: Optional[dict[str, Any]] = None
+        self, calling_context: str, data: dict[str, Any], user_data: dict[str, Any] | None = None
     ) -> None:
         """Logs heavy data payloads as JSON."""
         today = datetime.now().strftime("%Y-%m-%d")
@@ -159,7 +159,7 @@ def cleanup_old_logs(logs_dir: Path, retention_days: int = 30) -> None:
 
 
 # Instance globale (lazy initialization)
-_loggers: Optional[tuple[logging.Logger, logging.Logger, DataLogger]] = None
+_loggers: tuple[logging.Logger, logging.Logger, DataLogger] | None = None
 
 
 def get_loggers() -> tuple[logging.Logger, logging.Logger, DataLogger]:
@@ -172,7 +172,7 @@ def get_loggers() -> tuple[logging.Logger, logging.Logger, DataLogger]:
 
 # Separate singleton (not part of the get_loggers() tuple, to avoid changing that
 # function's signature for its existing callers).
-_security_logger: Optional[logging.Logger] = None
+_security_logger: logging.Logger | None = None
 
 
 def get_security_logger() -> logging.Logger:
@@ -210,7 +210,7 @@ def get_security_logger() -> logging.Logger:
     return _security_logger
 
 
-def extract_user_data(user_id: Optional[ObjectId] = None, request=None) -> dict[str, Any]:
+def extract_user_data(user_id: ObjectId | None = None, request=None) -> dict[str, Any]:
     """Extracts user data for logging."""
     user_data = {}
 

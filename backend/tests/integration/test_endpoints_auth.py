@@ -398,7 +398,7 @@ class TestAuthRefreshToken:
         )
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         await revoke_refresh_token(
-            payload["jti"], dt.datetime.fromtimestamp(payload["exp"], tz=dt.timezone.utc)
+            payload["jti"], dt.datetime.fromtimestamp(payload["exp"], tz=dt.UTC)
         )
 
         client.cookies.set("refresh_token", token)

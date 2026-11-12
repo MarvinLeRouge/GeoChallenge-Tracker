@@ -72,7 +72,7 @@ def find_parent_code(centroid, parent_shapes: list, parent_zones: list[dict]) ->
         str | None: Code of the matched parent zone, or None if no parent found.
     """
     # Pass 1: exact containment
-    for geom, zone in zip(parent_shapes, parent_zones):
+    for geom, zone in zip(parent_shapes, parent_zones, strict=False):
         if geom.contains(centroid):
             return zone["code"]
 
@@ -80,7 +80,7 @@ def find_parent_code(centroid, parent_shapes: list, parent_zones: list[dict]) ->
     if parent_shapes:
         min_dist = float("inf")
         nearest_code = None
-        for geom, zone in zip(parent_shapes, parent_zones):
+        for geom, zone in zip(parent_shapes, parent_zones, strict=False):
             dist = geom.distance(centroid)
             if dist < min_dist:
                 min_dist = dist

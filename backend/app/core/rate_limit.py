@@ -2,7 +2,8 @@
 # Rate limiter for brute-force / spam protection on sensitive auth routes.
 
 import inspect
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address

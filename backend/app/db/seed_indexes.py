@@ -16,7 +16,7 @@ from pymongo.operations import IndexModel
 from app.db.mongodb import get_collection
 
 # Direction can be 1/-1 for asc/desc, or string for special types ('2dsphere', '2d', etc.)
-Direction = Union[int, str]
+Direction = Union[int, str]  # noqa: UP007 - runtime alias, left as-is
 KeySpec = list[tuple[str, Direction]]
 
 # Case-insensitive (accent-sensitive) collation for users

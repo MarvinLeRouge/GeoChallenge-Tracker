@@ -146,7 +146,7 @@ class TestJWTTokenCreation:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         assert "exp" in payload
         expected_delta = dt.timedelta(minutes=settings.jwt_expiration_minutes)
-        exp = dt.datetime.fromtimestamp(payload["exp"], tz=dt.timezone.utc).replace(tzinfo=None)
+        exp = dt.datetime.fromtimestamp(payload["exp"], tz=dt.UTC).replace(tzinfo=None)
         # `exp` is stored as an integer Unix timestamp, so it loses sub-second
         # precision relative to `before`/`after` - allow a 1s tolerance for that.
         tolerance = dt.timedelta(seconds=1)

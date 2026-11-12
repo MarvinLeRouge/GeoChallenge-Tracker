@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -30,7 +29,7 @@ class VersionInfo(BaseModel):
 
     version: str = Field(..., description="API version (semver)")
     environment: str = Field(..., description="Environment (dev, staging, prod)")
-    build_date: Optional[datetime] = Field(None, description="Build date")
+    build_date: datetime | None = Field(None, description="Build date")
 
     class Config:
         json_schema_extra = {
@@ -47,6 +46,6 @@ class APIInfo(BaseModel):
 
     name: str
     version: str
-    build_date: Optional[datetime] = Field(None, description="Build date")
+    build_date: datetime | None = Field(None, description="Build date")
     documentation: str
     support: str

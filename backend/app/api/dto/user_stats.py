@@ -2,7 +2,6 @@
 # DTOs for user statistics
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -48,14 +47,12 @@ class UserStatsOut(BaseModel):
     total_challenges: int = Field(ge=0, description="Total number of challenges")
     active_challenges: int = Field(ge=0, description="Active challenges (accepted)")
     completed_challenges: int = Field(ge=0, description="Completed challenges")
-    first_cache_found_at: Optional[datetime] = Field(
-        None, description="Date of the first found cache"
-    )
-    last_cache_found_at: Optional[datetime] = Field(
+    first_cache_found_at: datetime | None = Field(None, description="Date of the first found cache")
+    last_cache_found_at: datetime | None = Field(
         None, description="Date of the most recent found cache"
     )
     created_at: datetime = Field(description="Account creation date")
-    last_activity_at: Optional[datetime] = Field(None, description="Last activity")
-    cache_types_stats: Optional[list[CacheTypeStats]] = Field(
+    last_activity_at: datetime | None = Field(None, description="Last activity")
+    cache_types_stats: list[CacheTypeStats] | None = Field(
         None, description="Statistics by cache type"
     )

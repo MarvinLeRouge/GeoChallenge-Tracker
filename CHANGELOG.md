@@ -192,6 +192,7 @@ To regenerate locally, run `npm run changelog`.
 - *(caches)* Check caches routes functionality
 - Adapt compose and CI for Traefik deployment
 - Fix build-push workflow for Traefik deployment
+- *(backend)* Migrate from pip requirements to uv
 
 ### 🚜 Refactor
 
@@ -351,6 +352,10 @@ To regenerate locally, run `npm run changelog`.
 - *(env)* Document maildev smtp settings for docker dev
 - Replace em dashes in docs with plain punctuation
 
+### 🎨 Styling
+
+- *(backend)* Apply ruff 0.17 and py311 autofixes
+
 ### 🧪 Testing
 
 - Réorganisation complète des tests unitaires + tests sécurité JWT
@@ -442,3 +447,5 @@ To regenerate locally, run `npm run changelog`.
 - *(gitignore)* Ignore codegraph folder
 - *(changelog)* Auto-merge the catch-up CHANGELOG.md PR
 - *(security)* Replace passlib with argon2-cffi and bcrypt
+- *(backend)* Upgrade dependencies to latest
+- *(backend)* Run pip-audit without a resolver venv

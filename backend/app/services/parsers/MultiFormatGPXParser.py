@@ -2,7 +2,7 @@
 # Parses a GPX file in multiple formats (cgeo, pocket query, etc.) to extract structured geocaches.
 
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from lxml import etree
 
@@ -257,7 +257,7 @@ class MultiFormatGPXParser(BaseGPXParser):
 
         return cache
 
-    def _extract_found_date_from_logs(self, cache_elem) -> Optional[str]:
+    def _extract_found_date_from_logs(self, cache_elem) -> str | None:
         """Attempt to extract the found date from logs in the pocket query format."""
         # Retrieve all logs for the cache
         logs = cache_elem.xpath("groundspeak:logs/groundspeak:log", namespaces=self.namespaces)

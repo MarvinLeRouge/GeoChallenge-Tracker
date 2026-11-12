@@ -28,7 +28,9 @@ OVERSEAS_CODES = {f"FR-{code}" for code in ("01", "02", "03", "04", "06")}
 
 
 def _bbox_close(a: list[float], b: list[float]) -> bool:
-    return len(a) == len(b) == 4 and all(abs(x - y) <= BBOX_TOLERANCE for x, y in zip(a, b))
+    return len(a) == len(b) == 4 and all(
+        abs(x - y) <= BBOX_TOLERANCE for x, y in zip(a, b, strict=False)
+    )
 
 
 def _build_exported_by_key(
@@ -90,7 +92,10 @@ def _compare_one_live_zone(
         )
 
     if not _bbox_close(exported["bbox"], live["bbox"]):
-        if any(abs(x - y) > BBOX_DRIFT_MAX for x, y in zip(exported["bbox"], live["bbox"])):
+        if any(
+            abs(x - y) > BBOX_DRIFT_MAX
+            for x, y in zip(exported["bbox"], live["bbox"], strict=False)
+        ):
             failures.append(
                 f"{code} (level {live['level']}): bbox drift exceeds {BBOX_DRIFT_MAX} deg "
                 f"(live={live['bbox']}, exported={exported['bbox']}) - likely a bad join, not vintage drift"

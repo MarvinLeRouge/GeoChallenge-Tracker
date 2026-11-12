@@ -52,7 +52,7 @@ async def _resolve_batch_updates(
     """
     bulk_ops: list[UpdateOne] = []
     failed = 0
-    for doc, geo in zip(docs_buffer, geo_results):
+    for doc, geo in zip(docs_buffer, geo_results, strict=False):
         if geo is None:
             failed += 1
             continue

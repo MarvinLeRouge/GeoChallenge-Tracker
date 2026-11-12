@@ -1,7 +1,5 @@
 """Models for calendar and matrix verification functionality."""
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 from app.shared.constants import MATRIX_DT_TOTAL_COMBINATIONS
@@ -27,15 +25,15 @@ class CalendarResult(BaseModel):
     completed_days: list[dict]  # [{"day": "01-01", "count": 2}, ...]
 
     # Filters applied
-    cache_type_filter: Optional[str] = None
-    cache_size_filter: Optional[str] = None
+    cache_type_filter: str | None = None
+    cache_size_filter: str | None = None
 
 
 class CalendarFilters(BaseModel):
     """Filters for calendar verification."""
 
-    cache_type_name: Optional[str] = None
-    cache_size_name: Optional[str] = None
+    cache_type_name: str | None = None
+    cache_size_name: str | None = None
 
 
 class MatrixResult(BaseModel):
@@ -59,12 +57,12 @@ class MatrixResult(BaseModel):
     ]  # [{"difficulty": 1.0, "terrain": 2.0, "count": 3}, ...]
 
     # Filters applied
-    cache_type_filter: Optional[str] = None
-    cache_size_filter: Optional[str] = None
+    cache_type_filter: str | None = None
+    cache_size_filter: str | None = None
 
 
 class MatrixFilters(BaseModel):
     """Filters for matrix verification."""
 
-    cache_type_name: Optional[str] = None
-    cache_size_name: Optional[str] = None
+    cache_type_name: str | None = None
+    cache_size_name: str | None = None

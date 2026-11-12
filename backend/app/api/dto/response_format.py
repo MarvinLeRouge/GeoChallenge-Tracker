@@ -1,4 +1,4 @@
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
@@ -9,8 +9,8 @@ class SuccessResponse(BaseModel, Generic[T]):
     """Standardized format for success responses."""
 
     success: bool = True
-    data: Optional[T] = None
-    message: Optional[str] = None
+    data: T | None = None
+    message: str | None = None
 
 
 class ErrorResponse(BaseModel):
@@ -20,7 +20,7 @@ class ErrorResponse(BaseModel):
     error: dict[str, Any]
 
     @classmethod
-    def from_detail(cls, detail: Union[str, dict[str, Any]], code: str = "VALIDATION_ERROR"):
+    def from_detail(cls, detail: str | dict[str, Any], code: str = "VALIDATION_ERROR"):
         """Create an error response from a detail value."""
         if isinstance(detail, str):
             return cls(error={"code": code, "message": detail})

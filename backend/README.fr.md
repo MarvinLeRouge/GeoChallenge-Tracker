@@ -10,9 +10,7 @@ API REST FastAPI avec MongoDB (driver async Motor), authentification JWT et impo
 
 ```bash
 cd backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+uv sync
 ```
 
 Créer un fichier `.env` dans `backend/` (ou définir les variables d'environnement) :
@@ -38,7 +36,7 @@ ENVIRONMENT=development
 Démarrer le serveur de développement :
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 La doc API est disponible sur `http://localhost:8000/docs`.
@@ -46,7 +44,7 @@ La doc API est disponible sur `http://localhost:8000/docs`.
 ## Lancer les tests
 
 ```bash
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ## Structure du projet

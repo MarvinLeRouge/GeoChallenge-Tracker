@@ -88,7 +88,7 @@ async def backfill_elevation(
 
         # Apply updates in bulk
         ops = []
-        for d, ev in zip(docs_buffer, elevs):
+        for d, ev in zip(docs_buffer, elevs, strict=False):
             if ev is None:
                 failed += 1
                 continue

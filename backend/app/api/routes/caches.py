@@ -151,7 +151,7 @@ async def _evaluate_progress_for_accepted_ucs(user_id: ObjectId) -> dict[str, An
         )
 
         evaluated = 0
-        for doc, res in zip(accepted_docs, eval_results):
+        for doc, res in zip(accepted_docs, eval_results, strict=False):
             uc_id_str = str(doc["_id"])
             if isinstance(res, BaseException):
                 log.warning("[progress] UC %s — evaluation failed: %s", uc_id_str, res)

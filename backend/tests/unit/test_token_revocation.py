@@ -19,7 +19,7 @@ class TestRevokeRefreshToken:
     @pytest.mark.asyncio
     async def test_upserts_jti_with_expiry(self):
         coll = _mock_collection()
-        expires_at = dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7)
+        expires_at = dt.datetime.now(dt.UTC) + dt.timedelta(days=7)
 
         with patch(
             "app.core.token_revocation.get_collection",
