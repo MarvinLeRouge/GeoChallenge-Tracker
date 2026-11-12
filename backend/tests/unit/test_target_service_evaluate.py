@@ -165,7 +165,7 @@ class TestScoreAndPersistTargets:
             tasks=[],
             progress_map={},
             geo_ctx=None,
-            evaluated_at=dt.datetime.utcnow(),
+            evaluated_at=dt.datetime.now(dt.UTC).replace(tzinfo=None),
         )
 
         assert result["updated"] == 1
@@ -201,7 +201,7 @@ class TestScoreAndPersistTargets:
             tasks=[],
             progress_map={},
             geo_ctx={"radius_km": 5},
-            evaluated_at=dt.datetime.utcnow(),
+            evaluated_at=dt.datetime.now(dt.UTC).replace(tzinfo=None),
         )
 
         call_update = db.targets.update_one.call_args[0][1]["$set"]
@@ -239,7 +239,7 @@ class TestScoreAndPersistTargets:
             tasks=[],
             progress_map={},
             geo_ctx=None,
-            evaluated_at=dt.datetime.utcnow(),
+            evaluated_at=dt.datetime.now(dt.UTC).replace(tzinfo=None),
         )
 
         doc_set = db.targets.update_one.call_args[0][1]["$set"]

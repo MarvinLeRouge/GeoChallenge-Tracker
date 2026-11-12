@@ -178,6 +178,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Bump certifi to 2026.10.19 to fix PYSEC-2026-4320
 - *(backend)* Bump dependencies flagged by pip-audit
 - *(backend)* Return the standard error envelope on oversized uploads
+- *(backend)* Replace deprecated datetime.utcnow with a naive UTC equivalent
 
 ### 💼 Other
 
