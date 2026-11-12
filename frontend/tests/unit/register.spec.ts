@@ -94,6 +94,38 @@ describe("Register", () => {
     );
   });
 
+  it("handles 422 validation error in the backend envelope", async () => {
+    mockIsAxiosError.mockReturnValue(true);
+    mockPost.mockRejectedValueOnce({
+      response: {
+        status: 422,
+        data: {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Validation failed",
+            details: [
+              {
+                field: "body -> password",
+                message: "password too weak",
+                type: "value_error",
+              },
+            ],
+          },
+        },
+      },
+    });
+    const wrapper = mount(Register, {
+      global: { stubs: { RouterLink: true } },
+    });
+
+    await fillAndSubmit(wrapper);
+
+    expect(mockToastError).toHaveBeenCalledWith("Sécurité du mot de passe", {
+      description: "password too weak",
+    });
+  });
+
   it("handles 422 with non-password field error", async () => {
     mockIsAxiosError.mockReturnValue(true);
     mockPost.mockRejectedValueOnce({

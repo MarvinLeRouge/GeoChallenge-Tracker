@@ -615,4 +615,4 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CHORE-005 - Keep Dependabot off deliberate upgrades (Python, Node, TypeScript majors)
 - [x] CHORE-006 - Replace the deprecated lucide-vue-next with @lucide/vue
 - [x] FIX-003 - Repair stale backend integration tests marked xfail
-- [ ] FIX-004 - Read the backend error envelope (error.message) in frontend error handling
+- [x] FIX-004 - Read the backend error envelope (error.message) in frontend error handling

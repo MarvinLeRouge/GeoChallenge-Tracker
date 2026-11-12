@@ -616,4 +616,4 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-005 - Exclure de Dependabot les montées délibérées (majeures Python, Node, TypeScript)
 - [x] CHORE-006 - Remplacer lucide-vue-next (abandonné) par @lucide/vue
 - [x] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail
-- [ ] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend
+- [x] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend

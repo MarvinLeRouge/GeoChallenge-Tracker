@@ -1,6 +1,7 @@
 // src/composables/useApiErrorHandler.ts
 import { ref } from "vue";
 import { isAxiosError, type AxiosError } from "axios";
+import { apiErrorMessage } from "@/utils/http";
 
 export interface ApiError {
   status?: number;
@@ -20,9 +21,7 @@ export function useApiErrorHandler() {
       if (axiosError.response) {
         // HTTP error with response
         const status = axiosError.response.status;
-        const detail = (
-          axiosError.response.data as { detail?: string } | undefined
-        )?.detail;
+        const detail = apiErrorMessage(axiosError);
 
         apiError = {
           status,

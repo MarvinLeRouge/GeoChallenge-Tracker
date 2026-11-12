@@ -66,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { ref, onMounted, computed } from "vue";
 import api from "@/api/http";
 import type { MatrixResult } from "@/types/challenges";
@@ -123,8 +124,7 @@ async function fetchMatrix() {
     const response = await api.get(`/my/challenges/basics/matrix?${params}`);
     matrixResult.value = response.data;
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })
-      ?.response?.data?.detail;
+    const detail = apiErrorMessage(e);
     const msg = e instanceof Error ? e.message : String(e);
     error.value = detail || msg || "Erreur lors du chargement de la matrice";
     toast.error("Erreur chargement matrice", { description: error.value });

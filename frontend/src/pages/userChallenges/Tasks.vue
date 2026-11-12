@@ -162,6 +162,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "@/api/http";
@@ -294,8 +295,7 @@ async function validateAll() {
     await api.post(`/my/challenges/${ucId}/tasks/validate`, payload);
     toast.success("Validation réussie");
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })
-      ?.response?.data?.detail;
+    const detail = apiErrorMessage(e);
     error.value =
       detail ?? (e instanceof Error ? e.message : "Validation invalide");
     toast.error("Erreur de validation", {
@@ -321,8 +321,7 @@ async function saveAll() {
 
     toast.success("Tâches enregistrées");
   } catch (e: unknown) {
-    const detail = (e as { response?: { data?: { detail?: string } } })
-      ?.response?.data?.detail;
+    const detail = apiErrorMessage(e);
     error.value =
       detail ?? (e instanceof Error ? e.message : "Erreur enregistrement");
     toast.error("Erreur enregistrement", {

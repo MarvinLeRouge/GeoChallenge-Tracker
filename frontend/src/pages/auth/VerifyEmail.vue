@@ -35,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiErrorMessage } from "@/utils/http";
 import { onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import api from "@/api/http";
@@ -59,8 +60,7 @@ onMounted(async () => {
     status.value = "success";
   } catch (e: unknown) {
     status.value = "error";
-    const msg = (e as { response?: { data?: { detail?: string } } })?.response
-      ?.data?.detail;
+    const msg = apiErrorMessage(e);
     error.value = msg ?? "Le lien est invalide ou a expiré.";
   }
 });
