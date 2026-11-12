@@ -1,4 +1,5 @@
 import type { FastAPIValidationItem, FastAPIErrorDetail } from "@/types/http";
+import { translateErrorCode, translateValidation } from "@/utils/errorMessages";
 
 export const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null;
@@ -9,17 +10,26 @@ export const isValidationItem = (x: unknown): x is FastAPIValidationItem =>
     typeof (x as Record<string, unknown>).msg === "string" ||
     ("loc" in x && Array.isArray((x as Record<string, unknown>).loc)));
 
-/** Lit l'enveloppe backend `{ success: false, error: { code, message, details? } }` */
+/**
+ * Lit l'enveloppe backend `{ success: false, error: { code, message, details? } }`.
+ * Les messages sont traduits en français depuis `code` (et `type` pour la validation),
+ * avec le message du backend en repli.
+ */
 const getEnvelopeDetail = (d: Record<string, unknown>): FastAPIErrorDetail => {
   const err = d.error;
   if (!isObject(err)) return undefined;
   if (Array.isArray(err.details) && err.details.length > 0)
     return err.details.filter(isObject).map((x) => ({
       loc: typeof x.field === "string" ? x.field.split(" -> ") : undefined,
-      msg: typeof x.message === "string" ? x.message : undefined,
+      msg:
+        translateValidation(x.type, x.ctx) ??
+        (typeof x.message === "string" ? x.message : undefined),
       type: typeof x.type === "string" ? x.type : undefined,
     }));
-  return typeof err.message === "string" ? err.message : undefined;
+  return (
+    translateErrorCode(err.code) ??
+    (typeof err.message === "string" ? err.message : undefined)
+  );
 };
 
 /** Extrait le détail d'une erreur API : enveloppe backend, sinon `detail`/`msg` FastAPI bruts */

@@ -49,6 +49,12 @@ def register_exception_handlers(app: FastAPI):
                     "field": " -> ".join(str(loc) for loc in error["loc"]),
                     "message": error["msg"],
                     "type": error["type"],
+                    # scalar constraints only (min_length, ge...): `ctx` can hold exceptions
+                    "ctx": {
+                        k: v
+                        for k, v in (error.get("ctx") or {}).items()
+                        if isinstance(v, str | int | float | bool)
+                    },
                 }
             )
 

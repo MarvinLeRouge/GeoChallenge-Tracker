@@ -633,4 +633,4 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 ## Section 11 - Localization
 
 - [x] FEAT-001 - Give every backend error a stable error code (`AppError` / `ErrorCode`) so the frontend can localize it
-- [ ] FEAT-002 - Show every user-facing message in French: translate backend errors in the frontend from `error.code` (and validation `type`), backend message as fallback
+- [x] FEAT-002 - Show every user-facing message in French: translate backend errors in the frontend from `error.code` (and validation `type`), backend message as fallback

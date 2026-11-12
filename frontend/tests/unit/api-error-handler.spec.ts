@@ -26,19 +26,22 @@ describe("handleApiError", () => {
       expect(result.detail).toBe("Champ invalide");
     });
 
-    it("uses error.message from the backend envelope", () => {
+    it("translates error.code from the backend envelope", () => {
       const { handleApiError } = useApiErrorHandler();
       const err = axiosError({
         response: {
           status: 404,
           data: {
             success: false,
-            error: { code: "HTTP_404", message: "Challenge not found" },
+            error: {
+              code: "USER_CHALLENGE_NOT_FOUND",
+              message: "UserChallenge not found",
+            },
           },
         },
       });
       const result = handleApiError(err);
-      expect(result.message).toBe("Challenge not found");
+      expect(result.message).toBe("Challenge introuvable.");
     });
 
     it('falls back to "Erreur <status>" when detail is absent', () => {
