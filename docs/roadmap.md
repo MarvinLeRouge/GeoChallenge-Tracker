@@ -623,7 +623,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-008 - Return 401 instead of 500 on login when the stored password hash is missing or empty
 - [ ] CHORE-008 - Plan the migration from motor (end of life since 2026-05-14) to the PyMongo async API
 - [ ] CI-002 - Run the Playwright e2e tests in CI
-- [ ] CHORE-009 - Replace the deprecated FastAPI `root_path` with the server root path (Docker CMD, compose, Traefik)
+- [x] CHORE-009 - Replace the deprecated FastAPI `root_path` with the server root path (Docker CMD, compose, Traefik)
 - [ ] CHORE-010 - Handle slowapi's use of `asyncio.iscoroutinefunction` before Python 3.16 (upstream fix or replacement)
 - [x] CHORE-011 - Migrate class-based Pydantic `Config` to `ConfigDict` (app/domain/models/meta.py)
 - [x] REFACTOR-001 - Remove the dead optional `dateutil` branch in the GPX data normalizer

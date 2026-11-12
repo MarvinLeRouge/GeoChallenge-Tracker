@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: geo-backend
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/api", "--reload"]
     env_file:
       - .env
     environment:
@@ -30,9 +30,10 @@ services:
       - "traefik.http.routers.gctracker-api-dev.rule=Host(`gc-tracker.marvinlerouge.local`) && PathPrefix(`/api`)"
       - "traefik.http.routers.gctracker-api-dev.entrypoints=web"
       - "traefik.http.routers.gctracker-api-dev.service=gctracker-backend-dev"
-      # No stripprefix: the /api prefix is kept and handled by FastAPI's root_path="/api"
-      # instead, since Starlette's Mount() resolution (StaticFiles for /geo, /static) breaks
-      # when root_path is set but the proxy already stripped the prefix from the actual path.
+      # Traefik strips /api and uvicorn runs with --root-path /api, so FastAPI routes stay
+      # unprefixed while OpenAPI and the Swagger UI build /api URLs.
+      - "traefik.http.middlewares.gctracker-api-strip-dev.stripprefix.prefixes=/api"
+      - "traefik.http.routers.gctracker-api-dev.middlewares=gctracker-api-strip-dev"
       - "traefik.http.services.gctracker-backend-dev.loadbalancer.server.port=8000"
     networks:
       - traefik-public
