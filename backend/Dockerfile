@@ -7,7 +7,7 @@
 # build-essential (and the linux-libc-dev headers it pulls in) never reach the
 # runtime image this way.
 # ---------------------------------------------------
-FROM python:3.14-slim AS builder
+FROM python:3.15-slim AS builder
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN uv sync --frozen --no-dev
 # ---------------------------------------------------
 # STAGE 2: runtime - lean final image, no build tools.
 # ---------------------------------------------------
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
