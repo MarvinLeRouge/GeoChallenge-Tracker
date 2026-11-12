@@ -119,7 +119,7 @@ class TestAuthEndpoints:
         user_data = {
             "username": f"newuser_{unique_id}",
             "email": f"newuser_{unique_id}@example.com",
-            "password": "weak",  # Trop court
+            "password": "weak",  # Trop court  # gitleaks:allow
         }
 
         response = await client.post("/auth/register", json=user_data)

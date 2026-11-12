@@ -14,6 +14,7 @@ Merci de l'intérêt que vous portez au projet. Ce document couvre les prérequi
 - **Python 3.14+** (géré par uv depuis `backend/.python-version`) : pour le développement backend sans Docker
 - **Node.js 20+** : pour le développement frontend sans Docker
 - **Git**
+- **[gitleaks](https://github.com/gitleaks/gitleaks)** : le hook pre-commit analyse les modifications indexées à la recherche de secrets et refuse de committer s'il est absent
 
 ---
 
@@ -125,6 +126,7 @@ Modified files:
 
 - **Backend :** vérifié par `ruff` (lint + format) et `mypy` (typage). Exécuter `ruff check backend/ && ruff format --check backend/ && mypy backend/` avant de pousser
 - **Frontend :** vérifié par ESLint et TypeScript. Exécuter `npm run lint && npm run typecheck` avant de pousser
+- **Secrets :** le hook pre-commit lance `gitleaks` sur les modifications indexées. Un faux positif connu (fixture de test) peut être marqué d'un commentaire `# gitleaks:allow` en fin de ligne
 
 La CI rejettera toute PR qui ne passe pas ces vérifications.
 

@@ -14,6 +14,7 @@ Thank you for your interest in contributing. This document covers the prerequisi
 - **Python 3.14+** (managed by uv from `backend/.python-version`): for backend development without Docker
 - **Node.js 20+**: for frontend development without Docker
 - **Git**
+- **[gitleaks](https://github.com/gitleaks/gitleaks)**: the pre-commit hook scans staged changes for secrets and refuses to commit without it
 
 ---
 
@@ -125,6 +126,7 @@ Modified files:
 
 - **Backend:** enforced by `ruff` (lint + format) and `mypy` (type checking). Run `ruff check backend/ && ruff format --check backend/ && mypy backend/` before pushing
 - **Frontend:** enforced by ESLint and TypeScript. Run `npm run lint && npm run typecheck` before pushing
+- **Secrets:** the pre-commit hook runs `gitleaks` on staged changes. A known false positive (test fixture) can be marked with a trailing `# gitleaks:allow` comment
 
 CI will reject any PR that fails these checks.
 
