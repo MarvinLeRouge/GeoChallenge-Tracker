@@ -195,6 +195,13 @@ To regenerate locally, run `npm run changelog`.
 - Adapt compose and CI for Traefik deployment
 - Fix build-push workflow for Traefik deployment
 - *(backend)* Migrate from pip requirements to uv
+- *(deps)* Bump appleboy/ssh-action
+- *(deps)* Bump docker/login-action from 3 to 4
+- *(deps)* Bump docker/setup-buildx-action from 3 to 4
+- *(deps)* Bump dorny/paths-filter from 3 to 4
+- *(deps)* Bump actions/setup-node from 4 to 7
+- *(deps-dev)* Bump dotenv from 17.4.2 to 18.0.10
+- *(deps)* Bump the minor-and-patch group across 1 directory with 17 updates
 
 ### 🚜 Refactor
 
