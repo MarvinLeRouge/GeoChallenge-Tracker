@@ -10,6 +10,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 from app.core.bson_utils import MongoBaseModel, PyObjectId
 from app.core.utils import now, utcnow
 
+# Upper bound on plain passwords: argon2 hashes inputs of any size, so this caps the CPU cost
+PASSWORD_MAX_LENGTH = 128
+
 
 class UserLocation(BaseModel):
     """User location.
@@ -132,12 +135,12 @@ class UserInRegister(BaseModel):
     Attributes:
         username (str): 3–30 characters.
         email (EmailStr): Valid email.
-        password (str): ≥ 8 characters.
+        password (str): 8 to PASSWORD_MAX_LENGTH characters.
     """
 
     username: str = Field(min_length=3, max_length=30)
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=PASSWORD_MAX_LENGTH)
 
 
 class UserInLogin(BaseModel):

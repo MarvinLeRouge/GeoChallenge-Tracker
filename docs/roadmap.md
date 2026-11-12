@@ -619,7 +619,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-005 - Copy every index option (partial, collation, text) when duplicating the test database
 - [x] FIX-006 - Stop double-wrapping the GPX validation error message
 - [ ] CHORE-007 - Add a secret-scanning hook to pre-commit (portfolio standard)
-- [ ] FIX-007 - Cap the password length on register and login (argon2 hashes inputs of any size)
+- [x] FIX-007 - Cap the password length on register and login (argon2 hashes inputs of any size)
 - [ ] FIX-008 - Return 401 instead of 500 on login when the stored password hash is missing or empty
 - [ ] CHORE-008 - Plan the migration from motor (end of life since 2026-05-14) to the PyMongo async API
 - [ ] CI-002 - Run the Playwright e2e tests in CI

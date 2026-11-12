@@ -184,6 +184,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Read the backend error envelope in API error messages
 - *(backend)* Keep index options when duplicating the test database
 - *(backend)* Stop double-wrapping the GPX validation error message
+- *(backend)* Cap the password length on register and login
 
 ### 💼 Other
 

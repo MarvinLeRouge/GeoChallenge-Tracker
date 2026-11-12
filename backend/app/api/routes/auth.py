@@ -51,6 +51,7 @@ from app.core.token_revocation import is_refresh_token_revoked, revoke_refresh_t
 from app.core.utils import now
 from app.db.mongodb import get_collection
 from app.domain.models.user import (
+    PASSWORD_MAX_LENGTH,
     ResendVerificationRequest,
     TokenResponse,
     UserInRegister,
@@ -283,7 +284,12 @@ async def _authenticate_user(
         {"$or": [{"email": ident}, {"username": ident}]},
         collation=COLLATION_CI,
     )
-    if user is None or not verify_password(password, user.get("password_hash", "")):
+    # An oversized password can never match (register caps it), so it is rejected unhashed
+    if (
+        user is None
+        or len(password) > PASSWORD_MAX_LENGTH
+        or not verify_password(password, user.get("password_hash", ""))
+    ):
         security_logger.warning(
             "Failed login attempt (invalid credentials): identifier=%r ip=%s",
             ident,
