@@ -353,6 +353,7 @@ To regenerate locally, run `npm run changelog`.
 - *(readme)* Align readme with current stack, urls and tooling
 - *(env)* Document maildev smtp settings for docker dev
 - Replace em dashes in docs with plain punctuation
+- *(roadmap)* Add CHORE-003 to Section 10 - Maintenance
 
 ### 🎨 Styling
 
