@@ -22,6 +22,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from tests.utils.mongo_indexes import index_spec
+
 # Charger les variables d'environnement depuis la RACINE du projet
 # Le fichier .env est à la racine, pas dans backend/
 root_dir = Path(__file__).resolve().parents[3]  # Remonte à la racine du projet
@@ -74,7 +76,7 @@ async def _sync_missing_collections(prod_db, test_db, verbose):
 
 
 async def _copy_collection_indexes(prod_db, test_db, coll_name, verbose):
-    """Copy all (non-default, non-text) indexes of one collection from prod to test.
+    """Copy all non-default indexes of one collection from prod to test, with their options.
 
     Args:
         prod_db: Source database handle.
@@ -86,37 +88,20 @@ async def _copy_collection_indexes(prod_db, test_db, coll_name, verbose):
         int: Number of indexes actually created.
     """
     coll_indexes = 0
-    # Récupérer les indexes depuis la prod
-    indexes_cursor = prod_db[coll_name].list_indexes()
-    indexes = await indexes_cursor.to_list(length=None)
+    indexes = await prod_db[coll_name].list_indexes().to_list(length=None)
 
     for idx in indexes:
-        # Skip default _id index
         if idx.get("name") == "_id_":
             continue
-
-        # Skip text indexes (causes issues with weights)
-        if idx.get("name", "").startswith("text_"):
-            if verbose:
-                print(f"   ⚠️  {coll_name}: Skip text index '{idx.get('name')}'")
+        keys, options = index_spec(idx)
+        if not keys:
             continue
-
-        # Extraire les clés de l'index
-        key = idx.get("key", {})
-        keys = [(k, v) for k, v in key.items()]
-
-        if keys:
-            try:
-                await test_db[coll_name].create_index(
-                    keys,
-                    name=idx.get("name"),
-                    unique=idx.get("unique", False),
-                    background=idx.get("background", False),
-                )
-                coll_indexes += 1
-            except Exception as e:
-                if verbose:
-                    print(f"   ⚠️  {coll_name}: Skip index '{idx.get('name')}' ({e})")
+        try:
+            await test_db[coll_name].create_index(keys, **options)
+            coll_indexes += 1
+        except Exception as e:
+            if verbose:
+                print(f"   ⚠️  {coll_name}: Skip index '{idx.get('name')}' ({e})")
 
     return coll_indexes
 

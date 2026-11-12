@@ -617,3 +617,4 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-006 - Remplacer lucide-vue-next (abandonné) par @lucide/vue
 - [x] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail
 - [x] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend
+- [x] FIX-005 - Copier toutes les options d'index (partiel, collation, texte) lors de la duplication de la base de test
