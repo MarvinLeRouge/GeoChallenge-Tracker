@@ -96,19 +96,18 @@ MONGODB_DB=geoChallenge_Tracker
 
 ### Locally (development)
 
+The integration tests refuse any non-local MongoDB host (`tests/utils/mongo_guard.py`), because the test database shares the production connection. Against a local mongo they run as is. Against the Atlas test database, opt in explicitly:
+
 ```bash
 cd backend
-python tests/utils/duplicate_db_for_tests.py
-pytest tests/integration/ -v
+ALLOW_REMOTE_TEST_DB=true uv run pytest tests/integration/ -v
 ```
+
+`pytest_sessionstart` duplicates the source database into `{MONGODB_DB}_TEST` first (same as `duplicate_db_for_tests.py`).
 
 ### In CI/CD
 
-```bash
-cd backend
-python tests/utils/copy_db_structure.py   # structure only, faster
-pytest tests/integration/ -v
-```
+The `Backend: integration` job (`.github/workflows/ci.yml`) starts a disposable `mongo:7` service, seeds referentials and indexes (`app.db.seed_data`, `scripts/backfill_country_codes.py`) into `geochallenge_ci_TEST`, then runs `pytest tests/integration`. No production data is used: tests that need the sample GPX (not in the repo) are skipped, and known broken tests are marked `xfail(strict=True)` with the FIX task that tracks them.
 
 ---
 

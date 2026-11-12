@@ -609,3 +609,6 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-001 - Mettre à jour les pins backend signalés par pip-audit (dnspython, pymongo, black, msgpack)
 - [x] CHORE-001 - Remplacer passlib par argon2-cffi et bcrypt
 - [x] CHORE-002 - Migrer le packaging backend vers uv et mettre à jour les dépendances
+- [x] CI-001 - Lancer les tests d'intégration backend en CI sur un MongoDB jetable
+- [ ] FIX-002 - Refuser les uploads GPX trop gros avec un 413 (test d'intégration en xfail)
+- [ ] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail

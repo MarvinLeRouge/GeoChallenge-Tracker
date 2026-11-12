@@ -608,3 +608,6 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-001 - Bump backend pins flagged by pip-audit (dnspython, pymongo, black, msgpack)
 - [x] CHORE-001 - Replace passlib with argon2-cffi and bcrypt
 - [x] CHORE-002 - Migrate backend packaging to uv and upgrade dependencies
+- [x] CI-001 - Run backend integration tests in CI against a disposable MongoDB
+- [ ] FIX-002 - Reject oversized GPX uploads with 413 (integration test xfail)
+- [ ] FIX-003 - Repair stale backend integration tests marked xfail

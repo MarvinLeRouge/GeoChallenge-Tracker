@@ -11,6 +11,8 @@ Ces tests vérifient :
 
 import pytest
 
+from tests.integration.markers import requires_sample_gpx
+
 # =============================================================================
 # TAG: CACHES_ELEVATION - Backfill Elevation
 # =============================================================================
@@ -47,6 +49,7 @@ class TestCachesElevationBackfill:
         # L'important est que l'endpoint soit accessible
         assert response.status_code in [200, 403]
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_backfill_dry_run(self, auth_client, seeded_admin, caches_without_elevation):
         """Test que le backfill en mode dry_run fonctionne."""
@@ -65,6 +68,7 @@ class TestCachesElevationBackfill:
             and data["batches"] * params["page_size"] >= params["limit"]
         )
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_backfill_real(self, auth_client, seeded_admin, caches_without_elevation):
         """Test que le backfill en mode dry_run fonctionne."""

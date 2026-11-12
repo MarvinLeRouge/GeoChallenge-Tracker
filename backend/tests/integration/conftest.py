@@ -8,6 +8,7 @@ Fixtures pour tests d'intégration.
 """
 
 import asyncio
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -23,7 +24,23 @@ from app.core.security import create_access_token, hash_password  # noqa: E402
 from app.main import app  # noqa: E402
 
 # Import de ton script de duplication
+from tests.integration.markers import SAMPLE_GPX  # noqa: E402
 from tests.utils.duplicate_db_for_tests import duplicate_db_with_indexes  # noqa: E402
+from tests.utils.mongo_guard import ALLOW_REMOTE_ENV_VAR, is_local_mongo_uri  # noqa: E402
+
+
+def _refuse_remote_mongo() -> None:
+    """Stop the session unless MongoDB is local, or remote use is explicitly allowed."""
+    from app.core.settings import get_settings
+
+    if os.getenv(ALLOW_REMOTE_ENV_VAR, "").lower() == "true":
+        return
+    if not is_local_mongo_uri(get_settings().mongodb_uri):
+        pytest.exit(
+            "Integration tests refuse a non-local MongoDB (the prod cluster shares the "
+            f"connection). Use a local mongo, or set {ALLOW_REMOTE_ENV_VAR}=true on purpose.",
+            returncode=1,
+        )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -33,6 +50,7 @@ def pytest_sessionstart(session):
     Duplique la DB de prod vers la DB de test pour garantir que toutes les collections existent.
     """
     # Vérifier si -s (--capture=no) est activé
+    _refuse_remote_mongo()
     verbose = session.config.getoption("capture") == "no"
     if verbose:
         print("\n🔄 Préparation de la DB de test (duplication)...")
@@ -131,17 +149,9 @@ async def seeded_caches(test_db):
     """
     Database seeded with sample caches via GPX.
     """
-    from pathlib import Path
-
     from httpx import ASGITransport, AsyncClient
 
-    gpx_path = (
-        Path(__file__).parent.parent.parent
-        / "data"
-        / "samples"
-        / "gpx"
-        / "export-2025-08-01-16-35-30-1 Jasmer+Mamies.gpx"
-    )
+    gpx_path = SAMPLE_GPX
     if gpx_path.exists():
         admin_token = create_access_token(data={"sub": str(ObjectId("507f1f77bcf86cd799439011"))})
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

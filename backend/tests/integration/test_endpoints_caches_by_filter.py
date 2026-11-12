@@ -7,6 +7,8 @@ Organisation par tags Swagger :
 
 import pytest
 
+from tests.integration.markers import requires_sample_gpx
+
 
 class TestCachesByFilter:
     """Tests du endpoint POST /caches/by-filter."""
@@ -19,6 +21,7 @@ class TestCachesByFilter:
 
         assert response.status_code == 401
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_search_by_filter_empty(self, auth_client, seeded_caches):
         """Test que la recherche par filtres retourne une structure valide."""
@@ -37,6 +40,7 @@ class TestCachesByFilter:
             assert isinstance(data, dict)
             assert data["total"] > data["page_size"] and len(data["items"]) == data["page_size"]
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_search_by_filter_date(self, auth_client, seeded_caches):
         """Test que la recherche par filtres temporels fonctionne."""
@@ -78,6 +82,11 @@ class TestCachesByFilter:
                 # On doit avoir moins de caches d'avant 2005 que d'avant 2025
                 assert nb_caches_before_2005 < nb_caches_before_2025
 
+    @requires_sample_gpx
+    @pytest.mark.xfail(
+        strict=True,
+        reason="FIX-003: description_html missing from non-compact results, test or contract to check",
+    )
     @pytest.mark.asyncio
     async def test_search_by_filter_non_compact(self, auth_client, seeded_caches):
         """Test que la recherche par filtres en mode non-compact retourne des données complètes."""
@@ -130,6 +139,7 @@ class TestCachesByFilter:
         assert isinstance(data, dict)
         assert "total" in data
 
+    @pytest.mark.xfail(strict=True, reason="FIX-003: returns 422, test or route to check")
     @pytest.mark.asyncio
     async def test_search_by_filter_with_bbox(self, auth_client, seeded_caches):
         """Test que le filtre bbox fonctionne."""

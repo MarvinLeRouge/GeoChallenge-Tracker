@@ -7,6 +7,8 @@ Organisation par tags Swagger :
 
 import pytest
 
+from tests.integration.markers import requires_sample_gpx
+
 
 class TestCachesByGcCode:
     """Tests du endpoint GET /caches/{gc}."""
@@ -34,6 +36,7 @@ class TestCachesByGcCode:
         )
         print(data)
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_get_by_gc_found(self, auth_client, seeded_caches):
         """Test que la récupération d'une GC existante retourne la cache."""
@@ -88,6 +91,7 @@ class TestCachesById:
             and data["error"]["code"].startswith("HTTP_4")
         )
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_get_by_id_found(self, auth_client, seeded_caches):
         """Test que la récupération d'un ID inexistant retourne une erreur."""

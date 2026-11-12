@@ -129,6 +129,65 @@ jobs:
           fail_ci_if_error: false
           use_oidc: true
 
+  backend-integration:
+    name: "Backend: integration"
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+
+    env:
+      MONGODB_USER: ci
+      MONGODB_PASSWORD: ci
+      MONGODB_URI_TPL: "mongodb://localhost:27017"
+      MONGODB_DB: geochallenge_ci_TEST
+      TEST_MODE: "true"
+      JWT_SECRET_KEY: ci-test-secret-key-for-unit-tests-only
+      ADMIN_USERNAME: admin
+      ADMIN_EMAIL: admin@ci.local
+      ADMIN_PASSWORD: ci-admin-password
+      MAIL_FROM: ci@ci.local
+      ADMIN_TEST_EMAIL: ci@ci.local
+      SMTP_HOST: localhost
+      SMTP_PORT: 25
+      SMTP_USERNAME: ci
+      SMTP_PASSWORD: ci
+      ELEVATION_PROVIDER: open-elevation
+      ELEVATION_PROVIDER_ENDPOINT: http://localhost:8080
+      ELEVATION_PROVIDER_MAX_POINTS_PER_REQ: 100
+      ELEVATION_PROVIDER_RATE_DELAY_S: 1
+      ELEVATION_ENABLED: false
+      ONE_MB: 1048576
+      MAX_UPLOAD_MB: 50
+      ENVIRONMENT: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.3
+        with:
+          working-directory: backend
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Seed referentials and indexes
+        working-directory: backend
+        run: |
+          uv run python -m app.db.seed_data
+          uv run python scripts/backfill_country_codes.py
+
+      - name: Run integration tests
+        working-directory: backend
+        run: uv run pytest tests/integration -q -rfEX
+
   backend-security:
     name: "Backend: security"
     needs: changes
@@ -238,7 +297,7 @@ jobs:
   ci-status:
     name: CI status
     if: always()
-    needs: [changes, backend-lint, backend-test, backend-security, frontend-lint, frontend-security, frontend-test]
+    needs: [changes, backend-lint, backend-test, backend-integration, backend-security, frontend-lint, frontend-security, frontend-test]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any required job failed or was cancelled
