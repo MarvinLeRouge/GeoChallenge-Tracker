@@ -147,7 +147,9 @@ jobs:
         working-directory: backend
         run: |
           uv export --format requirements-txt --no-hashes --no-emit-project > /tmp/req.txt
-          uvx pip-audit -r /tmp/req.txt
+          # The export is fully pinned, so pip-audit needs no resolver venv (its ensurepip
+          # fails on uv-managed Pythons). uvx picks .python-version, so markers match prod.
+          uvx pip-audit -r /tmp/req.txt --no-deps --disable-pip
 
   frontend-lint:
     name: "Frontend: lint"
