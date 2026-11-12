@@ -7,6 +7,8 @@ Organisation par tags Swagger :
 
 import pytest
 
+from tests.integration.markers import requires_sample_gpx
+
 
 class TestCachesWithinBbox:
     """Tests du endpoint GET /caches/within-bbox."""
@@ -21,6 +23,7 @@ class TestCachesWithinBbox:
 
         assert response.status_code == 401
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_search_within_bbox_valid(self, auth_client, seeded_caches):
         """Test que la recherche par bbox retourne une structure valide."""
@@ -137,6 +140,7 @@ class TestCachesWithinRadius:
 
         assert response.status_code == 401
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_search_within_radius_valid(self, auth_client, seeded_caches):
         """Test que la recherche par rayon retourne une structure valide."""

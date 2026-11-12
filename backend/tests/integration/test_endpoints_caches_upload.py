@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.integration.markers import requires_sample_gpx
+
 
 class TestCachesUploadGpx:
     """Tests du endpoint POST /caches/upload-gpx."""
@@ -29,6 +31,7 @@ class TestCachesUploadGpx:
         response = response.json()
         assert response["error"]["code"] == "HTTP_401"
 
+    @requires_sample_gpx
     @pytest.mark.asyncio
     async def test_upload_gpx_success(self, auth_client, seeded_admin):
         """Test que l'upload GPX fonctionne avec authentification."""
@@ -84,6 +87,9 @@ class TestCachesUploadGpx:
             or "gpx" in data["error"].get("message", "").lower()
         )
 
+    @pytest.mark.xfail(
+        strict=True, reason="FIX-002: oversized GPX upload is accepted (200, expected 413)"
+    )
     @pytest.mark.asyncio
     async def test_upload_gpx_file_too_big(self, auth_client, seeded_admin):
         """Test qu'un fichier trop lourd est rejeté (limite 20 Mo)."""

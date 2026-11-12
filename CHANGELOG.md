@@ -449,3 +449,4 @@ To regenerate locally, run `npm run changelog`.
 - *(security)* Replace passlib with argon2-cffi and bcrypt
 - *(backend)* Upgrade dependencies to latest
 - *(backend)* Run pip-audit without a resolver venv
+- *(backend)* Run integration tests against a disposable MongoDB
