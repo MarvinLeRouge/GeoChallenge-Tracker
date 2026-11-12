@@ -94,16 +94,12 @@ class FileHandler:
         if len(data) < 50:
             raise HTTPException(status_code=400, detail="File too small to be a valid GPX")
 
-        # Basic XML/GPX check
-        try:
-            # Try to parse the first 1000 characters
-            sample = data[:1000].decode("utf-8", errors="ignore")
-            if "<gpx" not in sample.lower():
-                raise HTTPException(
-                    status_code=400, detail="Not a valid GPX file (missing <gpx> element)"
-                )
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid GPX content: {str(e)}") from e
+        # Basic GPX check on the first 1000 characters (decoding cannot fail with errors="ignore")
+        sample = data[:1000].decode("utf-8", errors="ignore")
+        if "<gpx" not in sample.lower():
+            raise HTTPException(
+                status_code=400, detail="Not a valid GPX file (missing <gpx> element)"
+            )
 
     def validate_gpx_file(self, path: Path) -> None:
         """Validate a GPX file by path.
