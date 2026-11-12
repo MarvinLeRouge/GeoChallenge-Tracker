@@ -61,11 +61,20 @@ describe("http utils (FastAPI detail)", () => {
 });
 
 describe("http utils (backend error envelope)", () => {
-  it("lit error.message de l'enveloppe", () => {
+  it("traduit error.code en français", () => {
     expect(
       getDetail({
         success: false,
-        error: { code: "HTTP_404", message: "Cache not found" },
+        error: { code: "CACHE_NOT_FOUND", message: "Cache not found" },
+      }),
+    ).toBe("Cache introuvable.");
+  });
+
+  it("retombe sur error.message pour un code inconnu", () => {
+    expect(
+      getDetail({
+        success: false,
+        error: { code: "SOMETHING_NEW", message: "Cache not found" },
       }),
     ).toBe("Cache not found");
   });
@@ -81,14 +90,19 @@ describe("http utils (backend error envelope)", () => {
             field: "body -> password",
             message: "too short",
             type: "string_too_short",
+            ctx: { min_length: 8 },
           },
         ],
       },
     });
     expect(d).toEqual([
-      { loc: ["body", "password"], msg: "too short", type: "string_too_short" },
+      {
+        loc: ["body", "password"],
+        msg: "Au moins 8 caractères.",
+        type: "string_too_short",
+      },
     ]);
-    expect(detailToText(d)).toBe("too short");
+    expect(detailToText(d)).toBe("Au moins 8 caractères.");
   });
 
   it("apiErrorMessage lit l'enveloppe depuis une erreur de requête", () => {

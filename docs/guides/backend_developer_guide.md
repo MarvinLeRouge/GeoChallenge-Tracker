@@ -57,7 +57,7 @@ Main subfolders:
 
 ## Error handling
 
-- **HTTP errors**: raise `AppError(status_code, ErrorCode.X, "English message")` from `app/core/errors.py`, never a bare `HTTPException` (a unit test enforces it). Every error is returned as `{success: false, error: {code, message}}`: `code` is stable and lets the frontend show a localized message, `message` stays English for logs and API users. Add new codes to the `ErrorCode` enum.
+- **HTTP errors**: raise `AppError(status_code, ErrorCode.X, "English message")` from `app/core/errors.py`, never a bare `HTTPException` (a unit test enforces it). Every error is returned as `{success: false, error: {code, message}}`: `code` is stable and lets the frontend show a localized message, `message` stays English for logs and API users. Add new codes to the `ErrorCode` enum and their French message to `frontend/src/utils/errorMessages.ts` (a frontend test fails otherwise).
 - **Validation**: clear messages via Pydantic
 - **Logging**: structured, with appropriate levels
 

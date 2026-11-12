@@ -38,6 +38,8 @@ jobs:
               - 'vitest.config.ts'
               - 'vitest.shims.d.ts'
               - 'playwright.config.ts'
+              # error-messages.spec.ts checks every backend ErrorCode has a French message
+              - 'backend/app/core/errors.py'
               - 'codecov.yml'
               - '.github/workflows/ci.yml'
 

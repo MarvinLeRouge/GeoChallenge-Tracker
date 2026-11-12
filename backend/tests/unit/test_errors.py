@@ -69,3 +69,31 @@ def test_each_password_rule_maps_to_its_code(password, code):
 
 def test_valid_password_passes():
     assert validate_password_strength("Secure123!") == (True, "")
+
+
+@pytest.mark.asyncio
+async def test_validation_details_keep_scalar_ctx_only():
+    from fastapi.exceptions import RequestValidationError
+
+    app = FastAPI()
+    register_exception_handlers(app)
+    handler = app.exception_handlers[RequestValidationError]
+    exc = RequestValidationError(
+        errors=[
+            {
+                "loc": ("body", "password"),
+                "msg": "String should have at least 8 characters",
+                "type": "string_too_short",
+                "ctx": {"min_length": 8},
+            },
+            {
+                "loc": ("body", "email"),
+                "msg": "Value error, bad",
+                "type": "value_error",
+                "ctx": {"error": ValueError("bad")},
+            },
+        ]
+    )
+    details = json.loads((await handler(MagicMock(), exc)).body)["error"]["details"]
+    assert details[0]["ctx"] == {"min_length": 8}
+    assert details[1]["ctx"] == {}
