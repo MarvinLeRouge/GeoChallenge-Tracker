@@ -263,6 +263,22 @@ async def _extract_login_credentials(request: Request) -> tuple[str, str]:
     return await _extract_json_credentials(request)
 
 
+def _password_matches(password: str, stored_hash: str | None) -> bool:
+    """Check a login password against the stored hash, never raising.
+
+    Description:
+        An oversized password can never match (register caps it), so it is rejected
+        before hashing. A missing, empty or unrecognized stored hash counts as a
+        mismatch, so login answers 401 instead of failing with a 500.
+    """
+    if len(password) > PASSWORD_MAX_LENGTH or not stored_hash:
+        return False
+    try:
+        return verify_password(password, stored_hash)
+    except ValueError:
+        return False
+
+
 async def _authenticate_user(
     users: AsyncIOMotorCollection, ident: str, password: str, request: Request
 ) -> dict[str, Any]:
@@ -284,12 +300,7 @@ async def _authenticate_user(
         {"$or": [{"email": ident}, {"username": ident}]},
         collation=COLLATION_CI,
     )
-    # An oversized password can never match (register caps it), so it is rejected unhashed
-    if (
-        user is None
-        or len(password) > PASSWORD_MAX_LENGTH
-        or not verify_password(password, user.get("password_hash", ""))
-    ):
+    if user is None or not _password_matches(password, user.get("password_hash")):
         security_logger.warning(
             "Failed login attempt (invalid credentials): identifier=%r ip=%s",
             ident,

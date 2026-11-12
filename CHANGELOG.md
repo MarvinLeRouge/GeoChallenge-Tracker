@@ -185,6 +185,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Keep index options when duplicating the test database
 - *(backend)* Stop double-wrapping the GPX validation error message
 - *(backend)* Cap the password length on register and login
+- *(backend)* Return 401 on login when the stored password hash is unusable
 
 ### 💼 Other
 

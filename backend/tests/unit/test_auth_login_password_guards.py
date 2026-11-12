@@ -1,4 +1,4 @@
-"""An oversized password is rejected before any hashing (argon2 hashes inputs of any size)."""
+"""Login and register guards around password hashing: size cap, unusable stored hashes."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -11,6 +11,12 @@ from app.api.routes import auth as auth_module
 from app.core.exception_handlers import register_exception_handlers
 from app.core.rate_limit import limiter
 from app.domain.models.user import PASSWORD_MAX_LENGTH, UserInRegister
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    # the login limit (10/minute) is shared by every test in the process
+    limiter.reset()
 
 
 def _make_app(user):
@@ -48,3 +54,16 @@ async def test_login_with_an_oversized_password_skips_hashing():
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "INVALID_CREDENTIALS"
     verify.assert_not_called()
+
+
+@pytest.mark.parametrize("stored_hash", [None, "", "not-a-known-hash", "$2b$12$broken"])
+@pytest.mark.asyncio
+async def test_login_with_a_missing_or_unusable_hash_returns_401(stored_hash):
+    user = {"_id": "507f1f77bcf86cd799439011", "is_verified": True}
+    if stored_hash is not None:
+        user["password_hash"] = stored_hash
+    app = _make_app(user)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        response = await c.post("/auth/login", data={"username": "alice", "password": "Secure123!"})
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "INVALID_CREDENTIALS"
