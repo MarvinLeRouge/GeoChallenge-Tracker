@@ -213,7 +213,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
 } from "@heroicons/vue/24/outline";
-import { LocateFixed } from "lucide-vue-next";
+import { LocateFixed } from "@lucide/vue";
 import type { UserLocationIn, UserLocationOut } from "@/types/index";
 
 const props = defineProps<{

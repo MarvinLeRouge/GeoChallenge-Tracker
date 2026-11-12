@@ -9,7 +9,7 @@ vi.mock("@/composables/useUserStats", () => ({
   useUserStats: mockUseUserStats,
 }));
 
-vi.mock("lucide-vue-next", () => ({ Trophy: { template: "<span />" } }));
+vi.mock("@lucide/vue", () => ({ Trophy: { template: "<span />" } }));
 
 vi.mock("@heroicons/vue/24/outline", () => {
   const s = { template: "<span />" };

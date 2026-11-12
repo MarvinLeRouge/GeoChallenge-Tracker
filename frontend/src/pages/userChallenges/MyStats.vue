@@ -346,7 +346,7 @@ import {
   PlayIcon,
   CheckCircleIcon,
 } from "@heroicons/vue/24/outline";
-import { Trophy } from "lucide-vue-next";
+import { Trophy } from "@lucide/vue";
 
 const {
   stats,
