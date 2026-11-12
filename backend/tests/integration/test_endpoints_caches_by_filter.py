@@ -83,16 +83,13 @@ class TestCachesByFilter:
                 assert nb_caches_before_2005 < nb_caches_before_2025
 
     @requires_sample_gpx
-    @pytest.mark.xfail(
-        strict=True,
-        reason="FIX-003: description_html missing from non-compact results, test or contract to check",
-    )
     @pytest.mark.asyncio
     async def test_search_by_filter_non_compact(self, auth_client, seeded_caches):
         """Test que la recherche par filtres en mode non-compact retourne des données complètes."""
         response = await auth_client.post(
             "/caches/by-filter",
-            json={"page": 1, "page_size": 5, "compact": False},  # Non-compact
+            params={"compact": False},  # `compact` is a query parameter, not a body field
+            json={"page": 1, "page_size": 5},
         )
 
         assert response.status_code == 200
@@ -139,7 +136,6 @@ class TestCachesByFilter:
         assert isinstance(data, dict)
         assert "total" in data
 
-    @pytest.mark.xfail(strict=True, reason="FIX-003: returns 422, test or route to check")
     @pytest.mark.asyncio
     async def test_search_by_filter_with_bbox(self, auth_client, seeded_caches):
         """Test que le filtre bbox fonctionne."""
@@ -147,10 +143,9 @@ class TestCachesByFilter:
         response = await auth_client.post(
             "/caches/by-filter",
             json={
-                "bbox": [2.0, 44.0, 6.0, 48.0],  # [min_lon, min_lat, max_lon, max_lat]
+                "bbox": {"min_lat": 44.0, "min_lon": 2.0, "max_lat": 48.0, "max_lon": 6.0},
                 "page": 1,
                 "page_size": 10,
-                "compact": True,
             },
         )
 
@@ -158,6 +153,9 @@ class TestCachesByFilter:
         data = response.json()
         assert isinstance(data, dict)
         assert "total" in data
+        for item in data["items"]:
+            assert 44.0 <= item["lat"] <= 48.0
+            assert 2.0 <= item["lon"] <= 6.0
 
     @pytest.mark.asyncio
     async def test_search_by_filter_with_text(self, auth_client, seeded_caches):
