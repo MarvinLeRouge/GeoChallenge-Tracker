@@ -28,6 +28,7 @@
 - [Epic 8: Infrastructure & deployment](#epic-8-infrastructure--deployment)
 - [Epic 9: Geographic data & administrative zones](#epic-9-geographic-data--administrative-zones)
 - [Priority synthesis](#priority-synthesis)
+- [Section 10 - Maintenance](#section-10---maintenance)
 
 ---
 
@@ -599,3 +600,9 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 | 35 | In-app notifications | 5.3 | L |
 | 36 | Prometheus metrics | 7.6 | S |
 | 37 | Centralized production logs | 8.7 | L |
+
+---
+
+## Section 10 - Maintenance
+
+- [x] FIX-001 - Bump backend pins flagged by pip-audit (dnspython, pymongo, black, msgpack)

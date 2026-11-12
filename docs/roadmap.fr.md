@@ -28,6 +28,7 @@
 - [Épic 8 : Infrastructure & déploiement](#épic-8--infrastructure--déploiement)
 - [Épic 9 : Données géographiques & zones administratives](#épic-9--données-géographiques--zones-administratives)
 - [Synthèse par priorité](#synthèse-par-priorité)
+- [Section 10 - Maintenance](#section-10---maintenance)
 
 ---
 
@@ -600,3 +601,9 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 | 35 | Notifications in-app | 5.3 | L |
 | 36 | Métriques Prometheus | 7.6 | S |
 | 37 | Logs centralisés production | 8.7 | L |
+
+---
+
+## Section 10 - Maintenance
+
+- [x] FIX-001 - Mettre à jour les pins backend signalés par pip-audit (dnspython, pymongo, black, msgpack)
