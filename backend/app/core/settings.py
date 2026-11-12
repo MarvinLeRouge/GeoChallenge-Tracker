@@ -102,7 +102,7 @@ class Settings(BaseSettings):
         if self.build_date and self.build_date != "":
             try:
                 return datetime.fromisoformat(self.build_date.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass
         return None
 

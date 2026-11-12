@@ -113,7 +113,7 @@ class DataNormalizer:
 
             return lat_float, lon_float
 
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None, None
 
     @staticmethod
@@ -139,7 +139,7 @@ class DataNormalizer:
             # Round to nearest 0.5
             return round(float_val * 2) / 2.0
 
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     @staticmethod
@@ -314,7 +314,7 @@ class DataNormalizer:
             favorites = int(raw_data.get("favorites", 0))
             if favorites >= 0:
                 metadata["favorites"] = favorites
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pass
 
         status = raw_data.get("status", "active").lower()

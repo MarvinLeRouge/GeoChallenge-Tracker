@@ -357,6 +357,7 @@ To regenerate locally, run `npm run changelog`.
 ### 🎨 Styling
 
 - *(backend)* Apply ruff 0.17 and py311 autofixes
+- *(backend)* Apply ruff 0.17 py314 formatting
 
 ### 🧪 Testing
 
