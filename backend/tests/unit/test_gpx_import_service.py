@@ -108,7 +108,7 @@ class TestFileHandlerValidateGpxContent:
         with pytest.raises(HTTPException) as exc_info:
             handler.validate_gpx_content(not_gpx)
         assert exc_info.value.status_code == 400
-        assert "gpx" in exc_info.value.detail.lower()
+        assert exc_info.value.detail == "Not a valid GPX file (missing <gpx> element)"
 
     def test_gpx_tag_case_insensitive(self, tmp_path):
         """<GPX> (uppercase) is also accepted."""

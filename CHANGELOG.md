@@ -181,6 +181,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Replace deprecated datetime.utcnow with a naive UTC equivalent
 - *(frontend)* Read the backend error envelope in API error messages
 - *(backend)* Keep index options when duplicating the test database
+- *(backend)* Stop double-wrapping the GPX validation error message
 
 ### 💼 Other
 

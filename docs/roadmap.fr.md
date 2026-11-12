@@ -618,3 +618,8 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail
 - [x] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend
 - [x] FIX-005 - Copier toutes les options d'index (partiel, collation, texte) lors de la duplication de la base de test
+- [x] FIX-006 - Ne plus emballer deux fois le message d'erreur de validation GPX
+
+## Section 11 - Localisation
+
+- [ ] FEAT-001 - Localiser en français tous les messages affichés à l'utilisateur, y compris les messages d'erreur du backend (traduits côté frontend à partir du `code` d'erreur, message du backend en repli)
