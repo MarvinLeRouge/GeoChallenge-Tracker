@@ -616,3 +616,4 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CHORE-006 - Replace the deprecated lucide-vue-next with @lucide/vue
 - [x] FIX-003 - Repair stale backend integration tests marked xfail
 - [x] FIX-004 - Read the backend error envelope (error.message) in frontend error handling
+- [x] FIX-005 - Copy every index option (partial, collation, text) when duplicating the test database
