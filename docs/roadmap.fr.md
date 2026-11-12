@@ -606,4 +606,5 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 
 ## Section 10 - Maintenance
 
+- [x] FIX-001 - Mettre à jour les pins backend signalés par pip-audit (dnspython, pymongo, black, msgpack)
 - [x] CHORE-001 - Remplacer passlib par argon2-cffi et bcrypt

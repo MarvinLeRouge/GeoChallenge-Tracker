@@ -605,4 +605,5 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 
 ## Section 10 - Maintenance
 
+- [x] FIX-001 - Bump backend pins flagged by pip-audit (dnspython, pymongo, black, msgpack)
 - [x] CHORE-001 - Replace passlib with argon2-cffi and bcrypt
