@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.utils import utcnow
 
@@ -13,8 +13,8 @@ class HealthCheck(BaseModel):
     version: str = Field(..., description="API version")
     checks: dict[str, str] = Field(..., description="Individual service checks")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": "ok",
                 "timestamp": "2026-02-26T10:30:00Z",
@@ -22,6 +22,7 @@ class HealthCheck(BaseModel):
                 "checks": {"database": "ok", "email": "ok"},
             }
         }
+    )
 
 
 class VersionInfo(BaseModel):
@@ -31,14 +32,15 @@ class VersionInfo(BaseModel):
     environment: str = Field(..., description="Environment (dev, staging, prod)")
     build_date: datetime | None = Field(None, description="Build date")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "version": "0.1.0",
                 "environment": "production",
                 "build_date": "2026-02-26T10:00:00Z",
             }
         }
+    )
 
 
 class APIInfo(BaseModel):

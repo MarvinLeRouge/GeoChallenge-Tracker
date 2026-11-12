@@ -473,3 +473,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Move to Python 3.14
 - *(frontend)* Replace deprecated lucide-vue-next with @lucide/vue
 - Scan staged changes for secrets with gitleaks in pre-commit
+- *(backend)* Replace class-based pydantic config with ConfigDict
