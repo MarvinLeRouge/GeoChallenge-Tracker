@@ -299,6 +299,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Extract _execute_bulk_write helper in cache_persister.py
 - *(frontend)* Extract shared cache type/size filters from Calendar.vue and Matrix.vue
 - *(backend)* Remove the dead dateutil fallback from the GPX date parser
+- *(backend)* Use the shared upload reader in the caches upload route
 
 ### 📚 Documentation
 

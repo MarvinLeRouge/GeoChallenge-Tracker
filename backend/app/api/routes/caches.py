@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 
 from app.api.deps import CurrentUserId
 from app.core.errors import AppError, ErrorCode
+from app.core.middleware import read_upload_file_with_limit
 from app.core.security import get_current_user
 from app.core.settings import get_settings
 from app.db.mongodb import get_collection
@@ -24,39 +25,6 @@ log = logging.getLogger(__name__)
 settings = get_settings()
 
 router = APIRouter(prefix="/caches", tags=["Caches"], dependencies=[Depends(get_current_user)])
-
-
-async def _read_upload_with_size_limit(file: UploadFile) -> bytes:
-    """Stream-read an upload file, enforcing the configured size limit.
-
-    Args:
-        file (UploadFile): The uploaded file.
-
-    Returns:
-        bytes: The full file content.
-
-    Raises:
-        HTTPException: 413 if the content exceeds `settings.max_upload_bytes`.
-    """
-    read_bytes = 0
-    chunks: list[bytes] = []
-    while True:
-        chunk = await file.read(settings.one_mb)
-        if not chunk:
-            break
-        read_bytes += len(chunk)
-        if read_bytes > settings.max_upload_bytes:
-            # Important: close the file and return 413
-            await file.close()
-            raise AppError(
-                status_code=413,
-                code=ErrorCode.FILE_TOO_LARGE,
-                detail=f"Fichier trop volumineux (>{settings.max_upload_mb} Mo).",
-            )
-        chunks.append(chunk)
-
-    await file.close()
-    return b"".join(chunks)
 
 
 async def _import_gpx_or_raise(
@@ -223,7 +191,7 @@ async def upload_gpx(
     Returns:
         dict: Object containing the import summary (`summary`) and challenge-related statistics (`challenges_stats`).
     """
-    payload = await _read_upload_with_size_limit(file)
+    payload = await read_upload_file_with_limit(file, settings.max_upload_bytes)
 
     uid = ObjectId(str(user_id))
     result: dict[str, Any] = {}
