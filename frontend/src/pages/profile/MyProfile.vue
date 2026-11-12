@@ -142,7 +142,7 @@ import {
   ExclamationTriangleIcon,
   AdjustmentsHorizontalIcon,
 } from "@heroicons/vue/24/outline";
-import { Sun as SunIcon, Moon as MoonIcon } from "lucide-vue-next";
+import { Sun as SunIcon, Moon as MoonIcon } from "@lucide/vue";
 
 const theme = useThemeStore();
 

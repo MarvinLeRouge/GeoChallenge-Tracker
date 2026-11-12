@@ -462,3 +462,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Run pip-audit without a resolver venv
 - *(backend)* Run integration tests against a disposable MongoDB
 - *(backend)* Move to Python 3.14
+- *(frontend)* Replace deprecated lucide-vue-next with @lucide/vue

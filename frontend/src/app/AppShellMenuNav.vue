@@ -347,7 +347,7 @@ import {
   Target,
   Sun as SunIcon,
   Moon as MoonIcon,
-} from "lucide-vue-next";
+} from "@lucide/vue";
 
 const emit = defineEmits<{ logout: [] }>();
 
