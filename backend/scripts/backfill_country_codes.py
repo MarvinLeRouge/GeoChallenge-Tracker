@@ -17,7 +17,7 @@ import argparse
 import asyncio
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Allow imports from app/
@@ -61,7 +61,7 @@ async def backup_countries_collection() -> str:
         str: Name of the backup collection created.
     """
     db = get_db()
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     backup_name = f"countries_backup_{timestamp}"
     docs = await db.countries.find({}).to_list(length=None)
     if docs:

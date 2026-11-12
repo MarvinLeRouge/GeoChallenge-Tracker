@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.domain.models.challenge_ast import TaskAnd, TaskExpression
 from app.services.referentials_cache import exists_attribute_id, exists_id

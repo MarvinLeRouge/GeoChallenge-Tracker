@@ -2,6 +2,7 @@
 # Email sending utilities (async SMTP) for account verification.
 
 import logging
+from datetime import UTC
 from email.message import EmailMessage
 
 from aiosmtplib import send
@@ -67,9 +68,9 @@ async def send_test_email(to_email: str, user_count: int, cache_count: int, chal
     Raises:
         aiosmtplib.errors.SMTPException: If the SMTP send fails.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
     msg = EmailMessage()
     msg["Subject"] = f"GC Tracker - Test email — {now}"

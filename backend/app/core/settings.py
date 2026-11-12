@@ -6,7 +6,6 @@ import os
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,7 +37,7 @@ class Settings(BaseSettings):
     app_name: str = "GeoChallenge"
     environment: str = "development"  # or "production"
     api_version: str = "0.1.0"
-    build_date: Optional[str] = None
+    build_date: str | None = None
     support_url: str = ""
 
     # === MongoDB ===
@@ -98,7 +97,7 @@ class Settings(BaseSettings):
         return v
 
     @property
-    def build_date_parsed(self) -> Optional[datetime]:
+    def build_date_parsed(self) -> datetime | None:
         """Parses BUILD_DATE from the environment variable."""
         if self.build_date and self.build_date != "":
             try:

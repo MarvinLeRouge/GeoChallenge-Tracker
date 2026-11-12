@@ -574,7 +574,7 @@ class GpxImportService:
         geo_results, http_stats = await geocoding_nominatim.fetch_batch(points)
 
         resolved = failed = 0
-        for (_idx, cache_data), geo in zip(candidates, geo_results):
+        for (_idx, cache_data), geo in zip(candidates, geo_results, strict=False):
             if await self._resolve_geocoding_candidate(cache_data, geo):
                 resolved += 1
             else:

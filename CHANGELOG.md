@@ -352,6 +352,10 @@ To regenerate locally, run `npm run changelog`.
 - *(env)* Document maildev smtp settings for docker dev
 - Replace em dashes in docs with plain punctuation
 
+### 🎨 Styling
+
+- *(backend)* Apply ruff 0.17 and py311 autofixes
+
 ### 🧪 Testing
 
 - Réorganisation complète des tests unitaires + tests sécurité JWT

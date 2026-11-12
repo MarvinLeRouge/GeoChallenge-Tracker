@@ -3,7 +3,7 @@
 invalid-ObjectId (422) and not-found (404) branches shared by both routes.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -76,7 +76,7 @@ class TestMaintenanceGetUserStats:
             total_challenges=2,
             active_challenges=1,
             completed_challenges=1,
-            created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
         with patch.object(

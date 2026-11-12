@@ -6,7 +6,7 @@ evaluate_progress_route, and the default-payload branch of
 evaluate_new_progress_route.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -37,12 +37,12 @@ def _admin_user():
 def _snapshot_doc(uc_id: ObjectId) -> dict:
     return {
         "user_challenge_id": uc_id,
-        "checked_at": datetime.now(timezone.utc),
+        "checked_at": datetime.now(UTC),
         "aggregate": {
             "percent": 42.0,
             "tasks_done": 3,
             "tasks_total": 7,
-            "checked_at": datetime.now(timezone.utc),
+            "checked_at": datetime.now(UTC),
         },
         "tasks": [],
     }

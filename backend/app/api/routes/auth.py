@@ -487,7 +487,7 @@ async def logout(
             jti = data.get("jti")
             exp = data.get("exp")
             if jti and exp:
-                await revoke_refresh_token(jti, dt.datetime.fromtimestamp(exp, tz=dt.timezone.utc))
+                await revoke_refresh_token(jti, dt.datetime.fromtimestamp(exp, tz=dt.UTC))
         except JWTError:
             pass  # Nothing to revoke if the token is invalid or already expired
 

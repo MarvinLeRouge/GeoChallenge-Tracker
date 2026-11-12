@@ -3,8 +3,6 @@
 Initializes the MongoDB client from settings and exposes simple collection access helpers.
 """
 
-from typing import Optional
-
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
 
 from app.core.settings import get_settings
@@ -12,8 +10,8 @@ from app.core.settings import get_settings
 settings = get_settings()
 
 # Global variables initialized to None (lazy initialization)
-_client: Optional[AsyncIOMotorClient] = None
-_db: Optional[AsyncIOMotorDatabase] = None
+_client: AsyncIOMotorClient | None = None
+_db: AsyncIOMotorDatabase | None = None
 
 
 def get_client() -> AsyncIOMotorClient:

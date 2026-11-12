@@ -221,7 +221,7 @@ class RuleAggDtMatrixComplete(ASTBase):
     max_terrain: float = Field(ge=1.0, le=5.0)
 
 
-TaskLeaf = Union[
+TaskLeaf = Union[  # noqa: UP007 - runtime alias used by pydantic, left as-is
     RuleTypeIn,
     RuleSizeIn,
     RulePlacedYear,
@@ -302,7 +302,7 @@ class UCNot(ASTBase):
     task_id: PyObjectId
 
 
-UCLogic = Union[UCAnd, UCOr, UCNot]
+UCLogic = Union[UCAnd, UCOr, UCNot]  # noqa: UP007 - runtime alias used by pydantic, left as-is
 
 # Known logical kinds and "leaf" (rule) kinds
 _LOGICAL_KINDS = {"and", "or", "not"}

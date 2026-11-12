@@ -136,7 +136,7 @@ def find_zone_for_point(
 
     min_dist = float("inf")
     nearest_zone = None
-    for geom, zone in zip(index.shapes, index.zones):
+    for geom, zone in zip(index.shapes, index.zones, strict=False):
         dist = geom.distance(point)
         if dist < min_dist:
             min_dist = dist

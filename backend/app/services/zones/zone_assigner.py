@@ -161,7 +161,7 @@ async def _nominatim_pass(
 
     still_unmatched: list[int] = []
     nominatim_zone: dict[str, str | None | bool]
-    for i, nominatim_zone in zip(unmatched_indices, nominatim_results):
+    for i, nominatim_zone in zip(unmatched_indices, nominatim_results, strict=False):
         is_foreign = bool(nominatim_zone.pop("_foreign", False))
         clean: dict[str, str | None] = {
             "country": str(nominatim_zone["country"]) if nominatim_zone["country"] else None,

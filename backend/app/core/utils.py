@@ -21,7 +21,7 @@ def now():
     Returns:
         datetime.datetime: UTC timestamp (naive).
     """
-    return dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
+    return dt.datetime.now(dt.UTC).replace(tzinfo=None)
 
 
 def utcnow():
@@ -34,4 +34,4 @@ def utcnow():
     Returns:
         datetime.datetime: UTC timestamp (aware).
     """
-    return dt.datetime.now(dt.timezone.utc)
+    return dt.datetime.now(dt.UTC)

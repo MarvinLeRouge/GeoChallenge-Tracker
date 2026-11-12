@@ -1,6 +1,6 @@
 """Tests for Domain Models (unit tests - no DB required)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -169,7 +169,7 @@ class TestUserLocation:
 
     def test_user_location_with_custom_timestamp(self):
         """Test UserLocation with custom updated_at."""
-        custom_time = datetime(2024, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        custom_time = datetime(2024, 1, 15, 10, 30, 0, tzinfo=UTC)
         location = UserLocation(lon=2.3522, lat=48.8566, updated_at=custom_time)
 
         assert location.updated_at == custom_time

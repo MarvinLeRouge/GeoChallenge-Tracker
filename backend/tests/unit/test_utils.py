@@ -1,6 +1,6 @@
 """Tests for Utils functions (unit tests - no DB required)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.utils import now, utcnow
 
@@ -15,13 +15,13 @@ class TestUtcnow:
         assert result is not None
         assert isinstance(result, datetime)
         assert result.tzinfo is not None
-        assert result.tzinfo == timezone.utc
+        assert result.tzinfo == UTC
 
     def test_utcnow_is_current(self):
         """Test that utcnow returns current time."""
-        before = datetime.now(timezone.utc)
+        before = datetime.now(UTC)
         result = utcnow()
-        after = datetime.now(timezone.utc)
+        after = datetime.now(UTC)
 
         assert before <= result <= after
 
@@ -53,16 +53,16 @@ class TestNow:
 
     def test_now_is_current(self):
         """Test that now returns the current UTC instant (naive)."""
-        before = datetime.now(timezone.utc).replace(tzinfo=None)
+        before = datetime.now(UTC).replace(tzinfo=None)
         result = now()
-        after = datetime.now(timezone.utc).replace(tzinfo=None)
+        after = datetime.now(UTC).replace(tzinfo=None)
 
         assert before <= result <= after
 
     def test_now_tracks_utc_not_local(self):
         """Regression test: now() must track UTC, not the host's local timezone."""
         result = now()
-        utc_reference = datetime.now(timezone.utc).replace(tzinfo=None)
+        utc_reference = datetime.now(UTC).replace(tzinfo=None)
 
         assert abs((result - utc_reference).total_seconds()) < 1
 
@@ -73,4 +73,4 @@ class TestNow:
 
         assert local.tzinfo is None
         assert utc.tzinfo is not None
-        assert utc.tzinfo == timezone.utc
+        assert utc.tzinfo == UTC

@@ -20,7 +20,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -41,7 +41,7 @@ async def backup_administrative_zones_collection() -> str:
         str: Name of the backup collection created.
     """
     db = get_db()
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
     backup_name = f"administrative_zones_backup_{timestamp}"
     docs = await db.administrative_zones.find({}).to_list(length=None)
     if docs:
