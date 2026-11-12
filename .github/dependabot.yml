@@ -17,6 +17,10 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    ignore:
+      # typescript-eslint caps its typescript peer range; lift once it supports the next major
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       # vitest and its plugins must move together, majors included
       vitest:
@@ -30,6 +34,10 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    ignore:
+      # a Python version change is a deliberate task (.python-version, requires-python, uv.lock)
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
@@ -40,6 +48,10 @@ updates:
       interval: "weekly"
       day: "monday"
     open-pull-requests-limit: 5
+    ignore:
+      # Node majors follow package.json engines and CI node-version, changed together on purpose
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
