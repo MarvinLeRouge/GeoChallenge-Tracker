@@ -613,5 +613,6 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-002 - Renvoyer l'enveloppe d'erreur standard sur les uploads trop gros, calibrer le test de taille d'upload
 - [x] CHORE-003 - Passer le backend en Python 3.14
 - [x] CHORE-004 - Configurer Dependabot (uv, npm, docker, github-actions)
+- [x] CHORE-005 - Exclure de Dependabot les montées délibérées (majeures Python, Node, TypeScript)
 - [ ] FIX-003 - Réparer les tests d'intégration backend obsolètes marqués xfail
 - [ ] FIX-004 - Lire l'enveloppe d'erreur du backend (error.message) dans la gestion d'erreurs du frontend
