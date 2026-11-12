@@ -626,7 +626,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [ ] CHORE-009 - Replace the deprecated FastAPI `root_path` with the server root path (Docker CMD, compose, Traefik)
 - [ ] CHORE-010 - Handle slowapi's use of `asyncio.iscoroutinefunction` before Python 3.16 (upstream fix or replacement)
 - [x] CHORE-011 - Migrate class-based Pydantic `Config` to `ConfigDict` (app/domain/models/meta.py)
-- [ ] REFACTOR-001 - Remove the dead optional `dateutil` branch in the GPX data normalizer
+- [x] REFACTOR-001 - Remove the dead optional `dateutil` branch in the GPX data normalizer
 - [ ] REFACTOR-002 - Merge the duplicate upload reader in caches.py
 - [ ] CI-003 - Let the changelog bot PR trigger CI (GitHub App or PAT instead of GITHUB_TOKEN)
 

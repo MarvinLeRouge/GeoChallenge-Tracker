@@ -12,7 +12,7 @@ N = DataNormalizer
 
 
 # ---------------------------------------------------------------------------
-# parse_datetime_iso8601 — fallback / edge paths not yet covered
+# parse_datetime_iso8601: edge paths
 # ---------------------------------------------------------------------------
 
 
@@ -31,9 +31,7 @@ class TestParseDatetimeIso8601Extra:
         assert result.year == 2024
 
     def test_totally_invalid_string(self):
-        N.parse_datetime_iso8601("not-a-date")
-        # Either None or a parsed value — depends on dateutil availability.
-        # We just assert no exception is raised.
+        assert N.parse_datetime_iso8601("not-a-date") is None
 
     def test_empty_string(self):
         assert N.parse_datetime_iso8601("") is None
@@ -42,11 +40,8 @@ class TestParseDatetimeIso8601Extra:
         assert N.parse_datetime_iso8601(None) is None
 
     def test_non_standard_with_dot_and_z(self):
-        # Seven-digit fractional seconds: won't match strptime %f (max 6 digits)
-        # Falls through to the fallback branch (line 73)
-        result = N.parse_datetime_iso8601("2024-01-15T14:30:45.1234567Z")
-        # dateutil may or may not be installed; either None or a valid datetime
-        assert result is None or isinstance(result, dt.datetime)
+        # Seven-digit fractional seconds don't match strptime %f (max 6 digits)
+        assert N.parse_datetime_iso8601("2024-01-15T14:30:45.1234567Z") is None
 
 
 # ---------------------------------------------------------------------------

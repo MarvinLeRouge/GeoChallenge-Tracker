@@ -66,22 +66,6 @@ class DataNormalizer:
             except ValueError:
                 continue
 
-        # Fallback: manual parsing for non-standard formats
-        try:
-            # Strip milliseconds if present
-            if "." in date_str and date_str.endswith("Z"):
-                date_str = date_str.split(".")[0] + "Z"
-
-            # Parse with dateutil if available
-            try:
-                from dateutil import parser  # type: ignore[import-untyped]
-
-                return parser.parse(date_str)
-            except ImportError:
-                pass
-        except ValueError:
-            pass
-
         return None
 
     @staticmethod
