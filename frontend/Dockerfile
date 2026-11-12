@@ -2,7 +2,7 @@
 # 🌐 frontend/Dockerfile - Vue.js + Vite + Tailwind (dev + build)
 # ---------------------------
 # ---- Dev (Vite + HMR) ----
-FROM node:22-alpine AS dev
+FROM node:25-alpine AS dev
 WORKDIR /app
 RUN chown node:node /app
 COPY --chown=node:node package*.json ./
@@ -14,7 +14,7 @@ EXPOSE 5173
 CMD ["npm","run","dev","--","--host"]
 
 # ---- Build ----
-FROM node:22-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 RUN chown node:node /app
 COPY --chown=node:node package*.json ./
