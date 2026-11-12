@@ -16,7 +16,6 @@ from fastapi import (
     Body,
     Cookie,
     Depends,
-    HTTPException,
     Query,
     Request,
     Response,
@@ -30,6 +29,7 @@ from pymongo.collation import Collation
 from app.api.dto.user_profile import VerifyEmailBody
 from app.core.bson_utils import PyObjectId
 from app.core.email import send_verification_email
+from app.core.errors import AppError, ErrorCode
 from app.core.logging_config import get_security_logger
 from app.core.rate_limit import (
     LOGIN_RATE_LIMIT,
@@ -38,6 +38,7 @@ from app.core.rate_limit import (
     rate_limited,
 )
 from app.core.security import (
+    PASSWORD_ERROR_CODES,
     create_access_token,
     create_refresh_token,
     hash_password,
@@ -145,7 +146,7 @@ async def register(
 
     is_valid, error_msg = validate_password_strength(payload.password)
     if not is_valid:
-        raise HTTPException(status_code=400, detail=error_msg)
+        raise AppError(400, PASSWORD_ERROR_CODES[error_msg], error_msg)
 
     # Case-insensitive uniqueness check (without *_lower fields)
     existing = await users.find_one(
@@ -154,7 +155,11 @@ async def register(
         projection={"_id": 1},
     )
     if existing:
-        raise HTTPException(status_code=409, detail="Username or email already used")
+        raise AppError(
+            status_code=409,
+            code=ErrorCode.USERNAME_OR_EMAIL_TAKEN,
+            detail="Username or email already used",
+        )
 
     verification_code = create_verification_code()
     doc = {
@@ -185,7 +190,11 @@ async def register(
     )
 
     if created is None:
-        raise HTTPException(status_code=500, detail="Failed to retrieve created user")
+        raise AppError(
+            status_code=500,
+            code=ErrorCode.USER_CREATION_FAILED,
+            detail="Failed to retrieve created user",
+        )
 
     return {
         "_id": created["_id"],
@@ -280,7 +289,11 @@ async def _authenticate_user(
             ident,
             request.client.host if request.client else "unknown",
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+        raise AppError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code=ErrorCode.INVALID_CREDENTIALS,
+            detail="Invalid credentials",
+        )
     return user
 
 
@@ -321,7 +334,11 @@ def _ensure_user_verified(user: dict[str, Any], ident: str, request: Request) ->
             ident,
             request.client.host if request.client else "unknown",
         )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unverified user")
+        raise AppError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code=ErrorCode.UNVERIFIED_USER,
+            detail="Unverified user",
+        )
 
 
 def _set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
@@ -378,7 +395,9 @@ async def login(
     ident, password = await _extract_login_credentials(request)
 
     if not ident or not password:
-        raise HTTPException(status_code=422, detail="Missing credentials")
+        raise AppError(
+            status_code=422, code=ErrorCode.MISSING_CREDENTIALS, detail="Missing credentials"
+        )
 
     user = await _authenticate_user(users, ident, password, request)
 
@@ -425,7 +444,7 @@ async def refresh_token(
         TokenResponse: New access token.
     """
     if not refresh_token:
-        raise HTTPException(status_code=401, detail="No refresh token")
+        raise AppError(status_code=401, code=ErrorCode.NO_REFRESH_TOKEN, detail="No refresh token")
     try:
         data = jwt.decode(
             refresh_token,
@@ -434,16 +453,28 @@ async def refresh_token(
         )
         sub = data.get("sub")
         if not sub:
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            raise AppError(
+                status_code=401,
+                code=ErrorCode.INVALID_REFRESH_TOKEN,
+                detail="Invalid refresh token",
+            )
         jti = data.get("jti")
         if jti and await is_refresh_token_revoked(jti):
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            raise AppError(
+                status_code=401,
+                code=ErrorCode.INVALID_REFRESH_TOKEN,
+                detail="Invalid refresh token",
+            )
     except JWTError as e:
-        raise HTTPException(status_code=401, detail="Invalid refresh token") from e
+        raise AppError(
+            status_code=401, code=ErrorCode.INVALID_REFRESH_TOKEN, detail="Invalid refresh token"
+        ) from e
 
     user = await users.find_one({"_id": PyObjectId(sub)}, {"_id": 1, "is_active": 1})
     if not user or not user.get("is_active", True):
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise AppError(
+            status_code=401, code=ErrorCode.INVALID_REFRESH_TOKEN, detail="Invalid refresh token"
+        )
 
     access_token = create_access_token(data={"sub": str(user["_id"])})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -543,7 +574,11 @@ async def verify_email(
         projection={"_id": 1},
     )
     if not user:
-        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+        raise AppError(
+            status_code=400,
+            code=ErrorCode.VERIFICATION_CODE_INVALID,
+            detail="Invalid or expired verification code",
+        )
 
     await users.update_one(
         {"_id": user["_id"]},

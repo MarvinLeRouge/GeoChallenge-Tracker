@@ -32,7 +32,7 @@ class TestCachesByGcCode:
             isinstance(data, dict)
             and "error" in data
             and "code" in data["error"]
-            and data["error"]["code"] == "HTTP_404"
+            and data["error"]["code"] == "CACHE_NOT_FOUND"
         )
         print(data)
 
@@ -72,7 +72,8 @@ class TestCachesById:
             isinstance(data, dict)
             and "error" in data
             and "code" in data["error"]
-            and data["error"]["code"].startswith("HTTP_4")
+            and data["error"]["code"]
+            in ("CACHE_NOT_FOUND", "INVALID_OBJECT_ID", "VALIDATION_ERROR")
         )
 
     @pytest.mark.asyncio
@@ -88,7 +89,8 @@ class TestCachesById:
             isinstance(data, dict)
             and "error" in data
             and "code" in data["error"]
-            and data["error"]["code"].startswith("HTTP_4")
+            and data["error"]["code"]
+            in ("CACHE_NOT_FOUND", "INVALID_OBJECT_ID", "VALIDATION_ERROR")
         )
 
     @requires_sample_gpx

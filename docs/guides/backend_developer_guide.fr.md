@@ -57,7 +57,7 @@ Sous-dossiers principaux :
 
 ## Gestion des erreurs
 
-- **Erreurs HTTP** : Utilisation de `HTTPException` de FastAPI
+- **Erreurs HTTP** : lever `AppError(status_code, ErrorCode.X, "Message en anglais")` depuis `app/core/errors.py`, jamais un `HTTPException` nu (un test unitaire le vérifie). Chaque erreur est renvoyée sous la forme `{success: false, error: {code, message}}` : `code` est stable et permet au frontend d'afficher un message localisé, `message` reste en anglais pour les logs et les utilisateurs de l'API. Les nouveaux codes s'ajoutent à l'enum `ErrorCode`.
 - **Validation** : Messages clairs via Pydantic
 - **Logging** : Structuré avec les niveaux appropriés
 

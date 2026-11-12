@@ -6,10 +6,11 @@ from __future__ import annotations
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import File, HTTPException, UploadFile, status
+from fastapi import File, UploadFile, status
 from fastapi import Path as ApiPath
 
 from app.api.dto.user_stats import UserStatsOut
+from app.core.errors import AppError, ErrorCode
 from app.core.settings import get_settings
 from app.db.mongodb import get_db
 from app.services.found_caches_sync import extract_gc_codes_from_upload, sync_found_caches
@@ -42,7 +43,9 @@ async def maintenance_evaluate_all_targets(
     try:
         uid = ObjectId(user_id)
     except Exception as err:
-        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+        raise AppError(
+            status_code=422, code=ErrorCode.INVALID_USER_ID, detail="Invalid user_id."
+        ) from err
 
     return await evaluate_all_for_user(user_id=uid, force=True)
 
@@ -76,7 +79,9 @@ async def maintenance_sync_found_caches(
     try:
         uid = ObjectId(user_id)
     except Exception as err:
-        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+        raise AppError(
+            status_code=422, code=ErrorCode.INVALID_USER_ID, detail="Invalid user_id."
+        ) from err
 
     settings = get_settings()
     gc_codes = await extract_gc_codes_from_upload(file, settings.max_upload_bytes)
@@ -104,9 +109,11 @@ async def maintenance_get_user_stats(
     try:
         uid = ObjectId(user_id)
     except Exception as err:
-        raise HTTPException(status_code=422, detail="Invalid user_id.") from err
+        raise AppError(
+            status_code=422, code=ErrorCode.INVALID_USER_ID, detail="Invalid user_id."
+        ) from err
 
     try:
         return await get_user_stats(user_id=uid, target_user_id=uid)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        raise AppError(status_code=404, code=ErrorCode.STATS_NOT_FOUND, detail=str(e)) from e

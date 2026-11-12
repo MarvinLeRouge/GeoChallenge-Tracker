@@ -54,7 +54,7 @@ class TestAuthEndpoints:
         assert response.status_code == 401
         data = response.json()
         assert "error" in data
-        assert data["error"]["code"] == "HTTP_401"
+        assert data["error"]["code"] == "INVALID_CREDENTIALS"
         assert "message" in data["error"]
 
     @pytest.mark.asyncio

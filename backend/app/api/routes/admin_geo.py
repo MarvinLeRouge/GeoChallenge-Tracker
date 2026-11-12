@@ -6,10 +6,11 @@ from __future__ import annotations
 import re
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Path, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Path, Query, UploadFile, status
 
 from app.api.deps import require_admin
 from app.api.dto.geo_admin import GeoUploadResponse, MissingCountriesResponse
+from app.core.errors import AppError, ErrorCode
 from app.core.middleware import read_upload_file_with_limit
 from app.core.settings import get_settings
 from app.services.zones.geo_admin_service import get_missing_countries, upload_zone_level
@@ -68,8 +69,9 @@ async def upload_geo_file(
         413: If the file exceeds the configured upload size limit.
     """
     if not _COUNTRY_CODE_RE.match(country_code):
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code=ErrorCode.INVALID_COUNTRY_CODE,
             detail="country_code must be a 2-letter uppercase ISO code, e.g. 'FR'.",
         )
 
@@ -79,8 +81,10 @@ async def upload_geo_file(
     try:
         result = await upload_zone_level(country_code, level, content)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        raise AppError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            code=ErrorCode.ZONE_UPLOAD_INVALID,
+            detail=str(exc),
         ) from exc
 
     return GeoUploadResponse(**result)

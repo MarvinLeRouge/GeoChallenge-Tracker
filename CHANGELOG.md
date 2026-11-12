@@ -76,6 +76,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Add ZonesExplorer Country choropleth view
 - *(frontend)* Add ZonesExplorer Region view and zone-detail popup
 - *(frontend)* Wire ZonesExplorer into the router and nav
+- *(backend)* Give every API error a stable error code
 
 ### 🐛 Bug Fixes
 

@@ -5,6 +5,7 @@
 import datetime as dt
 import re
 import secrets
+from collections.abc import Callable
 from typing import Annotated
 
 import bcrypt
@@ -13,11 +14,12 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from jwt import PyJWTError as JWTError
 
 from app.core.bson_utils import PyObjectId
+from app.core.errors import AppError, ErrorCode
 from app.core.settings import get_settings
 from app.core.utils import now
 from app.db.mongodb import get_collection
@@ -167,8 +169,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
         HTTPException: 401 if the token is invalid/missing or the user is not found.
     """
     coll_users = await get_collection("users")
-    credentials_exception = HTTPException(
+    credentials_exception = AppError(
         status_code=status.HTTP_401_UNAUTHORIZED,
+        code=ErrorCode.INVALID_TOKEN,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
@@ -198,11 +201,43 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
 def get_current_user_id(current_user: Annotated[User, Depends(get_current_user)]) -> PyObjectId:
     user_id = current_user.id
     if user_id is None:
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            code=ErrorCode.INVALID_TOKEN,
             detail="Invalid user without id",
         )
     return user_id
+
+
+# (check, code, message), evaluated in order; the first failing rule is reported
+_PASSWORD_RULES: list[tuple[Callable[[str], bool], ErrorCode, str]] = [
+    (
+        lambda p: len(p) >= 8,
+        ErrorCode.PASSWORD_TOO_SHORT,
+        "Password must be at least 8 characters long",
+    ),
+    (
+        lambda p: bool(re.search(r"[A-Z]", p)),
+        ErrorCode.PASSWORD_NO_UPPERCASE,
+        "Password must include at least one uppercase letter",
+    ),
+    (
+        lambda p: bool(re.search(r"[a-z]", p)),
+        ErrorCode.PASSWORD_NO_LOWERCASE,
+        "Password must include at least one lowercase letter",
+    ),
+    (
+        lambda p: bool(re.search(r"[0-9]", p)),
+        ErrorCode.PASSWORD_NO_DIGIT,
+        "Password must include at least one number",
+    ),
+    (
+        lambda p: bool(re.search(r"[\W_]", p)),
+        ErrorCode.PASSWORD_NO_SPECIAL,
+        "Password must include at least one special character",
+    ),
+]
+PASSWORD_ERROR_CODES: dict[str, ErrorCode] = {message: code for _, code, message in _PASSWORD_RULES}
 
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
@@ -212,21 +247,10 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
         password (str): Password to check.
 
     Returns:
-        tuple[bool, str]: (is_valid, error_message if not valid)
+        tuple[bool, str]: (is_valid, error_message if not valid). The message maps to
+        its error code through `PASSWORD_ERROR_CODES`.
     """
-    if len(password) < 8:
-        return False, "Password must be at least 8 characters long"
-
-    if not re.search(r"[A-Z]", password):
-        return False, "Password must include at least one uppercase letter"
-
-    if not re.search(r"[a-z]", password):
-        return False, "Password must include at least one lowercase letter"
-
-    if not re.search(r"[0-9]", password):
-        return False, "Password must include at least one number"
-
-    if not re.search(r"[\W_]", password):  # special character
-        return False, "Password must include at least one special character"
-
+    for check, _, message in _PASSWORD_RULES:
+        if not check(password):
+            return False, message
     return True, ""

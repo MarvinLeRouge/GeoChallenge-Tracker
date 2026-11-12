@@ -10,6 +10,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+from app.core.errors import AppError, ErrorCode
+
 # Cumulative cap on decompressed bytes across a whole ZIP archive, enforced while
 # streaming (not just checked against the declared, spoofable zip_info.file_size),
 # to bound memory/disk usage against a zip-bomb-style archive.
@@ -92,13 +94,19 @@ class FileHandler:
             HTTPException: If the content is not valid.
         """
         if len(data) < 50:
-            raise HTTPException(status_code=400, detail="File too small to be a valid GPX")
+            raise AppError(
+                status_code=400,
+                code=ErrorCode.GPX_TOO_SMALL,
+                detail="File too small to be a valid GPX",
+            )
 
         # Basic GPX check on the first 1000 characters (decoding cannot fail with errors="ignore")
         sample = data[:1000].decode("utf-8", errors="ignore")
         if "<gpx" not in sample.lower():
-            raise HTTPException(
-                status_code=400, detail="Not a valid GPX file (missing <gpx> element)"
+            raise AppError(
+                status_code=400,
+                code=ErrorCode.GPX_MISSING_ROOT,
+                detail="Not a valid GPX file (missing <gpx> element)",
             )
 
     def validate_gpx_file(self, path: Path) -> None:
@@ -111,10 +119,16 @@ class FileHandler:
             HTTPException: If the file is not valid.
         """
         if not path.exists():
-            raise HTTPException(status_code=404, detail=f"GPX file not found: {path}")
+            raise AppError(
+                status_code=404,
+                code=ErrorCode.GPX_FILE_NOT_FOUND,
+                detail=f"GPX file not found: {path}",
+            )
 
         if path.stat().st_size == 0:
-            raise HTTPException(status_code=400, detail=f"GPX file is empty: {path}")
+            raise AppError(
+                status_code=400, code=ErrorCode.GPX_FILE_EMPTY, detail=f"GPX file is empty: {path}"
+            )
 
         # Validate content
         try:
@@ -124,7 +138,11 @@ class FileHandler:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Cannot read GPX file: {str(e)}") from e
+            raise AppError(
+                status_code=400,
+                code=ErrorCode.GPX_READ_FAILED,
+                detail=f"Cannot read GPX file: {str(e)}",
+            ) from e
 
     def write_gpx_file(self, data: bytes, filename: str | None = None) -> Path:
         """Write a single GPX file to disk.
@@ -208,8 +226,9 @@ class FileHandler:
             while chunk := gpx_file.read(_EXTRACT_CHUNK_SIZE):
                 total_extracted_size += len(chunk)
                 if total_extracted_size > MAX_TOTAL_EXTRACTED_SIZE:
-                    raise HTTPException(
+                    raise AppError(
                         status_code=400,
+                        code=ErrorCode.ZIP_TOO_LARGE,
                         detail=(
                             "ZIP archive exceeds the maximum cumulative "
                             f"extracted size ({MAX_TOTAL_EXTRACTED_SIZE // (1024 * 1024)} MB)"
@@ -287,8 +306,10 @@ class FileHandler:
             with zipfile.ZipFile(io.BytesIO(data)) as zip_file:
                 # Limit the number of files
                 if len(zip_file.namelist()) > 100:
-                    raise HTTPException(
-                        status_code=400, detail="ZIP contains too many files (max 100)"
+                    raise AppError(
+                        status_code=400,
+                        code=ErrorCode.ZIP_TOO_MANY_FILES,
+                        detail="ZIP contains too many files (max 100)",
                     )
 
                 for zip_info in zip_file.infolist():
@@ -299,12 +320,22 @@ class FileHandler:
         except HTTPException:
             raise
         except zipfile.BadZipFile as e:
-            raise HTTPException(status_code=400, detail="Invalid ZIP file") from e
+            raise AppError(
+                status_code=400, code=ErrorCode.ZIP_INVALID, detail="Invalid ZIP file"
+            ) from e
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"ZIP extraction failed: {str(e)}") from e
+            raise AppError(
+                status_code=500,
+                code=ErrorCode.ZIP_EXTRACTION_FAILED,
+                detail=f"ZIP extraction failed: {str(e)}",
+            ) from e
 
         if not extracted_paths:
-            raise HTTPException(status_code=400, detail="No valid GPX files found in ZIP archive")
+            raise AppError(
+                status_code=400,
+                code=ErrorCode.ZIP_NO_GPX,
+                detail="No valid GPX files found in ZIP archive",
+            )
 
         return extracted_paths
 

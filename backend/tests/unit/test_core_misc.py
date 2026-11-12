@@ -444,7 +444,7 @@ class TestMaxBodySizeMiddleware:
         # Same envelope as every other API error (ErrorResponse)
         body = json.loads(response.body)
         assert body["success"] is False
-        assert body["error"]["code"] == "HTTP_413"
+        assert body["error"]["code"] == "FILE_TOO_LARGE"
         assert "message" in body["error"]
 
     @pytest.mark.asyncio

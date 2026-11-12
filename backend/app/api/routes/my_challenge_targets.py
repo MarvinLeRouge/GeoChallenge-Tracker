@@ -6,10 +6,11 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.api.deps import CurrentUserId
 from app.api.dto.target import TargetListResponse
+from app.core.errors import AppError, ErrorCode
 from app.core.security import get_current_user
 from app.core.utils import utcnow
 from app.db.mongodb import get_db
@@ -60,7 +61,7 @@ def _current_user_id(current_user: dict) -> ObjectId:
     """
     uid = current_user.get("_id")
     if not uid:
-        raise HTTPException(status_code=401, detail="Unauthenticated.")
+        raise AppError(status_code=401, code=ErrorCode.NOT_AUTHENTICATED, detail="Unauthenticated.")
     return _as_objid(uid)
 
 
@@ -87,8 +88,9 @@ async def _resolve_lat_lon(
     user_profile_service = UserProfileService(db)
     location_data = await user_profile_service.get_user_location(user_id)
     if not location_data:
-        raise HTTPException(
+        raise AppError(
             status_code=422,
+            code=ErrorCode.LOCATION_NOT_FOUND,
             detail="No user location found; provide lat/lon or save your location first.",
         )
     resolved_lon, resolved_lat = location_data["coordinates"][0], location_data["coordinates"][1]
@@ -159,8 +161,9 @@ async def evaluate_targets(
     if include_geo_filter:
         lat, lon = await _resolve_lat_lon(user_id, lat, lon)
         if radius_km is None:
-            raise HTTPException(
+            raise AppError(
                 status_code=422,
+                code=ErrorCode.TARGETS_RADIUS_REQUIRED,
                 detail="radius_km is required when include_geo_filter=true.",
             )
         geo_ctx = {"lat": lat, "lon": lon, "radius_km": radius_km}

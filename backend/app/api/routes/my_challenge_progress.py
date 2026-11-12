@@ -7,12 +7,13 @@ from datetime import datetime
 from typing import Annotated
 
 from bson import ObjectId
-from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Body, Depends, Path, Query, status
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, CurrentUserId
 from app.api.dto.progress import ProgressEvaluateResponse, ProgressGetResponse
 from app.core.bson_utils import PyObjectId
+from app.core.errors import AppError, ErrorCode
 from app.core.security import get_current_user
 from app.services.progress import (
     evaluate_new_progress,
@@ -65,7 +66,11 @@ async def get_progress_route(
     """
     out = await get_latest_and_history(user_id, ObjectId(str(uc_id)), limit=limit, before=before)
     if out is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UserChallenge not found")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.USER_CHALLENGE_NOT_FOUND,
+            detail="UserChallenge not found",
+        )
     return out
 
 
@@ -102,12 +107,13 @@ async def evaluate_progress_route(
         ProgressEvaluateResponse: Evaluated and persisted snapshot.
     """
     if force and user.role != "admin":
-        raise HTTPException(
+        raise AppError(
             status_code=status.HTTP_403_FORBIDDEN,
+            code=ErrorCode.FORCE_ADMIN_ONLY,
             detail="Seuls les administrateurs peuvent utiliser le paramètre 'force'",
         )
     if user.id is None:
-        raise HTTPException(status_code=400, detail="User ID manquant")
+        raise AppError(status_code=400, code=ErrorCode.USER_ID_MISSING, detail="User ID manquant")
 
     doc = await evaluate_progress(user_id=user.id, uc_id=ObjectId(str(uc_id)), force=force)
     return doc
