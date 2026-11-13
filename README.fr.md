@@ -102,7 +102,7 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 - **Pytest** - Framework de test pour Python (backend)
 - **pytest-cov** - Rapport de couverture pour pytest
 - **Vitest** - Framework de tests unitaires (frontend)
-- **Playwright** - Tests de bout en bout (specs écrites, pas encore exécutées en CI)
+- **Playwright** - Tests de bout en bout (Firefox, API simulée), exécutés en CI
 - **Codecov** - Suivi et rapport de couverture de code
 - **pip-audit / npm audit** - Analyse des vulnérabilités des dépendances en CI
 
@@ -353,7 +353,6 @@ Synthèse par priorité issue de la roadmap complète (voir [`docs/roadmap.fr.md
 - Recherche de caches par filtre (frontend) : API prête, page encore un placeholder
 - Email de notification "challenge complété"
 - Export GPX d'un challenge
-- Tests e2e Playwright intégrés en CI (les specs existent, mais ne tournent pas encore automatiquement)
 - Healthcheck Docker Compose sur le service `backend` en dev (déjà présent en prod)
 
 ### 🟡 Normale
