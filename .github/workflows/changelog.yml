@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   changelog:
@@ -48,5 +49,14 @@ jobs:
       - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number
         run: gh pr merge --auto --squash --delete-branch "${{ steps.cpr.outputs.pull-request-number }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The PR was pushed with GITHUB_TOKEN, so no pull_request CI run starts on its own.
+      # A dispatched run on the PR branch reports the required "CI status" check on the
+      # PR head commit, which lets the auto-merge above complete.
+      - name: Run CI on the changelog PR
+        if: steps.cpr.outputs.pull-request-operation == 'created' || steps.cpr.outputs.pull-request-operation == 'updated'
+        run: gh workflow run ci.yml --ref chore/update-changelog
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
