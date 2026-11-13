@@ -123,8 +123,8 @@ class MatrixVerificationService(BaseVerificationService):
                 "cache_info.size_id": 1,
             },
         )
-        found_caches = await self.db.found_caches.aggregate(
-            cast(Sequence[Mapping[str, Any]], pipeline)
+        found_caches = await (
+            await self.db.found_caches.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
         ).to_list(length=None)
 
         completed_combinations_set, dt_combinations_count = self._extract_dt_combinations(

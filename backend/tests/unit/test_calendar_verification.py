@@ -37,7 +37,7 @@ class TestCalendarVerificationService:
                     return {"_id": ObjectId(), "name": "Regular", "code": "REG", "aliases": []}
                 return None
 
-            def aggregate(self, pipeline):
+            async def aggregate(self, pipeline):
                 """Return mock aggregate results."""
                 # Return empty results by default (no found caches)
                 return MockAsyncCursor([])
@@ -105,7 +105,7 @@ class TestCalendarVerificationService:
             async def find_one(self, query):
                 return None  # No cache type/size filters
 
-            def aggregate(self, pipeline):
+            async def aggregate(self, pipeline):
                 return MockAsyncCursor()
 
         class MockDB:
@@ -176,7 +176,7 @@ class TestCalendarVerificationService:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -236,7 +236,7 @@ class TestCalendarVerificationService:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -268,7 +268,7 @@ class TestCalendarVerificationService:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -323,7 +323,7 @@ class TestCalendarVerificationService:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -356,7 +356,7 @@ class TestCalendarVerificationService:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -392,7 +392,7 @@ class TestCalendarVerificationService:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):

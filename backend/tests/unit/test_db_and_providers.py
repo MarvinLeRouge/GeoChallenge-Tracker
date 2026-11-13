@@ -17,7 +17,7 @@ class TestGetClient:
         mod._client = None
 
         mock_client = MagicMock()
-        with patch("app.db.mongodb.AsyncIOMotorClient", return_value=mock_client):
+        with patch("app.db.mongodb.AsyncMongoClient", return_value=mock_client):
             result = mod.get_client()
 
         assert result is mock_client
@@ -146,6 +146,7 @@ class TestCloseMongodbConnection:
         import app.db.mongodb as mod
 
         mock_client = MagicMock()
+        mock_client.close = AsyncMock()
         old_client = mod._client
         old_db = mod._db
         mod._client = mock_client
@@ -155,7 +156,7 @@ class TestCloseMongodbConnection:
 
         await close_mongodb_connection()
 
-        mock_client.close.assert_called_once()
+        mock_client.close.assert_awaited_once()
         assert mod._client is None
         assert mod._db is None
 

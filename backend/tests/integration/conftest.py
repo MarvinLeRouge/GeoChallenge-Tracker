@@ -108,11 +108,11 @@ def test_db_url(test_settings):
 # =============================================================================
 @pytest.fixture(scope="session")
 async def mongo_client(test_db_url):
-    from motor.motor_asyncio import AsyncIOMotorClient
+    from pymongo import AsyncMongoClient
 
-    client = AsyncIOMotorClient(test_db_url)
+    client = AsyncMongoClient(test_db_url)
     yield client
-    client.close()
+    await client.close()
 
 
 @pytest.fixture(scope="session")

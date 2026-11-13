@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.utils import utcnow
 
@@ -15,7 +15,7 @@ from .target_scorer import TargetScorer
 
 
 async def validate_user_challenge_ownership(
-    db: AsyncIOMotorDatabase, user_id: ObjectId, uc_id: ObjectId
+    db: AsyncDatabase, user_id: ObjectId, uc_id: ObjectId
 ) -> None:
     """Validate that the UC belongs to the user."""
     coll_uc = db.user_challenges
@@ -24,9 +24,7 @@ async def validate_user_challenge_ownership(
         raise PermissionError("UserChallenge not found or not owned by user")
 
 
-async def count_existing_targets(
-    db: AsyncIOMotorDatabase, user_id: ObjectId, uc_id: ObjectId
-) -> int:
+async def count_existing_targets(db: AsyncDatabase, user_id: ObjectId, uc_id: ObjectId) -> int:
     """Count existing targets."""
     coll_targets = db.targets
     return await coll_targets.count_documents(
@@ -38,7 +36,7 @@ async def count_existing_targets(
 
 
 async def score_and_persist_targets(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     scorer: TargetScorer,
     candidates: dict[ObjectId, dict[str, Any]],
     user_id: ObjectId,

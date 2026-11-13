@@ -137,7 +137,7 @@ async def within_bbox(
             {"$limit": page_size},
             *_compact_lookups_and_project(),
         ]
-        docs = [_doc(d) async for d in coll.aggregate(pipeline)]
+        docs = [_doc(d) async for d in (await coll.aggregate(pipeline))]
     else:
         docs = [_doc(d) async for d in (coll.find(q).sort(order).skip(skip).limit(page_size))]
 
@@ -228,7 +228,7 @@ async def within_radius(
         pipeline += _compact_lookups_and_project()
 
     try:
-        cur = coll.aggregate(pipeline)
+        cur = await coll.aggregate(pipeline)
         docs = [_doc(d) async for d in cur]
     except Exception as e:
         raise AppError(

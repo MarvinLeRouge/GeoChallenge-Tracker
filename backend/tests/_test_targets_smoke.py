@@ -43,22 +43,24 @@ async def _admin_user_id(admin_username: str):
 async def _one_multitask_uc_for_user(user_id: ObjectId):
     # UC avec au moins 2 tasks pour CE user
     collection = await get_collection("user_challenge_tasks")
-    agg = await collection.aggregate(
-        [
-            {
-                "$lookup": {
-                    "from": "user_challenges",
-                    "localField": "user_challenge_id",
-                    "foreignField": "_id",
-                    "as": "uc",
-                }
-            },
-            {"$unwind": "$uc"},
-            {"$match": {"uc.user_id": user_id}},
-            {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
-            {"$match": {"cnt": {"$gte": 2}}},
-            {"$limit": 1},
-        ]
+    agg = await (
+        await collection.aggregate(
+            [
+                {
+                    "$lookup": {
+                        "from": "user_challenges",
+                        "localField": "user_challenge_id",
+                        "foreignField": "_id",
+                        "as": "uc",
+                    }
+                },
+                {"$unwind": "$uc"},
+                {"$match": {"uc.user_id": user_id}},
+                {"$group": {"_id": "$user_challenge_id", "cnt": {"$sum": 1}}},
+                {"$match": {"cnt": {"$gte": 2}}},
+                {"$limit": 1},
+            ]
+        )
     ).to_list(length=None)
     assert agg, "Aucun user_challenge multi-tasks pour cet utilisateur"
     uc_id = agg[0]["_id"]

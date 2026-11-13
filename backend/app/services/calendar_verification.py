@@ -98,8 +98,8 @@ class CalendarVerificationService(BaseVerificationService):
             cache_size_id,
             {"found_date": 1, "cache_info.type_id": 1, "cache_info.size_id": 1},
         )
-        found_caches = await self.db.found_caches.aggregate(
-            cast(Sequence[Mapping[str, Any]], pipeline)
+        found_caches = await (
+            await self.db.found_caches.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
         ).to_list(length=None)
 
         completed_days_set, found_dates_count = self._extract_day_combinations(found_caches)

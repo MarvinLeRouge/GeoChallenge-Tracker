@@ -26,7 +26,7 @@ def _make_mock_coll():
     # .aggregate().to_list() chain
     agg_cursor = AsyncMock()
     agg_cursor.to_list = AsyncMock(return_value=[])
-    coll.aggregate = MagicMock(return_value=agg_cursor)
+    coll.aggregate = AsyncMock(return_value=agg_cursor)
     return coll
 
 
@@ -177,7 +177,7 @@ class TestGetUserStatsCacheTypeStats:
         fc_agg_cursor = AsyncMock()
         fc_agg_cursor.to_list = AsyncMock(return_value=[{"_id": type_id, "count": 5}])
         found_caches_coll = _make_mock_coll()
-        found_caches_coll.aggregate = MagicMock(return_value=fc_agg_cursor)
+        found_caches_coll.aggregate = AsyncMock(return_value=fc_agg_cursor)
 
         # cache_types.find() returns matching type
         ct_cursor = AsyncMock()
@@ -213,7 +213,7 @@ class TestGetUserStatsCacheTypeStats:
         fc_agg_cursor = AsyncMock()
         fc_agg_cursor.to_list = AsyncMock(return_value=[{"_id": found_type_id, "count": 3}])
         found_caches_coll = _make_mock_coll()
-        found_caches_coll.aggregate = MagicMock(return_value=fc_agg_cursor)
+        found_caches_coll.aggregate = AsyncMock(return_value=fc_agg_cursor)
 
         ct_cursor = AsyncMock()
         ct_cursor.to_list = AsyncMock(
@@ -262,7 +262,7 @@ class TestGetUserStatsCacheTypeStats:
         fc_agg_cursor = AsyncMock()
         fc_agg_cursor.to_list = AsyncMock(return_value=[{"_id": None, "count": 2}])
         found_caches_coll = _make_mock_coll()
-        found_caches_coll.aggregate = MagicMock(return_value=fc_agg_cursor)
+        found_caches_coll.aggregate = AsyncMock(return_value=fc_agg_cursor)
 
         with _patch_collections(users=users_coll, found_caches=found_caches_coll):
             result = await get_user_stats(user_id)

@@ -69,7 +69,7 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 ### Backend
 - **FastAPI** - Framework web Python moderne et rapide
 - **MongoDB** - Base de données NoSQL pour le stockage des données
-- **Motor** - Pilote asynchrone Python pour MongoDB
+- **PyMongo** (API async) - Pilote Python pour MongoDB
 - **JWT** - Authentication par jetons web JSON
 - **Pydantic** - Validation de données et gestion des paramètres
 - **Python-Multipart** - Gestion du multipart form data pour les uploads

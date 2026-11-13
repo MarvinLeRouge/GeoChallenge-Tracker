@@ -93,7 +93,7 @@ async def _iter_new_challenge_caches_all(attribute_doc_id: ObjectId):
         {"$match": {"$expr": {"$eq": [{"$size": "$existing"}, 0]}}},
         {"$project": {"title": 1, "description_html": 1}},
     ]
-    return coll_caches.aggregate(pipeline, allowDiskUse=True)
+    return await coll_caches.aggregate(pipeline, allowDiskUse=True)
 
 
 async def _iter_new_challenge_caches_subset(

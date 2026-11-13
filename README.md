@@ -69,7 +69,7 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 ### Backend
 - **FastAPI** - Modern, fast Python web framework
 - **MongoDB** - NoSQL database for data storage
-- **Motor** - Asynchronous Python driver for MongoDB
+- **PyMongo** (async API) - Python driver for MongoDB
 - **JWT** - JSON Web Token authentication
 - **Pydantic** - Data validation and configuration management
 - **Python-Multipart** - Multipart form data handling for uploads

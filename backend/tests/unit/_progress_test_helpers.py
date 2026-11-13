@@ -167,5 +167,5 @@ def _mock_aggregate_coll(rows):
     cursor = AsyncMock()
     cursor.to_list = AsyncMock(return_value=rows)
     coll = AsyncMock()
-    coll.aggregate = MagicMock(return_value=cursor)
+    coll.aggregate = AsyncMock(return_value=cursor)
     return coll

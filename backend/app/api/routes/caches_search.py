@@ -325,7 +325,7 @@ async def _fetch_filtered_caches(
             {"$limit": page_size},
             *_compact_lookups_and_project(),
         ]
-        return [_doc(d) async for d in coll.aggregate(pipeline)]
+        return [_doc(d) async for d in (await coll.aggregate(pipeline))]
     return [_doc(d) async for d in coll.find(q).sort(sort).skip(skip).limit(page_size)]
 
 

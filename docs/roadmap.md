@@ -630,7 +630,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] REFACTOR-002 - Merge the duplicate upload reader in caches.py
 - [ ] CI-003 - Let the changelog bot PR trigger CI (GitHub App or PAT instead of GITHUB_TOKEN)
 - [x] FIX-009 - Point the Swagger token URL at the /api-prefixed login route (Authorize returned 405)
-- [ ] CHORE-012 - Migrate from motor to the PyMongo async API before 2027-05-14 (plan in ADR 0010)
+- [x] CHORE-012 - Migrate from motor to the PyMongo async API before 2027-05-14 (plan in ADR 0010)
 
 ## Section 11 - Localization
 

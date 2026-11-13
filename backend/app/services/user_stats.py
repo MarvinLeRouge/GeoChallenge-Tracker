@@ -113,9 +113,9 @@ async def _fetch_cache_type_counts(
         {"$group": {"_id": "$cache.type_id", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
     ]
-    return await found_caches_coll.aggregate(cast(Sequence[Mapping[str, Any]], pipeline)).to_list(
-        length=None
-    )
+    return await (
+        await found_caches_coll.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
+    ).to_list(length=None)
 
 
 def _build_cache_type_stats(

@@ -89,7 +89,7 @@ async def _aggregate_zone_counts(user_id: ObjectId, cache_match: dict, group_fie
         {"$group": {"_id": group_field, "cache_count": {"$sum": 1}}},
     ]
 
-    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
+    raw = await (await found_col.aggregate(pipeline)).to_list(length=None)  # type: ignore[arg-type]
     return {doc["_id"]: doc["cache_count"] for doc in raw}
 
 
@@ -239,7 +239,7 @@ async def get_zone_detail(
         {"$match": {f"cache.{level_field}": code}},
         {"$group": {"_id": "$cache.type_id", "count": {"$sum": 1}}},
     ]
-    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
+    raw = await (await found_col.aggregate(pipeline)).to_list(length=None)  # type: ignore[arg-type]
     type_id_to_count: dict[ObjectId, int] = {
         doc["_id"]: doc["count"] for doc in raw if doc["_id"] is not None
     }

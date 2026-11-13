@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.utils import utcnow
 
@@ -29,7 +29,7 @@ class TargetService:
         and retrieval of cache targets for UserChallenges.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the service.
 
         Args:

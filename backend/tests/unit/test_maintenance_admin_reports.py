@@ -102,7 +102,7 @@ class TestSnapshot:
         coll_found.count_documents = AsyncMock(return_value=5)
         coll_ucs = AsyncMock()
         coll_ucs.count_documents = AsyncMock(return_value=3)
-        coll_ucs.aggregate = MagicMock(
+        coll_ucs.aggregate = AsyncMock(
             side_effect=lambda pipeline: _agen(
                 [{"_id": "accepted", "count": 2}, {"_id": None, "count": 1}]
             )

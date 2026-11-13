@@ -34,7 +34,7 @@ class TestGetByGc:
     async def test_existing_cache_is_returned(self):
         doc = {"_id": ObjectId(), "GC": "GC123", "title": "Sample"}
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agg_returning([doc]))
+        coll.aggregate = AsyncMock(return_value=_agg_returning([doc]))
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
             app = _make_app()
@@ -49,7 +49,7 @@ class TestGetByGc:
     @pytest.mark.asyncio
     async def test_unknown_gc_returns_404(self):
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agg_returning([]))
+        coll.aggregate = AsyncMock(return_value=_agg_returning([]))
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
             app = _make_app()
@@ -68,7 +68,7 @@ class TestGetById:
         cache_id = ObjectId()
         doc = {"_id": cache_id, "GC": "GC456", "title": "Sample"}
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agg_returning([doc]))
+        coll.aggregate = AsyncMock(return_value=_agg_returning([doc]))
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
             app = _make_app()
@@ -83,7 +83,7 @@ class TestGetById:
     @pytest.mark.asyncio
     async def test_unknown_id_returns_404(self):
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agg_returning([]))
+        coll.aggregate = AsyncMock(return_value=_agg_returning([]))
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
             app = _make_app()

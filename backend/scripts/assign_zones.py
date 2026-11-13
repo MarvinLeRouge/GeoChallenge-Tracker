@@ -124,7 +124,7 @@ async def main(country_code: str = "FR", force: bool = False) -> None:
     if total == 0:
         print("Nothing to do.")
         client = get_client()
-        client.close()
+        await client.close()
         return
 
     processed = assigned = skipped = 0
@@ -155,7 +155,7 @@ async def main(country_code: str = "FR", force: bool = False) -> None:
 
     print(f"\nDone. {assigned} caches assigned, {skipped} skipped (no coordinates).")
 
-    get_client().close()
+    await get_client().close()
 
 
 async def _flush_batch(collection, batch: list) -> None:

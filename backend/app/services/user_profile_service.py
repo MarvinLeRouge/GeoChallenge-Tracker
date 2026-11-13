@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.results import UpdateResult
 
 from app.api.dto.user_profile import UserLocationIn, UserLocationOut, UserPreferencesIn
@@ -23,7 +23,7 @@ class UserProfileService:
         - Output data formatting
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the service.
 
         Args:

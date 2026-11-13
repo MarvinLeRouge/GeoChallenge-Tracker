@@ -9,7 +9,7 @@ from typing import Any
 
 from bson import ObjectId
 from fastapi import UploadFile
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.errors import AppError, ErrorCode
 from app.core.middleware import read_upload_file_with_limit
@@ -60,7 +60,7 @@ def extract_gc_codes(text: str) -> list[str]:
 
 
 async def sync_found_caches(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     user_id: ObjectId,
     gc_codes: list[str],
 ) -> dict[str, Any]:

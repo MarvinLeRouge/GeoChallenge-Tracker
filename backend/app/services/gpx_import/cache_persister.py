@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import UpdateOne
+from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import BulkWriteError
 
 from app.core.utils import now
@@ -21,7 +21,7 @@ class CachePersister:
         with error handling and conflict management.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the persistence service.
 
         Args:

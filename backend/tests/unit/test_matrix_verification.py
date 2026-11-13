@@ -22,7 +22,7 @@ def _build_partial_matrix_mock_db(mock_found_caches):
         async def find_one(self, query):
             return None  # No cache type/size filters
 
-        def aggregate(self, pipeline):
+        async def aggregate(self, pipeline):
             return MockAsyncCursor()
 
     class MockDB:
@@ -74,7 +74,7 @@ class TestMatrixVerificationService:
                     return {"_id": ObjectId(), "name": "Regular", "code": "REG", "aliases": []}
                 return None
 
-            def aggregate(self, pipeline):
+            async def aggregate(self, pipeline):
                 """Return mock aggregate results."""
                 return MockAsyncCursor([])
 
@@ -192,7 +192,7 @@ class TestMatrixVerificationService:
             async def find_one(self, query):
                 return None
 
-            def aggregate(self, pipeline):
+            async def aggregate(self, pipeline):
                 return MockAsyncCursor()
 
         class MockDB:
@@ -240,7 +240,7 @@ class TestMatrixFilterResolution:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -297,7 +297,7 @@ class TestMatrixFilterResolution:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -330,7 +330,7 @@ class TestMatrixFilterResolution:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -387,7 +387,7 @@ class TestMatrixFilterResolution:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -421,7 +421,7 @@ class TestMatrixFilterResolution:
                     return {"_id": size_id}
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):
@@ -468,7 +468,7 @@ class TestMatrixFilterResolution:
                     return None
 
             class FoundCaches:
-                def aggregate(self, pipeline):
+                async def aggregate(self, pipeline):
                     return MockCursor()
 
             def __init__(self):

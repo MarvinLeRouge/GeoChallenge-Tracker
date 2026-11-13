@@ -34,7 +34,7 @@ class TestByFilterCompact:
     async def test_compact_search_returns_aggregated_items_with_pagination(self):
         doc = {"_id": ObjectId(), "GC": "GC1", "title": "Cache 1"}
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agen([doc]))
+        coll.aggregate = AsyncMock(return_value=_agen([doc]))
         coll.count_documents = AsyncMock(return_value=1)
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
@@ -102,7 +102,7 @@ class TestByFilterNonCompact:
     @pytest.mark.asyncio
     async def test_page_size_is_clamped_to_200(self):
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agen([]))
+        coll.aggregate = AsyncMock(return_value=_agen([]))
         coll.count_documents = AsyncMock(return_value=0)
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):

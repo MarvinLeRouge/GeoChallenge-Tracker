@@ -59,7 +59,7 @@ async def _find_existing_by_keys(coll, keys: KeySpec) -> dict[str, Any] | None:
     Returns:
         dict | None: Existing index descriptor or `None` if not found.
     """
-    async for ix in coll.list_indexes():
+    async for ix in await coll.list_indexes():
         if "key" in ix and _normalize_key_from_mongo(ix["key"]) == keys:
             return ix
     return None
@@ -144,7 +144,7 @@ async def _drop_existing_index_tolerant(coll: Any, existing: dict[str, Any]) -> 
         OperationFailure: Any failure other than IndexNotFound.
     """
     try:
-        server_names = {ix.get("name") async for ix in coll.list_indexes()}
+        server_names = {ix.get("name") async for ix in (await coll.list_indexes())}
         name_to_drop = cast(str, existing["name"])
         if name_to_drop in server_names:
             await coll.drop_index(name_to_drop)
@@ -253,7 +253,7 @@ async def ensure_text_index(
     coll = await get_collection(coll_name)
     wanted = {f: 1 for f in fields}
     existing = None
-    async for ix in coll.list_indexes():
+    async for ix in await coll.list_indexes():
         if "weights" in ix:  # text index
             existing = ix
             break
