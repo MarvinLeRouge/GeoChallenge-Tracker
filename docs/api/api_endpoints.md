@@ -4,13 +4,27 @@
 
 # API Documentation - GeoChallenge Tracker
 
-> Public routes (authenticated or not). Admin-only routes (`/maintenance/*`, `/caches_elevation/*`, `/caches_geocoding/*`) are not documented here.
+> Public routes (authenticated or not). Admin-only routes (`/maintenance/*`, `/caches_elevation/*`, `/caches_geocoding/*`, `/admin/geo/*`) are not documented here.
+>
+> All routes are served under the `/api` prefix (e.g. `POST /api/auth/login`); paths below omit it. The full schema is in [`openapi.json`](openapi.json) and served live at `/api/docs`.
+
+## Error format
+
+Every error uses the same envelope:
+
+```json
+{ "success": false, "error": { "code": "CACHE_NOT_FOUND", "message": "Cache not found" } }
+```
+
+- `code`: stable identifier from `ErrorCode` (`backend/app/core/errors.py`), e.g. `INVALID_CREDENTIALS`, `GPX_TOO_SMALL`, `PASSWORD_NO_UPPERCASE`. FastAPI's own errors (no route, missing token) keep a generic `HTTP_<status>`. The frontend shows a French message per code (`frontend/src/utils/errorMessages.ts`).
+- `message`: English, for logs and API users.
+- `422` validation errors add `error.details`: `[{ "field": "body -> password", "message": "...", "type": "string_too_short", "ctx": { "min_length": 8 } }]`.
 
 ## Authentication (`/auth`)
 
 ### Register
 - **URL**: `POST /auth/register`
-- **Description**: Creates a new (unverified) user account, sends a verification email (code valid 24h)
+- **Description**: Creates a new (unverified) user account, sends a verification email (code valid 24h). Password: 8 to 128 characters (`422` otherwise), with an uppercase letter, a lowercase letter, a digit and a special character (`400` with a `PASSWORD_*` code otherwise)
 - **Body**:
   ```json
   {
@@ -309,3 +323,8 @@
 ### Cache types and sizes
 - **URL**: `GET /cache_types` or `GET /cache_sizes`
 - **Response**: list of available types/sizes
+
+### Countries
+- **URL**: `GET /countries`
+- **Description**: Countries with a known ISO 3166-1 alpha-2 code (used by the zones explorer's world view), independent of the user's finds
+- **Response**: `[{ "code": "FR", "name": "France" }]` (French name when available)

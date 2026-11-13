@@ -56,7 +56,7 @@ npm run dev
 
 ```bash
 cd backend
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 Seuils de couverture (`codecov.yml`, bloquants) : projet 90 % (±1 %), patch 95 % (±5 %).

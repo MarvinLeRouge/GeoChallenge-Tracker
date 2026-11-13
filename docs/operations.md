@@ -22,7 +22,7 @@ Covered by the root [`README.md`](../README.md): `docker compose up --build`, ba
 
 Production deploys are fully automated via GitHub Actions, in two chained workflows:
 
-1. **CI** (`.github/workflows/ci.yml`) runs on every push/PR to `main`: backend tests, frontend tests, lint, type checks.
+1. **CI** (`.github/workflows/ci.yml`) runs on every PR and push to `main`, path-filtered per part: backend lint, type checks, unit tests, integration tests on a disposable MongoDB and `pip-audit`; frontend lint, type checks, build, unit tests, Playwright e2e tests and `npm audit`. The `CI status` job aggregates them and is the required check on `main`.
 2. **Build, Push & Deploy** (`.github/workflows/build-push.yml`) runs automatically once CI succeeds on `main` (`workflow_run` trigger), or can be triggered manually (`workflow_dispatch`), which bypasses the CI gate for hotfixes, rollbacks, or redeploys.
    - **Build & push**: backend and frontend Docker images are built and pushed to GHCR, each tagged both `sha-<7-char-commit-sha>` and `latest` (`ghcr.io/marvinlerouge/geochallenge-tracker/{backend,frontend}`).
    - **Deploy**: an SSH step on the production host fetches `docker-compose.prod.yml` and the tiles nginx config directly from `raw.githubusercontent.com`, pinned to the exact commit SHA being deployed, then runs `docker compose pull` followed by `docker compose up -d --remove-orphans`.
