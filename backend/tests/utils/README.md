@@ -87,7 +87,7 @@ MONGODB_DB=geoChallenge_Tracker
 
 ### Prerequisites
 - Python 3.14+
-- `motor`, `python-dotenv` (already installed)
+- `pymongo`, `python-dotenv` (already installed)
 - Access to MongoDB Atlas
 
 ---
@@ -104,6 +104,8 @@ ALLOW_REMOTE_TEST_DB=true uv run pytest tests/integration/ -v
 ```
 
 `pytest_sessionstart` duplicates the source database into `{MONGODB_DB}_TEST` first (same as `duplicate_db_for_tests.py`).
+
+Note: `tests/integration/.env` (gitignored) is loaded with `override=True`, so its `MONGODB_DB` wins over your shell variables. Remove it, or align it, when you target another database.
 
 ### In CI/CD
 

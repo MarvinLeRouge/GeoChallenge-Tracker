@@ -4,13 +4,27 @@
 
 # API Documentation - GeoChallenge Tracker
 
-> Routes publiques (authentifiées ou non). Les routes admin-only (`/maintenance/*`, `/caches_elevation/*`, `/caches_geocoding/*`) ne sont pas documentées ici.
+> Routes publiques (authentifiées ou non). Les routes admin-only (`/maintenance/*`, `/caches_elevation/*`, `/caches_geocoding/*`, `/admin/geo/*`) ne sont pas documentées ici.
+>
+> Toutes les routes sont servies sous le préfixe `/api` (ex. `POST /api/auth/login`) ; les chemins ci-dessous l'omettent. Le schéma complet est dans [`openapi.json`](openapi.json) et servi en direct sur `/api/docs`.
+
+## Format des erreurs
+
+Toutes les erreurs utilisent la même enveloppe :
+
+```json
+{ "success": false, "error": { "code": "CACHE_NOT_FOUND", "message": "Cache not found" } }
+```
+
+- `code` : identifiant stable issu de `ErrorCode` (`backend/app/core/errors.py`), ex. `INVALID_CREDENTIALS`, `GPX_TOO_SMALL`, `PASSWORD_NO_UPPERCASE`. Les erreurs propres à FastAPI (route inexistante, jeton absent) gardent un code générique `HTTP_<status>`. Le frontend affiche un message français par code (`frontend/src/utils/errorMessages.ts`).
+- `message` : en anglais, pour les logs et les utilisateurs de l'API.
+- Les erreurs de validation `422` ajoutent `error.details` : `[{ "field": "body -> password", "message": "...", "type": "string_too_short", "ctx": { "min_length": 8 } }]`.
 
 ## Authentification (`/auth`)
 
 ### Inscription
 - **URL** : `POST /auth/register`
-- **Description** : Crée un nouveau compte utilisateur (non vérifié), envoie un email de vérification (code valide 24h)
+- **Description** : Crée un nouveau compte utilisateur (non vérifié), envoie un email de vérification (code valide 24h). Mot de passe : 8 à 128 caractères (sinon `422`), avec une majuscule, une minuscule, un chiffre et un caractère spécial (sinon `400` avec un code `PASSWORD_*`)
 - **Body** :
   ```json
   {
@@ -309,3 +323,8 @@
 ### Types et tailles de caches
 - **URL** : `GET /cache_types` ou `GET /cache_sizes`
 - **Réponse** : liste des types/tailles disponibles
+
+### Pays
+- **URL** : `GET /countries`
+- **Description** : pays dont le code ISO 3166-1 alpha-2 est connu (utilisé par la vue monde de l'explorateur de zones), indépendamment des trouvailles de l'utilisateur
+- **Réponse** : `[{ "code": "FR", "name": "France" }]` (nom français quand il existe)

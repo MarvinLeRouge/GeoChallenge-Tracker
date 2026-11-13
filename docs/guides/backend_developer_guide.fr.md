@@ -82,7 +82,7 @@ La route d'administration `/maintenance/upload-gpx` permet de réimporter les at
 ## Sécurité
 
 - **JWT** : Tokens d'authentification
-- **Hashage** : Mots de passe avec argon2id via Passlib (bcrypt conservé uniquement pour vérifier les hashs existants ; les comptes migrent vers argon2id progressivement à la reconnexion)
+- **Hashage** : Mots de passe avec argon2id via argon2-cffi (bcrypt conservé uniquement pour vérifier les hashs existants ; les comptes migrent vers argon2id progressivement à la reconnexion)
 - **Validation** : Force des mots de passe dans `core/security.py`
 
 ## Développement
@@ -101,7 +101,7 @@ mypy .
 
 ### Tests
 ```bash
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ## Données géographiques (carte choroplèthe)

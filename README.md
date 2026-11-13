@@ -73,7 +73,7 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 - **JWT** - JSON Web Token authentication
 - **Pydantic** - Data validation and configuration management
 - **Python-Multipart** - Multipart form data handling for uploads
-- **Passlib** - Password hashing abstraction (argon2id for new hashes)
+- **argon2-cffi + bcrypt** - Password hashing (argon2id for new hashes, bcrypt kept to verify legacy ones)
 - **argon2-cffi** - Argon2id implementation used for password hashing
 - **bcrypt** - Kept only to verify legacy hashes, re-hashed to argon2id on login
 
@@ -287,14 +287,19 @@ JWT_SECRET_KEY=your_jwt_secret_key
 ### 🧪 Running tests
 
 ```bash
-# Backend tests
+# Backend unit tests
 cd backend
 uv sync
 uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
-# Frontend tests
+# Frontend unit tests (Vitest)
 npx vitest run frontend/tests/unit
+
+# Frontend end-to-end tests (Playwright, Firefox, API stubbed; once: npx playwright install firefox)
+npm run test:e2e
 ```
+
+Backend integration tests (`backend/tests/integration/`) refuse any non-local MongoDB: in CI they run against a disposable `mongo:7` service, see [`backend/tests/utils/README.md`](backend/tests/utils/README.md) to run them locally. CI runs all four suites on every PR.
 
 ---
 

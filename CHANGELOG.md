@@ -374,6 +374,7 @@ To regenerate locally, run `npm run changelog`.
 - *(roadmap)* Add CHORE-003 to Section 10 - Maintenance
 - *(roadmap)* Add the maintenance backlog found during the python homogenization
 - *(adr)* Plan the migration from motor to the pymongo async api
+- Sync docs with the maintenance and localization work
 
 ### 🎨 Styling
 

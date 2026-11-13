@@ -73,7 +73,7 @@ Backend FastAPI + MongoDB (architecture en couches hexagonale), frontend Vue 3 +
 - **JWT** - Authentication par jetons web JSON
 - **Pydantic** - Validation de données et gestion des paramètres
 - **Python-Multipart** - Gestion du multipart form data pour les uploads
-- **Passlib** - Couche d'abstraction du hachage des mots de passe (argon2id pour les nouveaux hashes)
+- **argon2-cffi + bcrypt** - Hachage des mots de passe (argon2id pour les nouveaux hashes, bcrypt conservé pour vérifier les anciens)
 - **argon2-cffi** - Implémentation d'argon2id utilisée pour le hachage des mots de passe
 - **bcrypt** - Conservé uniquement pour vérifier les anciens hashes, rehachés en argon2id à la connexion
 
@@ -287,14 +287,19 @@ JWT_SECRET_KEY=your_jwt_secret_key
 ### 🧪 Lancement des tests
 
 ```bash
-# Tests backend
+# Tests unitaires backend
 cd backend
 uv sync
 uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 
-# Tests frontend
+# Tests unitaires frontend (Vitest)
 npx vitest run frontend/tests/unit
+
+# Tests de bout en bout frontend (Playwright, Firefox, API simulée ; une fois : npx playwright install firefox)
+npm run test:e2e
 ```
+
+Les tests d'intégration backend (`backend/tests/integration/`) refusent toute base MongoDB non locale : en CI ils tournent sur un service `mongo:7` jetable, voir [`backend/tests/utils/README.fr.md`](backend/tests/utils/README.fr.md) pour les lancer en local. La CI exécute ces quatre suites sur chaque PR.
 
 ---
 

@@ -82,7 +82,7 @@ The admin route `/maintenance/upload-gpx` allows re-importing cache attributes:
 ## Security
 
 - **JWT**: authentication tokens
-- **Hashing**: passwords with argon2id via Passlib (bcrypt is kept only to verify existing hashes; accounts migrate to argon2id progressively on login)
+- **Hashing**: passwords with argon2id via argon2-cffi (bcrypt is kept only to verify existing hashes; accounts migrate to argon2id progressively on login)
 - **Validation**: password strength in `core/security.py`
 
 ## Development
@@ -101,7 +101,7 @@ mypy .
 
 ### Tests
 ```bash
-pytest tests/unit/ --cov=app --cov-report=term-missing -q
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing -q
 ```
 
 ## Geographic data (choropleth map)
