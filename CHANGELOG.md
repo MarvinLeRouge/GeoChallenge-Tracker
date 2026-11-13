@@ -482,3 +482,4 @@ To regenerate locally, run `npm run changelog`.
 - Move the /api root path from FastAPI to uvicorn and Traefik
 - *(backend)* Migrate from motor to the pymongo async api
 - Run the playwright e2e tests in CI
+- Run CI on the changelog bot PR so its auto-merge can complete

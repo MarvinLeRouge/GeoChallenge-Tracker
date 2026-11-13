@@ -629,7 +629,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-011 - Migrer les `Config` Pydantic en classe vers `ConfigDict` (app/domain/models/meta.py)
 - [x] REFACTOR-001 - Supprimer la branche optionnelle morte `dateutil` du normaliseur de données GPX
 - [x] REFACTOR-002 - Fusionner le lecteur d'upload en double dans caches.py
-- [ ] CI-003 - Faire déclencher la CI par la PR du bot changelog (GitHub App ou PAT au lieu de GITHUB_TOKEN)
+- [x] CI-003 - Faire déclencher la CI par la PR du bot changelog (run de CI déclenché par dispatch sur la branche du bot, sans PAT)
 - [x] FIX-009 - Faire pointer l'URL de jeton du Swagger vers la route de connexion préfixée /api (Authorize renvoyait 405)
 - [x] CHORE-012 - Migrer de motor vers l'API async de PyMongo avant le 2027-05-14 (plan dans l'ADR 0010)
 - [x] FIX-010 - Recentrer la carte sur la position de l'utilisateur sans pan arrondi au pixel (test e2e du centre de carte instable)
