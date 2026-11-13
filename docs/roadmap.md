@@ -629,6 +629,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] REFACTOR-001 - Remove the dead optional `dateutil` branch in the GPX data normalizer
 - [x] REFACTOR-002 - Merge the duplicate upload reader in caches.py
 - [ ] CI-003 - Let the changelog bot PR trigger CI (GitHub App or PAT instead of GITHUB_TOKEN)
+- [x] FIX-009 - Point the Swagger token URL at the /api-prefixed login route (Authorize returned 405)
 
 ## Section 11 - Localization
 

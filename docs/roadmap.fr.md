@@ -630,6 +630,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] REFACTOR-001 - Supprimer la branche optionnelle morte `dateutil` du normaliseur de données GPX
 - [x] REFACTOR-002 - Fusionner le lecteur d'upload en double dans caches.py
 - [ ] CI-003 - Faire déclencher la CI par la PR du bot changelog (GitHub App ou PAT au lieu de GITHUB_TOKEN)
+- [x] FIX-009 - Faire pointer l'URL de jeton du Swagger vers la route de connexion préfixée /api (Authorize renvoyait 405)
 
 ## Section 11 - Localisation
 
