@@ -187,6 +187,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Cap the password length on register and login
 - *(backend)* Return 401 on login when the stored password hash is unusable
 - *(backend)* Point the swagger token url at the /api-prefixed login route
+- *(frontend)* Recenter the map on the user location without a rounded pan
 
 ### 💼 Other
 

@@ -119,7 +119,11 @@ function tryRecenterOnce() {
         : null;
 
   if (target) {
-    map.setView(target, initialZoom.value);
+    // reset: a same-zoom setView pans with panBy, which rounds the offset to whole pixels
+    // (about 1 km off at zoom 6) and may still be animating when the center is emitted.
+    // Leaflet 1.9 honours `reset` in setView (its own constructor uses it) but the
+    // @types/leaflet ZoomPanOptions omit it, hence the cast.
+    map.setView(target, initialZoom.value, { reset: true } as L.ZoomPanOptions);
     recentered = true;
     emitCurrentCenter();
   }
