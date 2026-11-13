@@ -3,6 +3,7 @@
 # generation/validation, and FastAPI `get_current_user` dependency.
 
 import datetime as dt
+import os
 import re
 import secrets
 from collections.abc import Callable
@@ -33,7 +34,10 @@ settings = get_settings()
 _argon2_hasher = PasswordHasher()
 # passlib silently hashed only the first 72 bytes; bcrypt >= 5 raises instead.
 _BCRYPT_MAX_BYTES = 72
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", scopes={})
+# Same variable uvicorn reads for --root-path: Swagger posts to the public, prefixed URL
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{os.getenv('UVICORN_ROOT_PATH', '').rstrip('/')}/auth/login", scopes={}
+)
 
 
 def hash_password(password: str) -> str:

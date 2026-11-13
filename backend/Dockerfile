@@ -59,5 +59,7 @@ RUN useradd -u 1000 -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 # No --reload here: this image runs in production. Dev compose adds it via `command:`.
-# --root-path: Traefik strips /api, the app builds its public URLs (OpenAPI, Swagger UI) with it
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--root-path", "/api"]
+# uvicorn reads UVICORN_ROOT_PATH as --root-path: Traefik strips /api, the app builds its
+# public URLs (OpenAPI servers, Swagger UI assets and token URL) with it
+ENV UVICORN_ROOT_PATH=/api
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

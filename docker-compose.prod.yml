@@ -41,7 +41,7 @@ services:
       - "traefik.http.routers.gctracker-api-docs.priority=100"
       - "traefik.http.routers.gctracker-api-docs.middlewares=gctracker-api-strip,gctracker-api-docs-headers"
       - "traefik.http.routers.gctracker-api-docs.service=gctracker-backend"
-      # Traefik strips /api and uvicorn runs with --root-path /api, so FastAPI routes stay
+      # Traefik strips /api and uvicorn runs with UVICORN_ROOT_PATH=/api, so FastAPI routes stay
       # unprefixed while OpenAPI and the Swagger UI build /api URLs.
       - "traefik.http.middlewares.gctracker-api-strip.stripprefix.prefixes=/api"
       # Security headers for the JSON API, mirroring the frontend's nginx-security-headers.conf
