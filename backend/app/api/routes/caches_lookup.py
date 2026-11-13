@@ -24,39 +24,41 @@ async def _fetch_cache_with_type_size(match_stage: dict[str, Any]) -> dict[str, 
         dict | None: The matched cache document, or None if not found.
     """
     coll = await get_collection("caches")
-    cur = await coll.aggregate(
-        [
-            {"$match": match_stage},
-            {
-                "$lookup": {
-                    "from": "cache_types",
-                    "localField": "type_id",
-                    "foreignField": "_id",
-                    "as": "_type",
-                }
-            },
-            {
-                "$lookup": {
-                    "from": "cache_sizes",
-                    "localField": "size_id",
-                    "foreignField": "_id",
-                    "as": "_size",
-                }
-            },
-            {
-                "$addFields": {
-                    "type": {
-                        "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
-                        "code": {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
-                    },
-                    "size": {
-                        "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
-                        "code": {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
-                    },
-                }
-            },
-            {"$limit": 1},
-        ]
+    cur = await (
+        await coll.aggregate(
+            [
+                {"$match": match_stage},
+                {
+                    "$lookup": {
+                        "from": "cache_types",
+                        "localField": "type_id",
+                        "foreignField": "_id",
+                        "as": "_type",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "cache_sizes",
+                        "localField": "size_id",
+                        "foreignField": "_id",
+                        "as": "_size",
+                    }
+                },
+                {
+                    "$addFields": {
+                        "type": {
+                            "label": {"$ifNull": [{"$arrayElemAt": ["$_type.name", 0]}, None]},
+                            "code": {"$ifNull": [{"$arrayElemAt": ["$_type.code", 0]}, None]},
+                        },
+                        "size": {
+                            "label": {"$ifNull": [{"$arrayElemAt": ["$_size.name", 0]}, None]},
+                            "code": {"$ifNull": [{"$arrayElemAt": ["$_size.code", 0]}, None]},
+                        },
+                    }
+                },
+                {"$limit": 1},
+            ]
+        )
     ).to_list(length=None)
     return next(iter(cur), None)
 

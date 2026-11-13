@@ -34,7 +34,7 @@ def _find_cursor(results: list) -> MagicMock:
 def _found_col(*agg_result_sets: list) -> MagicMock:
     """Build a found_caches mock where each aggregate() call returns the next result set."""
     col = MagicMock()
-    col.aggregate = MagicMock(side_effect=[_agg_cursor(r) for r in agg_result_sets])
+    col.aggregate = AsyncMock(side_effect=[_agg_cursor(r) for r in agg_result_sets])
     return col
 
 

@@ -23,7 +23,7 @@ geochallenge-tracker/
 │       ├── domain/     # Entités métier, types de base
 │       ├── services/   # Logique métier (gpx_import, targets, zones, ...)
 │       ├── core/       # Sécurité, middleware, configuration
-│       └── db/         # Accès MongoDB (Motor)
+│       └── db/         # Accès MongoDB (PyMongo async)
 ├── frontend/
 │   └── src/
 │       ├── pages/       # Composants de niveau route

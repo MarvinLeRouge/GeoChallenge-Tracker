@@ -61,7 +61,7 @@ class TestEvaluateCacheCandidates:
         cache_row = {"_id": cache_id, "title": "Cache 1"}
         agg_cursor = AsyncMock()
         agg_cursor.to_list = AsyncMock(return_value=[cache_row])
-        db.caches.aggregate = MagicMock(return_value=agg_cursor)
+        db.caches.aggregate = AsyncMock(return_value=agg_cursor)
 
         ev = TargetEvaluator(db)
         ev.scorer.get_task_constraints_min_count = MagicMock(return_value=5)
@@ -100,7 +100,7 @@ class TestEvaluateCacheCandidates:
             )
             return cursor
 
-        db.caches.aggregate = MagicMock(side_effect=make_cursor)
+        db.caches.aggregate = AsyncMock(side_effect=make_cursor)
 
         ev = TargetEvaluator(db)
         ev.scorer.get_task_constraints_min_count = MagicMock(return_value=1)
@@ -127,7 +127,7 @@ class TestEvaluateCacheCandidates:
         """Tasks with percent=100 should be skipped entirely."""
         db = _make_db()
         task_id = ObjectId()
-        db.caches.aggregate = MagicMock(return_value=_make_cursor([]))
+        db.caches.aggregate = AsyncMock(return_value=_make_cursor([]))
 
         ev = TargetEvaluator(db)
         tasks = [{"_id": task_id, "expression": {"kind": "and"}}]
@@ -153,7 +153,7 @@ class TestGetCoveredDtCells:
         db = _make_db()
         fc_cursor = AsyncMock()
         fc_cursor.to_list = AsyncMock(return_value=[])
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         ev = TargetEvaluator(db)
         result = await ev._get_covered_dt_cells(
@@ -175,7 +175,7 @@ class TestGetCoveredDtCells:
                 {"_id": {"d": 5.0, "t": 5.0}},  # out of bounds (max=3)
             ]
         )
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         ev = TargetEvaluator(db)
         result = await ev._get_covered_dt_cells(
@@ -195,7 +195,7 @@ class TestGetCoveredDtCells:
         fc_cursor.to_list = AsyncMock(
             return_value=[{"_id": {"d": None, "t": 1.0}}, {"_id": {"d": 1.0, "t": None}}]
         )
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         ev = TargetEvaluator(db)
         result = await ev._get_covered_dt_cells(
@@ -212,7 +212,7 @@ class TestGetCoveredDtCells:
         db = _make_db()
         fc_cursor = AsyncMock()
         fc_cursor.to_list = AsyncMock(return_value=[])
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         ev = TargetEvaluator(db)
         await ev._get_covered_dt_cells(
@@ -235,7 +235,7 @@ class TestGetCoveredDtCells:
         db = _make_db()
         fc_cursor = AsyncMock()
         fc_cursor.to_list = AsyncMock(return_value=[])
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         type_id = ObjectId()
         ev = TargetEvaluator(db)

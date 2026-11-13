@@ -162,7 +162,7 @@ async def snapshot(
         {"$sort": {"_id": 1}},
     ]
     uc_by_status: dict[str, int] = {}
-    async for doc in coll_ucs.aggregate(pipeline):
+    async for doc in await coll_ucs.aggregate(pipeline):
         key = doc["_id"] if doc["_id"] is not None else "null"
         uc_by_status[key] = doc["count"]
 

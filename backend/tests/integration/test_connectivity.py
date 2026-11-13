@@ -20,18 +20,18 @@ Nécessite une base de données MongoDB configurée.
 """
 
 import pytest
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from app.core.settings import get_settings
 
 
 @pytest.fixture
-def mongo_client():
+async def mongo_client():
     """Create MongoDB client for tests."""
     settings = get_settings()
-    client = AsyncIOMotorClient(settings.mongodb_uri)
+    client = AsyncMongoClient(settings.mongodb_uri)
     yield client
-    client.close()
+    await client.close()
 
 
 class TestMongoDBConnectivity:

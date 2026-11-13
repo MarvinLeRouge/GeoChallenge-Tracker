@@ -88,7 +88,7 @@ class TestWithinBbox:
     @pytest.mark.asyncio
     async def test_compact_default_uses_aggregate(self):
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agen([]))
+        coll.aggregate = AsyncMock(return_value=_agen([]))
         coll.count_documents = AsyncMock(return_value=0)
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
@@ -110,7 +110,7 @@ class TestWithinRadius:
     async def test_happy_path_compact_and_count(self):
         doc = {"_id": ObjectId(), "GC": "GC1", "title": "Cache 1", "dist_meters": 100.0}
         coll = AsyncMock()
-        coll.aggregate = MagicMock(return_value=_agen([doc]))
+        coll.aggregate = AsyncMock(return_value=_agen([doc]))
         coll.count_documents = AsyncMock(return_value=1)
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
@@ -141,7 +141,7 @@ class TestWithinRadius:
         def _raise(*args, **kwargs):
             raise RuntimeError("no 2dsphere index")
 
-        coll.aggregate = MagicMock(side_effect=_raise)
+        coll.aggregate = AsyncMock(side_effect=_raise)
 
         with patch.object(caches_module, "get_collection", new=AsyncMock(return_value=coll)):
             app = _make_app()

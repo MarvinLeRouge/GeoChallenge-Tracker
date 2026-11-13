@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 from tests.utils.mongo_indexes import index_spec
 
@@ -88,7 +88,7 @@ async def _copy_collection_indexes(prod_db, test_db, coll_name, verbose):
         int: Number of indexes actually created.
     """
     coll_indexes = 0
-    indexes = await prod_db[coll_name].list_indexes().to_list(length=None)
+    indexes = await (await prod_db[coll_name].list_indexes()).to_list(length=None)
 
     for idx in indexes:
         if idx.get("name") == "_id_":
@@ -118,7 +118,7 @@ async def _ensure_caches_2dsphere_index(test_db, verbose):
     """
     try:
         # Vérifier si l'index 2dsphere existe déjà
-        existing_indexes = await test_db.caches.list_indexes().to_list(length=None)
+        existing_indexes = await (await test_db.caches.list_indexes()).to_list(length=None)
         has_2dsphere = any("2dsphere" in str(idx.get("key", {})) for idx in existing_indexes)
 
         if has_2dsphere:
@@ -309,8 +309,8 @@ async def duplicate_db_with_indexes(verbose):
         print(f"📋 Cible  : {TEST_DB_NAME}")
         print("=" * 60)
 
-    prod_client = AsyncIOMotorClient(PROD_URI)
-    test_client = AsyncIOMotorClient(TEST_URI)
+    prod_client = AsyncMongoClient(PROD_URI)
+    test_client = AsyncMongoClient(TEST_URI)
 
     prod_db = prod_client[PROD_DB_NAME]
     test_db = test_client[TEST_DB_NAME]
@@ -322,8 +322,8 @@ async def duplicate_db_with_indexes(verbose):
     test_collection_names = await _verify_collections_match(test_db, prod_collection_names, verbose)
 
     # Cleanup
-    prod_client.close()
-    test_client.close()
+    await prod_client.close()
+    await test_client.close()
 
     # Résumé
     if verbose:

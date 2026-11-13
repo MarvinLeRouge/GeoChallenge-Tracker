@@ -43,7 +43,7 @@ def _empty_collection():
     coll.distinct = AsyncMock(return_value=[])
     cursor = MagicMock()
     cursor.to_list = AsyncMock(return_value=[])
-    coll.aggregate = MagicMock(return_value=cursor)
+    coll.aggregate = AsyncMock(return_value=cursor)
     coll.find = MagicMock(return_value=cursor)
     coll.delete_many = AsyncMock(return_value=MagicMock(deleted_count=0))
     return coll
@@ -88,7 +88,7 @@ class TestCleanupAnalyze:
         states_coll = _empty_collection()
         orphan_cursor = MagicMock()
         orphan_cursor.to_list = AsyncMock(return_value=[{"_id": orphan_state_id}])
-        states_coll.aggregate = MagicMock(return_value=orphan_cursor)
+        states_coll.aggregate = AsyncMock(return_value=orphan_cursor)
 
         pending_dir = tmp_path / "pending_cleanups"
 
@@ -139,7 +139,7 @@ class TestCleanupAnalyze:
                 return nested_cursor
             return regular_cursor
 
-        caches_coll.aggregate = MagicMock(side_effect=_caches_aggregate)
+        caches_coll.aggregate = AsyncMock(side_effect=_caches_aggregate)
 
         pending_dir = tmp_path / "pending_cleanups"
 

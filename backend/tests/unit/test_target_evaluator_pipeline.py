@@ -1,6 +1,6 @@
 """Tests for TargetEvaluator: build_cache_pipeline_for_task (incl. expression branches)."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from bson import ObjectId
@@ -182,7 +182,7 @@ class TestBuildCachePipelineExpressionBranches:
 
         fc_cursor = AsyncMock()
         fc_cursor.to_list = AsyncMock(return_value=[])
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         task_doc = {"expression": {"kind": "and", "rules": []}}
         agg_spec = {"kind": "dt_matrix", "max_difficulty": 3.0, "max_terrain": 3.0}
@@ -215,7 +215,7 @@ class TestBuildCachePipelineExpressionBranches:
         fc_cursor.to_list = AsyncMock(
             return_value=[{"_id": {"d": 1.0, "t": 1.0}}, {"_id": {"d": 1.5, "t": 1.5}}]
         )
-        db.found_caches.aggregate = MagicMock(return_value=fc_cursor)
+        db.found_caches.aggregate = AsyncMock(return_value=fc_cursor)
 
         task_doc = {"expression": {"kind": "and", "rules": []}}
         agg_spec = {"kind": "dt_matrix", "max_difficulty": 3.0, "max_terrain": 3.0}

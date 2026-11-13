@@ -6,7 +6,7 @@ from typing import Any
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 
 class BaseVerificationService:
@@ -20,7 +20,7 @@ class BaseVerificationService:
         pipeline that differs between them.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         self.db = db
 
     async def _resolve_cache_type_id(

@@ -8,7 +8,7 @@
 
 - **Framework** : FastAPI
 - **Langage** : Python 3.14
-- **Base de données** : MongoDB (via Motor)
+- **Base de données** : MongoDB (via PyMongo async)
 - **Validation** : Pydantic
 - **Authentification** : JWT
 
@@ -51,7 +51,7 @@ Sous-dossiers principaux :
 
 ## Accès à la base de données
 
-- **MongoDB** : Accès asynchrone via Motor
+- **MongoDB** : Accès asynchrone via l'API async de PyMongo (`AsyncMongoClient`) : `aggregate()` et `list_indexes()` s'attendent (`await`), un test unitaire le vérifie
 - **Collections** : Abstraction via `get_collection()` dans `db/`
 - **Index géographiques** : Utilisés pour les requêtes spatiales
 

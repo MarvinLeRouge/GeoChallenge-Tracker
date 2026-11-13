@@ -51,7 +51,7 @@ def _geo_db(db, items=None, count=0):
     data_cursor = AsyncMock()
     data_cursor.to_list = AsyncMock(return_value=items)
 
-    db.targets.aggregate = MagicMock(side_effect=[count_cursor, data_cursor])
+    db.targets.aggregate = AsyncMock(side_effect=[count_cursor, data_cursor])
     return db
 
 

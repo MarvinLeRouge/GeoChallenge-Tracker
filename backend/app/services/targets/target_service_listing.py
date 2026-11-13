@@ -7,13 +7,13 @@ import logging
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 log = logging.getLogger(__name__)
 
 
 async def list_targets_with_pagination(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     filters: dict[str, Any],
     page: int,
     page_size: int,
@@ -52,7 +52,7 @@ async def list_targets_with_pagination(
 
 
 async def list_targets_nearby(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     base_filters: dict[str, Any],
     lat: float,
     lon: float,
@@ -93,7 +93,9 @@ async def list_targets_nearby(
     skip = (page - 1) * page_size
 
     # Count matching documents
-    count_result = await coll_targets.aggregate([geo_stage, {"$count": "total"}]).to_list(length=1)
+    count_result = await (await coll_targets.aggregate([geo_stage, {"$count": "total"}])).to_list(
+        length=1
+    )
     total_count: int = count_result[0]["total"] if count_result else 0
     nb_pages = (total_count + page_size - 1) // page_size if total_count else 0
 
@@ -104,7 +106,7 @@ async def list_targets_nearby(
         {"$skip": skip},
         {"$limit": page_size},
     ]
-    items = await coll_targets.aggregate(pipeline).to_list(length=None)
+    items = await (await coll_targets.aggregate(pipeline)).to_list(length=None)
 
     log.debug(
         "[targets] nearby lat=%s lon=%s r=%skm — %d result(s)", lat, lon, radius_km, total_count
@@ -120,7 +122,7 @@ async def list_targets_nearby(
 
 
 async def _resolve_user_target_filters(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     user_id: ObjectId,
     status_filter: str | None,
     page: int,
@@ -175,7 +177,7 @@ async def _resolve_user_target_filters(
 
 
 async def list_targets_for_user_with_status_filter(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     user_id: ObjectId,
     status_filter: str | None,
     page: int,
@@ -203,7 +205,7 @@ async def list_targets_for_user_with_status_filter(
 
 
 async def list_targets_nearby_for_user_with_status_filter(
-    db: AsyncIOMotorDatabase,
+    db: AsyncDatabase,
     user_id: ObjectId,
     lat: float,
     lon: float,

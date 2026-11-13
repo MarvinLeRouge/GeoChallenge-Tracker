@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 
 # Charger les variables d'environnement depuis la RACINE du projet
 # Le fichier .env est à la racine, pas dans backend/
@@ -57,8 +57,8 @@ async def copy_structure():
     print(f"📋 Cible  : {TEST_DB_NAME}")
     print("=" * 60)
 
-    prod_client = AsyncIOMotorClient(PROD_URI)
-    test_client = AsyncIOMotorClient(TEST_URI)
+    prod_client = AsyncMongoClient(PROD_URI)
+    test_client = AsyncMongoClient(TEST_URI)
 
     prod_db = prod_client[PROD_DB_NAME]
     test_db = test_client[TEST_DB_NAME]
@@ -87,7 +87,7 @@ async def copy_structure():
     for coll_name in collection_names:
         try:
             # Récupérer les indexes depuis la prod
-            indexes_cursor = prod_db[coll_name].list_indexes()
+            indexes_cursor = await prod_db[coll_name].list_indexes()
             indexes = await indexes_cursor.to_list(length=None)
             coll_indexes = 0
 
@@ -118,8 +118,8 @@ async def copy_structure():
     print(f"\n   📊 Total : {total_indexes} indexes copiés")
 
     # Cleanup
-    prod_client.close()
-    test_client.close()
+    await prod_client.close()
+    await test_client.close()
 
     # Résumé
     print("\n" + "=" * 60)

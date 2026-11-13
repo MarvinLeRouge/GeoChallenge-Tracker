@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from .status_calculator import StatusCalculator
 
@@ -19,7 +19,7 @@ class UserChallengeValidator:
         and data consistency for UserChallenges.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the validation service.
 
         Args:

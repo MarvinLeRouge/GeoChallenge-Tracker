@@ -17,7 +17,7 @@ def _mock_aggregate_collection(docs: list[dict]) -> MagicMock:
     cursor = MagicMock()
     cursor.to_list = AsyncMock(return_value=docs)
     coll = MagicMock()
-    coll.aggregate.return_value = cursor
+    coll.aggregate = AsyncMock(return_value=cursor)
     return coll
 
 

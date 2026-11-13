@@ -86,7 +86,7 @@ class TestEvaluateTargetsForUserChallenge:
         cache_row = {"_id": cache_id, "title": "Cache A"}
         agg_cursor = AsyncMock()
         agg_cursor.to_list = AsyncMock(return_value=[cache_row])
-        db.caches.aggregate = MagicMock(return_value=agg_cursor)
+        db.caches.aggregate = AsyncMock(return_value=agg_cursor)
 
         # Target upsert
         upsert_result = MagicMock()

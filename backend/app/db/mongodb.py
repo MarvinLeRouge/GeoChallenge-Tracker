@@ -3,22 +3,24 @@
 Initializes the MongoDB client from settings and exposes simple collection access helpers.
 """
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection, AsyncIOMotorDatabase
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.settings import get_settings
 
 settings = get_settings()
 
 # Global variables initialized to None (lazy initialization)
-_client: AsyncIOMotorClient | None = None
-_db: AsyncIOMotorDatabase | None = None
+_client: AsyncMongoClient | None = None
+_db: AsyncDatabase | None = None
 
 
-def get_client() -> AsyncIOMotorClient:
+def get_client() -> AsyncMongoClient:
     """Returns the MongoDB client (lazy initialization)."""
     global _client
     if _client is None:
-        _client = AsyncIOMotorClient(
+        _client = AsyncMongoClient(
             settings.mongodb_uri,
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=3000,
@@ -26,7 +28,7 @@ def get_client() -> AsyncIOMotorClient:
     return _client
 
 
-def get_db() -> AsyncIOMotorDatabase:
+def get_db() -> AsyncDatabase:
     """Returns the MongoDB database (lazy initialization)."""
     global _db
     if _db is None:
@@ -34,7 +36,7 @@ def get_db() -> AsyncIOMotorDatabase:
     return _db
 
 
-async def get_collection(name: str) -> AsyncIOMotorCollection:
+async def get_collection(name: str) -> AsyncCollection:
     """Returns a MongoDB collection by name.
 
     Description:
@@ -45,7 +47,7 @@ async def get_collection(name: str) -> AsyncIOMotorCollection:
         name (str): Collection name (e.g. "users", "caches").
 
     Returns:
-        AsyncIOMotorCollection: Async MongoDB collection instance.
+        AsyncCollection: Async MongoDB collection instance.
     """
     return get_db()[name]
 
@@ -95,6 +97,6 @@ async def close_mongodb_connection():
     """Closes the MongoDB connection."""
     global _client, _db
     if _client:
-        _client.close()
+        await _client.close()
         _client = None
         _db = None

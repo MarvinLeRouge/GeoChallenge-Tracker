@@ -99,7 +99,7 @@ class TestCachesById:
         """Test que la récupération d'un ID inexistant retourne une erreur."""
         # Récupérer UN cache au hasard avec $sample
         pipeline = [{"$sample": {"size": 1}}]
-        cursor = seeded_caches.caches.aggregate(pipeline)
+        cursor = await seeded_caches.caches.aggregate(pipeline)
         caches = await cursor.to_list(length=1)
         ref = caches[0]
         cache_id = str(ref["_id"])

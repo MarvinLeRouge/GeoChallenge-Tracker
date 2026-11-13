@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.logging_config import get_loggers
 from app.services.elevation_retrieval import fetch as fetch_elevations
@@ -40,7 +40,7 @@ class GpxImportService:
 
     def __init__(
         self,
-        db: AsyncIOMotorDatabase,
+        db: AsyncDatabase,
         uploads_dir: Path | None = None,
         strict_validation: bool = False,
     ):

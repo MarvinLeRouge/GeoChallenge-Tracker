@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import UpdateOne
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.utils import utcnow
 
@@ -22,7 +22,7 @@ class UserChallengeSync:
         and auto-completing them based on found caches.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the synchronization service.
 
         Args:
@@ -171,7 +171,7 @@ class UserChallengeSync:
         ]
 
         coll_ucs = self.db.user_challenges
-        cursor = coll_ucs.aggregate(pipeline)
+        cursor = await coll_ucs.aggregate(pipeline)
         ucs_to_complete = [doc["_id"] async for doc in cursor]
 
         if not ucs_to_complete:

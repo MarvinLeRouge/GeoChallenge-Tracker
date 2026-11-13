@@ -479,3 +479,4 @@ To regenerate locally, run `npm run changelog`.
 - Scan staged changes for secrets with gitleaks in pre-commit
 - *(backend)* Replace class-based pydantic config with ConfigDict
 - Move the /api root path from FastAPI to uvicorn and Traefik
+- *(backend)* Migrate from motor to the pymongo async api

@@ -1,6 +1,6 @@
 # ADR 0010: Migrate from Motor to the PyMongo async API
 
-**Status:** Accepted (plan; migration not started)
+**Status:** Accepted, implemented 2026-11-13 (CHORE-012)
 **Date:** 2026-11-13
 **Deciders:** Marvin Le Rouge
 **Sources:** roadmap CHORE-008
@@ -62,3 +62,9 @@ Plan, one branch:
   suite covers the main aggregation routes (zones, by-filter, stats), the unit mocks the rest.
 - Until the migration lands, Motor stays pinned at 3.7.x and its end-of-life dates are
   tracked in the roadmap (CHORE-008 delivered this plan; the migration itself is a new task).
+
+## Implementation notes (2026-11-13)
+
+- 34 calls rewritten to `await` (`aggregate`, `list_indexes`, client `close`) by an AST script, so none was missed by hand; `tests/unit/test_mongo_async_calls.py` fails if a non-awaited `aggregate()` / `list_indexes()` comes back (checked against the Motor code: it fails there).
+- 51 unit-test mocks moved to `AsyncMock` / `async def aggregate`.
+- Verified: unit suite, integration suite on a disposable mongo (CI mode and with the sample GPX), and the production image against a seeded disposable mongo, with the same results as the Motor image (login, GPX import, by-filter, zones, stats, challenges).

@@ -144,7 +144,7 @@ async def find_nested_array_orphans(collection_name: str, field_path: str, ref_c
     ]
 
     collection_obj = await get_collection(collection_name)
-    cursor = collection_obj.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
+    cursor = await collection_obj.aggregate(cast(Sequence[Mapping[str, Any]], pipeline))
     orphan_docs = await cursor.to_list(length=None)
 
     # Extract unique document IDs that contain orphaned references
@@ -197,7 +197,7 @@ async def _find_nested_attribute_orphans(source_collection_obj: Any) -> list[str
         {"$project": {"_id": 1}},
         {"$group": {"_id": None, "orphan_ids": {"$addToSet": "$_id"}}},
     ]
-    results = await source_collection_obj.aggregate(pipeline).to_list(length=None)
+    results = await (await source_collection_obj.aggregate(pipeline)).to_list(length=None)
     if results and results[0]["orphan_ids"]:
         return [str(obj_id) for obj_id in results[0]["orphan_ids"]]
     return []
@@ -221,7 +221,7 @@ async def _find_reference_orphans(
         {"$match": {field: {"$nin": list(current_target_ids)}}},
         {"$project": {"_id": 1}},
     ]
-    cursor = source_collection_obj.aggregate(pipeline)
+    cursor = await source_collection_obj.aggregate(pipeline)
     orphan_docs = await cursor.to_list(length=None)
     return [str(doc["_id"]) for doc in orphan_docs]
 

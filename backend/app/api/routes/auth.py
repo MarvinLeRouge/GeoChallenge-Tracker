@@ -22,8 +22,8 @@ from fastapi import (
     status,
 )
 from jwt import PyJWTError as JWTError
-from motor.motor_asyncio import AsyncIOMotorCollection
 from pydantic import BaseModel, Field
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.collation import Collation
 
 from app.api.dto.user_profile import VerifyEmailBody
@@ -94,7 +94,7 @@ def hash_verification_code(code: str) -> str:
     return hashlib.sha256(code.encode("utf-8")).hexdigest()
 
 
-async def users_coll() -> AsyncIOMotorCollection:
+async def users_coll() -> AsyncCollection:
     """Returns the MongoDB `users` collection."""
     return await get_collection("users")
 
@@ -125,7 +125,7 @@ async def register(
         UserInRegister,
         Body(..., description="Registration data: username, email, and password."),
     ],
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
     """Registers a user.
@@ -136,7 +136,7 @@ async def register(
 
     Args:
         payload (UserInRegister): Registration data (username, email, password).
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
 
     Returns:
         UserOut: Public user data (id, username, email, role).
@@ -280,12 +280,12 @@ def _password_matches(password: str, stored_hash: str | None) -> bool:
 
 
 async def _authenticate_user(
-    users: AsyncIOMotorCollection, ident: str, password: str, request: Request
+    users: AsyncCollection, ident: str, password: str, request: Request
 ) -> dict[str, Any]:
     """Authenticate a user by identifier and password, raising on failure.
 
     Args:
-        users (AsyncIOMotorCollection): Users collection.
+        users (AsyncCollection): Users collection.
         ident (str): Username or email.
         password (str): Plain password.
         request (Request): The current request (for logging the client IP).
@@ -315,7 +315,7 @@ async def _authenticate_user(
 
 
 async def _rehash_password_if_needed(
-    users: AsyncIOMotorCollection, user: dict[str, Any], password: str
+    users: AsyncCollection, user: dict[str, Any], password: str
 ) -> None:
     """Transparently migrate a legacy password hash to the current scheme.
 
@@ -324,7 +324,7 @@ async def _rehash_password_if_needed(
         migrate legacy (bcrypt) hashes to the current scheme (argon2id).
 
     Args:
-        users (AsyncIOMotorCollection): Users collection.
+        users (AsyncCollection): Users collection.
         user (dict): The authenticated user document.
         password (str): Plain password (already verified).
     """
@@ -394,7 +394,7 @@ def _set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
 async def login(
     request: Request,
     response: Response,
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
 ):
     """Logs in a user.
 
@@ -404,7 +404,7 @@ async def login(
 
     Args:
         request (Request): HTTP request (JSON or form support).
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
 
     Returns:
         TokenPair: Contains access_token, refresh_token, and token_type.
@@ -444,7 +444,7 @@ async def login(
     ),
 )
 async def refresh_token(
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
     refresh_token: Annotated[str | None, Cookie()] = None,
 ):
     """Refreshes the access token.
@@ -454,7 +454,7 @@ async def refresh_token(
         then generates a new access token.
 
     Args:
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
         refresh_token (str | None): Refresh token read from the HttpOnly cookie.
 
     Returns:
@@ -567,7 +567,7 @@ async def verify_email(
     code: Annotated[
         str, Query(..., description="Verification code received by email, valid for 24h.")
     ],
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
 ):
     """Verifies email.
 
@@ -577,7 +577,7 @@ async def verify_email(
 
     Args:
         code (str): Verification code sent by email.
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
 
     Returns:
         MessageOut: Message confirming verification.
@@ -618,7 +618,7 @@ async def verify_email_post(
     body: Annotated[
         VerifyEmailBody, Body(..., description="Object containing the verification code.")
     ],
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
 ):
     """Verifies email (POST).
 
@@ -627,7 +627,7 @@ async def verify_email_post(
 
     Args:
         body (VerifyEmailBody): Object containing the verification code.
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
 
     Returns:
         MessageOut: Message confirming verification.
@@ -654,7 +654,7 @@ async def resend_verification(
         ResendVerificationRequest,
         Body(..., description="Identifier (username or email) of the user."),
     ],
-    users: Annotated[AsyncIOMotorCollection, Depends(users_coll)],
+    users: Annotated[AsyncCollection, Depends(users_coll)],
     background_tasks: BackgroundTasks,
 ):
     """Resends a verification email.
@@ -665,7 +665,7 @@ async def resend_verification(
 
     Args:
         body (ResendVerificationRequest): Identifier (username or email).
-        users (AsyncIOMotorCollection): MongoDB users collection.
+        users (AsyncCollection): MongoDB users collection.
 
     Returns:
         MessageOut: Confirmation message (without revealing whether the account exists).

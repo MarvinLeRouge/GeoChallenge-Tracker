@@ -41,7 +41,7 @@ async def _count_found_caches_matching(user_id: ObjectId, match_caches: dict[str
     fc = await get_collection("found_caches")
     pipeline = _build_base_match_pipeline(user_id, match_caches)
     pipeline.append({"$count": "current_count"})
-    cursor = fc.aggregate(pipeline, allowDiskUse=False)
+    cursor = await fc.aggregate(pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
     return int(rows[0]["current_count"]) if rows else 0
 
@@ -60,7 +60,7 @@ async def _aggregate_distinct_countries(fc: Any, pipeline: list[Mapping[str, Any
         {"$group": {"_id": "$cache.country_id"}},
         {"$count": "total"},
     ]
-    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    cursor = await fc.aggregate(full_pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
     return int(rows[0]["total"]) if rows else 0
 
@@ -93,7 +93,7 @@ async def _aggregate_dt_matrix(
             }
         },
     ]
-    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    cursor = await fc.aggregate(full_pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
     found_cells = extract_rounded_dt_cells(rows)
     return sum(1 for d in d_values for t in t_values if (d, t) in found_cells)
@@ -116,7 +116,7 @@ async def _aggregate_score_sum(
         {"$project": {"score": score_expr}},
         {"$group": {"_id": None, "total": {"$sum": "$score"}}},
     ]
-    cursor = fc.aggregate(full_pipeline, allowDiskUse=False)
+    cursor = await fc.aggregate(full_pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=None)
     return int(rows[0]["total"]) if rows else 0
 
@@ -170,7 +170,7 @@ async def _nth_found_date(user_id: ObjectId, match_caches: dict[str, Any], n: in
         {"$limit": 1},
         {"$project": {"_id": 0, "found_date": 1}},
     ]
-    cursor = fc.aggregate(pipeline, allowDiskUse=False)
+    cursor = await fc.aggregate(pipeline, allowDiskUse=False)
     rows = await cursor.to_list(length=1)
     return rows[0]["found_date"] if rows else None
 

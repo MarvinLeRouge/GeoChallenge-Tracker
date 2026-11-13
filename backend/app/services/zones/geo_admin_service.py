@@ -52,7 +52,7 @@ async def get_missing_countries() -> list[dict]:
         {"$match": {"cache.zones.country": {"$ne": None}}},
         {"$group": {"_id": "$cache.zones.country", "found_count": {"$sum": 1}}},
     ]
-    raw = await found_col.aggregate(pipeline).to_list(length=None)  # type: ignore[arg-type]
+    raw = await (await found_col.aggregate(pipeline)).to_list(length=None)  # type: ignore[arg-type]
 
     missing = [
         {"code": doc["_id"], "found_count": doc["found_count"]}

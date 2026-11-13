@@ -86,7 +86,7 @@ async def main(dry_run: bool) -> None:
 
     if not dry_run:
         client = get_client()
-        client.close()
+        await client.close()
 
 
 if __name__ == "__main__":

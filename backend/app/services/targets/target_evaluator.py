@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.services.mongo_pipeline_helpers import build_cache_and_conditions, extract_rounded_dt_cells
 from app.services.query_builder import compile_and_only
@@ -23,7 +23,7 @@ class TargetEvaluator:
         based on challenge tasks and the user profile.
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the evaluator.
 
         Args:
@@ -373,7 +373,7 @@ class TargetEvaluator:
         """
         fc = self.db.found_caches
         pipeline = self._build_user_cache_match_pipeline(user_id, match_filters)
-        rows = await fc.aggregate(pipeline, allowDiskUse=False).to_list(length=None)
+        rows = await (await fc.aggregate(pipeline, allowDiskUse=False)).to_list(length=None)
 
         max_d = float(agg_spec.get("max_difficulty", 5.0))
         max_t = float(agg_spec.get("max_terrain", 5.0))
@@ -422,7 +422,7 @@ class TargetEvaluator:
                 task_doc, username, user_id, geo_ctx, limit_per_task
             )
 
-            aggregate_cursor = coll_caches.aggregate(pipeline, allowDiskUse=False)
+            aggregate_cursor = await coll_caches.aggregate(pipeline, allowDiskUse=False)
             rows = await aggregate_cursor.to_list(length=None)
 
             # Process each candidate cache

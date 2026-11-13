@@ -105,7 +105,7 @@ class TestIterNewChallengeCachesAll:
     async def test_returns_aggregate_cursor(self):
         cursor = _AsyncIter([])
         caches_coll = _make_coll()
-        caches_coll.aggregate = MagicMock(return_value=cursor)
+        caches_coll.aggregate = AsyncMock(return_value=cursor)
 
         with _patch_gc(caches=caches_coll):
             result = await _iter_new_challenge_caches_all(ObjectId())
@@ -177,7 +177,7 @@ class TestCreateChallengesFromCaches:
         attrs_coll.find_one = AsyncMock(return_value={"_id": attr_id})
 
         caches_coll = _make_coll()
-        caches_coll.aggregate = MagicMock(return_value=_AsyncIter([]))
+        caches_coll.aggregate = AsyncMock(return_value=_AsyncIter([]))
 
         challenges_coll = _make_coll()
 
@@ -370,7 +370,7 @@ class TestCreateNewChallengesFromCaches:
         challenges_coll.distinct = AsyncMock(return_value=[])  # none known yet
         challenges_coll.bulk_write = AsyncMock(return_value=MagicMock(upserted_ids={}))
         # aggregate returns empty so matched=0
-        caches_coll.aggregate = MagicMock(return_value=_AsyncIter([]))
+        caches_coll.aggregate = AsyncMock(return_value=_AsyncIter([]))
         caches_coll.find = MagicMock(return_value=_AsyncIter([]))
 
         with _patch_gc(

@@ -34,6 +34,7 @@ class _AsyncCursor:
 
 def _make_sync(**kwargs) -> tuple[UserChallengeSync, MagicMock]:
     db = MagicMock()
+    db.user_challenges.aggregate = AsyncMock()
 
     db.challenges.distinct = AsyncMock(return_value=kwargs.get("challenge_ids", []))
     db.user_challenges.distinct = AsyncMock(return_value=kwargs.get("existing_ids", []))

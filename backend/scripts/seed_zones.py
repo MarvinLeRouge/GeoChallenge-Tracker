@@ -303,7 +303,7 @@ async def main() -> None:
 
     # Close MongoDB connection
     client = get_client()
-    client.close()
+    await client.close()
 
 
 if __name__ == "__main__":

@@ -53,6 +53,7 @@ def _count_cursor(total: int | None):
 
 def _make_query():
     db = MagicMock()
+    db.user_challenges.aggregate = AsyncMock()
     return UserChallengeQuery(db), db
 
 

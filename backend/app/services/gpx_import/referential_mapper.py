@@ -9,7 +9,7 @@ import unicodedata
 from typing import Any
 
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.asynchronous.database import AsyncDatabase
 
 from app.core.utils import now
 
@@ -22,7 +22,7 @@ class ReferentialMapper:
         (countries, states, cache types, sizes, attributes).
     """
 
-    def __init__(self, db: AsyncIOMotorDatabase):
+    def __init__(self, db: AsyncDatabase):
         """Initialize the mapper.
 
         Args:
