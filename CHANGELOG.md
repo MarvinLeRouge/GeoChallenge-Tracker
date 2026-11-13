@@ -372,6 +372,7 @@ To regenerate locally, run `npm run changelog`.
 - Replace em dashes in docs with plain punctuation
 - *(roadmap)* Add CHORE-003 to Section 10 - Maintenance
 - *(roadmap)* Add the maintenance backlog found during the python homogenization
+- *(adr)* Plan the migration from motor to the pymongo async api
 
 ### 🎨 Styling
 

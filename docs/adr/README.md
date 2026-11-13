@@ -15,3 +15,4 @@ reader-facing prose.
 | [0007](0007-refresh-token-revocation-jti-denylist.md) | Refresh token revocation via JTI denylist and explicit logout | 2026-08-01 |
 | [0008](0008-password-hashing-bcrypt-to-argon2id.md) | Migrate password hashing from bcrypt to Argon2id | 2026-08-02 |
 | [0009](0009-centralize-design-system-documentation.md) | Centralize design-system decisions in durable documentation | 2026-08-02 |
+| [0010](0010-migrate-motor-to-pymongo-async.md) | Migrate from Motor to the PyMongo async API (plan) | 2026-11-13 |
