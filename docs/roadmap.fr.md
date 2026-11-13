@@ -622,7 +622,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-007 - Ajouter un hook de détection de secrets au pre-commit (standard du portfolio)
 - [x] FIX-007 - Limiter la longueur du mot de passe à l'inscription et à la connexion (argon2 hache des entrées de toute taille)
 - [x] FIX-008 - Renvoyer 401 au lieu de 500 à la connexion quand le hash de mot de passe stocké est absent ou vide
-- [ ] CHORE-008 - Planifier la migration de motor (en fin de vie depuis le 2026-05-14) vers l'API async de PyMongo
+- [x] CHORE-008 - Planifier la migration de motor (en fin de vie depuis le 2026-05-14) vers l'API async de PyMongo
 - [ ] CI-002 - Lancer les tests e2e Playwright en CI
 - [x] CHORE-009 - Remplacer le `root_path` FastAPI déprécié par le root path du serveur (CMD Docker, compose, Traefik)
 - [ ] CHORE-010 - Traiter l'usage de `asyncio.iscoroutinefunction` par slowapi avant Python 3.16 (correctif amont ou remplacement)
@@ -631,6 +631,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] REFACTOR-002 - Fusionner le lecteur d'upload en double dans caches.py
 - [ ] CI-003 - Faire déclencher la CI par la PR du bot changelog (GitHub App ou PAT au lieu de GITHUB_TOKEN)
 - [x] FIX-009 - Faire pointer l'URL de jeton du Swagger vers la route de connexion préfixée /api (Authorize renvoyait 405)
+- [ ] CHORE-012 - Migrer de motor vers l'API async de PyMongo avant le 2027-05-14 (plan dans l'ADR 0010)
 
 ## Section 11 - Localisation
 

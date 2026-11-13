@@ -621,7 +621,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CHORE-007 - Add a secret-scanning hook to pre-commit (portfolio standard)
 - [x] FIX-007 - Cap the password length on register and login (argon2 hashes inputs of any size)
 - [x] FIX-008 - Return 401 instead of 500 on login when the stored password hash is missing or empty
-- [ ] CHORE-008 - Plan the migration from motor (end of life since 2026-05-14) to the PyMongo async API
+- [x] CHORE-008 - Plan the migration from motor (end of life since 2026-05-14) to the PyMongo async API
 - [ ] CI-002 - Run the Playwright e2e tests in CI
 - [x] CHORE-009 - Replace the deprecated FastAPI `root_path` with the server root path (Docker CMD, compose, Traefik)
 - [ ] CHORE-010 - Handle slowapi's use of `asyncio.iscoroutinefunction` before Python 3.16 (upstream fix or replacement)
@@ -630,6 +630,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] REFACTOR-002 - Merge the duplicate upload reader in caches.py
 - [ ] CI-003 - Let the changelog bot PR trigger CI (GitHub App or PAT instead of GITHUB_TOKEN)
 - [x] FIX-009 - Point the Swagger token URL at the /api-prefixed login route (Authorize returned 405)
+- [ ] CHORE-012 - Migrate from motor to the PyMongo async API before 2027-05-14 (plan in ADR 0010)
 
 ## Section 11 - Localization
 
