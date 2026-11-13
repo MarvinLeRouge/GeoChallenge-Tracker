@@ -481,3 +481,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Replace class-based pydantic config with ConfigDict
 - Move the /api root path from FastAPI to uvicorn and Traefik
 - *(backend)* Migrate from motor to the pymongo async api
+- Run the playwright e2e tests in CI

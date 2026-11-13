@@ -112,7 +112,7 @@ npm run lint
 # Tests unitaires
 npm run test:unit
 
-# Tests e2e
+# Tests e2e (une fois : npx playwright install firefox)
 npm run test:e2e
 ```
 

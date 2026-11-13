@@ -623,7 +623,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-007 - Limiter la longueur du mot de passe à l'inscription et à la connexion (argon2 hache des entrées de toute taille)
 - [x] FIX-008 - Renvoyer 401 au lieu de 500 à la connexion quand le hash de mot de passe stocké est absent ou vide
 - [x] CHORE-008 - Planifier la migration de motor (en fin de vie depuis le 2026-05-14) vers l'API async de PyMongo
-- [ ] CI-002 - Lancer les tests e2e Playwright en CI
+- [x] CI-002 - Lancer les tests e2e Playwright en CI
 - [x] CHORE-009 - Remplacer le `root_path` FastAPI déprécié par le root path du serveur (CMD Docker, compose, Traefik)
 - [ ] CHORE-010 - Traiter l'usage de `asyncio.iscoroutinefunction` par slowapi avant Python 3.16 (correctif amont ou remplacement)
 - [x] CHORE-011 - Migrer les `Config` Pydantic en classe vers `ConfigDict` (app/domain/models/meta.py)

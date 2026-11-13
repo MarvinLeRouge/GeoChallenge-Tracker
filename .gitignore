@@ -127,3 +127,7 @@ backend/logs/*
 
 # Tooling
 .codegraph
+
+# Playwright
+test-results/
+playwright-report/

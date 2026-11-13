@@ -102,7 +102,7 @@ FastAPI + MongoDB backend (hexagonal layering), Vue 3 + TypeScript frontend. See
 - **Pytest** - Testing framework for Python (backend)
 - **pytest-cov** - Coverage reporting for pytest
 - **Vitest** - Unit testing framework (frontend)
-- **Playwright** - End-to-end tests (specs written, not yet run in CI)
+- **Playwright** - End-to-end tests (Firefox, API stubbed), run in CI
 - **Codecov** - Coverage tracking and reporting
 - **pip-audit / npm audit** - Dependency vulnerability scans in CI
 
@@ -353,7 +353,6 @@ Priority synthesis from the full roadmap (see [`docs/roadmap.md`](docs/roadmap.m
 - Cache search by filter (frontend): API ready, page still a placeholder
 - "Challenge completed" email notification
 - Challenge GPX export
-- Playwright e2e tests wired into CI (specs exist, not run automatically yet)
 - Docker Compose healthcheck on the `backend` service in dev (prod already has one)
 
 ### 🟡 Normal
