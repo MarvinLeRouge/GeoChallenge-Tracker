@@ -15,6 +15,7 @@ from app.api.router_registry import routers
 from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
+from app.core.observability import init_error_tracking
 from app.core.rate_limit import limiter
 from app.core.settings import get_settings
 from app.db.mongodb import close_mongodb_connection
@@ -52,6 +53,8 @@ async def lifespan(app: FastAPI):
     # --- shutdown ---
     await close_mongodb_connection()
 
+
+init_error_tracking()
 
 app = FastAPI(
     title=settings.app_name + " API",

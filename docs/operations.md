@@ -74,6 +74,23 @@ Three loggers write daily-rotated files, auto-purged after 30 days: `generic.log
 
 **Caveat:** these files are written to a relative `logs/` directory inside the backend container (`backend/app/core/logging_config.py`), which is **not** bind-mounted to the host in `docker-compose.prod.yml` (unlike `/backups` and `/app/uploads`). In practice, log history does not survive a container recreation or redeploy today; only backups and uploads are currently persisted that way.
 
+### Error tracking (Sentry)
+
+Unhandled errors (backend 500s, frontend Vue and JavaScript errors) are reported to Sentry, EU region, one project per side. Client errors (401, 404, 422, 429) are not reported. Only stack traces are sent: no request body, header, cookie, query string, user data or local variable. Each 500 is also logged with its traceback (`log.exception` in `general_exception_handler`).
+
+Tracking is off when the DSN is empty, which is the default in dev.
+
+| Variable | Read by | Set in prod |
+|---|---|---|
+| `SENTRY_DSN` | backend, at startup (`app/core/observability.py`, process environment) | `../shared/env/app.env` on the server |
+| `SENTRY_ENVIRONMENT` | backend (default `development`) | `production`, same file |
+| `VITE_SENTRY_DSN` | frontend, at build time (`src/observability.ts`) | GitHub secret `VITE_SENTRY_DSN`, passed by `build-push.yml` |
+| `VITE_SENTRY_ENVIRONMENT` | frontend, at build time (default `development`) | `production`, set by `build-push.yml` |
+
+The CSP `connect-src` allows `https://*.ingest.de.sentry.io` so the browser can reach the ingest. A DSN from another region needs that origin changed too.
+
+Setup, once: create the `geochallenge-backend` (Python/FastAPI) and `geochallenge-frontend` (Vue) projects in the same Sentry org, EU region, with the default data scrubbers on and IP address storage off. Add the frontend DSN as the GitHub secret, the backend DSN to the server env file, then redeploy.
+
 ---
 
 ## Incident response

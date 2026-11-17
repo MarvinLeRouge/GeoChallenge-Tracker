@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -6,6 +8,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.dto.response_format import ErrorResponse
 from app.core.errors import ErrorCode
+
+log = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI):
@@ -72,7 +76,11 @@ def register_exception_handlers(app: FastAPI):
     # Handler for uncaught exceptions
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception):
-        """Handler for uncaught exceptions."""
+        """Handler for uncaught exceptions: logs the traceback, then returns a generic 500.
+
+        Sentry's Starlette integration reports the exception itself when enabled.
+        """
+        log.exception("Unhandled error on %s %s", request.method, request.url.path)
         return JSONResponse(
             status_code=500,
             content=ErrorResponse.from_detail(
