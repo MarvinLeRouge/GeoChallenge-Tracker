@@ -246,3 +246,122 @@ class TestScoreAndPersistTargets:
         assert "loc" in doc_set
         assert "cache_loc" not in doc_set
         assert doc_set["loc"] == geo_point
+
+
+def _accepted_ucs(db, uc_ids):
+    cursor = AsyncMock()
+    cursor.to_list = AsyncMock(return_value=[{"_id": uc_id} for uc_id in uc_ids])
+    db.user_challenges.find = MagicMock(return_value=cursor)
+
+
+class TestEvaluateAllForUser:
+    @pytest.mark.asyncio
+    async def test_aggregates_counts_excluding_skipped_ucs(self):
+        db = _make_db()
+        user_id = ObjectId()
+        uc_ids = [ObjectId(), ObjectId(), ObjectId()]
+        _accepted_ucs(db, uc_ids)
+        service = _make_service(db)
+        service.evaluate_targets_for_user_challenge = AsyncMock(
+            side_effect=[
+                {"inserted": 3, "updated": 1},
+                {"skipped": True, "inserted": 99, "updated": 99},
+                {"inserted": 2, "updated": 4},
+            ]
+        )
+
+        result = await service.evaluate_all_for_user(user_id)
+
+        assert result["ok"] is True
+        assert result["evaluated"] == 3
+        assert result["total_inserted"] == 5
+        assert result["total_updated"] == 5
+        db.user_challenges.find.assert_called_once_with(
+            {"user_id": user_id, "status": "accepted"}, {"_id": 1}
+        )
+        db.users.update_one.assert_awaited_once_with(
+            {"_id": user_id},
+            {"$set": {"last_targets_evaluated_at": result["last_targets_evaluated_at"]}},
+        )
+        assert isinstance(result["last_targets_evaluated_at"], dt.datetime)
+
+    @pytest.mark.asyncio
+    async def test_passes_force_to_each_uc_evaluation(self):
+        db = _make_db()
+        user_id = ObjectId()
+        uc_id = ObjectId()
+        _accepted_ucs(db, [uc_id])
+        service = _make_service(db)
+        service.evaluate_targets_for_user_challenge = AsyncMock(return_value={})
+
+        await service.evaluate_all_for_user(user_id, force=True)
+
+        service.evaluate_targets_for_user_challenge.assert_awaited_once_with(
+            user_id=user_id, uc_id=uc_id, force=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_failed_uc_is_not_counted_and_does_not_stop_the_loop(self):
+        db = _make_db()
+        _accepted_ucs(db, [ObjectId(), ObjectId()])
+        service = _make_service(db)
+        service.evaluate_targets_for_user_challenge = AsyncMock(
+            side_effect=[RuntimeError("boom"), {"inserted": 1, "updated": 0}]
+        )
+
+        result = await service.evaluate_all_for_user(ObjectId())
+
+        assert result["evaluated"] == 1
+        assert result["total_inserted"] == 1
+        db.users.update_one.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_no_accepted_uc_still_stamps_evaluation_time(self):
+        db = _make_db()
+        _accepted_ucs(db, [])
+        service = _make_service(db)
+
+        result = await service.evaluate_all_for_user(ObjectId())
+
+        assert result["evaluated"] == 0
+        assert result["total_inserted"] == 0
+        assert result["total_updated"] == 0
+        db.users.update_one.assert_awaited_once()
+
+
+class TestGetTargetsRefreshStatus:
+    T0 = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
+    T1 = dt.datetime(2026, 1, 2, tzinfo=dt.UTC)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("user", "needs_refresh"),
+        [
+            (None, False),
+            ({}, False),
+            ({"last_targets_evaluated_at": T0}, False),
+            ({"last_not_found_import_at": T0}, True),
+            ({"last_not_found_import_at": T1, "last_targets_evaluated_at": T0}, True),
+            ({"last_not_found_import_at": T0, "last_targets_evaluated_at": T1}, False),
+            ({"last_not_found_import_at": T0, "last_targets_evaluated_at": T0}, False),
+        ],
+        ids=[
+            "unknown-user",
+            "no-timestamps",
+            "evaluated-never-imported",
+            "imported-never-evaluated",
+            "import-after-eval-stale",
+            "eval-after-import-fresh",
+            "same-time-fresh",
+        ],
+    )
+    async def test_staleness(self, user, needs_refresh):
+        db = _make_db()
+        db.users.find_one = AsyncMock(return_value=user)
+        service = _make_service(db)
+
+        result = await service.get_targets_refresh_status(ObjectId())
+
+        assert result["needs_refresh"] is needs_refresh
+        assert result["last_not_found_import_at"] == (user or {}).get("last_not_found_import_at")
+        assert result["last_targets_evaluated_at"] == (user or {}).get("last_targets_evaluated_at")

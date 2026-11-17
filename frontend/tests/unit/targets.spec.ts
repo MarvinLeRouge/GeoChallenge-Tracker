@@ -201,3 +201,51 @@ describe("init", () => {
     expect(mockToastError.mock.calls[0][0]).toContain("targets");
   });
 });
+
+describe("defaults and empty responses", () => {
+  it("evaluateAll sends force=false by default", async () => {
+    mockPost.mockResolvedValueOnce({ data: makeEvalResult() });
+    const { evaluateAll } = useTargets();
+
+    await evaluateAll();
+
+    expect(mockPost).toHaveBeenCalledWith("/my/targets/evaluate-all", null, {
+      params: { force: false },
+    });
+  });
+
+  it("fetchTargets filters on accepted by default", async () => {
+    mockGet.mockResolvedValueOnce(makeTargetsResponse());
+    const { fetchTargets } = useTargets();
+
+    await fetchTargets();
+
+    expect(mockGet.mock.calls[0][1].params.status_filter).toBe("accepted");
+  });
+
+  it.each(["fetchTargets", "fetchTargetsNearby"] as const)(
+    "%s falls back to an empty list when items and nb_items are missing",
+    async (method) => {
+      mockGet.mockResolvedValueOnce({ data: {} });
+      const composable = useTargets();
+      composable.targets.value = [makeTargetsResponse([{}]).data.items[0]];
+      composable.nbItems.value = 1;
+
+      await (method === "fetchTargets"
+        ? composable.fetchTargets()
+        : composable.fetchTargetsNearby(0, 0, 1));
+
+      expect(composable.targets.value).toEqual([]);
+      expect(composable.nbItems.value).toBe(0);
+    },
+  );
+
+  it("init reports a non-Error rejection as text", async () => {
+    mockGet.mockRejectedValueOnce("offline");
+    const { init } = useTargets();
+
+    await init();
+
+    expect(mockToastError.mock.calls[0][1]).toEqual({ description: "offline" });
+  });
+});

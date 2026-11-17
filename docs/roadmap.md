@@ -637,3 +637,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 
 - [x] FEAT-001 - Give every backend error a stable error code (`AppError` / `ErrorCode`) so the frontend can localize it
 - [x] FEAT-002 - Show every user-facing message in French: translate backend errors in the frontend from `error.code` (and validation `type`), backend message as fallback
+
+## Section 12 - Tests
+
+- [x] TEST-001 - Close per-file coverage gaps (files below 80% while the global gate passes) and load the `main.ts` entry point from `index.html`

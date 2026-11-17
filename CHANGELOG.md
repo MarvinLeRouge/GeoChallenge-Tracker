@@ -417,6 +417,7 @@ To regenerate locally, run `npm run changelog`.
 - *(routes)* Add coverage for maintenance, caches, auth, geocoding, elevation and targets routes
 - *(routes)* Cover all remaining routes files below 80 percent coverage
 - *(backend)* Repair stale integration tests
+- *(coverage)* Close per-file coverage gaps
 
 ### ⚙️ Miscellaneous Tasks
 

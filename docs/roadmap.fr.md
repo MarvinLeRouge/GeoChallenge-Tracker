@@ -638,3 +638,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 
 - [x] FEAT-001 - Donner à chaque erreur du backend un code d'erreur stable (`AppError` / `ErrorCode`) pour que le frontend puisse la localiser
 - [x] FEAT-002 - Afficher en français tous les messages destinés à l'utilisateur : traduire côté frontend les erreurs du backend à partir de `error.code` (et du `type` de validation), message du backend en repli
+
+## Section 12 - Tests
+
+- [x] TEST-001 - Combler les trous de couverture par fichier (fichiers sous 80 % alors que le seuil global passe) et charger le point d'entrée `main.ts` depuis `index.html`

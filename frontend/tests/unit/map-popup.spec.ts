@@ -182,3 +182,40 @@ describe("renderCachePopupHtml — no GC branch", () => {
     expect(html).not.toContain("geocaching.com");
   });
 });
+
+describe("default popup rendering", () => {
+  const renderFor = async (cache: CacheDetails) => {
+    mockGet.mockResolvedValueOnce({ data: cache });
+    const marker = makeMarker();
+    await useMapPopup().openCachePopup("abc123", marker as never);
+    return marker.setPopupContent.mock.calls[0][0] as string;
+  };
+
+  it("falls back to type and size codes when names are missing", async () => {
+    const html = await renderFor(
+      makeCache({ type: { code: "mystery" }, size: { code: "micro" } }),
+    );
+    expect(html).toContain("Type : mystery");
+    expect(html).toContain("Taille : micro");
+  });
+
+  it("renders a bare cache: placeholder title, no GC link, no type, size or D/T", async () => {
+    const html = await renderFor({
+      _id: "abc123",
+      type: null,
+      size: null,
+      difficulty: null,
+      terrain: null,
+    } as CacheDetails);
+    expect(html).toContain("(Sans titre)");
+    expect(html).not.toContain("geocaching.com");
+    expect(html).not.toContain("Type :");
+    expect(html).not.toContain("Taille :");
+    expect(html).not.toContain("D/T :");
+  });
+
+  it("shows D/T when only one rating is known", async () => {
+    const html = await renderFor(makeCache({ difficulty: 3, terrain: null }));
+    expect(html).toContain("D/T : 3 / ");
+  });
+});

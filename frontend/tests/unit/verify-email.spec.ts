@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, RouterLinkStub } from "@vue/test-utils";
 
 const mockPost = vi.hoisted(() => vi.fn());
 const mockUseRoute = vi.hoisted(() => vi.fn());
@@ -68,5 +68,27 @@ describe("VerifyEmail", () => {
     await flushPromises();
 
     expect(wrapper.text()).toContain("expiré");
+  });
+
+  it("hides the login link while verification is pending", () => {
+    mockPost.mockReturnValueOnce(new Promise(() => {}));
+    const wrapper = mount(VerifyEmail, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+
+    expect(wrapper.text()).toContain("Vérification en cours");
+    expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false);
+  });
+
+  it("shows a login link once verification is done", async () => {
+    mockPost.mockResolvedValueOnce({});
+    const wrapper = mount(VerifyEmail, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+    await flushPromises();
+
+    const link = wrapper.findComponent(RouterLinkStub);
+    expect(link.props("to")).toEqual({ name: "auth/login" });
+    expect(link.text()).toBe("Se connecter");
   });
 });
