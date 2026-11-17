@@ -288,3 +288,157 @@ describe("Tasks", () => {
     expect(mockRouterBack).toHaveBeenCalled();
   });
 });
+
+describe("Tasks edits and payload", () => {
+  const clickValidate = async (wrapper: ReturnType<typeof mount>) => {
+    await wrapper
+      .find('[title="Valider la liste (sans enregistrer)"]')
+      .trigger("click");
+    await flushPromises();
+  };
+  const sentTasks = () => mockPost.mock.calls[0][1].tasks;
+
+  it("sends the edited title and min count", async () => {
+    mockGet.mockResolvedValue({ data: { tasks: [makeServerTask()] } });
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    await wrapper.find('input[type="text"]').setValue("Renamed");
+    await wrapper.find('input[type="number"]').setValue("7");
+    await clickValidate(wrapper);
+
+    expect(sentTasks()[0]).toMatchObject({
+      title: "Renamed",
+      constraints: { min_count: 7 },
+    });
+  });
+
+  it("sends the order produced by drag and drop", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        tasks: [
+          makeServerTask({ id: "a", title: "A" }),
+          makeServerTask({ id: "b", title: "B" }),
+        ],
+      },
+    });
+    const wrapper = mount(Tasks);
+    await flushPromises();
+    const draggableList = wrapper.findComponent({ name: "Draggable" });
+    const [first, second] = draggableList.props("modelValue");
+
+    draggableList.vm.$emit("update:modelValue", [second, first]);
+    await clickValidate(wrapper);
+
+    expect(sentTasks().map((t: { id: string }) => t.id)).toEqual(["b", "a"]);
+  });
+
+  it("fills defaults for an empty title, missing min count and status", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        tasks: [
+          makeServerTask({ title: "", constraints: undefined, status: null }),
+        ],
+      },
+    });
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    await clickValidate(wrapper);
+
+    expect(sentTasks()[0]).toMatchObject({
+      title: "Task #1",
+      constraints: { min_count: 0 },
+      status: "todo",
+    });
+  });
+
+  it("alternates row backgrounds", async () => {
+    mockGet.mockResolvedValue({
+      data: {
+        tasks: [makeServerTask({ id: "a" }), makeServerTask({ id: "b" })],
+      },
+    });
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    const rows = wrapper.findAll(".rounded-lg.border.shadow-xs.p-3");
+    expect(rows[0].classes()).toContain("bg-white");
+    expect(rows[1].classes()).toContain("bg-gray-50");
+  });
+});
+
+describe("Tasks loading and error states", () => {
+  it("shows an empty list when the server returns no tasks field", async () => {
+    mockGet.mockResolvedValue({ data: {} });
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    expect(wrapper.find("textarea").exists()).toBe(false);
+    expect(wrapper.text()).not.toContain("Erreur");
+  });
+
+  it("shows the Error message when loading fails", async () => {
+    mockGet.mockRejectedValueOnce(new Error("timeout"));
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("timeout");
+  });
+
+  it.each([
+    [
+      "Valider la liste (sans enregistrer)",
+      mockPost,
+      "Erreur de validation",
+      "Validation invalide",
+    ],
+    [
+      "Enregistrer toutes les tâches",
+      mockPut,
+      "Erreur enregistrement",
+      "Erreur enregistrement",
+    ],
+  ])(
+    '"%s" falls back to a generic message on a non-Error failure',
+    async (title, apiMock, toastTitle, fallback) => {
+      apiMock.mockRejectedValueOnce("nope");
+      const wrapper = mount(Tasks);
+      await flushPromises();
+
+      await wrapper.find(`[title="${title}"]`).trigger("click");
+      await flushPromises();
+
+      expect(mockToastError).toHaveBeenCalledWith(toastTitle, {
+        description: fallback,
+      });
+    },
+  );
+
+  it("shows the Error message when validation fails without detail", async () => {
+    mockPost.mockRejectedValueOnce(new Error("network down"));
+    const wrapper = mount(Tasks);
+    await flushPromises();
+
+    await wrapper
+      .find('[title="Valider la liste (sans enregistrer)"]')
+      .trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("network down");
+  });
+
+  it("shows a generic heading when the challenge has no name nor GC", async () => {
+    const uc = mockUcRef.current as { value: unknown };
+    const saved = uc.value;
+    uc.value = { challenge: {}, cache: {} };
+    try {
+      const wrapper = mount(Tasks);
+      await flushPromises();
+
+      expect(wrapper.find("h1").text()).toBe("Challenge");
+    } finally {
+      uc.value = saved;
+    }
+  });
+});

@@ -285,3 +285,41 @@ describe("difficultyColor", () => {
     expect(wrapper.html()).toContain("text-gray-400");
   });
 });
+
+describe("action events", () => {
+  it.each([
+    ["Détails", "details", "pending"],
+    ["Accepter", "accept", "pending"],
+    ["Ignorer", "dismiss", "pending"],
+    ["Réinitialiser (pending)", "reset", "accepted"],
+    ["Tâches", "tasks", "accepted"],
+  ] as const)(
+    'clicking "%s" emits %s with the challenge',
+    async (title, event, status) => {
+      const challenge = makeChallenge({ status });
+      const wrapper = mount(UserChallengeCard, { props: { challenge } });
+
+      await wrapper.find(`button[title="${title}"]`).trigger("click");
+
+      expect(wrapper.emitted(event)).toEqual([[challenge]]);
+    },
+  );
+});
+
+describe("card layout", () => {
+  it("uses the zebra background when zebra is set", () => {
+    const wrapper = mount(UserChallengeCard, {
+      props: { challenge: makeChallenge(), zebra: true },
+    });
+    expect(wrapper.classes()).toContain("bg-gray-50");
+    expect(wrapper.classes()).not.toContain("bg-white");
+  });
+
+  it("hides the Geocaching link and D/T when the cache has no GC or rating", () => {
+    const wrapper = mount(UserChallengeCard, {
+      props: { challenge: makeChallenge({ cache: {} }) },
+    });
+    expect(wrapper.find("a").exists()).toBe(false);
+    expect(wrapper.text()).not.toMatch(/D\d/);
+  });
+});

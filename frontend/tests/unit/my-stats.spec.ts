@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount, flushPromises } from "@vue/test-utils";
+import { mount, flushPromises, RouterLinkStub } from "@vue/test-utils";
 import { ref } from "vue";
 
 const mockLoadStats = vi.hoisted(() => vi.fn());
@@ -160,5 +160,29 @@ describe("MyStats", () => {
     );
     const wrapper = mount(MyStats, { global: { stubs: { RouterLink: true } } });
     expect(wrapper.text()).toContain("42");
+  });
+
+  it("reloads stats when the retry button is clicked", async () => {
+    mockUseUserStats.mockReturnValue(makeReturn({ error: ref("Boom") }));
+    const wrapper = mount(MyStats, { global: { stubs: { RouterLink: true } } });
+    await flushPromises();
+    mockLoadStats.mockClear();
+
+    await wrapper.find("button").trigger("click");
+
+    expect(mockLoadStats).toHaveBeenCalledOnce();
+  });
+
+  it("links to the GPX import when no caches are found", () => {
+    mockUseUserStats.mockReturnValue(
+      makeReturn({ stats: ref(makeStats({ total_caches_found: 0 })) }),
+    );
+    const wrapper = mount(MyStats, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    });
+
+    const link = wrapper.findComponent(RouterLinkStub);
+    expect(link.props("to")).toBe("/caches/import-gpx");
+    expect(link.text()).toContain("Importer des caches");
   });
 });

@@ -40,4 +40,37 @@ describe("error messages", () => {
     expect(translateValidation("value_error", {})).toBeUndefined();
     expect(translateValidation(42, {})).toBeUndefined();
   });
+
+  it.each([
+    ["string_too_long", { max_length: 20 }, "Au plus 20 caractères."],
+    ["too_short", { min_length: 1 }, "Au moins 1 éléments."],
+    ["too_long", { max_length: 200 }, "Au plus 200 éléments."],
+    ["greater_than", { gt: 0 }, "Doit être supérieur à 0."],
+    ["greater_than_equal", { ge: 1 }, "Doit être supérieur ou égal à 1."],
+    ["less_than", { lt: 90 }, "Doit être inférieur à 90."],
+    ["less_than_equal", { le: 50 }, "Doit être inférieur ou égal à 50."],
+    ["int_parsing", {}, "Nombre entier attendu."],
+    ["float_parsing", {}, "Nombre attendu."],
+    ["bool_parsing", {}, "Valeur vrai/faux attendue."],
+    ["string_type", {}, "Texte attendu."],
+    ["datetime_parsing", {}, "Date invalide."],
+    ["datetime_from_date_parsing", {}, "Date invalide."],
+    ["enum", { expected: "'a' or 'b'" }, "Valeur attendue : 'a' or 'b'."],
+    ["literal_error", { expected: "'x'" }, "Valeur attendue : 'x'."],
+    ["json_invalid", {}, "Contenu JSON invalide."],
+  ])("traduit le type de validation %s", (type, ctx, expected) => {
+    expect(translateValidation(type, ctx)).toBe(expected);
+  });
+
+  it("laisse vide une valeur de ctx absente ou un ctx non objet", () => {
+    expect(translateValidation("string_too_short", {})).toBe(
+      "Au moins  caractères.",
+    );
+    expect(translateValidation("greater_than", null)).toBe(
+      "Doit être supérieur à .",
+    );
+    expect(translateValidation("less_than", "5")).toBe(
+      "Doit être inférieur à .",
+    );
+  });
 });
