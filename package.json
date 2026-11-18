@@ -57,7 +57,7 @@
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.12.1",
-    "globals": "^16.4.0",
+    "globals": "^17.14.0",
     "jsdom": "^27.0.0",
     "playwright": "^1.47.0",
     "postcss": "^8.5.33",
