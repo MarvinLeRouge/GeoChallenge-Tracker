@@ -633,6 +633,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-009 - Faire pointer l'URL de jeton du Swagger vers la route de connexion préfixée /api (Authorize renvoyait 405)
 - [x] CHORE-012 - Migrer de motor vers l'API async de PyMongo avant le 2027-05-14 (plan dans l'ADR 0010)
 - [x] FIX-010 - Recentrer la carte sur la position de l'utilisateur sans pan arrondi au pixel (test e2e du centre de carte instable)
+- [x] FIX-011 - Autoriser par son hash, dans la CSP de prod, le script inline de thème sombre de `index.html` (il était bloqué : flash clair pour les utilisateurs en mode sombre)
 
 ## Section 11 - Localisation
 

@@ -632,6 +632,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-009 - Point the Swagger token URL at the /api-prefixed login route (Authorize returned 405)
 - [x] CHORE-012 - Migrate from motor to the PyMongo async API before 2027-05-14 (plan in ADR 0010)
 - [x] FIX-010 - Recenter the map on the user location without a pixel-rounded pan (flaky e2e map-center test)
+- [x] FIX-011 - Allow the inline dark-theme script of `index.html` in the prod CSP by its hash (it was blocked, so dark-mode users saw a light flash)
 
 ## Section 11 - Localization
 
