@@ -183,10 +183,6 @@ async def _compute_cache_type_stats(
         if not (type_counts and type_counts[0]["_id"] is not None):
             return None
 
-        type_ids = [item["_id"] for item in type_counts if item["_id"] is not None]
-        if not type_ids:
-            return None
-
         cache_types_coll = await get_collection("cache_types")
         cache_types = await cache_types_coll.find().to_list(length=None)
         return _build_cache_type_stats(type_counts, cache_types)

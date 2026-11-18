@@ -431,6 +431,7 @@ To regenerate locally, run `npm run changelog`.
 - *(routes)* Cover all remaining routes files below 80 percent coverage
 - *(backend)* Repair stale integration tests
 - *(coverage)* Close per-file coverage gaps
+- *(user-stats)* Cover the cache type stats error path
 
 ### ⚙️ Miscellaneous Tasks
 
