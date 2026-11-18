@@ -25,8 +25,12 @@ COPY --chown=node:node frontend/ ./frontend/
 # >>> Vite environment (build-time) <<<
 ARG VITE_API_URL
 ARG VITE_TILE_URL
+ARG VITE_SENTRY_DSN
+ARG VITE_SENTRY_ENVIRONMENT
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_TILE_URL=${VITE_TILE_URL}
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
+ENV VITE_SENTRY_ENVIRONMENT=${VITE_SENTRY_ENVIRONMENT}
 # >>> Vite environment (build-time) <<<
 RUN npm run build
 

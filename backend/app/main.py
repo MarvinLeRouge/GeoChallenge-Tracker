@@ -12,9 +12,11 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.router_registry import routers
+from app.api.routes.sentry_tunnel import build_tunnel_router
 from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
+from app.core.observability import init_error_tracking
 from app.core.rate_limit import limiter
 from app.core.settings import get_settings
 from app.db.mongodb import close_mongodb_connection
@@ -53,6 +55,8 @@ async def lifespan(app: FastAPI):
     await close_mongodb_connection()
 
 
+init_error_tracking()
+
 app = FastAPI(
     title=settings.app_name + " API",
     version=settings.api_version,
@@ -80,6 +84,8 @@ register_exception_handlers(app)
 # Inclusion des routes (comme avant)
 for r in routers:
     app.include_router(r)
+if tunnel_router := build_tunnel_router():
+    app.include_router(tunnel_router)
 
 # Swagger UI static assets, self-hosted instead of loaded from a CDN: the prod CSP
 # (`default-src 'none'`) blocks third-party domains, see docs/roadmap-corrections.md URGENT-2.

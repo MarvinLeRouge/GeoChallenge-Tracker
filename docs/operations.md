@@ -74,6 +74,32 @@ Three loggers write daily-rotated files, auto-purged after 30 days: `generic.log
 
 **Caveat:** these files are written to a relative `logs/` directory inside the backend container (`backend/app/core/logging_config.py`), which is **not** bind-mounted to the host in `docker-compose.prod.yml` (unlike `/backups` and `/app/uploads`). In practice, log history does not survive a container recreation or redeploy today; only backups and uploads are currently persisted that way.
 
+### Error tracking (Sentry)
+
+Unhandled errors (backend 500s, frontend Vue and JavaScript errors) are reported to Sentry, EU region, one project per side (`geochallenge-backend`, `geochallenge-frontend`). Client errors (401, 404, 422, 429) are not reported. Only stack traces are sent: no request body, header, cookie, query string, user data, component prop, breadcrumb or local variable (`dataCollection` plus a `beforeSend` / `before_send` scrubber; page URLs keep their path only). Each 500 is also logged with its traceback (`log.exception` in `general_exception_handler`).
+
+Tracking is off when the DSNs are empty.
+
+| Variable | Read by | Local | Production |
+|---|---|---|---|
+| `SENTRY_BACKEND_DSN` | backend, at startup (`app/core/observability.py`) | `.env` | server `secrets.env` |
+| `SENTRY_FRONTEND_DSN` | backend, at startup (relay allow-list) | `.env` | server `secrets.env` |
+| `SENTRY_ENVIRONMENT` | backend (default `development`) | `.env` | server `app.env` (`production`) |
+| `VITE_SENTRY_DSN` | frontend, at build time (`src/observability.ts`) | from `SENTRY_FRONTEND_DSN` in `docker-compose.yml` | GitHub secret, build arg in `build-push.yml` |
+| `VITE_SENTRY_ENVIRONMENT` | frontend, at build time (default `development`) | from `SENTRY_ENVIRONMENT` in `docker-compose.yml` | `production`, set by `build-push.yml` |
+
+The backend reads these from the process environment, not from the app settings: outside Docker, export them.
+
+**Relay.** Ad-blockers (uBlock Origin, Firefox tracking protection) drop browser requests to `*.sentry.io`. The browser therefore posts its events to its own origin, at `/api/<hash of its DSN>`, and the backend forwards them to Sentry (`app/api/routes/sentry_tunnel.py`). The CSP stays `connect-src 'self'`.
+
+- The path is a hash of the frontend DSN, computed the same way on both sides. The GitHub secret `VITE_SENTRY_DSN` and the server `SENTRY_FRONTEND_DSN` must match exactly: one character off and every frontend event ends in 404, silently. The backend logs a warning at startup when only one of `SENTRY_BACKEND_DSN` / `SENTRY_FRONTEND_DSN` is set.
+- Only envelopes for `SENTRY_FRONTEND_DSN` are forwarded (others get 403, malformed bodies 400, an unreachable Sentry 502). Cookies, `Referer` and the client IP are not forwarded.
+- The route has no rate limit of its own: abuse can only spend the Sentry project quota, which Sentry rate-limits.
+
+**Setup, once:** in each Sentry project, *Settings*, *Security & Privacy*: enable *Data Scrubber* and *Use Default Scrubbers*, and *Prevent Storing of IP Addresses*. Then redeploy.
+
+**Checking production:** from a browser **without** extensions, run `setTimeout(() => { throw new Error('sentry check') }, 0)` in the console and check the issue under `environment: production`. Then again with uBlock / tracking protection on, to validate the relay (a POST to `/api/<hash>` answering 200, nothing to `sentry.io`).
+
 ---
 
 ## Incident response

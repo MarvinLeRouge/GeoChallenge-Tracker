@@ -26,6 +26,7 @@
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
     "@lucide/vue": "^1.72.0",
+    "@sentry/vue": "^11.14.0",
     "axios": "^1.21.0",
     "flowbite": "^3.1.2",
     "leaflet": "^1.9.4",

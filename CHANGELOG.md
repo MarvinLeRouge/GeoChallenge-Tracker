@@ -78,6 +78,8 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Wire ZonesExplorer into the router and nav
 - *(backend)* Give every API error a stable error code
 - *(frontend)* Show backend errors in french from their error code
+- *(observability)* Report unhandled errors to sentry
+- *(observability)* Relay frontend events through the backend and harden scrubbing
 
 ### 🐛 Bug Fixes
 

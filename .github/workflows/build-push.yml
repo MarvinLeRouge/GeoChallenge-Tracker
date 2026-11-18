@@ -69,6 +69,9 @@ jobs:
           context: .
           file: ./frontend/Dockerfile
           push: true
+          build-args: |
+            VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
+            VITE_SENTRY_ENVIRONMENT=production
           tags: |
             ghcr.io/marvinlerouge/geochallenge-tracker/frontend:${{ steps.meta.outputs.tag }}
             ghcr.io/marvinlerouge/geochallenge-tracker/frontend:latest
