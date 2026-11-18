@@ -16,8 +16,9 @@ from app.api.routes.sentry_tunnel import build_tunnel_router
 from app.core.backup_config import ensure_backup_dirs
 from app.core.exception_handlers import register_exception_handlers
 from app.core.middleware import MaxBodySizeMiddleware
-from app.core.observability import init_error_tracking
+from app.core.observability import configure_logging, init_error_tracking
 from app.core.rate_limit import limiter
+from app.core.request_logging import log_requests
 from app.core.settings import get_settings
 from app.db.mongodb import close_mongodb_connection
 from app.db.seed_data import seed_referentials
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI):
     await close_mongodb_connection()
 
 
+configure_logging()
 init_error_tracking()
 
 app = FastAPI(
@@ -77,6 +79,8 @@ app.add_middleware(
     MaxBodySizeMiddleware,
     max_body_size=settings.max_upload_bytes,
 )
+# Added last, so it wraps the others and also logs the requests they reject.
+app.middleware("http")(log_requests)
 
 # Enregistrement des gestionnaires d'exceptions globaux
 register_exception_handlers(app)

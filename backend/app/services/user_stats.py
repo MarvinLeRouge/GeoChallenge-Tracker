@@ -1,6 +1,7 @@
 # backend/app/services/user_stats.py
 # Service for computing summary statistics for a user.
 
+import logging
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -10,6 +11,8 @@ from pymongo import ASCENDING, DESCENDING
 from app.api.dto.user_stats import CacheTypeStats, UserStatsOut
 from app.core.bson_utils import PyObjectId
 from app.db.mongodb import get_collection
+
+log = logging.getLogger(__name__)
 
 
 async def _resolve_target_user(
@@ -188,8 +191,8 @@ async def _compute_cache_type_stats(
         cache_types = await cache_types_coll.find().to_list(length=None)
         return _build_cache_type_stats(type_counts, cache_types)
 
-    except Exception as e:
-        print(f"Error calculating cache type stats: {e}")
+    except Exception:
+        log.exception("Error calculating cache type stats")
         return None
 
 

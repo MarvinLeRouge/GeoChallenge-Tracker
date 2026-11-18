@@ -80,6 +80,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Show backend errors in french from their error code
 - *(observability)* Report unhandled errors to sentry
 - *(observability)* Relay frontend events through the backend and harden scrubbing
+- *(observability)* Write backend logs as structured JSON lines
 
 ### 🐛 Bug Fixes
 

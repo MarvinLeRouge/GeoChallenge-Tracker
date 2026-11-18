@@ -70,6 +70,12 @@ Toutes les routes de sauvegarde/restauration vivent sous `/maintenance` et néce
 
 ### Logs
 
+Le backend écrit chaque ligne de log sur stderr (`docker logs`), un objet JSON par ligne, via `structlog` (`configure_logging()` dans `backend/app/core/observability.py`) : `timestamp` (UTC), `level`, `logger`, `event`, plus les champs de l'appel et la traceback dans `exception`. Les loggers `logging.getLogger(...)` existants passent par la même sortie. `LOG_FORMAT=console` donne des lignes lisibles à la place (défaut quand stderr est un terminal), `LOG_LEVEL` règle le niveau (défaut `info`).
+
+Chaque requête produit une ligne `request_handled` (`method`, `path`, `status`, `duration_ms` ; niveau ERROR pour un 5xx), écrite par `backend/app/core/request_logging.py`. La query string, les headers et le body ne sont jamais logués, d'où la désactivation de l'access log d'uvicorn : il gardait les query strings, comme le code de vérification d'email.
+
+Les fichiers ci-dessous restent écrits en parallèle.
+
 Trois loggers écrivent des fichiers à rotation quotidienne, purgés automatiquement après 30 jours : `generic.log` (INFO et plus, `geocaching.generic`), `errors.log` (ERROR et plus, `geocaching.errors`), `security.log` (INFO et plus, `geocaching.security`, événements liés à la sécurité comme les échecs de connexion).
 
 **Point d'attention :** ces fichiers sont écrits dans un répertoire relatif `logs/` à l'intérieur du conteneur backend (`backend/app/core/logging_config.py`), qui n'est **pas** monté sur l'hôte dans `docker-compose.prod.yml` (contrairement à `/backups` et `/app/uploads`). En pratique, l'historique des logs ne survit pas à une recréation de conteneur ou un redéploiement aujourd'hui ; seuls les sauvegardes et les uploads sont actuellement persistés ainsi.

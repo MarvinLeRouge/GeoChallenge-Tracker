@@ -70,7 +70,11 @@ Also under `/maintenance`, admin-only:
 
 ### Logs
 
-Three loggers write daily-rotated files, auto-purged after 30 days: `generic.log` (INFO+, `geocaching.generic`), `errors.log` (ERROR+, `geocaching.errors`), `security.log` (INFO+, `geocaching.security`, security-relevant events such as failed logins).
+The backend writes every log line to stderr (`docker logs`) as one JSON object per line, through `structlog` (`configure_logging()` in `backend/app/core/observability.py`): `timestamp` (UTC), `level`, `logger`, `event`, plus the fields of the call and the traceback in `exception`. Existing `logging.getLogger(...)` loggers go through the same output. `LOG_FORMAT=console` gives readable lines instead (default when stderr is a terminal), `LOG_LEVEL` sets the level (default `info`).
+
+Each request gets one `request_handled` line (`method`, `path`, `status`, `duration_ms`; ERROR level for a 5xx), written by `backend/app/core/request_logging.py`. The query string, headers and body are never logged, which is why uvicorn's access log is disabled: it kept query strings, such as the email verification code.
+
+The files below are still written alongside. Three loggers write daily-rotated files, auto-purged after 30 days: `generic.log` (INFO+, `geocaching.generic`), `errors.log` (ERROR+, `geocaching.errors`), `security.log` (INFO+, `geocaching.security`, security-relevant events such as failed logins).
 
 **Caveat:** these files are written to a relative `logs/` directory inside the backend container (`backend/app/core/logging_config.py`), which is **not** bind-mounted to the host in `docker-compose.prod.yml` (unlike `/backups` and `/app/uploads`). In practice, log history does not survive a container recreation or redeploy today; only backups and uploads are currently persisted that way.
 

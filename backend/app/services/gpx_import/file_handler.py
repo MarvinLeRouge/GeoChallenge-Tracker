@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import uuid
 import zipfile
 from pathlib import Path
@@ -11,6 +12,8 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app.core.errors import AppError, ErrorCode
+
+log = logging.getLogger(__name__)
 
 # Cumulative cap on decompressed bytes across a whole ZIP archive, enforced while
 # streaming (not just checked against the declared, spoofable zip_info.file_size),
@@ -283,7 +286,7 @@ class FileHandler:
             raise
         except Exception as e:
             # Skip corrupt files but continue processing
-            print(f"Warning: Failed to extract {zip_info.filename}: {str(e)}")
+            log.warning("Failed to extract %s: %s", zip_info.filename, e)
 
         return total_extracted_size
 
