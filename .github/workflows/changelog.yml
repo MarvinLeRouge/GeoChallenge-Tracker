@@ -36,7 +36,7 @@ jobs:
       # existing open PR rather than piling up new ones.
       - name: Open pull request if changed
         id: cpr
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           add-paths: CHANGELOG.md
           commit-message: "chore(changelog): update CHANGELOG.md"
