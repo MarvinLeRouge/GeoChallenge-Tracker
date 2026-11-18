@@ -644,4 +644,4 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 
 ## Section 13 - Observability
 
-- [x] FEAT-003 - Report unhandled backend and frontend errors to Sentry (stack traces only), and log the traceback of every 500
+- [x] FEAT-003 - Report unhandled backend and frontend errors to Sentry (stack traces only, frontend events relayed through the backend), and log the traceback of every 500

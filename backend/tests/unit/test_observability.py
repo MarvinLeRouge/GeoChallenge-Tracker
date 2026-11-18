@@ -1,7 +1,7 @@
 """Tests for app.core.observability and the error reporting of the exception handlers."""
 
 import logging
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 import sentry_sdk
@@ -12,7 +12,14 @@ from sentry_sdk.transport import Transport
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.exception_handlers import register_exception_handlers
-from app.core.observability import SENTRY_DATA_COLLECTION, init_error_tracking
+from app.core.observability import (
+    SENTRY_DATA_COLLECTION,
+    canonical_dsn,
+    envelope_url,
+    init_error_tracking,
+    scrub_event,
+    tunnel_path,
+)
 from app.core.rate_limit import limiter, rate_limited
 
 FAKE_DSN = "https://public@o0.ingest.de.sentry.io/0"
@@ -21,10 +28,11 @@ FAKE_DSN = "https://public@o0.ingest.de.sentry.io/0"
 class TestInitErrorTracking:
     @pytest.mark.parametrize("dsn", [None, "", "   "])
     def test_disabled_without_dsn(self, monkeypatch, dsn):
+        monkeypatch.delenv("SENTRY_FRONTEND_DSN", raising=False)
         if dsn is None:
-            monkeypatch.delenv("SENTRY_DSN", raising=False)
+            monkeypatch.delenv("SENTRY_BACKEND_DSN", raising=False)
         else:
-            monkeypatch.setenv("SENTRY_DSN", dsn)
+            monkeypatch.setenv("SENTRY_BACKEND_DSN", dsn)
 
         with patch("app.core.observability.sentry_sdk.init") as init:
             assert init_error_tracking() is False
@@ -32,7 +40,7 @@ class TestInitErrorTracking:
         init.assert_not_called()
 
     def test_initializes_with_privacy_options(self, monkeypatch):
-        monkeypatch.setenv("SENTRY_DSN", f" {FAKE_DSN} ")
+        monkeypatch.setenv("SENTRY_BACKEND_DSN", f" {FAKE_DSN} ")
         monkeypatch.setenv("SENTRY_ENVIRONMENT", "production")
 
         with patch("app.core.observability.sentry_sdk.init") as init:
@@ -43,10 +51,13 @@ class TestInitErrorTracking:
             environment="production",
             data_collection=SENTRY_DATA_COLLECTION,
             traces_sample_rate=0.0,
+            before_send=scrub_event,
+            before_breadcrumb=ANY,
         )
+        assert init.call_args.kwargs["before_breadcrumb"]({"message": "secret"}, {}) is None
 
     def test_environment_defaults_to_development(self, monkeypatch):
-        monkeypatch.setenv("SENTRY_DSN", FAKE_DSN)
+        monkeypatch.setenv("SENTRY_BACKEND_DSN", FAKE_DSN)
         monkeypatch.setenv("SENTRY_ENVIRONMENT", " ")
 
         with patch("app.core.observability.sentry_sdk.init") as init:
@@ -55,11 +66,82 @@ class TestInitErrorTracking:
         assert init.call_args.kwargs["environment"] == "development"
 
     def test_no_request_data_collected(self):
-        assert SENTRY_DATA_COLLECTION["http_bodies"] == []
-        assert SENTRY_DATA_COLLECTION["stack_frame_variables"] is False
-        assert SENTRY_DATA_COLLECTION["frame_context_lines"] == 0
-        assert SENTRY_DATA_COLLECTION["cookies"] == {"mode": "off"}
-        assert SENTRY_DATA_COLLECTION["url_query_params"] == {"mode": "off"}
+        assert SENTRY_DATA_COLLECTION == {
+            "user_info": False,
+            "cookies": {"mode": "off"},
+            "http_headers": {"request": {"mode": "off"}},
+            "http_bodies": [],
+            "url_query_params": {"mode": "off"},
+            "graphql": {"document": False, "variables": False},
+            "gen_ai": {"inputs": False, "outputs": False},
+            "database_query_data": False,
+            "queues": False,
+            "stack_frame_variables": False,
+            "frame_context_lines": 0,
+        }
+
+    @pytest.mark.parametrize(
+        ("backend", "frontend", "warned"),
+        [(FAKE_DSN, "", True), ("", FAKE_DSN, True), (FAKE_DSN, FAKE_DSN, False), ("", "", False)],
+    )
+    def test_warns_when_only_one_dsn_is_set(self, monkeypatch, caplog, backend, frontend, warned):
+        monkeypatch.setenv("SENTRY_BACKEND_DSN", backend)
+        monkeypatch.setenv("SENTRY_FRONTEND_DSN", frontend)
+
+        with patch("app.core.observability.sentry_sdk.init"):
+            init_error_tracking()
+
+        assert ("Only one of" in caplog.text) is warned
+
+
+class TestScrubEvent:
+    def test_drops_request_data_and_breadcrumbs(self):
+        event = {
+            "request": {
+                "url": "https://gct.test/verify-email?token=secret#frag",
+                "method": "POST",
+                "data": {"password": "secret"},
+                "headers": {"Authorization": "Bearer secret"},
+                "cookies": {"session": "secret"},
+                "query_string": "token=secret",
+                "env": {"REMOTE_ADDR": "203.0.113.7"},
+            },
+            "breadcrumbs": {"values": [{"message": "secret"}]},
+            "exception": {"values": [{"type": "RuntimeError"}]},
+        }
+
+        scrubbed = scrub_event(event, {})
+
+        assert scrubbed["request"] == {"url": "https://gct.test/verify-email", "method": "POST"}
+        assert "breadcrumbs" not in scrubbed
+        assert scrubbed["exception"] == {"values": [{"type": "RuntimeError"}]}
+
+    def test_event_without_request_is_kept(self):
+        assert scrub_event({"message": "boom"}, {}) == {"message": "boom"}
+
+
+class TestTunnelHelpers:
+    # Expected paths computed with `fnv1a32(dsnToString(makeDsn(dsn)))` from @sentry/core 11.14.
+    @pytest.mark.parametrize(
+        ("dsn", "path"),
+        [
+            ("https://public@o0.ingest.de.sentry.io/0", "ag8fdb"),
+            ("https://abc123@o42.ingest.de.sentry.io/4242", "x7x6bw"),
+        ],
+    )
+    def test_tunnel_path_matches_the_browser_sdk(self, dsn, path):
+        assert tunnel_path(dsn) == path
+
+    def test_canonical_dsn_drops_the_secret_and_default_port(self):
+        assert (
+            canonical_dsn("https://key:secret@o1.ingest.de.sentry.io:443/9")
+            == "https://key@o1.ingest.de.sentry.io/9"
+        )
+
+    def test_envelope_url(self):
+        assert envelope_url(FAKE_DSN) == (
+            "https://o0.ingest.de.sentry.io/api/0/envelope/?sentry_version=7&sentry_key=public"
+        )
 
 
 class _CapturingTransport(Transport):
@@ -110,14 +192,16 @@ def _build_app() -> FastAPI:
 
 
 @pytest.fixture
-def sentry_events():
+def sentry_events(monkeypatch):
     transport = _CapturingTransport()
-    sentry_sdk.init(
-        dsn=FAKE_DSN,
-        data_collection=SENTRY_DATA_COLLECTION,
-        traces_sample_rate=0.0,
-        transport=transport,
-    )
+    real_init = sentry_sdk.init
+    monkeypatch.setenv("SENTRY_BACKEND_DSN", FAKE_DSN)
+    monkeypatch.setenv("SENTRY_FRONTEND_DSN", FAKE_DSN)
+    with patch(
+        "app.core.observability.sentry_sdk.init",
+        side_effect=lambda **options: real_init(**options, transport=transport),
+    ):
+        assert init_error_tracking() is True
     yield transport.events
     sentry_sdk.init()
 
@@ -147,6 +231,7 @@ class TestErrorReporting:
         assert any(r.exc_info for r in caplog.records)
         assert len(sentry_events) == 1
         assert sentry_events[0]["exception"]["values"][0]["type"] == "RuntimeError"
+        assert "breadcrumbs" not in sentry_events[0]
         payload = repr(sentry_events[0])
         for secret in ("hunter2", "secret-jwt", "secret-cookie", "token=secret"):
             assert secret not in payload

@@ -645,4 +645,4 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 
 ## Section 13 - Observabilité
 
-- [x] FEAT-003 - Remonter à Sentry les erreurs non gérées du backend et du frontend (stack traces uniquement), et logger la traceback de chaque 500
+- [x] FEAT-003 - Remonter à Sentry les erreurs non gérées du backend et du frontend (stack traces uniquement, events frontend relayés par le backend), et logger la traceback de chaque 500

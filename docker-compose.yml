@@ -58,6 +58,8 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:-/api}
         VITE_TILE_URL: ${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
+        VITE_SENTRY_DSN: ${SENTRY_FRONTEND_DSN:-}
+        VITE_SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-development}
     container_name: geo-frontend
     env_file:
       - .env
@@ -65,6 +67,8 @@ services:
       - CHOKIDAR_USEPOLLING=${CHOKIDAR_USEPOLLING:-true}
       - VITE_API_URL=${VITE_API_URL:-/api}
       - VITE_TILE_URL=${VITE_TILE_URL:-/tiles/{z}/{x}/{y}.png}
+      - VITE_SENTRY_DSN=${SENTRY_FRONTEND_DSN:-}
+      - VITE_SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-development}
     depends_on:
       - backend
       - tiles

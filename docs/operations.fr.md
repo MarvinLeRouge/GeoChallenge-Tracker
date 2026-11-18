@@ -76,20 +76,29 @@ Trois loggers écrivent des fichiers à rotation quotidienne, purgés automatiqu
 
 ### Suivi des erreurs (Sentry)
 
-Les erreurs non gérées (500 du backend, erreurs Vue et JavaScript du frontend) sont remontées à Sentry, région UE, un projet par côté. Les erreurs client (401, 404, 422, 429) ne sont pas remontées. Seules les stack traces sont envoyées : aucun corps de requête, en-tête, cookie, query string, donnée utilisateur ni variable locale. Chaque 500 est aussi loggée avec sa traceback (`log.exception` dans `general_exception_handler`).
+Les erreurs non gérées (500 du backend, erreurs Vue et JavaScript du frontend) sont remontées à Sentry, région UE, un projet par côté (`geochallenge-backend`, `geochallenge-frontend`). Les erreurs client (401, 404, 422, 429) ne sont pas remontées. Seules les stack traces sont envoyées : aucun corps de requête, en-tête, cookie, query string, donnée utilisateur, prop de composant, breadcrumb ni variable locale (`dataCollection` plus un filtre `beforeSend` / `before_send` ; les URL de page ne gardent que leur chemin). Chaque 500 est aussi loggée avec sa traceback (`log.exception` dans `general_exception_handler`).
 
-Le suivi est désactivé quand le DSN est vide, ce qui est le cas par défaut en dev.
+Le suivi est désactivé quand les DSN sont vides.
 
-| Variable | Lue par | Valeur en prod |
-|---|---|---|
-| `SENTRY_DSN` | backend, au démarrage (`app/core/observability.py`, environnement du processus) | `../shared/env/app.env` sur le serveur |
-| `SENTRY_ENVIRONMENT` | backend (défaut `development`) | `production`, même fichier |
-| `VITE_SENTRY_DSN` | frontend, au build (`src/observability.ts`) | secret GitHub `VITE_SENTRY_DSN`, passé par `build-push.yml` |
-| `VITE_SENTRY_ENVIRONMENT` | frontend, au build (défaut `development`) | `production`, défini par `build-push.yml` |
+| Variable | Lue par | En local | En production |
+|---|---|---|---|
+| `SENTRY_BACKEND_DSN` | backend, au démarrage (`app/core/observability.py`) | `.env` | `secrets.env` du serveur |
+| `SENTRY_FRONTEND_DSN` | backend, au démarrage (liste blanche du relais) | `.env` | `secrets.env` du serveur |
+| `SENTRY_ENVIRONMENT` | backend (défaut `development`) | `.env` | `app.env` du serveur (`production`) |
+| `VITE_SENTRY_DSN` | frontend, au build (`src/observability.ts`) | depuis `SENTRY_FRONTEND_DSN` dans `docker-compose.yml` | secret GitHub, argument de build dans `build-push.yml` |
+| `VITE_SENTRY_ENVIRONMENT` | frontend, au build (défaut `development`) | depuis `SENTRY_ENVIRONMENT` dans `docker-compose.yml` | `production`, défini par `build-push.yml` |
 
-La directive CSP `connect-src` autorise `https://*.ingest.de.sentry.io` pour que le navigateur atteigne l'ingest. Un DSN d'une autre région demande de changer aussi cette origine.
+Le backend lit ces variables dans l'environnement du processus, pas dans les settings de l'app : hors Docker, il faut les exporter.
 
-Mise en place, une seule fois : créer les projets `geochallenge-backend` (Python/FastAPI) et `geochallenge-frontend` (Vue) dans la même organisation Sentry, région UE, avec les scrubbers par défaut activés et le stockage des adresses IP désactivé. Ajouter le DSN frontend en secret GitHub, le DSN backend dans le fichier d'env du serveur, puis redéployer.
+**Relais.** Les bloqueurs de pub (uBlock Origin, protection contre le pistage de Firefox) bloquent les requêtes du navigateur vers `*.sentry.io`. Le navigateur envoie donc ses events à sa propre origine, sur `/api/<hash de son DSN>`, et le backend les transmet à Sentry (`app/api/routes/sentry_tunnel.py`). La CSP reste `connect-src 'self'`.
+
+- Le chemin est un hash du DSN frontend, calculé de la même façon des deux côtés. Le secret GitHub `VITE_SENTRY_DSN` et le `SENTRY_FRONTEND_DSN` du serveur doivent être identiques au caractère près : sinon chaque event frontend finit en 404, sans bruit. Le backend logue un warning au démarrage quand un seul des deux `SENTRY_BACKEND_DSN` / `SENTRY_FRONTEND_DSN` est défini.
+- Seules les enveloppes de `SENTRY_FRONTEND_DSN` sont transmises (les autres reçoivent 403, un corps mal formé 400, un Sentry injoignable 502). Les cookies, le `Referer` et l'IP du client ne sont pas transmis.
+- La route n'a pas de limite de débit propre : un abus ne peut que consommer le quota du projet Sentry, que Sentry limite lui-même.
+
+**Mise en place, une seule fois :** dans chaque projet Sentry, *Settings*, *Security & Privacy* : activer *Data Scrubber* et *Use Default Scrubbers*, et *Prevent Storing of IP Addresses*. Puis redéployer.
+
+**Vérifier en production :** depuis un navigateur **sans** extensions, lancer `setTimeout(() => { throw new Error('sentry check') }, 0)` dans la console et vérifier l'issue sous `environment: production`. Puis recommencer avec uBlock / la protection contre le pistage activés, pour valider le relais (un POST vers `/api/<hash>` qui répond 200, rien vers `sentry.io`).
 
 ---
 
