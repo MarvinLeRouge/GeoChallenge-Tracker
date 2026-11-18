@@ -214,6 +214,15 @@ To regenerate locally, run `npm run changelog`.
 - *(deps)* Bump actions/setup-node from 4 to 7
 - *(deps-dev)* Bump dotenv from 17.4.2 to 18.0.10
 - *(deps)* Bump the minor-and-patch group across 1 directory with 17 updates
+- *(deps)* Bump actions/checkout from 4 to 7
+- *(deps)* Bump actions/upload-artifact from 4 to 7
+- *(deps)* Bump docker/build-push-action from 6 to 7
+- *(deps)* Bump peter-evans/create-pull-request from 7 to 8
+- *(deps)* Bump the minor-and-patch group in /backend with 3 updates
+- *(deps)* Bump the minor-and-patch group across 1 directory with 13 updates
+- *(deps-dev)* Bump globals from 16.5.0 to 17.14.0
+- *(deps-dev)* Bump jsdom from 27.4.0 to 31.0.1
+- *(deps-dev)* Bump eslint from 9.39.5 to 10.15.0
 
 ### 🚜 Refactor
 
