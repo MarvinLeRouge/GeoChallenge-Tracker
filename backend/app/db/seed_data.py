@@ -24,8 +24,8 @@ async def test_connection():
     """Tests the MongoDB connection (ping).
 
     Description:
-        Sends a `ping` command to the database and prints the result. On failure,
-        logs a message and exits the process with an error code (sys.exit).
+        Sends a `ping` command to the database and logs the result. On failure,
+        logs an error and exits the process with an error code (sys.exit).
 
     Args:
         None
@@ -36,9 +36,9 @@ async def test_connection():
     try:
         db = get_db()
         await db.command("ping")
-        print("✅ Connexion à MongoDB réussie.")
+        log.info("MongoDB connection OK")
     except ConnectionFailure:
-        print("❌ Échec de la connexion à MongoDB.")
+        log.error("MongoDB connection failed")
         sys.exit(1)
 
 

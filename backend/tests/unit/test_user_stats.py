@@ -268,3 +268,21 @@ class TestGetUserStatsCacheTypeStats:
             result = await get_user_stats(user_id)
 
         assert result.cache_types_stats is None
+
+    @pytest.mark.asyncio
+    async def test_cache_types_stats_none_and_logged_when_aggregate_fails(self, caplog):
+        user_id = ObjectId()
+        user_doc = {"_id": user_id, "username": "alice", "created_at": _NOW}
+
+        users_coll = _make_mock_coll()
+        users_coll.find_one = AsyncMock(return_value=user_doc)
+        found_caches_coll = _make_mock_coll()
+        found_caches_coll.aggregate = AsyncMock(side_effect=RuntimeError("mongo down"))
+
+        with _patch_collections(users=users_coll, found_caches=found_caches_coll):
+            result = await get_user_stats(user_id)
+
+        assert result.cache_types_stats is None
+        [record] = [r for r in caplog.records if r.name == "app.services.user_stats"]
+        assert record.levelname == "ERROR"
+        assert record.exc_info is not None

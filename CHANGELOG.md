@@ -80,6 +80,7 @@ To regenerate locally, run `npm run changelog`.
 - *(frontend)* Show backend errors in french from their error code
 - *(observability)* Report unhandled errors to sentry
 - *(observability)* Relay frontend events through the backend and harden scrubbing
+- *(observability)* Write backend logs as structured JSON lines
 
 ### 🐛 Bug Fixes
 
@@ -430,6 +431,7 @@ To regenerate locally, run `npm run changelog`.
 - *(routes)* Cover all remaining routes files below 80 percent coverage
 - *(backend)* Repair stale integration tests
 - *(coverage)* Close per-file coverage gaps
+- *(user-stats)* Cover the cache type stats error path
 
 ### ⚙️ Miscellaneous Tasks
 
