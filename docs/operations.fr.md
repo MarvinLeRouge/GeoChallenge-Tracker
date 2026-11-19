@@ -29,18 +29,29 @@ Les déploiements en prod sont entièrement automatisés via GitHub Actions, en 
 
 ### Prod : topologie
 
-Le routage est basé sur le chemin, sur un domaine unique via Traefik (TLS via Let's Encrypt) : `${DOMAIN}/api/*` vers le backend (préfixe retiré avant d'atteindre FastAPI), `${DOMAIN}/tiles/*` vers le service nginx des tuiles, tout le reste vers le frontend. Voir [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) pour le pourquoi de ce choix.
+Le routage est basé sur le chemin, sur un domaine unique via Traefik (TLS via Let's Encrypt) : `gc-tracker.marvinlerouge.dev/api/*` vers le backend (préfixe retiré avant d'atteindre FastAPI), `gc-tracker.marvinlerouge.dev/tiles/*` vers le service nginx des tuiles, tout le reste vers le frontend. Voir [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) pour le pourquoi de ce choix.
 
 ### Prod : disposition sur le serveur
 
-Sur le serveur de déploiement, deux répertoires (chemins repris directement de `build-push.yml`) :
+Sur le serveur de déploiement, deux répertoires sous `/home/mlr/marvinlerouge.dev/gc-tracker/` (chemins repris directement de `build-push.yml`) :
 
-- `.../gc-tracker/compose/`: contient le `docker-compose.yml` déployé (récupéré à neuf depuis `docker-compose.prod.yml` à chaque déploiement, jamais édité à la main).
-- `.../gc-tracker/shared/`: contient tout ce qui doit survivre à un redéploiement : `env/app.env` et `env/secrets.env` (absents du dépôt), `backups/` (monté dans le conteneur backend sur `/backups`), `uploads/` (monté sur `/app/uploads`), et `ops/nginx/` (config des tuiles, récupérée à neuf comme le fichier compose).
+- `compose/` : contient uniquement le `docker-compose.yml` déployé (récupéré à neuf depuis `docker-compose.prod.yml` à chaque déploiement, jamais édité à la main).
+- `shared/` : contient tout ce qui doit survivre à un redéploiement : `env/app.env` et `env/secrets.env` (absents du dépôt, voir plus bas), `backups/` (monté dans le conteneur backend sur `/backups`), `uploads/` (monté sur `/app/uploads`), et `ops/nginx/` (config des tuiles, récupérée à neuf comme le fichier compose).
+
+### Prod : fichiers d'environnement
+
+Les conteneurs reçoivent leur configuration uniquement via `env_file` dans `docker-compose.prod.yml` ; le fichier compose n'interpole rien depuis un fichier (le domaine est écrit dans les règles Traefik, `IMAGE_BACKEND` / `IMAGE_FRONTEND` sont fournis par le workflow de déploiement). Le développement local garde le `.env` racine unique.
+
+| Fichier sur le VPS | Chargé par | Contenu | Modèle |
+|---|---|---|---|
+| `shared/env/app.env` | backend, frontend | réglages non secrets (identité de l'app, CORS, URL du frontend, expéditeur mail, sauvegardes, limites d'upload, élévation, `SENTRY_ENVIRONMENT`) | [`docker/env/app.env.example`](../docker/env/app.env.example) |
+| `shared/env/secrets.env` | backend, chargé en dernier donc prioritaire | chaque sujet contenant un secret, regroupé en entier : `MONGODB_*`, `JWT_*`, `ADMIN_*`, `SMTP_*`, DSN Sentry | [`docker/env/secrets.env.example`](../docker/env/secrets.env.example) |
+
+Les deux fichiers sont en `chmod 600` et jamais commités. Le workflow de déploiement crée `shared/env/` s'il manque, mais n'écrit aucun des deux fichiers.
 
 ### Prod : rollback
 
-Comme `build-push.yml` tague chaque image à la fois `sha-<7-caractères>` et `latest`, et que GHCR ne purge pas les anciens tags, le chemin de rollback direct consiste à redéployer une image plus ancienne précise sur le serveur : fixer `IMAGE_TAG=sha-xxxxxxx` et relancer `docker compose --env-file ../shared/env/app.env up -d` avec ce tag. Relancer manuellement le workflow de déploiement (`workflow_dispatch`) sur une référence plus ancienne est l'équivalent piloté par le pipeline.
+Comme `build-push.yml` tague chaque image à la fois `sha-<7-caractères>` et `latest`, et que GHCR ne purge pas les anciens tags, le chemin de rollback direct consiste à redéployer une image plus ancienne précise sur le serveur, depuis `compose/` : `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Relancer manuellement le workflow de déploiement (`workflow_dispatch`) sur une référence plus ancienne est l'équivalent piloté par le pipeline.
 
 ---
 

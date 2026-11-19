@@ -499,3 +499,4 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Migrate from motor to the pymongo async api
 - Run the playwright e2e tests in CI
 - Run CI on the changelog bot PR so its auto-merge can complete
+- *(deploy)* Load prod config only through env_file (CHORE-013)

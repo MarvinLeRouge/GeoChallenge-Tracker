@@ -116,7 +116,7 @@ jobs:
               -o "${DEPLOY_PATH}/docker-compose.yml"
 
             echo "==> Fetch nginx config files"
-            mkdir -p "${SHARED_PATH}/ops/nginx/www/tiles"
+            mkdir -p "${SHARED_PATH}/ops/nginx/www/tiles" "${SHARED_PATH}/env"
             curl -fsSL "${REPO_URL}/ops/nginx/tiles.conf" \
               -o "${SHARED_PATH}/ops/nginx/tiles.conf"
             curl -fsSL "${REPO_URL}/ops/nginx/www/tiles/_health.png" \
@@ -127,12 +127,12 @@ jobs:
             echo "==> Pull images (tag: ${IMAGE_TAG})"
             IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
             IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
-            docker compose --env-file ../shared/env/app.env pull
+            docker compose pull
 
             echo "==> Redeploy stack"
             IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
             IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
-            docker compose --env-file ../shared/env/app.env up -d --remove-orphans
+            docker compose up -d --remove-orphans
 
             echo "==> Stack status"
-            docker compose --env-file ../shared/env/app.env ps
+            docker compose ps
