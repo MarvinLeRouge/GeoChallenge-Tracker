@@ -634,6 +634,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-010 - Recenter the map on the user location without a pixel-rounded pan (flaky e2e map-center test)
 - [x] FIX-011 - Allow the inline dark-theme script of `index.html` in the prod CSP by its hash (it was blocked, so dark-mode users saw a light flash)
 - [x] CHORE-013 - Load prod config only through env_file, drop `--env-file` interpolation from the deploy
+- [x] FIX-012 - Export the image variables once in the deploy script (the final `docker compose ps` failed without them)
 
 ## Section 11 - Localization
 

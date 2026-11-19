@@ -192,6 +192,7 @@ To regenerate locally, run `npm run changelog`.
 - *(backend)* Point the swagger token url at the /api-prefixed login route
 - *(frontend)* Recenter the map on the user location without a rounded pan
 - *(csp)* Allow the inline dark-theme script by its hash
+- *(deploy)* Export the image variables once in the deploy script (FIX-012)
 
 ### 💼 Other
 
