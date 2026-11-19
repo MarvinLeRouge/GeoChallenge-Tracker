@@ -636,6 +636,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-011 - Autoriser par son hash, dans la CSP de prod, le script inline de thème sombre de `index.html` (il était bloqué : flash clair pour les utilisateurs en mode sombre)
 - [x] CHORE-013 - Charger la config prod uniquement via env_file, retirer l'interpolation `--env-file` du déploiement
 - [x] FIX-012 - Exporter une seule fois les variables d'image dans le script de déploiement (le `docker compose ps` final échouait sans elles)
+- [x] FIX-013 - Donner une valeur par défaut `:latest` aux variables d'image du compose prod pour que les commandes compose manuelles sur le VPS refonctionnent
 
 ## Section 11 - Localisation
 

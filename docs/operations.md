@@ -40,7 +40,7 @@ On the deploy host, two directories under `/home/mlr/marvinlerouge.dev/gc-tracke
 
 ### Prod: env files
 
-Containers get their configuration only through `env_file` in `docker-compose.prod.yml`; the compose file interpolates nothing from a file (the domain is written in the Traefik rules, `IMAGE_BACKEND` / `IMAGE_FRONTEND` are set by the deploy workflow). Local development keeps the single root `.env`.
+Containers get their configuration only through `env_file` in `docker-compose.prod.yml`; the compose file interpolates nothing from a file (the domain is written in the Traefik rules, `IMAGE_BACKEND` / `IMAGE_FRONTEND` are set by the deploy workflow, and default to the `:latest` images so manual `docker compose` commands in `compose/` work without them). Local development keeps the single root `.env`.
 
 | File on the VPS | Loaded by | Holds | Template |
 |---|---|---|---|
