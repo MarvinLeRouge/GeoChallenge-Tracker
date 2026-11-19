@@ -124,14 +124,14 @@ jobs:
 
             cd "${DEPLOY_PATH}"
 
+            # every compose command below needs them, the compose file has no other source
+            export IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}"
+            export IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}"
+
             echo "==> Pull images (tag: ${IMAGE_TAG})"
-            IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
-            IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
             docker compose pull
 
             echo "==> Redeploy stack"
-            IMAGE_BACKEND="${REGISTRY}/backend:${IMAGE_TAG}" \
-            IMAGE_FRONTEND="${REGISTRY}/frontend:${IMAGE_TAG}" \
             docker compose up -d --remove-orphans
 
             echo "==> Stack status"

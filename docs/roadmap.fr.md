@@ -635,6 +635,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] FIX-010 - Recentrer la carte sur la position de l'utilisateur sans pan arrondi au pixel (test e2e du centre de carte instable)
 - [x] FIX-011 - Autoriser par son hash, dans la CSP de prod, le script inline de thème sombre de `index.html` (il était bloqué : flash clair pour les utilisateurs en mode sombre)
 - [x] CHORE-013 - Charger la config prod uniquement via env_file, retirer l'interpolation `--env-file` du déploiement
+- [x] FIX-012 - Exporter une seule fois les variables d'image dans le script de déploiement (le `docker compose ps` final échouait sans elles)
 
 ## Section 11 - Localisation
 
