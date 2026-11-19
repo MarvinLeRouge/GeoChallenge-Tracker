@@ -21,7 +21,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      - "traefik.http.routers.gctracker-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.gctracker-api.rule=Host(`gc-tracker.marvinlerouge.dev`) && PathPrefix(`/api`)"
       - "traefik.http.routers.gctracker-api.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api.tls=true"
       - "traefik.http.routers.gctracker-api.tls.certresolver=letsencrypt"
@@ -34,7 +34,7 @@ services:
       # Dedicated router for the Swagger UI page and its static assets: it serves real HTML/JS/CSS
       # (self-hosted, see backend/app/static/swagger-ui/), unlike the rest of the JSON-only API,
       # so it needs a less restrictive CSP. Higher priority than gctracker-api so it wins on overlap.
-      - "traefik.http.routers.gctracker-api-docs.rule=Host(`${DOMAIN}`) && (PathPrefix(`/api/docs`) || PathPrefix(`/api/openapi.json`) || PathPrefix(`/api/static`))"
+      - "traefik.http.routers.gctracker-api-docs.rule=Host(`gc-tracker.marvinlerouge.dev`) && (PathPrefix(`/api/docs`) || PathPrefix(`/api/openapi.json`) || PathPrefix(`/api/static`))"
       - "traefik.http.routers.gctracker-api-docs.entrypoints=websecure"
       - "traefik.http.routers.gctracker-api-docs.tls=true"
       - "traefik.http.routers.gctracker-api-docs.tls.certresolver=letsencrypt"
@@ -80,7 +80,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      - "traefik.http.routers.gctracker-frontend.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.gctracker-frontend.rule=Host(`gc-tracker.marvinlerouge.dev`)"
       - "traefik.http.routers.gctracker-frontend.entrypoints=websecure"
       - "traefik.http.routers.gctracker-frontend.tls=true"
       - "traefik.http.routers.gctracker-frontend.tls.certresolver=letsencrypt"
@@ -121,7 +121,7 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik-public"
-      - "traefik.http.routers.gctracker-tiles.rule=Host(`${DOMAIN}`) && PathPrefix(`/tiles`)"
+      - "traefik.http.routers.gctracker-tiles.rule=Host(`gc-tracker.marvinlerouge.dev`) && PathPrefix(`/tiles`)"
       - "traefik.http.routers.gctracker-tiles.entrypoints=websecure"
       - "traefik.http.routers.gctracker-tiles.tls=true"
       - "traefik.http.routers.gctracker-tiles.tls.certresolver=letsencrypt"

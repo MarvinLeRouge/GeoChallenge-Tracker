@@ -29,18 +29,29 @@ Production deploys are fully automated via GitHub Actions, in two chained workfl
 
 ### Prod: topology
 
-Routing is path-based on a single domain via Traefik (TLS through Let's Encrypt): `${DOMAIN}/api/*` to the backend (prefix stripped before it reaches FastAPI), `${DOMAIN}/tiles/*` to the tiles nginx service, everything else to the frontend. See [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) for why this shape was chosen.
+Routing is path-based on a single domain via Traefik (TLS through Let's Encrypt): `gc-tracker.marvinlerouge.dev/api/*` to the backend (prefix stripped before it reaches FastAPI), `gc-tracker.marvinlerouge.dev/tiles/*` to the tiles nginx service, everything else to the frontend. See [ADR 0004](adr/0004-traefik-reverse-proxy-with-harmonized-dev-prod-routing.md) for why this shape was chosen.
 
 ### Prod: server layout
 
-On the deploy host, two directories (paths taken directly from `build-push.yml`):
+On the deploy host, two directories under `/home/mlr/marvinlerouge.dev/gc-tracker/` (paths taken directly from `build-push.yml`):
 
-- `.../gc-tracker/compose/`: holds the deployed `docker-compose.yml` (fetched fresh from `docker-compose.prod.yml` on every deploy, not hand-edited).
-- `.../gc-tracker/shared/`: holds everything that must survive a redeploy: `env/app.env` and `env/secrets.env` (not in the repo), `backups/` (bind-mounted into the backend container at `/backups`), `uploads/` (bind-mounted at `/app/uploads`), and `ops/nginx/` (tiles config, fetched fresh like the compose file).
+- `compose/`: holds only the deployed `docker-compose.yml` (fetched fresh from `docker-compose.prod.yml` on every deploy, not hand-edited).
+- `shared/`: holds everything that must survive a redeploy: `env/app.env` and `env/secrets.env` (not in the repo, see below), `backups/` (bind-mounted into the backend container at `/backups`), `uploads/` (bind-mounted at `/app/uploads`), and `ops/nginx/` (tiles config, fetched fresh like the compose file).
+
+### Prod: env files
+
+Containers get their configuration only through `env_file` in `docker-compose.prod.yml`; the compose file interpolates nothing from a file (the domain is written in the Traefik rules, `IMAGE_BACKEND` / `IMAGE_FRONTEND` are set by the deploy workflow). Local development keeps the single root `.env`.
+
+| File on the VPS | Loaded by | Holds | Template |
+|---|---|---|---|
+| `shared/env/app.env` | backend, frontend | non-secret settings (app identity, CORS, frontend URL, mail sender, backups, upload limits, elevation, `SENTRY_ENVIRONMENT`) | [`docker/env/app.env.example`](../docker/env/app.env.example) |
+| `shared/env/secrets.env` | backend, loaded last so it wins | every topic holding a secret, kept whole: `MONGODB_*`, `JWT_*`, `ADMIN_*`, `SMTP_*`, Sentry DSNs | [`docker/env/secrets.env.example`](../docker/env/secrets.env.example) |
+
+Both files are `chmod 600`, never committed. The deploy workflow creates `shared/env/` if missing, but does not write either file.
 
 ### Prod: rollback
 
-Since `build-push.yml` tags every image with both `sha-<7-char-sha>` and `latest`, and GHCR doesn't prune old tags, the direct rollback path is to redeploy a specific older image on the host: set `IMAGE_TAG=sha-xxxxxxx` and re-run `docker compose --env-file ../shared/env/app.env up -d` with that tag. Re-running the deploy workflow manually (`workflow_dispatch`) against an older ref is the pipeline-driven equivalent.
+Since `build-push.yml` tags every image with both `sha-<7-char-sha>` and `latest`, and GHCR doesn't prune old tags, the direct rollback path is to redeploy a specific older image on the host, from `compose/`: `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Re-running the deploy workflow manually (`workflow_dispatch`) against an older ref is the pipeline-driven equivalent.
 
 ---
 
