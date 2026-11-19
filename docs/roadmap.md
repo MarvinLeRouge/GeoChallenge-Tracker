@@ -635,6 +635,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-011 - Allow the inline dark-theme script of `index.html` in the prod CSP by its hash (it was blocked, so dark-mode users saw a light flash)
 - [x] CHORE-013 - Load prod config only through env_file, drop `--env-file` interpolation from the deploy
 - [x] FIX-012 - Export the image variables once in the deploy script (the final `docker compose ps` failed without them)
+- [x] FIX-013 - Give the prod compose image variables a `:latest` default so manual compose commands on the VPS work again
 
 ## Section 11 - Localization
 

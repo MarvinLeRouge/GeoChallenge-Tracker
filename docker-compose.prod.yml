@@ -2,7 +2,8 @@ name: gc-tracker
 
 services:
   backend:
-    image: ${IMAGE_BACKEND}
+    # the deploy workflow pins the sha- tag; the default only serves manual compose commands on the VPS
+    image: ${IMAGE_BACKEND:-ghcr.io/marvinlerouge/geochallenge-tracker/backend:latest}
     container_name: geo-backend
     restart: unless-stopped
     env_file:
@@ -69,7 +70,7 @@ services:
       - internal
 
   frontend:
-    image: ${IMAGE_FRONTEND}
+    image: ${IMAGE_FRONTEND:-ghcr.io/marvinlerouge/geochallenge-tracker/frontend:latest}
     container_name: geo-frontend
     restart: unless-stopped
     env_file:

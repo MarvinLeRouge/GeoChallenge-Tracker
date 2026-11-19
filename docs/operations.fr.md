@@ -40,7 +40,7 @@ Sur le serveur de déploiement, deux répertoires sous `/home/mlr/marvinlerouge.
 
 ### Prod : fichiers d'environnement
 
-Les conteneurs reçoivent leur configuration uniquement via `env_file` dans `docker-compose.prod.yml` ; le fichier compose n'interpole rien depuis un fichier (le domaine est écrit dans les règles Traefik, `IMAGE_BACKEND` / `IMAGE_FRONTEND` sont fournis par le workflow de déploiement). Le développement local garde le `.env` racine unique.
+Les conteneurs reçoivent leur configuration uniquement via `env_file` dans `docker-compose.prod.yml` ; le fichier compose n'interpole rien depuis un fichier (le domaine est écrit dans les règles Traefik, `IMAGE_BACKEND` / `IMAGE_FRONTEND` sont fournis par le workflow de déploiement, avec les images `:latest` par défaut pour que les commandes `docker compose` manuelles dans `compose/` fonctionnent sans eux). Le développement local garde le `.env` racine unique.
 
 | Fichier sur le VPS | Chargé par | Contenu | Modèle |
 |---|---|---|---|
