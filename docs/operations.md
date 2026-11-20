@@ -23,7 +23,7 @@ Covered by the root [`README.md`](../README.md): `docker compose up --build`, ba
 Production deploys are fully automated via GitHub Actions, in two chained workflows:
 
 1. **CI** (`.github/workflows/ci.yml`) runs on every PR and push to `main`, path-filtered per part: backend lint, type checks, unit tests, integration tests on a disposable MongoDB and `pip-audit`; frontend lint, type checks, build, unit tests, Playwright e2e tests and `npm audit`. The `CI status` job aggregates them and is the required check on `main`.
-2. **Build, Push & Deploy** (`.github/workflows/build-push.yml`) runs automatically once CI succeeds on `main` (`workflow_run` trigger), or can be triggered manually (`workflow_dispatch`), which bypasses the CI gate for hotfixes, rollbacks, or redeploys.
+2. **Build, Push & Deploy** (`.github/workflows/build-push-deploy.yml`) runs automatically once CI succeeds on `main` (`workflow_run` trigger), or can be triggered manually (`workflow_dispatch`), which bypasses the CI gate for hotfixes, rollbacks, or redeploys.
    - **Build & push**: backend and frontend Docker images are built and pushed to GHCR, each tagged both `sha-<7-char-commit-sha>` and `latest` (`ghcr.io/marvinlerouge/geochallenge-tracker/{backend,frontend}`).
    - **Deploy**: an SSH step on the production host fetches `docker-compose.prod.yml` and the tiles nginx config directly from `raw.githubusercontent.com`, pinned to the exact commit SHA being deployed, then runs `docker compose pull` followed by `docker compose up -d --remove-orphans`.
 
@@ -33,7 +33,7 @@ Routing is path-based on a single domain via Traefik (TLS through Let's Encrypt)
 
 ### Prod: server layout
 
-On the deploy host, two directories under `/home/mlr/marvinlerouge.dev/gc-tracker/` (paths taken directly from `build-push.yml`):
+On the deploy host, two directories under `/home/mlr/marvinlerouge.dev/gc-tracker/` (paths taken directly from `build-push-deploy.yml`):
 
 - `compose/`: holds only the deployed `docker-compose.yml` (fetched fresh from `docker-compose.prod.yml` on every deploy, not hand-edited).
 - `shared/`: holds everything that must survive a redeploy: `env/app.env` and `env/secrets.env` (not in the repo, see below), `backups/` (bind-mounted into the backend container at `/backups`), `uploads/` (bind-mounted at `/app/uploads`), and `ops/nginx/` (tiles config, fetched fresh like the compose file).
@@ -51,7 +51,7 @@ Both files are `chmod 600`, never committed. The deploy workflow creates `shared
 
 ### Prod: rollback
 
-Since `build-push.yml` tags every image with both `sha-<7-char-sha>` and `latest`, and GHCR doesn't prune old tags, the direct rollback path is to redeploy a specific older image on the host, from `compose/`: `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Re-running the deploy workflow manually (`workflow_dispatch`) against an older ref is the pipeline-driven equivalent.
+Since `build-push-deploy.yml` tags every image with both `sha-<7-char-sha>` and `latest`, and GHCR doesn't prune old tags, the direct rollback path is to redeploy a specific older image on the host, from `compose/`: `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Re-running the deploy workflow manually (`workflow_dispatch`) against an older ref is the pipeline-driven equivalent.
 
 ---
 
@@ -100,8 +100,8 @@ Tracking is off when the DSNs are empty.
 | `SENTRY_BACKEND_DSN` | backend, at startup (`app/core/observability.py`) | `.env` | server `secrets.env` |
 | `SENTRY_FRONTEND_DSN` | backend, at startup (relay allow-list) | `.env` | server `secrets.env` |
 | `SENTRY_ENVIRONMENT` | backend (default `development`) | `.env` | server `app.env` (`production`) |
-| `VITE_SENTRY_DSN` | frontend, at build time (`src/observability.ts`) | from `SENTRY_FRONTEND_DSN` in `docker-compose.yml` | GitHub secret, build arg in `build-push.yml` |
-| `VITE_SENTRY_ENVIRONMENT` | frontend, at build time (default `development`) | from `SENTRY_ENVIRONMENT` in `docker-compose.yml` | `production`, set by `build-push.yml` |
+| `VITE_SENTRY_DSN` | frontend, at build time (`src/observability.ts`) | from `SENTRY_FRONTEND_DSN` in `docker-compose.yml` | GitHub secret, build arg in `build-push-deploy.yml` |
+| `VITE_SENTRY_ENVIRONMENT` | frontend, at build time (default `development`) | from `SENTRY_ENVIRONMENT` in `docker-compose.yml` | `production`, set by `build-push-deploy.yml` |
 
 The backend reads these from the process environment, not from the app settings: outside Docker, export them.
 

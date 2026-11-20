@@ -638,6 +638,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] FIX-013 - Give the prod compose image variables a `:latest` default so manual compose commands on the VPS work again
 - [x] CHORE-014 - Align the Node runtime on 26 LTS (CI, frontend image, engines, @types/node, docs)
 - [x] CI-004 - Pin every GitHub Action to its current major by commit SHA, changelog workflow on Node 26, align the Dependabot config (single actions group)
+- [x] CI-005 - Rename the deploy workflow to build-push-deploy.yml, two explicit jobs (Build & push, Deploy), no functional change
 
 ## Section 11 - Localization
 
