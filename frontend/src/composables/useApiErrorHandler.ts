@@ -13,7 +13,7 @@ export function useApiErrorHandler() {
   const error = ref<string>("");
 
   const handleApiError = (e: unknown): ApiError => {
-    let apiError: ApiError = { message: "Erreur inconnue" };
+    let apiError: ApiError;
 
     if (isAxiosError(e)) {
       const axiosError = e as AxiosError;
