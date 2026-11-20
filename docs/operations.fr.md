@@ -23,7 +23,7 @@ Couvert par le [`README.md`](../README.md) racine : `docker compose up --build`,
 Les déploiements en prod sont entièrement automatisés via GitHub Actions, en deux workflows enchaînés :
 
 1. **CI** (`.github/workflows/ci.yml`) s'exécute sur chaque PR et chaque push sur `main`, filtrée par partie : backend lint, vérification des types, tests unitaires, tests d'intégration sur un MongoDB jetable et `pip-audit` ; frontend lint, vérification des types, build, tests unitaires, tests e2e Playwright et `npm audit`. Le job `CI status` les agrège et constitue le check obligatoire sur `main`.
-2. **Build, Push & Deploy** (`.github/workflows/build-push.yml`) s'exécute automatiquement une fois la CI réussie sur `main` (déclencheur `workflow_run`), ou peut être déclenché manuellement (`workflow_dispatch`), ce qui court-circuite la validation CI pour les hotfix, rollbacks ou redéploiements.
+2. **Build, Push & Deploy** (`.github/workflows/build-push-deploy.yml`) s'exécute automatiquement une fois la CI réussie sur `main` (déclencheur `workflow_run`), ou peut être déclenché manuellement (`workflow_dispatch`), ce qui court-circuite la validation CI pour les hotfix, rollbacks ou redéploiements.
    - **Build & push** : les images Docker backend et frontend sont construites et poussées sur GHCR, chacune taguée à la fois `sha-<7-caractères-du-commit>` et `latest` (`ghcr.io/marvinlerouge/geochallenge-tracker/{backend,frontend}`).
    - **Deploy** : une étape SSH sur le serveur de production récupère `docker-compose.prod.yml` et la config nginx des tuiles directement depuis `raw.githubusercontent.com`, épinglés sur le SHA de commit exact déployé, puis exécute `docker compose pull` suivi de `docker compose up -d --remove-orphans`.
 
@@ -33,7 +33,7 @@ Le routage est basé sur le chemin, sur un domaine unique via Traefik (TLS via L
 
 ### Prod : disposition sur le serveur
 
-Sur le serveur de déploiement, deux répertoires sous `/home/mlr/marvinlerouge.dev/gc-tracker/` (chemins repris directement de `build-push.yml`) :
+Sur le serveur de déploiement, deux répertoires sous `/home/mlr/marvinlerouge.dev/gc-tracker/` (chemins repris directement de `build-push-deploy.yml`) :
 
 - `compose/` : contient uniquement le `docker-compose.yml` déployé (récupéré à neuf depuis `docker-compose.prod.yml` à chaque déploiement, jamais édité à la main).
 - `shared/` : contient tout ce qui doit survivre à un redéploiement : `env/app.env` et `env/secrets.env` (absents du dépôt, voir plus bas), `backups/` (monté dans le conteneur backend sur `/backups`), `uploads/` (monté sur `/app/uploads`), et `ops/nginx/` (config des tuiles, récupérée à neuf comme le fichier compose).
@@ -51,7 +51,7 @@ Les deux fichiers sont en `chmod 600` et jamais commités. Le workflow de déplo
 
 ### Prod : rollback
 
-Comme `build-push.yml` tague chaque image à la fois `sha-<7-caractères>` et `latest`, et que GHCR ne purge pas les anciens tags, le chemin de rollback direct consiste à redéployer une image plus ancienne précise sur le serveur, depuis `compose/` : `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Relancer manuellement le workflow de déploiement (`workflow_dispatch`) sur une référence plus ancienne est l'équivalent piloté par le pipeline.
+Comme `build-push-deploy.yml` tague chaque image à la fois `sha-<7-caractères>` et `latest`, et que GHCR ne purge pas les anciens tags, le chemin de rollback direct consiste à redéployer une image plus ancienne précise sur le serveur, depuis `compose/` : `IMAGE_BACKEND=ghcr.io/marvinlerouge/geochallenge-tracker/backend:sha-xxxxxxx IMAGE_FRONTEND=ghcr.io/marvinlerouge/geochallenge-tracker/frontend:sha-xxxxxxx docker compose up -d`. Relancer manuellement le workflow de déploiement (`workflow_dispatch`) sur une référence plus ancienne est l'équivalent piloté par le pipeline.
 
 ---
 
@@ -102,8 +102,8 @@ Le suivi est désactivé quand les DSN sont vides.
 | `SENTRY_BACKEND_DSN` | backend, au démarrage (`app/core/observability.py`) | `.env` | `secrets.env` du serveur |
 | `SENTRY_FRONTEND_DSN` | backend, au démarrage (liste blanche du relais) | `.env` | `secrets.env` du serveur |
 | `SENTRY_ENVIRONMENT` | backend (défaut `development`) | `.env` | `app.env` du serveur (`production`) |
-| `VITE_SENTRY_DSN` | frontend, au build (`src/observability.ts`) | depuis `SENTRY_FRONTEND_DSN` dans `docker-compose.yml` | secret GitHub, argument de build dans `build-push.yml` |
-| `VITE_SENTRY_ENVIRONMENT` | frontend, au build (défaut `development`) | depuis `SENTRY_ENVIRONMENT` dans `docker-compose.yml` | `production`, défini par `build-push.yml` |
+| `VITE_SENTRY_DSN` | frontend, au build (`src/observability.ts`) | depuis `SENTRY_FRONTEND_DSN` dans `docker-compose.yml` | secret GitHub, argument de build dans `build-push-deploy.yml` |
+| `VITE_SENTRY_ENVIRONMENT` | frontend, au build (défaut `development`) | depuis `SENTRY_ENVIRONMENT` dans `docker-compose.yml` | `production`, défini par `build-push-deploy.yml` |
 
 Le backend lit ces variables dans l'environnement du processus, pas dans les settings de l'app : hors Docker, il faut les exporter.
 

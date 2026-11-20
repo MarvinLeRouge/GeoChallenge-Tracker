@@ -6,7 +6,7 @@ on:
     workflows: ["CI"]
     types: [completed]
     branches: [main]
-  # Manual trigger — bypasses CI gate (hotfixes, rollbacks, redeploys)
+  # Manual trigger: bypasses CI gate (hotfixes, rollbacks, redeploys)
   workflow_dispatch: {}
 
 permissions:
@@ -15,9 +15,12 @@ permissions:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Job 1 — Build Docker images and push to GHCR
+  # Job 1: build the Docker images (backend, frontend) and push them to GHCR. Build and
+  # push are one build-push-action step (push: true): a separate push job would
+  # have to move the images between runners.
   # ---------------------------------------------------------------------------
   build-and-push:
+    name: Build & push
     runs-on: ubuntu-latest
     # On workflow_run: only proceed if CI succeeded
     # On workflow_dispatch: always proceed
@@ -51,7 +54,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push — backend
+      - name: Build & push backend image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./backend
@@ -63,7 +66,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push — frontend
+      - name: Build & push frontend image
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -79,9 +82,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # Job 2 — Deploy to production server over SSH
+  # Job 2: deploy the images pushed by job 1 to production over SSH
   # ---------------------------------------------------------------------------
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     needs: build-and-push
 
