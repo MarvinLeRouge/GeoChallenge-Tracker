@@ -637,6 +637,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-013 - Charger la config prod uniquement via env_file, retirer l'interpolation `--env-file` du déploiement
 - [x] FIX-012 - Exporter une seule fois les variables d'image dans le script de déploiement (le `docker compose ps` final échouait sans elles)
 - [x] FIX-013 - Donner une valeur par défaut `:latest` aux variables d'image du compose prod pour que les commandes compose manuelles sur le VPS refonctionnent
+- [x] CHORE-014 - Aligner le runtime Node sur la 26 LTS (CI, image frontend, engines, @types/node, docs)
 
 ## Section 11 - Localisation
 

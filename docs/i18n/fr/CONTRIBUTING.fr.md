@@ -12,7 +12,7 @@ Merci de l'intérêt que vous portez au projet. Ce document couvre les prérequi
 
 - **Docker & Docker Compose** : pour exécuter la stack complète en local
 - **Python 3.14+** (géré par uv depuis `backend/.python-version`) : pour le développement backend sans Docker
-- **Node.js 20+** : pour le développement frontend sans Docker
+- **Node.js 26 LTS** : pour le développement frontend sans Docker
 - **Git**
 - **[gitleaks](https://github.com/gitleaks/gitleaks)** : le hook pre-commit analyse les modifications indexées à la recherche de secrets et refuse de committer s'il est absent
 
