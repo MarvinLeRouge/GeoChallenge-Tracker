@@ -5,9 +5,8 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "jsx": "preserve",
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["frontend/src/*"]
+      "@/*": ["./frontend/src/*"]
     },
     "types": ["vite/client", "node"],
     "lib": ["ES2021", "DOM", "DOM.Iterable"]

@@ -640,6 +640,7 @@ Le format de sortie normalisé attendu par l'endpoint d'upload de zones (`geo_ad
 - [x] CHORE-014 - Aligner le runtime Node sur la 26 LTS (CI, image frontend, engines, @types/node, docs)
 - [x] CI-004 - Épingler chaque GitHub Action sur sa majeure actuelle par SHA de commit, workflow changelog sur Node 26, aligner la config Dependabot (groupe actions unique)
 - [x] CI-005 - Renommer le workflow de déploiement en build-push-deploy.yml, deux jobs explicites (Build & push, Deploy), sans changement fonctionnel
+- [x] CHORE-015 - Mettre à jour l'outillage frontend : TypeScript 6.0, Vite 8, Vue Router 5, @eslint/js 10, retirer l'override esbuild
 
 ## Section 11 - Localisation
 
