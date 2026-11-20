@@ -502,3 +502,4 @@ To regenerate locally, run `npm run changelog`.
 - Run the playwright e2e tests in CI
 - Run CI on the changelog bot PR so its auto-merge can complete
 - *(deploy)* Load prod config only through env_file (CHORE-013)
+- *(runtime)* Align the node runtime on 26 lts (CHORE-014)
