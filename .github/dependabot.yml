@@ -21,6 +21,9 @@ updates:
       # typescript-eslint caps its typescript peer range; lift once it supports the next major
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
+      # Node types follow the Node runtime major (Dockerfiles, CI node-version)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       # vitest and its plugins must move together, majors included
       vitest:
@@ -63,5 +66,6 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     groups:
-      minor-and-patch:
-        update-types: ["minor", "patch"]
+      # One weekly PR for every action bump, majors included
+      actions:
+        patterns: ["*"]
