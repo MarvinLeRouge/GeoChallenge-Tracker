@@ -505,3 +505,4 @@ To regenerate locally, run `npm run changelog`.
 - *(runtime)* Align the node runtime on 26 lts (CHORE-014)
 - *(actions)* Pin actions to current majors by sha (CI-004)
 - *(deploy)* Rename deploy workflow to build-push-deploy (CI-005)
+- *(frontend)* Update toolchain to typescript 6, vite 8, vue-router 5 (CHORE-015)
