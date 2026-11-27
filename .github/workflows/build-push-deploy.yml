@@ -13,6 +13,13 @@ permissions:
   contents: read
   packages: write
 
+# One deploy at a time: two merges close together would otherwise run two `docker compose up`
+# on the VPS at once and remove each other's containers. A newer run waits (and replaces any
+# run already waiting) instead of cancelling the one in progress.
+concurrency:
+  group: build-push-deploy
+  cancel-in-progress: false
+
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: build the Docker images (backend, frontend) and push them to GHCR. Build and

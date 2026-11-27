@@ -639,6 +639,7 @@ The normalized output format expected by the zone upload endpoint (`geo_admin_se
 - [x] CHORE-014 - Align the Node runtime on 26 LTS (CI, frontend image, engines, @types/node, docs)
 - [x] CI-004 - Pin every GitHub Action to its current major by commit SHA, changelog workflow on Node 26, align the Dependabot config (single actions group)
 - [x] CI-005 - Rename the deploy workflow to build-push-deploy.yml, two explicit jobs (Build & push, Deploy), no functional change
+- [x] CI-006 - Run one deploy at a time (concurrency group), so close merges no longer remove each other's containers
 - [x] CHORE-015 - Update the frontend toolchain: TypeScript 6.0, Vite 8, Vue Router 5, @eslint/js 10, drop the esbuild override
 
 ## Section 11 - Localization
