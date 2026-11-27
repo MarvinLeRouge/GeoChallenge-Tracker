@@ -507,3 +507,4 @@ To regenerate locally, run `npm run changelog`.
 - *(deploy)* Rename deploy workflow to build-push-deploy (CI-005)
 - *(frontend)* Update toolchain to typescript 6, vite 8, vue-router 5 (CHORE-015)
 - *(frontend)* Drop a dead initial assignment flagged by eslint 10 (CHORE-015)
+- *(deploy)* Run one deploy at a time (CI-006)
