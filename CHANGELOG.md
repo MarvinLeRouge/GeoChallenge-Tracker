@@ -226,6 +226,10 @@ To regenerate locally, run `npm run changelog`.
 - *(deps-dev)* Bump globals from 16.5.0 to 17.14.0
 - *(deps-dev)* Bump jsdom from 27.4.0 to 31.0.1
 - *(deps-dev)* Bump eslint from 9.39.5 to 10.15.0
+- *(deps)* Bump astral-sh/setup-uv
+- *(deps)* Bump the minor-and-patch group across 1 directory with 8 updates
+- *(deps)* Bump the minor-and-patch group across 1 directory with 8 updates
+- *(deps)* Bump pinia from 3.0.4 to 4.1.0
 
 ### 🚜 Refactor
 
